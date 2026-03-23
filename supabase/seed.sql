@@ -1,0 +1,2 @@
+-- Seed data should be inserted only after auth users exist.
+-- Haven V1 focuses on user-scoped immigration profiles, community cohorts, and email ingest records.
