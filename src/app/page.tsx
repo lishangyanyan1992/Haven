@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowRight, Clock, MessageCircle, ShieldAlert, Users } from "lucide-react";
 
 import { HavenBrand } from "@/components/app/haven-brand";
@@ -93,25 +94,15 @@ export default function HomePage() {
           </div>
 
           <div className="animate-enter rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-5 shadow-[0_8px_40px_-8px_rgba(44,54,48,0.10)] lg:p-7">
-            <div className="rounded-[var(--radius-2xl)] border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] p-6">
-              <svg
-                aria-hidden="true"
-                className="mx-auto h-auto w-full max-w-[320px]"
-                viewBox="0 0 240 200"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M120 20L40 60V140L120 180L200 140V60L120 20Z"
-                  fill="var(--haven-sage-light)"
-                  stroke="var(--haven-sage-mid)"
-                  strokeWidth="1"
-                />
-                <path d="M120 48L72 76V132L120 160L168 132V76L120 48Z" fill="var(--haven-sage)" opacity="0.2" />
-                <rect x="92" y="80" width="56" height="48" rx="16" fill="var(--haven-white)" stroke="var(--color-border-mid)" />
-                <circle cx="120" cy="104" r="18" fill="var(--haven-sage)" opacity="0.65" />
-                <circle cx="120" cy="104" r="5" fill="var(--haven-ink)" opacity="0.7" />
-              </svg>
+            <div className="overflow-hidden rounded-[var(--radius-2xl)]">
+              <Image
+                src="/hero-banner.png"
+                alt="Three people reviewing immigration documents together"
+                width={640}
+                height={427}
+                className="h-auto w-full object-cover"
+                priority
+              />
             </div>
             <div className="mt-6 grid gap-3 sm:grid-cols-3">
               {[
