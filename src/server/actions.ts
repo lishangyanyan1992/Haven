@@ -8,6 +8,9 @@ import { ONBOARDING_OVERRIDE_COOKIE } from "@/lib/profile-sync";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { persistProfileDraft } from "@/lib/profile-sync";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { env } from "@/lib/env";
+
+const EMAIL_INGEST_DOMAIN = env.EMAIL_INGEST_DOMAIN ?? "import.haven-h1b.com";
 import {
   emailIngestConfirmationSchema,
   onboardingStepFourSchema,
@@ -56,7 +59,7 @@ async function bootstrapUserProfile(user: { id: string; email?: string | null },
 
   await admin.from("email_aliases").upsert({
     user_id: user.id,
-    alias: `${(user.email ?? "user").split("@")[0]}-${user.id.slice(0, 6)}@import.haven-h1b.com`
+    alias: `${(user.email ?? "user").split("@")[0]}-${user.id.slice(0, 6)}@${EMAIL_INGEST_DOMAIN}`
   });
 }
 
@@ -246,7 +249,7 @@ export async function completeOnboardingAction(formData: FormData) {
 
   await admin.from("email_aliases").upsert({
     user_id: user.id,
-    alias: `${(user.email ?? "user").split("@")[0]}-${user.id.slice(0, 6)}@import.haven-h1b.com`
+    alias: `${(user.email ?? "user").split("@")[0]}-${user.id.slice(0, 6)}@${EMAIL_INGEST_DOMAIN}`
   });
 
   const cookieStore = await cookies();
