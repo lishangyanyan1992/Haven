@@ -212,6 +212,7 @@ export interface HavenWorkspaceSnapshot {
   cohorts: CommunitySpace[];
   warRoom: CommunitySpace;
   documents: UserDocument[];
+  emailAlias: string | null;
   emailInbox: EmailIngestRecord[];
 }
 

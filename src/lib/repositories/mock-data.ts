@@ -283,6 +283,7 @@ export const havenSnapshot: HavenWorkspaceSnapshot = {
       notes: "Includes petition and certified LCA."
     }
   ],
+  emailAlias: null,
   emailInbox: [
     {
       id: "email-1",

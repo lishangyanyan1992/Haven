@@ -13,7 +13,7 @@ import { getSnapshot } from "@/lib/repositories/case-compass";
 import { deleteVaultDocument } from "@/server/document-actions";
 
 export default async function InboxPage() {
-  const [{ emailInbox, documents }, crisisState] = await Promise.all([getSnapshot(), getCrisisState()]);
+  const [{ emailInbox, emailAlias, documents }, crisisState] = await Promise.all([getSnapshot(), getCrisisState()]);
   const missingEssentials = getMissingVaultEssentials(documents);
   const crisisCriticalCount = documents.filter((document) => document.crisisCritical).length;
 
@@ -157,12 +157,23 @@ export default async function InboxPage() {
                 Haven never reaches into your inbox. You forward only what you want processed, and Haven keeps asking
                 for confirmation before profile fields change.
               </p>
-              <div className="mt-4 inline-flex rounded-full border border-[var(--color-border)] bg-[var(--haven-white)] px-4 py-2 font-mono text-[13px] text-[var(--haven-ink)]">
-                {emailInbox[0]?.alias}
-              </div>
+              {emailAlias ? (
+                <div className="mt-4 inline-flex rounded-full border border-[var(--color-border)] bg-[var(--haven-white)] px-4 py-2 font-mono text-[13px] text-[var(--haven-ink)]">
+                  {emailAlias}
+                </div>
+              ) : (
+                <div className="mt-4 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--haven-sand)] px-4 py-3 text-body-sm text-[var(--color-text-secondary)]">
+                  Complete your onboarding to activate your personal forwarding address.
+                </div>
+              )}
             </div>
 
             <div className="grid gap-4">
+              {emailInbox.length === 0 && emailAlias ? (
+                <div className="rounded-[var(--radius-lg)] bg-[var(--haven-sand)] p-5 text-body-sm text-[var(--color-text-secondary)]">
+                  No emails forwarded yet. Forward any immigration notice to the address above to get started.
+                </div>
+              ) : null}
               {emailInbox.map((record) => (
                 <div key={record.id} className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--haven-white)] p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">

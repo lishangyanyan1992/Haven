@@ -138,10 +138,12 @@ function buildCommunitySpaces(
 }
 
 function buildEmailInbox(aliasRow: EmailAliasRow | null, records: EmailRecordRow[], fields: EmailFieldRow[]): EmailIngestRecord[] {
-  if (!aliasRow || records.length === 0) {
+  // No real alias yet — show demo records so the page isn't empty for new users
+  if (!aliasRow) {
     return havenSnapshot.emailInbox;
   }
 
+  // Real alias exists — return real records only (may be empty; never mix with mock)
   return records.map((record) => ({
     id: record.id,
     alias: aliasRow.alias,
@@ -256,6 +258,7 @@ export const supabaseHavenRepository: HavenRepository = {
 
       snapshot = {
         ...snapshot,
+        emailAlias: aliasRow?.alias ?? null,
         emailInbox: buildEmailInbox(aliasRow ?? null, emailRows, fieldRows ?? [])
       };
     }
