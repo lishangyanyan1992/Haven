@@ -1,13 +1,14 @@
 import { AppShell } from "@/components/app/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getCrisisState } from "@/lib/get-crisis-state";
 import { getSnapshot } from "@/lib/repositories/case-compass";
 
 export default async function TimelinePage() {
-  const { timelineEvents } = await getSnapshot();
+  const [{ timelineEvents }, crisisState] = await Promise.all([getSnapshot(), getCrisisState()]);
 
   return (
-    <AppShell activePath="/timeline">
+    <AppShell activePath="/timeline" crisisState={crisisState}>
       <div className="space-y-6">
         <section className="page-intro">
           <p className="text-label">Timeline engine</p>

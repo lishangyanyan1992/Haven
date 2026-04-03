@@ -56,8 +56,8 @@ export const havenSnapshot: HavenWorkspaceSnapshot = {
     signals: {
       h1bCapDate: "2028-09-30",
       daysUntilVisaExpiry: 514,
-      visaBulletinPosition: "Not current. Estimated 8+ year backlog in EB-2 India.",
-      estimatedGreenCardDateRange: "2033-2035",
+      visaBulletinPosition: "Backlogged. Monitor EB-2 movement for India.",
+      estimatedGreenCardDateRange: "Estimate pending bulletin sync",
       ac21PortabilityStatus: "Available after Mar 9, 2026",
       layoffReadinessScore: "medium",
       layoffReadinessReasoning: [
@@ -152,9 +152,9 @@ export const havenSnapshot: HavenWorkspaceSnapshot = {
       kind: "priority_date_current",
       group: "future",
       title: "Estimated priority date movement window",
-      dateLabel: "2033-2035",
+      dateLabel: "Pending live bulletin sync",
       nextAction: "Treat this as directional only; Haven will keep updating it monthly.",
-      explanation: "Projection based on historical bulletin movement and community outcomes."
+      explanation: "Projection appears after Haven has live bulletin data for your profile."
     }
   ],
   planner: {
@@ -257,10 +257,36 @@ export const havenSnapshot: HavenWorkspaceSnapshot = {
       }
     ]
   },
+  documents: [
+    {
+      id: "doc-1",
+      displayLabel: "I-140 approval notice",
+      documentKind: "i140_notice",
+      sourceKind: "manual_upload",
+      originalName: "i140-approval-notice.pdf",
+      mimeType: "application/pdf",
+      fileSizeBytes: 418233,
+      uploadedAt: "2026-03-18T14:05:00.000Z",
+      crisisCritical: true,
+      notes: "Primary portability document."
+    },
+    {
+      id: "doc-2",
+      displayLabel: "H-1B petition packet",
+      documentKind: "h1b_petition",
+      sourceKind: "manual_upload",
+      originalName: "h1b-petition-lca.pdf",
+      mimeType: "application/pdf",
+      fileSizeBytes: 732110,
+      uploadedAt: "2026-03-17T09:30:00.000Z",
+      crisisCritical: true,
+      notes: "Includes petition and certified LCA."
+    }
+  ],
   emailInbox: [
     {
       id: "email-1",
-      alias: "priya-a91f2@import.haven.com",
+      alias: "priya-a91f2@import.haven-h1b.com",
       sourceType: "attorney_update",
       subject: "I-140 approval notice received",
       receivedAt: "2026-03-18T14:03:00.000Z",
@@ -272,7 +298,7 @@ export const havenSnapshot: HavenWorkspaceSnapshot = {
     },
     {
       id: "email-2",
-      alias: "priya-a91f2@import.haven.com",
+      alias: "priya-a91f2@import.haven-h1b.com",
       sourceType: "uscis_receipt",
       subject: "Receipt notice for PERM filing support documents",
       receivedAt: "2026-03-11T09:42:00.000Z",

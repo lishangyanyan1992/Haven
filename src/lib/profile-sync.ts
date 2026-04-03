@@ -23,7 +23,7 @@ type ProfileDraft = Partial<{
 const visaTypes: VisaType[] = ["OPT", "STEM OPT", "H1B", "H4", "O-1", "GC", "Citizen"];
 const primaryGoals: PrimaryGoal[] = ["get_gc", "job_stability", "explore_options", "stay_flexible", "not_sure"];
 const preferenceCategories: PreferenceCategory[] = ["EB-1", "EB-2", "EB-3", "EB-2 NIW", "Not sure"];
-const spouseVisaStatuses: SpouseVisaStatus[] = ["none", "H1B", "H4", "H4 EAD", "GC", "other"];
+const spouseVisaStatuses: SpouseVisaStatus[] = ["none", "H1B", "H4", "H4 EAD", "GC", "citizen", "other"];
 const concerns: Concern[] = ["layoffs", "visa_expiry", "gc_timeline", "job_change", "other"];
 
 function asEnumValue<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {

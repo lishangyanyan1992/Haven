@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { getCrisisState } from "@/lib/get-crisis-state";
 import { getSnapshot } from "@/lib/repositories/case-compass";
 import { saveProfileSettingsAction } from "@/server/actions";
 
@@ -20,11 +21,11 @@ export default async function SettingsPage({
   searchParams?: Promise<{ saved?: string }>;
 }) {
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
-  const { profile } = await getSnapshot();
+  const [{ profile }, crisisState] = await Promise.all([getSnapshot(), getCrisisState()]);
   const greenCardStage = inferGreenCardStage(profile);
 
   return (
-    <AppShell activePath="/settings">
+    <AppShell activePath="/settings" crisisState={crisisState}>
       <div className="space-y-6">
         <section className="page-intro">
           <p className="text-label">Profile settings</p>

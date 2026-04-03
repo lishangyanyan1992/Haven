@@ -2,53 +2,71 @@ import Link from "next/link";
 import {
   CalendarClock,
   FileText,
-  Inbox,
   LayoutDashboard,
-  Mail,
+  MessageSquareQuote,
   Settings,
   ShieldAlert,
   Users
 } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 import { HavenBrand } from "@/components/app/haven-brand";
+import { CrisisBanner } from "@/components/app/crisis-banner";
 import { Badge } from "@/components/ui/badge";
+import type { CrisisState } from "@/lib/get-crisis-state";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/timeline", label: "Timeline", icon: CalendarClock },
   { href: "/planner", label: "Layoff Planner", icon: ShieldAlert },
+  { href: "/advisor", label: "Advisor", icon: MessageSquareQuote },
   { href: "/community", label: "Community", icon: Users },
-  { href: "/inbox", label: "Email Ingest", icon: Mail },
+  { href: "/inbox", label: "Document Vault", icon: FileText },
   { href: "/settings", label: "Settings", icon: Settings }
 ];
 
 export function AppShell({
   children,
-  activePath
+  activePath,
+  crisisState
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   activePath: string;
+  crisisState?: CrisisState | null;
 }) {
+  const isCrisisActive = Boolean(crisisState);
+  const crisisProgressWidth = crisisState ? `${Math.max((crisisState.dayNumber / 60) * 100, 2)}%` : "74%";
+
   return (
     <div className="min-h-screen bg-[var(--color-bg)]">
       <div className="app-shell mx-auto grid min-h-screen max-w-[1600px] grid-cols-1 lg:grid-cols-[240px_1fr]">
         <aside className="border-b border-[var(--color-border)] bg-[var(--haven-sand)] px-4 py-5 lg:min-h-screen lg:border-b-0 lg:border-r">
           <div className="flex items-center justify-between gap-3 lg:block">
             <HavenBrand />
-            <Badge className="hidden lg:inline-flex" variant="community">
-              Calm mode
+            <Badge className="hidden lg:inline-flex" variant={isCrisisActive ? "urgent" : "community"}>
+              {isCrisisActive ? "Crisis mode" : "Calm mode"}
             </Badge>
           </div>
 
           <div className="mt-6 rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-4">
-            <p className="text-label">Your snapshot</p>
-            <p className="mt-2 text-h3">H-1B · EB-2 India</p>
-            <p className="mt-1 text-body-sm">I-140 approved. Your plan stays visible even when things feel noisy.</p>
+            <p className="text-label">{isCrisisActive ? "Crisis window" : "Your snapshot"}</p>
+            <p className="mt-2 text-h3">
+              {isCrisisActive ? `Day ${crisisState?.dayNumber} of 60` : "H-1B · EB-2 India"}
+            </p>
+            <p className="mt-1 text-body-sm">
+              {isCrisisActive
+                ? `${crisisState?.daysRemaining} day${crisisState?.daysRemaining === 1 ? "" : "s"} remaining in your grace period plan.`
+                : "I-140 approved. Your plan stays visible even when things feel noisy."}
+            </p>
             <div className="mt-4 countdown-bar">
-              <div className="countdown-bar-fill" style={{ width: "74%" }} />
+              <div className={cn("countdown-bar-fill", isCrisisActive && "urgent")} style={{ width: crisisProgressWidth }} />
             </div>
-            <p className="mt-2 text-caption">Day 12 of 60. You&apos;re doing well.</p>
+            <p className="mt-2 text-caption">
+              {isCrisisActive
+                ? `Checklist progress and timeline now stay visible across the app.`
+                : "Day 12 of 60. You&apos;re doing well."}
+            </p>
           </div>
 
           <nav className="mt-6 grid gap-1">
@@ -71,6 +89,9 @@ export function AppShell({
                   )}
                   <Icon className="h-4 w-4" />
                   <span>{item.label}</span>
+                  {item.href === "/dashboard" && crisisState && (
+                    <Badge variant="urgent">Day {crisisState.dayNumber} / 60</Badge>
+                  )}
                   {item.href === "/community" && <Badge variant="count">3</Badge>}
                 </Link>
               );
@@ -103,6 +124,8 @@ export function AppShell({
               <div className="avatar avatar-md">P</div>
             </div>
           </header>
+
+          {crisisState ? <CrisisBanner crisisState={crisisState} /> : null}
 
           <main className="p-4 md:p-6 lg:p-8">
             <div className="content-container-wide">{children}</div>

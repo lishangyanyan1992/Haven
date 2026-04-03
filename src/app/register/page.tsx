@@ -1,10 +1,8 @@
 import Link from "next/link";
-import { ArrowRight, Clock3, ShieldAlert, Users } from "lucide-react";
+import { Clock3, ShieldAlert, Users } from "lucide-react";
 
 import { HavenBrand } from "@/components/app/haven-brand";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { signUpAction } from "@/server/actions";
+import { RegisterForm } from "./RegisterForm";
 
 const benefits = [
   {
@@ -24,7 +22,13 @@ const benefits = [
   }
 ];
 
-export default function RegisterPage() {
+export default async function RegisterPage({
+  searchParams
+}: {
+  searchParams: Promise<{ email?: string; message?: string }>;
+}) {
+  const { email = "", message } = await searchParams;
+
   return (
     <div className="min-h-screen">
       <header className="border-b border-[var(--color-border)] bg-[rgba(253,250,246,0.94)]">
@@ -68,25 +72,20 @@ export default function RegisterPage() {
             <p className="text-body-sm mt-3">Free to start. No credit card. Under 10 minutes to your first useful view.</p>
           </div>
 
-          <form action={signUpAction} className="mt-6 space-y-4">
-            <div>
-              <label className="field-label">Full name</label>
-              <Input autoComplete="name" name="fullName" placeholder="Your name" required />
+          {message === "no_account" && (
+            <div className="mt-5 rounded-[var(--radius-lg)] border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] px-4 py-3 text-body-sm">
+              No account found for that email. Create one below to get started.
             </div>
-            <div>
-              <label className="field-label">Email</label>
-              <Input autoComplete="email" name="email" placeholder="you@example.com" required type="email" />
+          )}
+
+          {/* debug: {message} */}
+          {(message === "rate_limited") && (
+            <div className="mt-5 rounded-[var(--radius-lg)] border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] px-4 py-3 text-body-sm">
+              Too many sign-up attempts right now. Please wait a few minutes and try again.
             </div>
-            <div>
-              <label className="field-label">Password</label>
-              <Input autoComplete="new-password" name="password" placeholder="At least 8 characters" required type="password" />
-              <p className="field-helper">You can change this later.</p>
-            </div>
-            <Button className="w-full" size="lg" type="submit">
-              Create my Haven profile
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </form>
+          )}
+
+          <RegisterForm defaultEmail={email} />
 
           <p className="text-caption mt-6">
             By creating an account, you agree to Haven&apos;s terms and privacy policy. Haven provides information, not legal advice.

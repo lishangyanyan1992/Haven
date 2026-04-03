@@ -1,12 +1,13 @@
 import { AppShell } from "@/components/app/app-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getCrisisState } from "@/lib/get-crisis-state";
 import { getSnapshot } from "@/lib/repositories/case-compass";
 
 export default async function WarRoomPage() {
-  const { warRoom } = await getSnapshot();
+  const [{ warRoom }, crisisState] = await Promise.all([getSnapshot(), getCrisisState()]);
 
   return (
-    <AppShell activePath="/community">
+    <AppShell activePath="/community" crisisState={crisisState}>
       <div className="space-y-6">
         <section className="rounded-[var(--radius-2xl)] border border-[var(--haven-blush)] bg-[var(--haven-blush-light)] p-6 md:p-8">
           <p className="text-label text-[var(--haven-blush-ink)]">High-urgency space</p>

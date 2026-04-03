@@ -3,14 +3,22 @@ import Link from "next/link";
 import { ArrowRight, CalendarClock, MessageCircle, ShieldAlert, Timer } from "lucide-react";
 
 import { AppShell } from "@/components/app/app-shell";
+import { CrisisActivationModal } from "@/components/app/crisis-activation-modal";
+import { ImmigrationUpdates } from "@/components/app/immigration-updates";
+import { PriorityDateCard } from "@/components/app/priority-date-card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select } from "@/components/ui/select";
+import { buildChecklist } from "@/lib/crisis-checklist";
+import { getCrisisState } from "@/lib/get-crisis-state";
 import { mergeSnapshotProfile } from "@/lib/haven";
+import { getPriorityDateIntelligence } from "@/lib/priority-date-intelligence";
 import { ONBOARDING_OVERRIDE_COOKIE, parseOverrideCookie, persistProfileDraft } from "@/lib/profile-sync";
 import { getSnapshot } from "@/lib/repositories/case-compass";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
+import { resolveCrisisModeFromForm } from "@/server/crisis-actions";
 import type { ImmigrationProfile } from "@/types/domain";
 
 const readinessMeta = {
@@ -43,7 +51,8 @@ export default async function DashboardPage({
     }
   }
 
-  let snapshot = await getSnapshot();
+  const [initialSnapshot, crisisState] = await Promise.all([getSnapshot(), getCrisisState()]);
+  let snapshot = initialSnapshot;
 
   if (shouldUseOverrideFallback && overrideDraft) {
     try {
@@ -72,10 +81,14 @@ export default async function DashboardPage({
   }
 
   const { profile, dashboard } = snapshot;
+  const priorityDateIntelligence = await getPriorityDateIntelligence(profile);
   const readiness = readinessMeta[dashboard.signals.layoffReadinessScore as keyof typeof readinessMeta] ?? readinessMeta.medium;
+  const checklistItems = buildChecklist(profile);
+  const checklistProgress = crisisState ? Math.round((crisisState.completedItemKeys.length / checklistItems.length) * 100) : 0;
+  const crisisProgressWidth = crisisState ? `${Math.max((crisisState.dayNumber / 60) * 100, 2)}%` : "0%";
 
   return (
-    <AppShell activePath="/dashboard">
+    <AppShell activePath="/dashboard" crisisState={crisisState}>
       <div className="space-y-6">
         {resolvedSearchParams?.setup === "local" && (
           <div className="rounded-[var(--radius-lg)] border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] px-5 py-4 text-body-sm">
@@ -83,37 +96,88 @@ export default async function DashboardPage({
           </div>
         )}
 
-        <section className="page-intro">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-            <div className="max-w-[70ch]">
-              <p className="text-label">Your snapshot</p>
-              <h1 className="text-h1 mt-4">
-                Good to see you, {profile.fullName?.split(" ")[0] ?? "there"}.
-              </h1>
-              <p className="text-body mt-3">
-                {profile.visaType} · {profile.preferenceCategory} · {profile.countryOfBirth}
-                {profile.employerName ? ` · ${profile.employerName}` : ""}
-              </p>
-              <p className="text-body mt-4 max-w-[60ch]">
-                This is a lot. Let&apos;s take it one step at a time, starting with what matters most today.
-              </p>
+        {crisisState ? (
+          <section className="rounded-[var(--radius-2xl)] border border-[var(--haven-blush)] bg-[var(--haven-blush-light)] p-6 md:p-8">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+              <div className="max-w-[72ch]">
+                <p className="text-label text-[var(--haven-blush-ink)]">Crisis mode active</p>
+                <h1 className="text-h1 mt-4">Day {crisisState.dayNumber} of 60. Keep the next filing window in reach.</h1>
+                <p className="text-body mt-4 text-[var(--haven-blush-ink)]">
+                  Haven is now prioritizing your live layoff plan. Last day of employment:{" "}
+                  {crisisState.layoffDate.toLocaleDateString(undefined, {
+                    month: "long",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                  .
+                </p>
+                <div className="mt-5 countdown-bar bg-[rgba(117,61,40,0.12)]">
+                  <div className="countdown-bar-fill urgent" style={{ width: crisisProgressWidth }} />
+                </div>
+                <div className="mt-4 flex flex-wrap items-center gap-3 text-body-sm text-[var(--haven-blush-ink)]">
+                  <span>{crisisState.daysRemaining} days remaining</span>
+                  <span className="opacity-50">·</span>
+                  <span>
+                    {crisisState.completedItemKeys.length} of {checklistItems.length} checklist items completed
+                  </span>
+                </div>
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
+                <Link className={buttonVariants({ variant: "default" })} href="/planner">
+                  View checklist
+                </Link>
+                <Link className={buttonVariants({ variant: "outline" })} href="/timeline">
+                  Review timeline
+                </Link>
+              </div>
             </div>
-            <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
-              <Link className={buttonVariants({ variant: "default" })} href="/planner">
-                Open layoff planner
-              </Link>
-              <Link className={buttonVariants({ variant: "outline" })} href="/timeline">
-                View full timeline
-              </Link>
-            </div>
-          </div>
 
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
-            <StatCard label="Layoff readiness" value={readiness.label} helper="Based on your I-140 and employment context." badge={<Badge variant={readiness.variant}>{dashboard.signals.layoffReadinessScore}</Badge>} />
-            <StatCard label="Green card estimate" value={dashboard.signals.estimatedGreenCardDateRange ?? "Pending"} helper="Updated as bulletin movement changes." />
-            <StatCard label="Community match" value={dashboard.communityMatchesLabel} helper={`Top concerns: ${profile.topConcerns.join(", ")}`} />
-          </div>
-        </section>
+            <div className="mt-6 grid gap-4 md:grid-cols-3">
+              <StatCard label="Crisis clock" value={`Day ${crisisState.dayNumber}`} helper="Tracker started when you activated crisis mode." badge={<Badge variant="urgent">Live</Badge>} />
+              <StatCard label="Checklist progress" value={`${checklistProgress}%`} helper="Persisted to your current layoff event." />
+              <StatCard label="Community match" value={dashboard.communityMatchesLabel} helper={`Top concerns: ${profile.topConcerns.join(", ")}`} />
+            </div>
+          </section>
+        ) : (
+          <section className="page-intro">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+              <div className="max-w-[70ch]">
+                <p className="text-label">Your snapshot</p>
+                <h1 className="text-h1 mt-4">
+                  Good to see you, {profile.fullName?.split(" ")[0] ?? "there"}.
+                </h1>
+                <p className="text-body mt-3">
+                  {profile.visaType} · {profile.preferenceCategory} · {profile.countryOfBirth}
+                  {profile.employerName ? ` · ${profile.employerName}` : ""}
+                </p>
+                <p className="text-body mt-4 max-w-[60ch]">
+                  This is a lot. Let&apos;s take it one step at a time, starting with what matters most today.
+                </p>
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
+                <Link className={buttonVariants({ variant: "default" })} href="/planner">
+                  Open layoff planner
+                </Link>
+                <Link className={buttonVariants({ variant: "outline" })} href="/timeline">
+                  View full timeline
+                </Link>
+                {dashboard.signals.layoffReadinessScore !== "high" ? (
+                  <CrisisActivationModal />
+                ) : null}
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-3">
+              <StatCard label="Layoff readiness" value={readiness.label} helper="Based on your I-140 and employment context." badge={<Badge variant={readiness.variant}>{dashboard.signals.layoffReadinessScore}</Badge>} />
+              <StatCard label="Community match" value={dashboard.communityMatchesLabel} helper={`Top concerns: ${profile.topConcerns.join(", ")}`} />
+              <PriorityDateCard intelligence={priorityDateIntelligence} />
+            </div>
+          </section>
+        )}
+
+        {crisisState ? <PriorityDateCard intelligence={priorityDateIntelligence} /> : null}
+
+        <ImmigrationUpdates />
 
         <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
           <Card>
@@ -140,34 +204,62 @@ export default async function DashboardPage({
             </CardContent>
           </Card>
 
-          <Card variant="urgent">
-            <CardHeader>
-              <div>
-                <p className="text-label">Readiness</p>
-                <CardTitle className="mt-2">How prepared you are right now</CardTitle>
-              </div>
-              <Timer className="h-5 w-5 text-[var(--haven-blush-ink)]" />
-            </CardHeader>
-            <CardContent>
-              <div className="countdown-bar">
-                <div className={dashboard.signals.layoffReadinessScore === "low" ? "countdown-bar-fill urgent" : "countdown-bar-fill"} style={{ width: readiness.progress }} />
-              </div>
-              <p className="text-caption mt-2">
-                {dashboard.signals.layoffReadinessScore === "low"
-                  ? "Time-sensitive prep deserves attention."
-                  : "You have a foundation. Tighten the gaps before you need them."}
-              </p>
-              <div className="mt-4 space-y-3">
-                {dashboard.signals.layoffReadinessReasoning.map((item, index) => (
-                  <div key={item} className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--haven-white)] p-4">
-                    <p className="text-body-sm">
-                      {index + 1}. {item}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          {crisisState ? (
+            <Card variant="urgent">
+              <CardHeader>
+                <div>
+                  <p className="text-label">Resolve crisis mode</p>
+                  <CardTitle className="mt-2">Mark this event resolved when your path is secured</CardTitle>
+                </div>
+                <Timer className="h-5 w-5 text-[var(--haven-blush-ink)]" />
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-body-sm">
+                  When your next step is finalized, resolve the event so Haven returns to normal planning mode.
+                </p>
+                <form action={resolveCrisisModeFromForm} className="space-y-3">
+                  <Select defaultValue="new_job" name="resolution">
+                    <option value="new_job">Found a new job</option>
+                    <option value="change_status">Changed status</option>
+                    <option value="left_country">Left the country</option>
+                    <option value="dismissed">Dismiss without resolution</option>
+                  </Select>
+                  <button className={buttonVariants({ variant: "destructive" })} type="submit">
+                    Resolve crisis mode
+                  </button>
+                </form>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card variant="urgent">
+              <CardHeader>
+                <div>
+                  <p className="text-label">Readiness</p>
+                  <CardTitle className="mt-2">How prepared you are right now</CardTitle>
+                </div>
+                <Timer className="h-5 w-5 text-[var(--haven-blush-ink)]" />
+              </CardHeader>
+              <CardContent>
+                <div className="countdown-bar">
+                  <div className={dashboard.signals.layoffReadinessScore === "low" ? "countdown-bar-fill urgent" : "countdown-bar-fill"} style={{ width: readiness.progress }} />
+                </div>
+                <p className="text-caption mt-2">
+                  {dashboard.signals.layoffReadinessScore === "low"
+                    ? "Time-sensitive prep deserves attention."
+                    : "You have a foundation. Tighten the gaps before you need them."}
+                </p>
+                <div className="mt-4 space-y-3">
+                  {dashboard.signals.layoffReadinessReasoning.map((item, index) => (
+                    <div key={item} className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--haven-white)] p-4">
+                      <p className="text-body-sm">
+                        {index + 1}. {item}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">

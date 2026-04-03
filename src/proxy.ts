@@ -4,7 +4,7 @@ import { createServerClient } from "@supabase/ssr";
 
 import { env, hasSupabaseEnv } from "@/lib/env";
 
-const protectedPrefixes = ["/dashboard", "/onboarding", "/timeline", "/planner", "/community", "/inbox", "/settings"];
+const protectedPrefixes = ["/dashboard", "/onboarding", "/timeline", "/planner", "/advisor", "/community", "/inbox", "/settings"];
 
 export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
@@ -42,5 +42,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/onboarding/:path*", "/timeline/:path*", "/planner/:path*", "/community/:path*", "/inbox/:path*", "/settings/:path*"]
+  matcher: ["/dashboard/:path*", "/onboarding/:path*", "/timeline/:path*", "/planner/:path*", "/advisor/:path*", "/community/:path*", "/inbox/:path*", "/settings/:path*"]
 };

@@ -4,6 +4,7 @@ import { ArrowRight, MessageSquare, ShieldAlert, ThumbsUp, Users } from "lucide-
 import { AppShell } from "@/components/app/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getCrisisState } from "@/lib/get-crisis-state";
 import { getSnapshot } from "@/lib/repositories/case-compass";
 import { CommunityComposer } from "./CommunityComposer";
 
@@ -46,11 +47,11 @@ const samplePosts = [
 const filterTags = ["All", "AC21", "Layoffs", "Visa Bulletin", "H1B", "EB-2", "EB-3", "Green Card", "Job Change"];
 
 export default async function CommunityPage() {
-  const { cohorts, profile } = await getSnapshot();
+  const [{ cohorts, profile }, crisisState] = await Promise.all([getSnapshot(), getCrisisState()]);
   const primaryCohort = cohorts[0];
 
   return (
-    <AppShell activePath="/community">
+    <AppShell activePath="/community" crisisState={crisisState}>
       <div className="space-y-6">
         <section className="rounded-[var(--radius-2xl)] border border-[var(--haven-sky-mid)] bg-[var(--haven-sky-light)] p-6 md:p-8">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">

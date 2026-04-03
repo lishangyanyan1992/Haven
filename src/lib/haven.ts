@@ -1,6 +1,11 @@
 import type { Concern, DerivedProfileSignals, HavenWorkspaceSnapshot, ImmigrationProfile, TimelineEvent } from "@/types/domain";
 
-export function computeDerivedSignals(profile: ImmigrationProfile): DerivedProfileSignals {
+type PriorityDateSignalOverrides = Pick<DerivedProfileSignals, "visaBulletinPosition" | "estimatedGreenCardDateRange">;
+
+export function computeDerivedSignals(
+  profile: ImmigrationProfile,
+  priorityDateSignals?: PriorityDateSignalOverrides | null
+): DerivedProfileSignals {
   const today = new Date();
   const expiry = profile.currentVisaExpiryDate ? new Date(profile.currentVisaExpiryDate) : undefined;
   const h1bStart = profile.h1bStartDate ? new Date(profile.h1bStartDate) : undefined;
@@ -45,10 +50,13 @@ export function computeDerivedSignals(profile: ImmigrationProfile): DerivedProfi
     h1bCapDate,
     daysUntilVisaExpiry,
     visaBulletinPosition:
-      profile.priorityDate && (profile.preferenceCategory === "EB-2" || profile.preferenceCategory === "EB-3")
+      priorityDateSignals?.visaBulletinPosition ??
+      (profile.priorityDate && (profile.preferenceCategory === "EB-1" || profile.preferenceCategory === "EB-2" || profile.preferenceCategory === "EB-2 NIW" || profile.preferenceCategory === "EB-3")
         ? `Backlogged. Monitor ${profile.preferenceCategory} movement for ${profile.countryOfBirth}.`
-        : undefined,
-    estimatedGreenCardDateRange: profile.priorityDate ? "Estimate pending bulletin + community data" : undefined,
+        : undefined),
+    estimatedGreenCardDateRange:
+      priorityDateSignals?.estimatedGreenCardDateRange ??
+      (profile.priorityDate ? "Estimate pending bulletin sync" : undefined),
     ac21PortabilityStatus,
     layoffReadinessScore,
     layoffReadinessReasoning
@@ -134,8 +142,12 @@ export function concernLabels(concerns: Concern[]) {
   return concerns.map((concern) => concern.replaceAll("_", " "));
 }
 
-export function mergeSnapshotProfile(base: HavenWorkspaceSnapshot, profile: ImmigrationProfile): HavenWorkspaceSnapshot {
-  const signals = computeDerivedSignals(profile);
+export function mergeSnapshotProfile(
+  base: HavenWorkspaceSnapshot,
+  profile: ImmigrationProfile,
+  priorityDateSignals?: PriorityDateSignalOverrides | null
+): HavenWorkspaceSnapshot {
+  const signals = computeDerivedSignals(profile, priorityDateSignals);
   const timelineEvents = buildTimeline(profile, signals);
 
   return {

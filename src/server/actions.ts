@@ -56,19 +56,74 @@ async function bootstrapUserProfile(user: { id: string; email?: string | null },
 
   await admin.from("email_aliases").upsert({
     user_id: user.id,
-    alias: `${(user.email ?? "user").split("@")[0]}-${user.id.slice(0, 6)}@import.haven.com`
+    alias: `${(user.email ?? "user").split("@")[0]}-${user.id.slice(0, 6)}@import.haven-h1b.com`
   });
 }
 
 export async function signInAction(formData: FormData) {
   const supabase = await createSupabaseServerClient();
-  const email = String(formData.get("email") ?? "");
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   const redirectTo = String(formData.get("redirectTo") ?? "/dashboard");
+  const admin = createSupabaseAdminClient() as any;
 
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
+
   if (error) {
-    throw new Error(error.message);
+    const { data: adminUserList } = await admin.auth.admin.listUsers();
+    const authUserExists = (adminUserList?.users ?? []).some(
+      (u: { email?: string }) => u.email?.toLowerCase() === email
+    );
+    if (!authUserExists) {
+      redirect(`/register?email=${encodeURIComponent(email)}&message=no_account`);
+    }
+    redirect(`/login?email=${encodeURIComponent(email)}&message=invalid_credentials`);
+  }
+
+  // Check if profile exists
+  const { data: profile } = await admin
+    .from("user_profiles")
+    .select("id, country_of_birth, employer_name, preference_category")
+    .eq("email", email)
+    .maybeSingle();
+
+  if (!profile) {
+    // Email-confirm flow: profile not yet created — create stub now
+    if (signInData?.user) {
+      await admin.from("user_profiles").upsert({
+        id: signInData.user.id,
+        full_name: String(signInData.user.user_metadata?.full_name ?? email.split("@")[0]),
+        email,
+        visa_type: "H1B",
+        country_of_birth: "",
+        perm_stage: "not_started",
+        preference_category: "Not sure",
+        i485_filed: false,
+        i140_approved: false,
+        employment_status: "employed",
+        spouse_visa_status: "none",
+        primary_goal: "not_sure",
+        top_concerns: []
+      });
+    }
+    redirect("/onboarding");
+  }
+
+  // Check if onboarding was completed (email_alias is created only at step 4)
+  const { data: emailAlias } = await admin
+    .from("email_aliases")
+    .select("id")
+    .eq("user_id", profile.id)
+    .maybeSingle();
+
+  if (!emailAlias) {
+    // Stub profile exists but onboarding incomplete — compute progress
+    let stepsCompleted = 0;
+    if (profile.country_of_birth?.trim()) stepsCompleted++;
+    if (profile.employer_name) stepsCompleted++;
+    if (profile.preference_category && profile.preference_category !== "Not sure") stepsCompleted++;
+    const progress = Math.round((stepsCompleted / 4) * 100);
+    redirect(`/login?email=${encodeURIComponent(email)}&message=incomplete_onboarding&progress=${progress}`);
   }
 
   const finalRedirect = redirectTo.startsWith("/onboarding") ? "/dashboard" : redirectTo;
@@ -82,39 +137,143 @@ export async function signUpAction(formData: FormData) {
   const password = String(formData.get("password") ?? "");
   const admin = createSupabaseAdminClient() as any;
 
+  // Check if a profile already exists (stub or complete)
   const { data: existingProfile } = await admin
     .from("user_profiles")
-    .select("id,email")
+    .select("id, email")
     .eq("email", email)
     .maybeSingle();
 
   if (existingProfile) {
-    redirect(`/login?email=${encodeURIComponent(email)}&message=existing_account`);
+    // Distinguish full account vs. incomplete onboarding stub
+    const { data: emailAlias } = await admin
+      .from("email_aliases")
+      .select("id")
+      .eq("user_id", existingProfile.id)
+      .maybeSingle();
+
+    if (emailAlias) {
+      redirect(`/login?email=${encodeURIComponent(email)}&message=existing_account`);
+    } else {
+      redirect(`/login?email=${encodeURIComponent(email)}&message=incomplete_onboarding&progress=0`);
+    }
   }
 
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: {
-      data: {
-        full_name: fullName
-      }
-    }
+    options: { data: { full_name: fullName } }
   });
 
   if (error) {
     if (error.message.toLowerCase().includes("already")) {
       redirect(`/login?email=${encodeURIComponent(email)}&message=existing_account`);
     }
-
+    if (error.message.toLowerCase().includes("rate limit")) {
+      redirect(`/register?email=${encodeURIComponent(email)}&message=rate_limited`);
+    }
     throw new Error(error.message);
   }
 
-  if (data.user) {
-    await bootstrapUserProfile(data.user, fullName);
+  // Auth user already existed but no profile (edge case: profile was deleted)
+  if (data.user && (!data.user.identities || data.user.identities.length === 0)) {
+    redirect(`/login?email=${encodeURIComponent(email)}&message=incomplete_onboarding&progress=0`);
   }
 
-  redirect("/onboarding");
+  if (data.session && data.user) {
+    // Email confirmation disabled — create stub profile and go to onboarding
+    await admin.from("user_profiles").upsert({
+      id: data.user.id,
+      full_name: fullName || email.split("@")[0],
+      email,
+      visa_type: "H1B",
+      country_of_birth: "",
+      perm_stage: "not_started",
+      preference_category: "Not sure",
+      i485_filed: false,
+      i140_approved: false,
+      employment_status: "employed",
+      spouse_visa_status: "none",
+      primary_goal: "not_sure",
+      top_concerns: []
+    });
+    redirect("/onboarding");
+  }
+
+  // Email confirmation enabled — ask user to verify first
+  redirect(`/login?email=${encodeURIComponent(email)}&message=confirm_email`);
+}
+
+export async function completeOnboardingAction(formData: FormData) {
+  const { user } = await requireUser();
+  const admin = createSupabaseAdminClient() as any;
+
+  const fullName = String(user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "Haven user");
+
+  // Create base profile so persistProfileDraft can update it
+  await admin.from("user_profiles").upsert({
+    id: user.id,
+    full_name: fullName,
+    email: user.email ?? "",
+    visa_type: "H1B",
+    country_of_birth: "India",
+    perm_stage: "not_started",
+    preference_category: "Not sure",
+    i485_filed: false,
+    i140_approved: false,
+    employment_status: "employed",
+    spouse_visa_status: "none",
+    primary_goal: "not_sure",
+    top_concerns: ["layoffs"]
+  });
+
+  // Persist all onboarding data
+  await persistProfileDraft(user.id, {
+    visaType: String(formData.get("visaType") ?? ""),
+    countryOfBirth: String(formData.get("countryOfBirth") ?? ""),
+    primaryGoal: String(formData.get("primaryGoal") ?? ""),
+    employerName: String(formData.get("employerName") ?? ""),
+    jobTitle: String(formData.get("jobTitle") ?? ""),
+    h1bStartDate: String(formData.get("h1bStartDate") ?? ""),
+    employerSize: String(formData.get("employerSize") ?? ""),
+    greenCardStage: String(formData.get("greenCardStage") ?? ""),
+    priorityDate: String(formData.get("priorityDate") ?? ""),
+    preferenceCategory: String(formData.get("preferenceCategory") ?? ""),
+    i140Approved: String(formData.get("i140Approved") ?? "false"),
+    spouseVisaStatus: String(formData.get("spouseVisaStatus") ?? ""),
+    topConcerns: formData.getAll("topConcerns").map(String)
+  });
+
+  await admin.from("email_aliases").upsert({
+    user_id: user.id,
+    alias: `${(user.email ?? "user").split("@")[0]}-${user.id.slice(0, 6)}@import.haven-h1b.com`
+  });
+
+  const cookieStore = await cookies();
+  cookieStore.delete(ONBOARDING_OVERRIDE_COOKIE);
+}
+
+export async function resetPasswordAction(formData: FormData) {
+  const supabase = await createSupabaseServerClient();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+
+  if (!email) {
+    redirect("/forgot-password?message=missing_email");
+  }
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${siteUrl}/reset-password`
+  });
+
+  if (error) {
+    if (error.message.toLowerCase().includes("rate limit")) {
+      redirect(`/forgot-password?email=${encodeURIComponent(email)}&message=rate_limited`);
+    }
+    redirect(`/forgot-password?email=${encodeURIComponent(email)}&message=error`);
+  }
+
+  redirect(`/forgot-password?message=sent`);
 }
 
 export async function signOutAction() {
@@ -231,14 +390,57 @@ export async function saveProfileSettingsAction(formData: FormData) {
   redirect("/settings?saved=1");
 }
 
+// Maps extracted field labels → user_profiles columns
+const FIELD_TO_PROFILE_COLUMN: Record<string, string> = {
+  "Priority Date": "priority_date",
+  "Preference Category": "preference_category",
+  "Approval Date": "i140_approval_date",
+  "Petitioner / Employer": "employer_name",
+  "Valid Through": "current_visa_expiry_date",
+};
+
 export async function confirmEmailIngestAction(formData: FormData) {
+  const { user } = await requireUser();
+
   const input = emailIngestConfirmationSchema.parse({
     recordId: formData.get("recordId"),
     acceptedFieldLabels: formData.getAll("acceptedFieldLabels").map(String)
   });
 
   const admin = createSupabaseAdminClient() as any;
-  await admin.from("email_ingest_records").update({ status: "accepted" }).eq("id", input.recordId);
+
+  // Ownership check — only update if record belongs to the current user
+  await admin
+    .from("email_ingest_records")
+    .update({ status: "accepted" })
+    .eq("id", input.recordId)
+    .eq("user_id", user.id);
+
+  // Fetch the accepted extracted fields from DB (never trust client values)
+  if (input.acceptedFieldLabels.length > 0) {
+    const { data: fieldRows } = await admin
+      .from("email_extracted_fields")
+      .select("label, value")
+      .eq("record_id", input.recordId)
+      .in("label", input.acceptedFieldLabels);
+
+    if (fieldRows && fieldRows.length > 0) {
+      const profilePatch: Record<string, string> = {};
+      for (const row of fieldRows as Array<{ label: string; value: string }>) {
+        const col = FIELD_TO_PROFILE_COLUMN[row.label];
+        if (col) profilePatch[col] = row.value;
+      }
+
+      if (Object.keys(profilePatch).length > 0) {
+        await admin
+          .from("user_profiles")
+          .update(profilePatch)
+          .eq("id", user.id);
+      }
+    }
+  }
 
   revalidatePath("/inbox");
+  revalidatePath("/dashboard");
+  revalidatePath("/timeline");
 }

@@ -9,9 +9,11 @@ import { signInAction } from "@/server/actions";
 export default async function LoginPage({
   searchParams
 }: {
-  searchParams: Promise<{ redirectTo?: string; error?: string; email?: string; message?: string }>;
+  searchParams: Promise<{ redirectTo?: string; error?: string; email?: string; message?: string; progress?: string }>;
 }) {
-  const { redirectTo = "/dashboard", email = "", message } = await searchParams;
+  const { redirectTo = "/dashboard", email = "", message, progress } = await searchParams;
+  const progressPct = Math.min(100, Math.max(0, parseInt(progress ?? "0", 10)));
+
 
   return (
     <div className="min-h-screen">
@@ -63,6 +65,52 @@ export default async function LoginPage({
           {message === "existing_account" && (
             <div className="mt-5 rounded-[var(--radius-lg)] border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] px-4 py-3 text-body-sm">
               An account already exists for that email. Sign in instead.
+            </div>
+          )}
+
+          {message === "complete_onboarding" && (
+            <div className="mt-5 rounded-[var(--radius-lg)] border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] px-4 py-3 text-body-sm">
+              You already started an account. Sign in to complete your profile setup.
+            </div>
+          )}
+
+          {message === "account_created" && (
+            <div className="mt-5 rounded-[var(--radius-lg)] border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] px-4 py-3 text-body-sm">
+              Account created! Sign in below to set up your Haven profile.
+            </div>
+          )}
+
+          {message === "confirm_email" && (
+            <div className="mt-5 rounded-[var(--radius-lg)] border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] px-4 py-3 text-body-sm">
+              Check your email to confirm your account, then sign in here to continue.
+            </div>
+          )}
+
+          {message === "incomplete_onboarding" && (
+            <div className="mt-5 rounded-[var(--radius-lg)] border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] px-4 py-3 text-body-sm">
+              Welcome back!{" "}
+              {progressPct > 0
+                ? `You're ${progressPct}% done with your setup.`
+                : "You haven't finished setting up your profile."}{" "}
+              <Link className="font-medium underline underline-offset-2" href="/onboarding">
+                Pick up where you left off →
+              </Link>
+            </div>
+          )}
+
+          {message === "invalid_credentials" && (
+            <div className="mt-5 rounded-[var(--radius-lg)] border border-[#e8b4b4] bg-[#fdf0f0] px-4 py-3 text-body-sm text-[#7a3030]">
+              Incorrect password. Please try again or{" "}
+              <Link className="underline underline-offset-2" href="/forgot-password">
+                reset your password
+              </Link>
+              .
+            </div>
+          )}
+
+          {message === "password_updated" && (
+            <div className="mt-5 rounded-[var(--radius-lg)] border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] px-4 py-3 text-body-sm">
+              Password updated. Sign in with your new password.
             </div>
           )}
 
