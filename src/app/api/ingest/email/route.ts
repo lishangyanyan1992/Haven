@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
   try {
     formData = await request.formData();
   } catch {
+    console.error("[email-ingest] failed to parse form data");
     return NextResponse.json({ error: "invalid_body" }, { status: 400 });
   }
 
@@ -37,9 +38,11 @@ export async function POST(request: NextRequest) {
   // Verify HMAC signature — 406 tells Mailgun not to retry
   if (signingKey) {
     if (!timestamp || !token || !signature) {
+      console.error("[email-ingest] missing signature fields");
       return NextResponse.json({ error: "missing_signature_fields" }, { status: 406 });
     }
     if (!verifyMailgunSignature(signingKey, timestamp, token, signature)) {
+      console.error("[email-ingest] invalid signature — check MAILGUN_WEBHOOK_SIGNING_KEY");
       return NextResponse.json({ error: "invalid_signature" }, { status: 406 });
     }
   }
@@ -52,29 +55,39 @@ export async function POST(request: NextRequest) {
     formData.get("stripped-text") ?? formData.get("body-plain") ?? ""
   );
 
+  console.log(`[email-ingest] received — recipient: ${recipient}, subject: ${subject}, sender: ${sender}`);
+
   if (!recipient) {
+    console.error("[email-ingest] no recipient in payload");
     return NextResponse.json({ status: "no_recipient" }, { status: 200 });
   }
 
   let admin: ReturnType<typeof createSupabaseAdminClient>;
   try {
     admin = createSupabaseAdminClient();
-  } catch {
-    // Supabase not configured — accept gracefully
+  } catch (e) {
+    console.error("[email-ingest] Supabase admin not configured:", e);
     return NextResponse.json({ status: "ok" }, { status: 200 });
   }
 
   // Look up the alias
-  const { data: aliasRow } = await (admin as any)
+  const { data: aliasRow, error: aliasError } = await (admin as any)
     .from("email_aliases")
     .select("user_id")
     .eq("alias", recipient)
     .maybeSingle();
 
+  if (aliasError) {
+    console.error("[email-ingest] alias lookup error:", aliasError.message);
+  }
+
   if (!aliasRow) {
+    console.warn(`[email-ingest] unknown alias: "${recipient}" — no matching row in email_aliases`);
     // Return 200 so Mailgun doesn't retry unknown aliases
     return NextResponse.json({ status: "unknown_alias" }, { status: 200 });
   }
+
+  console.log(`[email-ingest] alias matched user_id: ${aliasRow.user_id}`);
 
   const userId: string = aliasRow.user_id;
 
@@ -96,13 +109,15 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (insertError || !record) {
-    console.error("[email-ingest] insert error", insertError);
+    console.error("[email-ingest] insert error:", insertError?.message);
     return NextResponse.json({ status: "ok" }, { status: 200 });
   }
 
+  console.log(`[email-ingest] record saved — id: ${record.id}`);
+
   // Insert extracted fields
   if (extraction.fields.length > 0) {
-    await (admin as any).from("email_extracted_fields").insert(
+    const { error: fieldsError } = await (admin as any).from("email_extracted_fields").insert(
       extraction.fields.map((f) => ({
         record_id: record.id,
         label: f.label,
@@ -110,6 +125,13 @@ export async function POST(request: NextRequest) {
         confidence: f.confidence,
       }))
     );
+    if (fieldsError) {
+      console.error("[email-ingest] fields insert error:", fieldsError.message);
+    } else {
+      console.log(`[email-ingest] ${extraction.fields.length} field(s) extracted and saved`);
+    }
+  } else {
+    console.log("[email-ingest] no fields extracted (OpenAI may not be configured)");
   }
 
   return NextResponse.json({ status: "ok" }, { status: 200 });
