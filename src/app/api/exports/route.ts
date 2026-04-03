@@ -15,6 +15,7 @@ export async function GET() {
     counts: {
       timelineEvents: snapshot.timelineEvents.length,
       communitySpaces: snapshot.cohorts.length + 1,
+      vaultDocuments: snapshot.documents.length,
       emailIngestRecords: snapshot.emailInbox.length
     }
   });
