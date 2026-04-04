@@ -28,6 +28,24 @@ export type EmailSourceType =
   | "rfe_notice"
   | "employer_hr"
   | "priority_date_update";
+
+export type ContactRole = "hr" | "lawyer" | "associated_company" | "uscis" | "recruiter" | "other";
+
+export const CONTACT_ROLE_LABELS: Record<ContactRole, string> = {
+  hr: "HR",
+  lawyer: "Lawyer / Attorney",
+  associated_company: "Associated Company",
+  uscis: "USCIS",
+  recruiter: "Recruiter",
+  other: "Other",
+};
+
+export interface EmailContact {
+  id: string;
+  email: string;
+  name: string | null;
+  role: ContactRole | null;
+}
 export type VaultDocumentKind =
   | "i140_notice"
   | "h1b_petition"
@@ -181,6 +199,19 @@ export interface EmailIngestRecord {
   receivedAt: string;
   extractedFields: Array<{ label: string; value: string; confidence: "high" | "medium" | "low" }>;
   status: "pending_confirmation" | "accepted" | "rejected";
+  senderEmail: string | null;
+  senderName: string | null;
+  bodyText: string | null;
+  threadId: string | null;
+  contact: EmailContact | null;
+}
+
+export interface EmailThread {
+  id: string;
+  threadKey: string;
+  subject: string;
+  lastEmailAt: string;
+  emails: EmailIngestRecord[];
 }
 
 export interface UserDocument {
@@ -214,6 +245,8 @@ export interface HavenWorkspaceSnapshot {
   documents: UserDocument[];
   emailAlias: string | null;
   emailInbox: EmailIngestRecord[];
+  emailThreads: EmailThread[];
+  emailContacts: EmailContact[];
 }
 
 export interface KnowledgeSource {

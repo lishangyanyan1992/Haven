@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 
 import { HavenBrand } from "@/components/app/haven-brand";
+import { GoogleSignInButton } from "@/components/app/google-sign-in-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { signInAction } from "@/server/actions";
@@ -114,7 +115,16 @@ export default async function LoginPage({
             </div>
           )}
 
-          <form action={signInAction} className="mt-6 space-y-4">
+          <div className="mt-6">
+            <GoogleSignInButton />
+            <div className="relative my-5 flex items-center">
+              <div className="flex-grow border-t border-[var(--color-border)]" />
+              <span className="mx-3 shrink-0 text-caption text-[var(--color-text-secondary)]">or continue with email</span>
+              <div className="flex-grow border-t border-[var(--color-border)]" />
+            </div>
+          </div>
+
+          <form action={signInAction} className="space-y-4">
             <input type="hidden" name="redirectTo" value={redirectTo} />
             <div>
               <label className="field-label">Email</label>

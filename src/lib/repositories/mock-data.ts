@@ -295,7 +295,12 @@ export const havenSnapshot: HavenWorkspaceSnapshot = {
         { label: "I-140 approval date", value: "2025-09-10", confidence: "high" },
         { label: "Preference category", value: "EB-2", confidence: "high" }
       ],
-      status: "pending_confirmation"
+      status: "pending_confirmation",
+      senderEmail: null,
+      senderName: null,
+      bodyText: null,
+      threadId: null,
+      contact: null
     },
     {
       id: "email-2",
@@ -304,7 +309,14 @@ export const havenSnapshot: HavenWorkspaceSnapshot = {
       subject: "Receipt notice for PERM filing support documents",
       receivedAt: "2026-03-11T09:42:00.000Z",
       extractedFields: [{ label: "PERM filing date", value: "2025-06-12", confidence: "medium" }],
-      status: "accepted"
+      status: "accepted",
+      senderEmail: null,
+      senderName: null,
+      bodyText: null,
+      threadId: null,
+      contact: null
     }
-  ]
+  ],
+  emailThreads: [],
+  emailContacts: []
 };

@@ -8,7 +8,9 @@ import type {
   CommunityPost,
   CommunitySpace,
   DerivedProfileSignals,
+  EmailContact,
   EmailIngestRecord,
+  EmailThread,
   ImmigrationProfile,
   TimelineEvent,
   UserDocument
@@ -24,6 +26,8 @@ type CommunityPostRow = Database["public"]["Tables"]["community_posts"]["Row"];
 type EmailAliasRow = Database["public"]["Tables"]["email_aliases"]["Row"];
 type EmailRecordRow = Database["public"]["Tables"]["email_ingest_records"]["Row"];
 type EmailFieldRow = Database["public"]["Tables"]["email_extracted_fields"]["Row"];
+type EmailContactRow = Database["public"]["Tables"]["email_contacts"]["Row"];
+type EmailThreadRow = Database["public"]["Tables"]["email_threads"]["Row"];
 type DocumentRow = Database["public"]["Tables"]["user_documents"]["Row"];
 
 function mapProfileRow(row: ProfileRow): ImmigrationProfile {
@@ -137,11 +141,27 @@ function buildCommunitySpaces(
   return { cohorts, warRoom };
 }
 
-function buildEmailInbox(aliasRow: EmailAliasRow | null, records: EmailRecordRow[], fields: EmailFieldRow[]): EmailIngestRecord[] {
+function buildEmailContacts(rows: EmailContactRow[]): EmailContact[] {
+  return rows.map((row) => ({
+    id: row.id,
+    email: row.email,
+    name: row.name ?? null,
+    role: (row.role as EmailContact["role"]) ?? null
+  }));
+}
+
+function buildEmailInbox(
+  aliasRow: EmailAliasRow | null,
+  records: EmailRecordRow[],
+  fields: EmailFieldRow[],
+  contacts: EmailContact[]
+): EmailIngestRecord[] {
   // No real alias yet — show demo records so the page isn't empty for new users
   if (!aliasRow) {
     return havenSnapshot.emailInbox;
   }
+
+  const contactById = new Map(contacts.map((c) => [c.id, c]));
 
   // Real alias exists — return real records only (may be empty; never mix with mock)
   return records.map((record) => ({
@@ -151,6 +171,11 @@ function buildEmailInbox(aliasRow: EmailAliasRow | null, records: EmailRecordRow
     subject: record.subject,
     receivedAt: record.received_at,
     status: record.status as EmailIngestRecord["status"],
+    senderEmail: record.sender_email ?? null,
+    senderName: record.sender_name ?? null,
+    bodyText: record.body_text ?? null,
+    threadId: record.thread_id ?? null,
+    contact: record.contact_id ? (contactById.get(record.contact_id) ?? null) : null,
     extractedFields: fields
       .filter((field) => field.record_id === record.id)
       .map((field) => ({
@@ -159,6 +184,20 @@ function buildEmailInbox(aliasRow: EmailAliasRow | null, records: EmailRecordRow
         confidence: field.confidence as "high" | "medium" | "low"
       }))
   }));
+}
+
+function buildEmailThreads(
+  threadRows: EmailThreadRow[],
+  inbox: EmailIngestRecord[]
+): EmailThread[] {
+  return threadRows.map((thread) => ({
+    id: thread.id,
+    threadKey: thread.thread_key,
+    subject: thread.subject,
+    lastEmailAt: thread.last_email_at,
+    emails: inbox.filter((e) => e.threadId === thread.id)
+      .sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime())
+  })).sort((a, b) => new Date(b.lastEmailAt).getTime() - new Date(a.lastEmailAt).getTime());
 }
 
 function buildDocuments(rows: DocumentRow[]): UserDocument[] {
@@ -196,6 +235,8 @@ export const supabaseHavenRepository: HavenRepository = {
       { data: postRows },
       { data: aliasRow },
       { data: emailRows },
+      { data: contactRows },
+      { data: threadRows },
       { data: documentRows }
     ] = await Promise.all([
       supabase.from("user_profiles").select("*").eq("id", user.id).maybeSingle(),
@@ -206,6 +247,8 @@ export const supabaseHavenRepository: HavenRepository = {
       supabase.from("community_posts").select("*"),
       supabase.from("email_aliases").select("*").eq("user_id", user.id).maybeSingle(),
       supabase.from("email_ingest_records").select("*").eq("user_id", user.id).order("received_at", { ascending: false }),
+      supabase.from("email_contacts").select("*").eq("user_id", user.id),
+      supabase.from("email_threads").select("*").eq("user_id", user.id).order("last_email_at", { ascending: false }),
       supabase.from("user_documents").select("*").eq("user_id", user.id).order("uploaded_at", { ascending: false })
     ]);
 
@@ -256,10 +299,16 @@ export const supabaseHavenRepository: HavenRepository = {
         ? await supabase.from("email_extracted_fields").select("*").in("record_id", recordIds)
         : { data: [] as EmailFieldRow[] };
 
+      const contacts = buildEmailContacts(contactRows ?? []);
+      const inbox = buildEmailInbox(aliasRow ?? null, emailRows, fieldRows ?? [], contacts);
+      const threads = buildEmailThreads(threadRows ?? [], inbox);
+
       snapshot = {
         ...snapshot,
         emailAlias: aliasRow?.alias ?? null,
-        emailInbox: buildEmailInbox(aliasRow ?? null, emailRows, fieldRows ?? [])
+        emailInbox: inbox,
+        emailThreads: threads,
+        emailContacts: contacts
       };
     }
 

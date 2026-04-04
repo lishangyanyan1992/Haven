@@ -32,6 +32,67 @@ async function requireUser() {
   return { supabase, user };
 }
 
+/**
+ * Shared post-auth routing logic used by both email/password sign-in
+ * and the OAuth callback. Returns the redirect path as a string.
+ */
+export async function resolvePostAuthRedirect(
+  userId: string,
+  email: string,
+  fullName?: string
+): Promise<string> {
+  const admin = createSupabaseAdminClient() as any;
+
+  const { data: profile } = await admin
+    .from("user_profiles")
+    .select("id, country_of_birth, employer_name, preference_category")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (!profile) {
+    // First time this user has hit Haven — bootstrap a stub profile
+    await admin.from("user_profiles").upsert({
+      id: userId,
+      full_name: fullName ?? email.split("@")[0] ?? "New Haven user",
+      email,
+      visa_type: "H1B",
+      country_of_birth: "",
+      perm_stage: "not_started",
+      preference_category: "Not sure",
+      i485_filed: false,
+      i140_approved: false,
+      employment_status: "employed",
+      spouse_visa_status: "none",
+      primary_goal: "not_sure",
+      top_concerns: []
+    });
+    await admin.from("derived_signals").upsert({
+      user_id: userId,
+      layoff_readiness_score: "low",
+      layoff_readiness_reasoning: ["Complete onboarding to calculate personalized readiness."]
+    });
+    return "/onboarding";
+  }
+
+  // Check if onboarding was completed (email_alias is created only at step 4)
+  const { data: emailAlias } = await admin
+    .from("email_aliases")
+    .select("id")
+    .eq("user_id", profile.id)
+    .maybeSingle();
+
+  if (!emailAlias) {
+    let stepsCompleted = 0;
+    if (profile.country_of_birth?.trim()) stepsCompleted++;
+    if (profile.employer_name) stepsCompleted++;
+    if (profile.preference_category && profile.preference_category !== "Not sure") stepsCompleted++;
+    const progress = Math.round((stepsCompleted / 4) * 100);
+    return `/onboarding?progress=${progress}`;
+  }
+
+  return "/dashboard";
+}
+
 async function bootstrapUserProfile(user: { id: string; email?: string | null }, fullName?: string) {
   const admin = createSupabaseAdminClient() as any;
 
@@ -83,53 +144,16 @@ export async function signInAction(formData: FormData) {
     redirect(`/login?email=${encodeURIComponent(email)}&message=invalid_credentials`);
   }
 
-  // Check if profile exists
-  const { data: profile } = await admin
-    .from("user_profiles")
-    .select("id, country_of_birth, employer_name, preference_category")
-    .eq("email", email)
-    .maybeSingle();
+  const userId = signInData?.user?.id;
+  const fullName = String(signInData?.user?.user_metadata?.full_name ?? email.split("@")[0]);
+  const destination = userId
+    ? await resolvePostAuthRedirect(userId, email, fullName)
+    : "/onboarding";
 
-  if (!profile) {
-    // Email-confirm flow: profile not yet created — create stub now
-    if (signInData?.user) {
-      await admin.from("user_profiles").upsert({
-        id: signInData.user.id,
-        full_name: String(signInData.user.user_metadata?.full_name ?? email.split("@")[0]),
-        email,
-        visa_type: "H1B",
-        country_of_birth: "",
-        perm_stage: "not_started",
-        preference_category: "Not sure",
-        i485_filed: false,
-        i140_approved: false,
-        employment_status: "employed",
-        spouse_visa_status: "none",
-        primary_goal: "not_sure",
-        top_concerns: []
-      });
-    }
-    redirect("/onboarding");
-  }
-
-  // Check if onboarding was completed (email_alias is created only at step 4)
-  const { data: emailAlias } = await admin
-    .from("email_aliases")
-    .select("id")
-    .eq("user_id", profile.id)
-    .maybeSingle();
-
-  if (!emailAlias) {
-    // Stub profile exists but onboarding incomplete — compute progress
-    let stepsCompleted = 0;
-    if (profile.country_of_birth?.trim()) stepsCompleted++;
-    if (profile.employer_name) stepsCompleted++;
-    if (profile.preference_category && profile.preference_category !== "Not sure") stepsCompleted++;
-    const progress = Math.round((stepsCompleted / 4) * 100);
-    redirect(`/login?email=${encodeURIComponent(email)}&message=incomplete_onboarding&progress=${progress}`);
-  }
-
-  const finalRedirect = redirectTo.startsWith("/onboarding") ? "/dashboard" : redirectTo;
+  const finalRedirect =
+    destination === "/dashboard" && redirectTo && !redirectTo.startsWith("/onboarding")
+      ? redirectTo
+      : destination;
   redirect(finalRedirect);
 }
 
@@ -446,4 +470,27 @@ export async function confirmEmailIngestAction(formData: FormData) {
   revalidatePath("/inbox");
   revalidatePath("/dashboard");
   revalidatePath("/timeline");
+}
+
+const VALID_CONTACT_ROLES = ["hr", "lawyer", "associated_company", "uscis", "recruiter", "other"] as const;
+
+export async function labelContactAction(formData: FormData) {
+  const { user } = await requireUser();
+
+  const contactId = String(formData.get("contactId") ?? "").trim();
+  const role = String(formData.get("role") ?? "").trim();
+
+  if (!contactId) return;
+  if (role && !VALID_CONTACT_ROLES.includes(role as (typeof VALID_CONTACT_ROLES)[number])) return;
+
+  const admin = createSupabaseAdminClient() as any;
+
+  // Ownership check via user_id filter
+  await admin
+    .from("email_contacts")
+    .update({ role: role || null, updated_at: new Date().toISOString() })
+    .eq("id", contactId)
+    .eq("user_id", user.id);
+
+  revalidatePath("/inbox");
 }

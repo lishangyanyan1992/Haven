@@ -434,6 +434,79 @@ export type Database = {
           },
         ]
       }
+      email_contacts: {
+        Row: {
+          id: string
+          user_id: string
+          email: string
+          name: string | null
+          role: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          email: string
+          name?: string | null
+          role?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          email?: string
+          name?: string | null
+          role?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_contacts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_threads: {
+        Row: {
+          id: string
+          user_id: string
+          thread_key: string
+          subject: string
+          last_email_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          thread_key: string
+          subject: string
+          last_email_at: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          thread_key?: string
+          subject?: string
+          last_email_at?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_threads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_aliases: {
         Row: {
           alias: string
@@ -498,35 +571,50 @@ export type Database = {
       email_ingest_records: {
         Row: {
           alias: string
+          body_text: string | null
+          contact_id: string | null
           created_at: string
           id: string
           raw_payload: Json | null
           received_at: string
+          sender_email: string | null
+          sender_name: string | null
           source_type: Database["public"]["Enums"]["email_source_type"]
           status: Database["public"]["Enums"]["email_record_status"]
           subject: string
+          thread_id: string | null
           user_id: string
         }
         Insert: {
           alias: string
+          body_text?: string | null
+          contact_id?: string | null
           created_at?: string
           id?: string
           raw_payload?: Json | null
           received_at: string
+          sender_email?: string | null
+          sender_name?: string | null
           source_type: Database["public"]["Enums"]["email_source_type"]
           status?: Database["public"]["Enums"]["email_record_status"]
           subject: string
+          thread_id?: string | null
           user_id: string
         }
         Update: {
           alias?: string
+          body_text?: string | null
+          contact_id?: string | null
           created_at?: string
           id?: string
           raw_payload?: Json | null
           received_at?: string
+          sender_email?: string | null
+          sender_name?: string | null
           source_type?: Database["public"]["Enums"]["email_source_type"]
           status?: Database["public"]["Enums"]["email_record_status"]
           subject?: string
+          thread_id?: string | null
           user_id?: string
         }
         Relationships: [
