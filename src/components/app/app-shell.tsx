@@ -15,6 +15,7 @@ import { HavenBrand } from "@/components/app/haven-brand";
 import { CrisisBanner } from "@/components/app/crisis-banner";
 import { Badge } from "@/components/ui/badge";
 import type { CrisisState } from "@/lib/get-crisis-state";
+import { getSnapshot } from "@/lib/repositories/case-compass";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -26,7 +27,7 @@ const navItems = [
   { href: "/settings", label: "Settings", icon: Settings }
 ];
 
-export function AppShell({
+export async function AppShell({
   children,
   activePath,
   crisisState
@@ -35,8 +36,27 @@ export function AppShell({
   activePath: string;
   crisisState?: CrisisState | null;
 }) {
+  const { profile, dashboard } = await getSnapshot();
   const isCrisisActive = Boolean(crisisState);
   const crisisProgressWidth = crisisState ? `${Math.max((crisisState.dayNumber / 60) * 100, 2)}%` : "74%";
+
+  const snapshotHeadline =
+    profile.preferenceCategory && profile.preferenceCategory !== "Not sure" && profile.countryOfBirth
+      ? `${profile.visaType} · ${profile.preferenceCategory} ${profile.countryOfBirth}`
+      : profile.visaType ?? "H-1B";
+
+  const snapshotBody = profile.i140Approved
+    ? "I-140 approved. Your plan stays visible even when things feel noisy."
+    : profile.priorityDate
+      ? "Priority date on record. Haven is tracking your bulletin position."
+      : "Your timeline is active. Haven tracks what matters as things change.";
+
+  const daysUntilExpiry = dashboard.signals.daysUntilVisaExpiry;
+  const snapshotCaption = daysUntilExpiry != null
+    ? `${daysUntilExpiry} day${daysUntilExpiry === 1 ? "" : "s"} until visa expiry.`
+    : "Your plan is up to date.";
+
+  const avatarInitial = profile.fullName?.trim()?.[0]?.toUpperCase() ?? "?";
 
   return (
     <div className="min-h-screen bg-[var(--color-bg)]">
@@ -52,20 +72,20 @@ export function AppShell({
           <div className="mt-6 rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-4">
             <p className="text-label">{isCrisisActive ? "Crisis window" : "Your snapshot"}</p>
             <p className="mt-2 text-h3">
-              {isCrisisActive ? `Day ${crisisState?.dayNumber} of 60` : "H-1B · EB-2 India"}
+              {isCrisisActive ? `Day ${crisisState?.dayNumber} of 60` : snapshotHeadline}
             </p>
             <p className="mt-1 text-body-sm">
               {isCrisisActive
                 ? `${crisisState?.daysRemaining} day${crisisState?.daysRemaining === 1 ? "" : "s"} remaining in your grace period plan.`
-                : "I-140 approved. Your plan stays visible even when things feel noisy."}
+                : snapshotBody}
             </p>
             <div className="mt-4 countdown-bar">
               <div className={cn("countdown-bar-fill", isCrisisActive && "urgent")} style={{ width: crisisProgressWidth }} />
             </div>
             <p className="mt-2 text-caption">
               {isCrisisActive
-                ? `Checklist progress and timeline now stay visible across the app.`
-                : "Day 12 of 60. You&apos;re doing well."}
+                ? "Checklist progress and timeline now stay visible across the app."
+                : snapshotCaption}
             </p>
           </div>
 
@@ -121,7 +141,7 @@ export function AppShell({
             </div>
             <div className="hidden items-center gap-3 md:flex">
               <Badge variant="active">Belonging first</Badge>
-              <div className="avatar avatar-md">P</div>
+              <div className="avatar avatar-md">{avatarInitial}</div>
             </div>
           </header>
 
