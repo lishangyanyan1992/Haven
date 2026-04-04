@@ -142,6 +142,43 @@ export function concernLabels(concerns: Concern[]) {
   return concerns.map((concern) => concern.replaceAll("_", " "));
 }
 
+function buildPlannerSituationSummary(profile: ImmigrationProfile): string {
+  const parts: string[] = [];
+
+  if (profile.i140Approved) parts.push("an approved I-140");
+
+  if (profile.priorityDate && profile.preferenceCategory && profile.preferenceCategory !== "Not sure") {
+    parts.push(`an ${profile.preferenceCategory} ${profile.countryOfBirth} priority date`);
+  }
+
+  if (!profile.i485Filed) parts.push("no current I-485");
+
+  const situation =
+    parts.length > 0
+      ? `You are on ${profile.visaType} with ${parts.join(", ")}.`
+      : `You are on ${profile.visaType}.`;
+
+  const portability = profile.i140Approved
+    ? " preserving long-term green card progress through AC21 portability after the 180-day threshold"
+    : " keeping your immigration options open";
+
+  return `${situation} If a layoff happened today, your strongest path is likely an H1B transfer while${portability}.`;
+}
+
+function buildPlannerRankedOptions(base: HavenWorkspaceSnapshot["planner"]["rankedOptions"], profile: ImmigrationProfile) {
+  return base.map((option) => {
+    if (option.id !== "option-2") return option;
+
+    const hasSpouseStatus = profile.spouseVisaStatus === "H4" || profile.spouseVisaStatus === "H4 EAD";
+    return {
+      ...option,
+      whyItFits: hasSpouseStatus
+        ? option.whyItFits
+        : ["A spousal fallback may be available depending on your spouse's visa status.", "This can reduce immediate out-of-status risk in some cases."]
+    };
+  });
+}
+
 export function mergeSnapshotProfile(
   base: HavenWorkspaceSnapshot,
   profile: ImmigrationProfile,
@@ -150,15 +187,26 @@ export function mergeSnapshotProfile(
   const signals = computeDerivedSignals(profile, priorityDateSignals);
   const timelineEvents = buildTimeline(profile, signals);
 
+  const cohortName =
+    profile.preferenceCategory && profile.preferenceCategory !== "Not sure" && profile.countryOfBirth
+      ? `${profile.preferenceCategory} ${profile.countryOfBirth} | ${profile.i140Approved ? "Approved I-140" : "Green card track"} | Layoff watch`
+      : base.cohorts[0]?.name ?? "H1B Layoff watch";
+
   return {
     ...base,
     profile,
     dashboard: {
       nextActions: defaultNextActions(profile, signals),
-      communityMatchesLabel: base.dashboard.communityMatchesLabel,
+      communityMatchesLabel: `Haven members match your ${profile.visaType} + ${profile.preferenceCategory} ${profile.countryOfBirth} profile`,
       timelineHighlights: timelineEvents.slice(0, 2),
       signals
     },
-    timelineEvents
+    timelineEvents,
+    planner: {
+      ...base.planner,
+      situationSummary: buildPlannerSituationSummary(profile),
+      rankedOptions: buildPlannerRankedOptions(base.planner.rankedOptions, profile)
+    },
+    cohorts: base.cohorts.map((cohort, i) => (i === 0 ? { ...cohort, name: cohortName } : cohort))
   };
 }

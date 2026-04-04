@@ -73,7 +73,7 @@ function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unk
     country_of_birth:
       typeof rawDraft.countryOfBirth === "string" && rawDraft.countryOfBirth.trim().length > 0
         ? rawDraft.countryOfBirth.trim()
-        : String(existingRow?.country_of_birth ?? "India"),
+        : String(existingRow?.country_of_birth ?? ""),
     primary_goal: asEnumValue(rawDraft.primaryGoal ?? existingRow?.primary_goal, primaryGoals, "not_sure"),
     employer_name:
       rawDraft.employerName !== undefined
