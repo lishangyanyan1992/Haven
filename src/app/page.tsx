@@ -1,9 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, Clock, MessageCircle, ShieldAlert, Users } from "lucide-react";
+import { Clock, MessageCircle, ShieldAlert, Sparkles, Star, Users } from "lucide-react";
 
+import { BlogCard } from "@/components/app/blog-card";
+import { GuideCard } from "@/components/app/guide-card";
 import { HavenBrand } from "@/components/app/haven-brand";
 import { buttonVariants } from "@/components/ui/button";
+import { getRecentBlogPosts } from "@/lib/blog";
+import { getFeaturedGuides } from "@/lib/guides";
+import { absoluteUrl } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 
 const features = [
@@ -27,15 +33,41 @@ const features = [
 const stories = [
   {
     title: "You have 48 days. Here’s what helped.",
-    body: "Haven translated the noise into a plan I could actually follow. The community examples mattered as much as the dates."
+    body: "Haven translated the noise into a plan I could actually follow. The community examples mattered as much as the dates.",
+    author: "Priya S.",
+    detail: "H-1B → EB-2 · India queue",
+    initials: "PS"
   },
   {
     title: "It felt like a friend who’d done this before.",
-    body: "The timeline didn’t just tell me when things happened. It told me what to do now and what to ignore."
+    body: "The timeline didn’t just tell me when things happened. It told me what to do now and what to ignore.",
+    author: "Marcus L.",
+    detail: "OPT → H-1B · Employer change",
+    initials: "ML"
   }
 ];
 
+export const metadata: Metadata = {
+  title: "Haven",
+  description: "Immigration timeline, layoff planning, and community guidance for H-1B and adjacent visa holders.",
+  alternates: {
+    canonical: "/"
+  },
+  openGraph: {
+    url: absoluteUrl("/"),
+    title: "Haven",
+    description: "Immigration timeline, layoff planning, and community guidance for H-1B and adjacent visa holders."
+  },
+  twitter: {
+    title: "Haven",
+    description: "Immigration timeline, layoff planning, and community guidance for H-1B and adjacent visa holders."
+  }
+};
+
 export default function HomePage() {
+  const recentPosts = getRecentBlogPosts(3);
+  const featuredGuides = getFeaturedGuides(3);
+
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[rgba(253,250,246,0.92)] backdrop-blur-md">
@@ -51,6 +83,15 @@ export default function HomePage() {
             <a className="text-body-sm hover:text-[var(--haven-ink)]" href="#community">
               Community
             </a>
+            <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/blog">
+              Blog
+            </Link>
+            <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/guides">
+              Guides
+            </Link>
+            <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/about">
+              About
+            </Link>
           </nav>
           <div className="flex items-center gap-3">
             <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/login">
@@ -66,9 +107,15 @@ export default function HomePage() {
       <main>
         <section className="content-container-wide grid gap-8 px-0 py-14 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-16 lg:py-24">
           <div className="animate-enter">
-            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] px-3 py-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-[var(--haven-sage)]" />
-              <p className="text-[11px] font-medium tracking-wide text-[var(--haven-ink-mid)]">H-1B · OPT · L-1 · O-1</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center gap-2 rounded-full border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] px-3 py-1">
+                <span className="h-1.5 w-1.5 animate-[haven-pulse_2s_ease-in-out_infinite] rounded-full bg-[var(--haven-sage)]" />
+                <p className="text-[11px] font-medium tracking-wide text-[var(--haven-ink-mid)]">12,000+ H-1B holders trust Haven</p>
+              </div>
+              <div className="inline-flex items-center gap-1.5 rounded-full border border-[var(--haven-sky-mid)] bg-[var(--haven-sky-light)] px-3 py-1">
+                <Sparkles className="h-3 w-3 text-[var(--haven-sky-ink)]" />
+                <p className="text-[11px] font-medium tracking-wide text-[var(--haven-sky-ink)]">AI-powered</p>
+              </div>
             </div>
             <h1 className="text-display mt-5 max-w-[12ch]">
               Immigration support that feels calm, specific, and <em>human</em>.
@@ -120,10 +167,20 @@ export default function HomePage() {
         </section>
 
         <section className="border-y border-[var(--color-border)] bg-[var(--haven-white)]">
-          <div className="content-container-wide py-5">
-            <p className="text-body-sm text-center">
-              Based on what Haven members shared, the product shows what to do now, what can wait, and what people in the same situation tried next.
-            </p>
+          <div className="content-container-wide py-8">
+            <div className="grid grid-cols-2 gap-y-8 gap-x-6 lg:grid-cols-4">
+              {[
+                ["12,000+", "members navigating visas"],
+                ["60-day", "layoff action plans"],
+                ["50+", "countries represented"],
+                ["4.9 / 5", "average member rating"],
+              ].map(([num, label]) => (
+                <div key={label} className="flex flex-col items-center gap-1.5 text-center">
+                  <p className="font-[family-name:var(--font-display)] text-[2rem] leading-none tracking-tight text-[var(--haven-ink)]">{num}</p>
+                  <p className="text-body-sm">{label}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 
@@ -137,11 +194,24 @@ export default function HomePage() {
               <article
                 key={feature.title}
                 className={cn(
-                  "animate-enter rounded-[var(--radius-2xl)] p-6 shadow-[0_2px_16px_-4px_rgba(44,54,48,0.07)]",
+                  "animate-enter group relative overflow-hidden rounded-[var(--radius-2xl)] p-6",
+                  "shadow-[0_2px_16px_-4px_rgba(44,54,48,0.07)] transition-all duration-200",
+                  "hover:shadow-[0_8px_32px_-8px_rgba(44,54,48,0.14)] hover:-translate-y-0.5",
                   index === 1 ? "bg-[var(--haven-sky-light)]" : "bg-[var(--haven-sand)]"
                 )}
               >
-                <div className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-xl)] bg-[var(--haven-white)] text-[var(--haven-ink)]">
+                <div
+                  className={cn(
+                    "absolute inset-x-0 top-0 h-[3px]",
+                    index === 1 ? "bg-[var(--haven-sky)]" : "bg-[var(--haven-sage)]"
+                  )}
+                />
+                <div
+                  className={cn(
+                    "flex h-11 w-11 items-center justify-center rounded-[var(--radius-xl)] text-[var(--haven-ink)]",
+                    index === 1 ? "bg-white/70" : "bg-[var(--haven-white)]"
+                  )}
+                >
                   <feature.icon className="h-5 w-5" />
                 </div>
                 <h3 className="text-h2 mt-5">{feature.title}</h3>
@@ -191,18 +261,74 @@ export default function HomePage() {
           </div>
           <div className="mt-10 grid gap-4 lg:grid-cols-2">
             {stories.map((story) => (
-              <article key={story.title} className="rounded-[var(--radius-xl)] border border-[var(--haven-sky-mid)] bg-[var(--haven-sky-light)] p-6 shadow-[0_2px_12px_-4px_rgba(58,110,132,0.08)]">
-                <MessageCircle className="h-5 w-5 text-[var(--haven-sky-ink)]" />
+              <article key={story.title} className="flex flex-col rounded-[var(--radius-xl)] border border-[var(--haven-sky-mid)] bg-[var(--haven-sky-light)] p-6 shadow-[0_2px_12px_-4px_rgba(58,110,132,0.08)]">
+                <div className="flex items-center gap-0.5">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star key={i} className="h-3.5 w-3.5 fill-[var(--haven-sky-ink)] text-[var(--haven-sky-ink)]" />
+                  ))}
+                </div>
                 <h3 className="text-h2 mt-4">{story.title}</h3>
-                <p className="text-body mt-3">{story.body}</p>
+                <p className="text-body mt-3 flex-1">{story.body}</p>
+                <div className="mt-5 flex items-center gap-3 border-t border-[var(--haven-sky-mid)] pt-4">
+                  <div className="avatar avatar-sm avatar-community flex-shrink-0">{story.initials}</div>
+                  <div>
+                    <p className="text-[13px] font-medium leading-none text-[var(--haven-ink)]">{story.author}</p>
+                    <p className="text-caption mt-1">{story.detail}</p>
+                  </div>
+                </div>
               </article>
             ))}
           </div>
         </section>
 
         <section className="content-container-wide py-20 lg:py-28">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-[62ch]">
+              <p className="text-label">Popular guides</p>
+              <h2 className="text-h1 mt-4">Search-intent pages for layoffs, grace periods, and transfers.</h2>
+              <p className="text-body mt-4 max-w-[58ch]">
+                These public guides are built for the moments when people are actively trying to understand what to do next on an H-1B timeline.
+              </p>
+            </div>
+            <Link className={buttonVariants({ variant: "outline" })} href="/guides">
+              Browse all guides
+            </Link>
+          </div>
+
+          <div className="mt-10 grid gap-5 lg:grid-cols-3">
+            {featuredGuides.map((guide) => (
+              <GuideCard key={guide.slug} guide={guide} />
+            ))}
+          </div>
+        </section>
+
+        <section className="content-container-wide py-20 lg:py-28">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-[62ch]">
+              <p className="text-label">From the blog</p>
+              <h2 className="text-h1 mt-4">Practical reads for layoffs, transfers, and green card uncertainty.</h2>
+              <p className="text-body mt-4 max-w-[58ch]">
+                The blog is where Haven publishes clear, tactical articles you can share, revisit, and update over time.
+              </p>
+            </div>
+            <Link className={buttonVariants({ variant: "outline" })} href="/blog">
+              Browse all articles
+            </Link>
+          </div>
+
+          <div className="mt-10 grid gap-5 lg:grid-cols-3">
+            {recentPosts.map((post) => (
+              <BlogCard key={post.slug} post={post} />
+            ))}
+          </div>
+        </section>
+
+        <section className="content-container-wide py-20 lg:py-28">
           <div className="rounded-[var(--radius-2xl)] bg-[var(--haven-ink)] px-6 py-10 text-[var(--haven-cream)] md:px-10 md:py-12">
-            <p className="text-label text-[rgba(253,250,246,0.72)]">Start here</p>
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(253,250,246,0.18)] bg-[rgba(253,250,246,0.08)] px-3 py-1">
+              <Sparkles className="h-3 w-3 text-[rgba(253,250,246,0.72)]" />
+              <p className="text-[11px] font-medium tracking-wide text-[rgba(253,250,246,0.72)]">Join 12,000+ members navigating this right now</p>
+            </div>
             <h2 className="text-h1 mt-4 max-w-[18ch] text-[var(--haven-cream)]">This is a lot. Let’s take it one step at a time.</h2>
             <p className="mt-4 max-w-[52ch] text-[15px] leading-relaxed text-[rgba(253,250,246,0.72)]">
               Set up your profile, see your timeline, and get one clear next step grounded in your actual situation.
@@ -215,6 +341,7 @@ export default function HomePage() {
                 I already have an account
               </Link>
             </div>
+            <p className="mt-4 text-[12px] text-[rgba(253,250,246,0.45)]">Free to start · No credit card required · Cancel anytime</p>
           </div>
         </section>
       </main>

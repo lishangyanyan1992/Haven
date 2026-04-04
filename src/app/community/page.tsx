@@ -6,7 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCrisisState } from "@/lib/get-crisis-state";
 import { getSnapshot } from "@/lib/repositories/case-compass";
+import { noIndexMetadata } from "@/lib/seo";
 import { CommunityComposer } from "./CommunityComposer";
+
+export const metadata = noIndexMetadata;
 
 const samplePosts = [
   {

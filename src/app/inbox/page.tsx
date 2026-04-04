@@ -10,9 +10,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatBytes, getMissingVaultEssentials } from "@/lib/document-vault";
 import { getCrisisState } from "@/lib/get-crisis-state";
 import { getSnapshot } from "@/lib/repositories/case-compass";
+import { noIndexMetadata } from "@/lib/seo";
 import { deleteVaultDocument } from "@/server/document-actions";
 import { labelContactAction } from "@/server/actions";
 import { CONTACT_ROLE_LABELS, type ContactRole, type EmailThread } from "@/types/domain";
+
+export const metadata = noIndexMetadata;
 
 export default async function InboxPage() {
   const [{ emailInbox, emailAlias, emailThreads, emailContacts, documents }, crisisState] = await Promise.all([

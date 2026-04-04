@@ -13,7 +13,9 @@ const envSchema = z.object({
   VISA_BULLETIN_SYNC_SECRET: z.string().optional(),
   MAILGUN_WEBHOOK_SIGNING_KEY: z.string().optional(),
   EMAIL_INGEST_DOMAIN: z.string().optional(),
-  SENTRY_DSN: z.string().optional()
+  SENTRY_DSN: z.string().optional(),
+  INDEXNOW_KEY: z.string().optional(),
+  INDEXNOW_SECRET: z.string().optional()
 });
 
 export const env = envSchema.parse({
@@ -29,7 +31,9 @@ export const env = envSchema.parse({
   VISA_BULLETIN_SYNC_SECRET: process.env.VISA_BULLETIN_SYNC_SECRET,
   MAILGUN_WEBHOOK_SIGNING_KEY: process.env.MAILGUN_WEBHOOK_SIGNING_KEY,
   EMAIL_INGEST_DOMAIN: process.env.EMAIL_INGEST_DOMAIN,
-  SENTRY_DSN: process.env.SENTRY_DSN
+  SENTRY_DSN: process.env.SENTRY_DSN,
+  INDEXNOW_KEY: process.env.INDEXNOW_KEY,
+  INDEXNOW_SECRET: process.env.INDEXNOW_SECRET
 });
 
 export const hasSupabaseEnv = Boolean(env.NEXT_PUBLIC_SUPABASE_URL && env.NEXT_PUBLIC_SUPABASE_ANON_KEY);

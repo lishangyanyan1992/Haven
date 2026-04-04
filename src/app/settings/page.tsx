@@ -5,7 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { getCrisisState } from "@/lib/get-crisis-state";
 import { getSnapshot } from "@/lib/repositories/case-compass";
+import { noIndexMetadata } from "@/lib/seo";
 import { saveProfileSettingsAction } from "@/server/actions";
+
+export const metadata = noIndexMetadata;
 
 function inferGreenCardStage(profile: Awaited<ReturnType<typeof getSnapshot>>["profile"]) {
   if (profile.i485Filed) return "i485_filed";

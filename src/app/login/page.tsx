@@ -5,7 +5,10 @@ import { HavenBrand } from "@/components/app/haven-brand";
 import { GoogleSignInButton } from "@/components/app/google-sign-in-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { noIndexMetadata } from "@/lib/seo";
 import { signInAction } from "@/server/actions";
+
+export const metadata = noIndexMetadata;
 
 export default async function LoginPage({
   searchParams
