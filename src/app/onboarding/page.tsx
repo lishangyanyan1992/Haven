@@ -7,8 +7,11 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { persistProfileDraft, ONBOARDING_OVERRIDE_COOKIE } from "@/lib/profile-sync";
 import { env } from "@/lib/env";
+import { noIndexMetadata } from "@/lib/seo";
 
 const EMAIL_INGEST_DOMAIN = env.EMAIL_INGEST_DOMAIN ?? "import.haven-h1b.com";
+
+export const metadata = noIndexMetadata;
 
 function buildDraft(data: FormData) {
   return {

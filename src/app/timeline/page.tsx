@@ -3,6 +3,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCrisisState } from "@/lib/get-crisis-state";
 import { getSnapshot } from "@/lib/repositories/case-compass";
+import { noIndexMetadata } from "@/lib/seo";
+
+export const metadata = noIndexMetadata;
 
 export default async function TimelinePage() {
   const [{ timelineEvents }, crisisState] = await Promise.all([getSnapshot(), getCrisisState()]);

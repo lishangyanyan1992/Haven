@@ -3,7 +3,10 @@ import { Clock3, ShieldAlert, Users } from "lucide-react";
 
 import { HavenBrand } from "@/components/app/haven-brand";
 import { GoogleSignInButton } from "@/components/app/google-sign-in-button";
+import { noIndexMetadata } from "@/lib/seo";
 import { RegisterForm } from "./RegisterForm";
+
+export const metadata = noIndexMetadata;
 
 const benefits = [
   {

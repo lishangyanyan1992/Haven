@@ -210,7 +210,7 @@ export const havenSnapshot: HavenWorkspaceSnapshot = {
         detail: "If a new employer is not secured, evaluate spouse-based fallback or departure planning with counsel."
       }
     ],
-    communityContext: "4 Haven members with approved I-140s shared layoff recovery paths in the last 90 days.",
+    communityContext: "Members in this cohort have shared B-2 bridge strategies, RFE rebuttals, and day-1 layoff checklists in the last 90 days.",
     disclaimer:
       "Haven provides information, not legal advice. Your immigration situation is unique. Consult a qualified immigration attorney before making decisions."
   },
@@ -229,10 +229,19 @@ export const havenSnapshot: HavenWorkspaceSnapshot = {
           id: "post-1",
           spaceType: "cohort",
           authorLabel: "Member A",
-          title: "Crossed 180 days after I-140 approval",
-          body: "I asked counsel what documentation mattered most for a same-or-similar transition. SOC framing was key.",
+          title: "Used B-2 as a bridge — H1B came through",
+          body: "Got laid off last May from a SaaS company. Couldn't land an offer inside 60 days so I filed B-2 COS on day 59. While that was pending I found a role at an AI startup. Attorney filed the H1B transfer and it got approved. The bridge worked. If you're on day 40+ with no offer in hand, file B-2 now — don't wait to see if something materialises. The window is real.",
           createdAt: "2026-03-18T18:00:00.000Z",
-          tags: ["AC21", "job_change"]
+          tags: ["B2_bridge", "job_change"]
+        },
+        {
+          id: "post-1b",
+          spaceType: "cohort",
+          authorLabel: "Member B",
+          title: "Survived a B-2 RFE — paystubs were everything",
+          body: "Laid off in May, made final rounds at three companies but no decisions before day 60. Filed B-2 on day 59. Got two offers on day 79 and 82. New employer filed H1B + H4 + EAD together in premium. Three days later: RFE about status maintenance during and after the grace period. Lawyers responded with paystubs and I-94s, approved within a week. Document every paystub, every I-94 entry. That paper trail is what cleared the RFE.",
+          createdAt: "2026-03-15T10:00:00.000Z",
+          tags: ["RFE", "B2_bridge", "grace_period"]
         }
       ]
     }
@@ -243,17 +252,27 @@ export const havenSnapshot: HavenWorkspaceSnapshot = {
     name: "Layoff War Room",
     summary: "Dedicated high-urgency space for users inside a 60-day grace period or actively planning for one.",
     members: [
-      { id: "member-3", label: "Member C", visaType: "H1B", countryOfBirth: "China", priorityDateRange: "2022-2023", topConcern: "layoffs" }
+      { id: "member-3", label: "Member C", visaType: "H1B", countryOfBirth: "China", priorityDateRange: "2022-2023", topConcern: "layoffs" },
+      { id: "member-4", label: "Member D", visaType: "H1B", countryOfBirth: "India", priorityDateRange: "2023-2024", topConcern: "layoffs" }
     ],
     posts: [
       {
         id: "post-2",
         spaceType: "war_room",
         authorLabel: "Member C",
-        title: "How I structured day 1 after my layoff",
-        body: "I split the first week into attorney outreach, document collection, and recruiter activation. Haven's checklist helped me stay organized.",
+        title: "Day 1 after layoff — what I actually did",
+        body: "Got laid off after 4 years. Here's what I did in the first 24 hours: called my immigration attorney, downloaded every I-797 and paystub from the HR portal before my access cut off, and set up a job search tracker. The 60-day clock is real but it's manageable if you start moving immediately. The worst thing you can do is lose the first week to shock. Attorney call first, document pull second, job search third.",
         createdAt: "2026-03-19T12:15:00.000Z",
-        tags: ["layoff", "60_day_window"]
+        tags: ["day_1", "60_day_window"]
+      },
+      {
+        id: "post-3",
+        spaceType: "war_room",
+        authorLabel: "Member D",
+        title: "Got the new B-2 RFE about 'job searching' — we beat it",
+        body: "Filed B-2 COS after my grace period and disclosed I intended to job search while in B-2 status. Got an RFE saying job searching during B-2 isn't allowed. My attorney pushed back with one argument: B-2 is a temporary bridge. The fact that I planned to land a permanent job on the other side doesn't make the bridge permanent. USCIS approved it. If you get this RFE, don't panic — the logic in it doesn't hold up and there's a clear rebuttal.",
+        createdAt: "2026-03-17T09:30:00.000Z",
+        tags: ["B2", "RFE", "grace_period"]
       }
     ]
   },

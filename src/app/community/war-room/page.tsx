@@ -2,6 +2,9 @@ import { AppShell } from "@/components/app/app-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCrisisState } from "@/lib/get-crisis-state";
 import { getSnapshot } from "@/lib/repositories/case-compass";
+import { noIndexMetadata } from "@/lib/seo";
+
+export const metadata = noIndexMetadata;
 
 export default async function WarRoomPage() {
   const [{ warRoom }, crisisState] = await Promise.all([getSnapshot(), getCrisisState()]);

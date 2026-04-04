@@ -7,7 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buildChecklist } from "@/lib/crisis-checklist";
 import { getCrisisState } from "@/lib/get-crisis-state";
 import { getSnapshot } from "@/lib/repositories/case-compass";
+import { noIndexMetadata } from "@/lib/seo";
 import Link from "next/link";
+
+export const metadata = noIndexMetadata;
 
 export default async function PlannerPage() {
   const [{ planner, profile }, crisisState] = await Promise.all([getSnapshot(), getCrisisState()]);

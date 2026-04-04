@@ -16,10 +16,13 @@ import { mergeSnapshotProfile } from "@/lib/haven";
 import { getPriorityDateIntelligence } from "@/lib/priority-date-intelligence";
 import { ONBOARDING_OVERRIDE_COOKIE, parseOverrideCookie, persistProfileDraft } from "@/lib/profile-sync";
 import { getSnapshot } from "@/lib/repositories/case-compass";
+import { noIndexMetadata } from "@/lib/seo";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { resolveCrisisModeFromForm } from "@/server/crisis-actions";
 import type { ImmigrationProfile } from "@/types/domain";
+
+export const metadata = noIndexMetadata;
 
 const readinessMeta = {
   high: { label: "High readiness", variant: "active" as const, progress: "88%" },
