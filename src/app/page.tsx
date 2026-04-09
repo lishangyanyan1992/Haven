@@ -3,7 +3,28 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, Clock, FileText, MessageCircle, ShieldAlert, Sparkles, Star, Users } from "lucide-react";
 
-const IMMIG_WIZARD_URL = process.env.NEXT_PUBLIC_IMMIG_WIZARD_URL ?? "https://immig.haven-h1b.com";
+const KNOWN_BROKEN_IMMIG_WIZARD_HOST = "immig.haven-h1b.com";
+
+function getImmigWizardUrl() {
+  const configuredUrl = process.env.NEXT_PUBLIC_IMMIG_WIZARD_URL?.trim();
+
+  if (!configuredUrl) {
+    return null;
+  }
+
+  try {
+    const parsedUrl = new URL(configuredUrl);
+    if (parsedUrl.hostname === KNOWN_BROKEN_IMMIG_WIZARD_HOST) {
+      return null;
+    }
+
+    return parsedUrl.toString();
+  } catch {
+    return null;
+  }
+}
+
+const IMMIG_WIZARD_URL = getImmigWizardUrl();
 
 import { BlogCard } from "@/components/app/blog-card";
 import { GuideCard } from "@/components/app/guide-card";
@@ -91,15 +112,17 @@ export default function HomePage() {
             <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/guides">
               Guides
             </Link>
-            <a
-              className="inline-flex items-center gap-1 text-body-sm text-[var(--haven-sage-ink,var(--haven-ink))] hover:text-[var(--haven-ink)] font-medium"
-              href={IMMIG_WIZARD_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Green Card Forms
-              <ArrowRight className="h-3 w-3" />
-            </a>
+            {IMMIG_WIZARD_URL ? (
+              <a
+                className="inline-flex items-center gap-1 text-body-sm text-[var(--haven-sage-ink,var(--haven-ink))] font-medium hover:text-[var(--haven-ink)]"
+                href={IMMIG_WIZARD_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Green Card Forms
+                <ArrowRight className="h-3 w-3" />
+              </a>
+            ) : null}
             <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/about">
               About
             </Link>
@@ -265,42 +288,43 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ImmigWizard companion tool */}
-        <section className="border-y border-[var(--color-border)] bg-[var(--haven-sage-light,var(--haven-sand))]">
-          <div className="content-container-wide py-14 lg:py-20">
-            <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-center">
-              <div>
-                <div className="inline-flex items-center gap-2 rounded-full border border-[var(--haven-sage-mid)] bg-[var(--haven-white)] px-3 py-1 mb-4">
-                  <FileText className="h-3.5 w-3.5 text-[var(--haven-sage)]" />
-                  <p className="text-[11px] font-medium tracking-wide text-[var(--haven-ink-mid)]">Free companion tool</p>
+        {IMMIG_WIZARD_URL ? (
+          <section className="border-y border-[var(--color-border)] bg-[var(--haven-sage-light,var(--haven-sand))]">
+            <div className="content-container-wide py-14 lg:py-20">
+              <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-center">
+                <div>
+                  <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[var(--haven-sage-mid)] bg-[var(--haven-white)] px-3 py-1">
+                    <FileText className="h-3.5 w-3.5 text-[var(--haven-sage)]" />
+                    <p className="text-[11px] font-medium tracking-wide text-[var(--haven-ink-mid)]">Free companion tool</p>
+                  </div>
+                  <h2 className="text-h1 max-w-[22ch]">
+                    Applying for a marriage-based green card? We've got you.
+                  </h2>
+                  <p className="text-body mt-4 max-w-[58ch]">
+                    ImmigWizard walks you through Forms I-130, I-485, I-864, I-765, and I-131 — step by step — and generates pre-filled PDFs ready to mail to USCIS. No attorney needed for a straightforward case.
+                  </p>
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    {["I-130 · I-485 · I-864", "Pre-filled PDFs", "Free to use"].map((tag) => (
+                      <span key={tag} className="tag tag-visa">{tag}</span>
+                    ))}
+                  </div>
                 </div>
-                <h2 className="text-h1 max-w-[22ch]">
-                  Applying for a marriage-based green card? We've got you.
-                </h2>
-                <p className="text-body mt-4 max-w-[58ch]">
-                  ImmigWizard walks you through Forms I-130, I-485, I-864, I-765, and I-131 — step by step — and generates pre-filled PDFs ready to mail to USCIS. No attorney needed for a straightforward case.
-                </p>
-                <div className="mt-6 flex flex-wrap gap-3">
-                  {["I-130 · I-485 · I-864", "Pre-filled PDFs", "Free to use"].map((tag) => (
-                    <span key={tag} className="tag tag-visa">{tag}</span>
-                  ))}
+                <div className="flex flex-col items-start gap-3 lg:items-end">
+                  <a
+                    href={IMMIG_WIZARD_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-[var(--radius-lg)] bg-[var(--haven-ink)] px-6 py-3 text-[15px] font-semibold text-[var(--haven-cream)] shadow-sm transition-all hover:-translate-y-0.5 hover:bg-[var(--haven-ink-mid,var(--haven-ink))] hover:shadow-md"
+                  >
+                    Start the wizard
+                    <ArrowRight className="h-4 w-4" />
+                  </a>
+                  <p className="text-caption text-center lg:text-right">Takes about 10 minutes</p>
                 </div>
-              </div>
-              <div className="flex flex-col items-start gap-3 lg:items-end">
-                <a
-                  href={IMMIG_WIZARD_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-[var(--radius-lg)] bg-[var(--haven-ink)] px-6 py-3 text-[15px] font-semibold text-[var(--haven-cream)] shadow-sm transition-all hover:bg-[var(--haven-ink-mid,var(--haven-ink))] hover:-translate-y-0.5 hover:shadow-md"
-                >
-                  Start the wizard
-                  <ArrowRight className="h-4 w-4" />
-                </a>
-                <p className="text-caption text-center lg:text-right">Takes about 10 minutes</p>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        ) : null}
 
         <section className="content-container-wide py-20 lg:py-28" id="community">
           <div className="max-w-[62ch]">
@@ -398,15 +422,17 @@ export default function HomePage() {
         <div className="content-container-wide flex flex-col gap-4 py-8 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-6">
             <HavenBrand compact />
-            <a
-              href={IMMIG_WIZARD_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-caption text-[var(--haven-ink-mid)] hover:text-[var(--haven-ink)] transition-colors"
-            >
-              <FileText className="h-3 w-3" />
-              ImmigWizard — Green Card Forms
-            </a>
+            {IMMIG_WIZARD_URL ? (
+              <a
+                href={IMMIG_WIZARD_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-caption text-[var(--haven-ink-mid)] transition-colors hover:text-[var(--haven-ink)]"
+              >
+                <FileText className="h-3 w-3" />
+                ImmigWizard — Green Card Forms
+              </a>
+            ) : null}
           </div>
           <p className="text-caption">Haven provides information, not legal advice. Verify decisions with a qualified attorney.</p>
         </div>
