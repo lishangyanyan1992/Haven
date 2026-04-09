@@ -27,6 +27,7 @@
     "@supabase/supabase-js": "latest",
     "@tanstack/react-table": "latest",
     "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
     "class-variance-authority": "latest",
     "clsx": "latest",
     "lucide-react": "latest",
