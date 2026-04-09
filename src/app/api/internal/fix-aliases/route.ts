@@ -7,11 +7,16 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const providedSecret = searchParams.get("secret");
   const expectedSecret = env.ADVISOR_SOURCE_SYNC_SECRET;
 
-  if (!expectedSecret || providedSecret !== expectedSecret) {
+  if (!expectedSecret) {
+    return NextResponse.json({ error: "endpoint_not_configured" }, { status: 503 });
+  }
+
+  const authHeader = request.headers.get("authorization");
+  const providedSecret = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+
+  if (!providedSecret || providedSecret !== expectedSecret) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

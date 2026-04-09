@@ -49,7 +49,8 @@ export async function GET(request: Request) {
     .maybeSingle();
 
   if (documentError) {
-    return NextResponse.json({ error: documentError.message }, { status: 500 });
+    console.error("[files/sign] document lookup error:", documentError.message);
+    return NextResponse.json({ error: "Failed to retrieve document." }, { status: 500 });
   }
 
   if (!document) {
@@ -61,7 +62,8 @@ export async function GET(request: Request) {
     .createSignedUrl(document.storage_path, 60 * 5, { download: document.original_name });
 
   if (error || !data?.signedUrl) {
-    return NextResponse.json({ error: error?.message ?? "Unable to create download URL." }, { status: 500 });
+    console.error("[files/sign] signed URL error:", error?.message);
+    return NextResponse.json({ error: "Unable to create download URL." }, { status: 500 });
   }
 
   return NextResponse.redirect(data.signedUrl);
@@ -107,7 +109,8 @@ export async function POST(request: Request) {
     });
 
     if (uploadError) {
-      return NextResponse.json({ error: uploadError.message }, { status: 500 });
+      console.error("[files/sign] upload error:", uploadError.message);
+      return NextResponse.json({ error: "File upload failed." }, { status: 500 });
     }
 
     const metadata = {
@@ -133,8 +136,9 @@ export async function POST(request: Request) {
       .single();
 
     if (insertError) {
+      console.error("[files/sign] document record insert error:", insertError.message);
       await admin.storage.from(HAVEN_VAULT_BUCKET).remove([storagePath]);
-      return NextResponse.json({ error: insertError.message }, { status: 500 });
+      return NextResponse.json({ error: "Failed to save document record." }, { status: 500 });
     }
 
     revalidatePath("/inbox");
@@ -148,9 +152,7 @@ export async function POST(request: Request) {
       crisisCritical: document.crisis_critical
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unable to upload document." },
-      { status: 500 }
-    );
+    console.error("[files/sign] unexpected error:", error);
+    return NextResponse.json({ error: "Unable to upload document." }, { status: 500 });
   }
 }

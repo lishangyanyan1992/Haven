@@ -7,6 +7,29 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
+// In-process rate limiter (per-instance, not distributed).
+// Limits abuse from a single IP within a warm Vercel function instance.
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX_REQUESTS = 20;
+interface RateEntry { count: number; windowStart: number }
+const rateLimitStore = new Map<string, RateEntry>();
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  if (rateLimitStore.size > 500) {
+    for (const [key, val] of rateLimitStore) {
+      if (now - val.windowStart > RATE_LIMIT_WINDOW_MS) rateLimitStore.delete(key);
+    }
+  }
+  const entry = rateLimitStore.get(ip);
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    rateLimitStore.set(ip, { count: 1, windowStart: now });
+    return true;
+  }
+  entry.count += 1;
+  return entry.count <= RATE_LIMIT_MAX_REQUESTS;
+}
+
 function verifyMailgunSignature(
   signingKey: string,
   timestamp: string,
@@ -39,6 +62,15 @@ function normaliseSubject(subject: string): string {
 }
 
 export async function POST(request: NextRequest) {
+  const ip =
+    request.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
+    request.headers.get("x-real-ip") ??
+    "unknown";
+  if (!checkRateLimit(ip)) {
+    console.warn(`[email-ingest] rate limit exceeded for IP: ${ip}`);
+    return NextResponse.json({ error: "rate_limit_exceeded" }, { status: 429 });
+  }
+
   const signingKey = env.MAILGUN_WEBHOOK_SIGNING_KEY;
 
   let formData: FormData;
@@ -53,16 +85,18 @@ export async function POST(request: NextRequest) {
   const token = String(formData.get("token") ?? "");
   const signature = String(formData.get("signature") ?? "");
 
-  // Verify HMAC signature — 406 tells Mailgun not to retry
-  if (signingKey) {
-    if (!timestamp || !token || !signature) {
-      console.error("[email-ingest] missing signature fields");
-      return NextResponse.json({ error: "missing_signature_fields" }, { status: 406 });
-    }
-    if (!verifyMailgunSignature(signingKey, timestamp, token, signature)) {
-      console.error("[email-ingest] invalid signature — check MAILGUN_WEBHOOK_SIGNING_KEY");
-      return NextResponse.json({ error: "invalid_signature" }, { status: 406 });
-    }
+  // Verify HMAC signature — 503 tells Mailgun to retry (misconfiguration); 406 = permanent reject
+  if (!signingKey) {
+    console.error("[email-ingest] MAILGUN_WEBHOOK_SIGNING_KEY is not configured");
+    return NextResponse.json({ error: "endpoint_not_configured" }, { status: 503 });
+  }
+  if (!timestamp || !token || !signature) {
+    console.error("[email-ingest] missing signature fields");
+    return NextResponse.json({ error: "missing_signature_fields" }, { status: 406 });
+  }
+  if (!verifyMailgunSignature(signingKey, timestamp, token, signature)) {
+    console.error("[email-ingest] invalid signature — check MAILGUN_WEBHOOK_SIGNING_KEY");
+    return NextResponse.json({ error: "invalid_signature" }, { status: 406 });
   }
 
   const recipient = String(formData.get("recipient") ?? "").toLowerCase().trim();
