@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { ArrowRight, CheckCircle2 } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 
 import { HavenBrand } from "@/components/app/haven-brand";
 import { GoogleSignInButton } from "@/components/app/google-sign-in-button";
-import { Button } from "@/components/ui/button";
+import { LoginSubmitButton } from "@/components/app/login-submit-button";
 import { Input } from "@/components/ui/input";
 import { noIndexMetadata } from "@/lib/seo";
 import { signInAction } from "@/server/actions";
@@ -142,10 +142,7 @@ export default async function LoginPage({
                 Forgot password?
               </Link>
             </div>
-            <Button className="w-full" size="lg" type="submit">
-              Continue to Haven
-              <ArrowRight className="h-4 w-4" />
-            </Button>
+            <LoginSubmitButton />
           </form>
 
           <p className="text-caption mt-6">
