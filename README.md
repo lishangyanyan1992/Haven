@@ -18,6 +18,7 @@ This repository currently contains:
 
 1. Install a Node.js toolchain.
 2. Copy `.env.example` to `.env.local`.
+   Set `NEXT_PUBLIC_MIXPANEL_TOKEN` as well if you want Mixpanel client analytics enabled.
 3. Install dependencies with `npm install`.
 4. Run `npm run dev`.
 5. Verify the app with `npm run typecheck` and `npm run build:webpack`.

@@ -3,6 +3,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
 import "@/app/globals.css";
+import { MixpanelProvider } from "@/components/app/mixpanel-provider";
 import { siteUrl } from "@/lib/seo";
 import { getOrganizationStructuredData, getWebsiteStructuredData } from "@/lib/site";
 
@@ -44,6 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteStructuredData) }}
         />
         {children}
+        <MixpanelProvider />
         <Analytics />
         <SpeedInsights />
       </body>

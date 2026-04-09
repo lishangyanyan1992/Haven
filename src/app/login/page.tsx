@@ -3,6 +3,7 @@ import { CheckCircle2 } from "lucide-react";
 
 import { HavenBrand } from "@/components/app/haven-brand";
 import { GoogleSignInButton } from "@/components/app/google-sign-in-button";
+import { LoginEventTracker } from "@/components/app/login-event-tracker";
 import { LoginSubmitButton } from "@/components/app/login-submit-button";
 import { Input } from "@/components/ui/input";
 import { noIndexMetadata } from "@/lib/seo";
@@ -21,6 +22,7 @@ export default async function LoginPage({
 
   return (
     <div className="min-h-screen">
+      <LoginEventTracker message={message} />
       <header className="border-b border-[var(--color-border)] bg-[rgba(253,250,246,0.94)]">
         <div className="content-container-wide flex items-center justify-between py-4">
           <Link href="/">
@@ -115,6 +117,12 @@ export default async function LoginPage({
           {message === "password_updated" && (
             <div className="mt-5 rounded-[var(--radius-lg)] border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] px-4 py-3 text-body-sm">
               Password updated. Sign in with your new password.
+            </div>
+          )}
+
+          {message === "oauth_error" && (
+            <div className="mt-5 rounded-[var(--radius-lg)] border border-[#e8b4b4] bg-[#fdf0f0] px-4 py-3 text-body-sm text-[#7a3030]">
+              Google sign-in did not complete. Please try again.
             </div>
           )}
 

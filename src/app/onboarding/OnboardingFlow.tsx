@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowRight, Briefcase, Clock, Heart, ShieldCheck, TrendingUp
 
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { trackEvent } from "@/lib/mixpanel";
 import { cn } from "@/lib/utils";
 
 interface OnboardingData {
@@ -176,6 +177,7 @@ function estimateRemainingWait(priorityDate: string, country: string, category: 
 
 const ONBOARDING_STORAGE_KEY = "haven-onboarding-progress";
 const ONBOARDING_OVERRIDE_COOKIE = "haven_onboarding_override";
+const ONBOARDING_STARTED_PREFIX = "haven-mixpanel-onboarding-started";
 
 export function OnboardingFlow({
   saveStepAction,
@@ -235,6 +237,16 @@ export function OnboardingFlow({
     window.localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify({ currentStep, formData, userEmail }));
     document.cookie = `${ONBOARDING_OVERRIDE_COOKIE}=${encodeURIComponent(JSON.stringify(formData))}; path=/; max-age=86400; samesite=lax`;
   }, [currentStep, formData]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const storageKey = `${ONBOARDING_STARTED_PREFIX}:${userEmail || "anonymous"}`;
+    if (window.sessionStorage.getItem(storageKey)) return;
+
+    trackEvent("Onboarding Started", { initial_step: initialStep });
+    window.sessionStorage.setItem(storageKey, "1");
+  }, [initialStep, userEmail]);
 
   const updateField = (key: keyof OnboardingData, value: string) => {
     setHasInteracted(true);
@@ -354,6 +366,12 @@ export function OnboardingFlow({
     startSavingTransition(async () => {
       try {
         await saveStepAction(4, data);
+        trackEvent("Onboarding Completed", {
+          concern_count: formData.topConcerns?.length ?? 0
+        });
+        if (typeof window !== "undefined") {
+          window.sessionStorage.removeItem(`${ONBOARDING_STARTED_PREFIX}:${userEmail || "anonymous"}`);
+        }
         if (typeof window !== "undefined") window.localStorage.removeItem(ONBOARDING_STORAGE_KEY);
         router.push("/dashboard");
       } catch {

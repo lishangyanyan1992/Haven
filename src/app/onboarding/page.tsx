@@ -2,6 +2,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 
 import { HavenBrand } from "@/components/app/haven-brand";
+import { MixpanelAuthTracker } from "@/components/app/mixpanel-auth-tracker";
 import { OnboardingFlow } from "./OnboardingFlow";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -80,6 +81,7 @@ export default async function OnboardingPage({
 }) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
+  const userId = user?.id ?? "";
   const userEmail = user?.email ?? "";
 
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
@@ -96,6 +98,7 @@ export default async function OnboardingPage({
           <p className="text-body-sm hidden md:block">Step by step. Value at every step.</p>
         </div>
       </header>
+      {userId ? <MixpanelAuthTracker destination="/onboarding" userId={userId} /> : null}
       <OnboardingFlow initialStep={initialStep} saveStepAction={saveStepAction} userEmail={userEmail} />
     </div>
   );

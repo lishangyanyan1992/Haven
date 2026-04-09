@@ -4,13 +4,20 @@ import { ArrowRight, Loader2 } from "lucide-react";
 import { useFormStatus } from "react-dom";
 
 import { Button } from "@/components/ui/button";
+import { rememberLoginAttempt, trackEvent } from "@/lib/mixpanel";
 
 export function LoginSubmitButton() {
   const { pending } = useFormStatus();
 
+  function handleClick() {
+    if (pending) return;
+    rememberLoginAttempt("password");
+    trackEvent("Login Started", { method: "password" });
+  }
+
   return (
     <div className="space-y-2">
-      <Button aria-disabled={pending} className="w-full" disabled={pending} size="lg" type="submit">
+      <Button aria-disabled={pending} className="w-full" disabled={pending} onClick={handleClick} size="lg" type="submit">
         {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
         {pending ? "Signing you in..." : "Continue to Haven"}
       </Button>

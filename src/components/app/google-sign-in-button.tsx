@@ -3,25 +3,32 @@
 import { useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 
-import { env } from "@/lib/env";
+import { clearLoginAttempt, rememberLoginAttempt, trackEvent } from "@/lib/mixpanel";
 
 export function GoogleSignInButton({ label = "Continue with Google" }: { label?: string }) {
   const [loading, setLoading] = useState(false);
 
   async function handleClick() {
     setLoading(true);
+    rememberLoginAttempt("google");
+    trackEvent("Login Started", { method: "google" });
     const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
 
-    await supabase.auth.signInWithOAuth({
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
+        redirectTo: `${window.location.origin}/auth/callback`
+      }
     });
-    // Browser will redirect — keep spinner until navigation happens
+
+    if (!error) return;
+
+    clearLoginAttempt();
+    trackEvent("Login Failed", { method: "google", reason: error.message });
+    setLoading(false);
   }
 
   return (
