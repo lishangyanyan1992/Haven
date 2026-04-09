@@ -13,9 +13,10 @@ export function LoginEventTracker({ message }: { message?: string }) {
     if (!message || !FAILURE_MESSAGES.has(message)) return;
 
     const loginAttempt = consumeLoginAttempt();
-    trackEvent("Login Failed", {
-      method: loginAttempt?.method ?? "unknown",
-      reason: message
+    trackEvent("Sign In", {
+      user_id: null,
+      login_method: loginAttempt?.method ?? "unknown",
+      success: false
     });
   }, [message]);
 

@@ -6,6 +6,7 @@ import { Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { trackEvent } from "@/lib/mixpanel";
 import { cn } from "@/lib/utils";
 
 const tags = ["AC21", "Layoffs", "Visa Bulletin", "H1B", "EB-2", "EB-3", "Job Change", "Timeline", "H4 EAD"];
@@ -35,6 +36,10 @@ export function CommunityComposer({
 
   const handleSubmit = () => {
     if (!title.trim() || !body.trim()) return;
+    trackEvent("Conversion", {
+      "Conversion Type": "community_post",
+      "Conversion Value": selectedTags.length
+    });
     setSubmitted(true);
     setTimeout(() => {
       setSubmitted(false);

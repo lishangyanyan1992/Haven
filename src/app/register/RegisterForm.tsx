@@ -6,6 +6,7 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { signUpAction } from "@/server/actions";
+import { rememberSignUpAttempt } from "@/lib/mixpanel";
 import { cn } from "@/lib/utils";
 
 function getPasswordStrength(pw: string): { met: boolean; label: string }[] {
@@ -32,6 +33,11 @@ export function RegisterForm({ defaultEmail }: { defaultEmail?: string }) {
     if (!allMet || password.length === 0) {
       e.preventDefault();
       return;
+    }
+
+    const email = new FormData(formRef.current ?? undefined).get("email");
+    if (typeof email === "string" && email.trim()) {
+      rememberSignUpAttempt(email.trim().toLowerCase());
     }
   };
 

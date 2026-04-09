@@ -12,7 +12,11 @@ export function LoginSubmitButton() {
   function handleClick() {
     if (pending) return;
     rememberLoginAttempt("password");
-    trackEvent("Login Started", { method: "password" });
+    trackEvent("Sign In", {
+      user_id: null,
+      login_method: "password",
+      success: false
+    });
   }
 
   return (

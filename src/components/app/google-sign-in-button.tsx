@@ -11,7 +11,11 @@ export function GoogleSignInButton({ label = "Continue with Google" }: { label?:
   async function handleClick() {
     setLoading(true);
     rememberLoginAttempt("google");
-    trackEvent("Login Started", { method: "google" });
+    trackEvent("Sign In", {
+      user_id: null,
+      login_method: "google",
+      success: false
+    });
     const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!

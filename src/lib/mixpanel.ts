@@ -10,6 +10,7 @@ interface LoginAttempt {
 }
 
 const LOGIN_ATTEMPT_STORAGE_KEY = "haven-mixpanel-login-attempt";
+const SIGN_UP_ATTEMPT_STORAGE_KEY = "haven-mixpanel-signup-attempt";
 
 let initialized = false;
 
@@ -31,8 +32,11 @@ export function initMixpanel() {
   }
 
   mixpanel.init(token, {
+    debug: process.env.NODE_ENV !== "production",
     persistence: "localStorage",
-    track_pageview: true
+    track_pageview: true,
+    autocapture: true,
+    record_sessions_percent: 100
   });
 
   initialized = true;
@@ -49,6 +53,9 @@ export function identifyUser(userId: string, properties?: Record<string, unknown
   if (!getToken()) return;
 
   mixpanel.identify(userId);
+  mixpanel.people.set({
+    $email: typeof properties?.email === "string" ? properties.email : undefined
+  });
   mixpanel.register({ user_id: userId, ...properties });
 }
 
@@ -95,4 +102,26 @@ export function consumeLoginAttempt(): LoginAttempt | null {
 export function clearLoginAttempt() {
   if (!isBrowser()) return;
   window.sessionStorage.removeItem(LOGIN_ATTEMPT_STORAGE_KEY);
+}
+
+export function rememberSignUpAttempt(email: string) {
+  if (!isBrowser()) return;
+
+  window.sessionStorage.setItem(
+    SIGN_UP_ATTEMPT_STORAGE_KEY,
+    JSON.stringify({
+      email,
+      startedAt: Date.now()
+    })
+  );
+}
+
+export function consumeSignUpAttempt() {
+  if (!isBrowser()) return null;
+
+  const raw = window.sessionStorage.getItem(SIGN_UP_ATTEMPT_STORAGE_KEY);
+  if (!raw) return null;
+
+  window.sessionStorage.removeItem(SIGN_UP_ATTEMPT_STORAGE_KEY);
+  return JSON.parse(raw) as { email: string; startedAt: number };
 }

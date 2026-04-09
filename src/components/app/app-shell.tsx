@@ -61,7 +61,7 @@ export async function AppShell({
 
   return (
     <div className="min-h-screen bg-[var(--color-bg)]">
-      <MixpanelAuthTracker destination={activePath} userId={profile.id} />
+      <MixpanelAuthTracker destination={activePath} email={profile.email} userId={profile.id} />
       <div className="app-shell mx-auto grid min-h-screen max-w-[1600px] grid-cols-1 lg:grid-cols-[240px_1fr]">
         <aside className="border-b border-[var(--color-border)] bg-[var(--haven-sand)] px-4 py-5 lg:min-h-screen lg:border-b-0 lg:border-r">
           <div className="flex items-center justify-between gap-3 lg:block">

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { trackEvent } from "@/lib/mixpanel";
 import type { AdvisorAnswerPayload, AdvisorMessage } from "@/types/domain";
 
 type AdvisorWorkspaceProps = {
@@ -82,6 +83,11 @@ export function AdvisorWorkspace({ suggestedPrompts, welcomeMessage }: AdvisorWo
           throw new Error(body.error ?? "Unable to send advisor message.");
         }
 
+        trackEvent("Search", {
+          search_query: content,
+          user_id: null,
+          results_count: 1
+        });
         setMessages([...nextMessages, body.assistantMessage]);
         setStreamingMessageId(body.assistantMessage.id);
       } catch (caughtError) {
