@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, Clock, FileText, MessageCircle, ShieldAlert, Sparkles, Star, Users } from "lucide-react";
+import { ArrowRight, Calculator, Clock, FileText, FolderOpen, Heart, MessageCircle, ShieldAlert, Sparkles, Star, Users } from "lucide-react";
 
 const KNOWN_BROKEN_IMMIG_WIZARD_HOST = "immig.haven-h1b.com";
 
@@ -33,6 +33,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { getRecentBlogPosts } from "@/lib/blog";
 import { getFeaturedGuides } from "@/lib/guides";
 import { absoluteUrl } from "@/lib/seo";
+import { publicTools, type ToolSlug } from "@/lib/tools";
 import { cn } from "@/lib/utils";
 
 const features = [
@@ -69,6 +70,13 @@ const stories = [
     initials: "ML"
   }
 ];
+
+const toolIcons: Record<ToolSlug, typeof Sparkles> = {
+  "uscis-vaccine-finder": ShieldAlert,
+  "grace-period-calculator": Calculator,
+  "priority-date-checker": Sparkles,
+  "document-pack-builder": FolderOpen
+};
 
 export const metadata: Metadata = {
   title: "Haven",
@@ -112,6 +120,9 @@ export default function HomePage() {
             <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/guides">
               Guides
             </Link>
+            <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/tools">
+              Tools
+            </Link>
             {IMMIG_WIZARD_URL ? (
               <a
                 className="inline-flex items-center gap-1 text-body-sm text-[var(--haven-sage-ink,var(--haven-ink))] font-medium hover:text-[var(--haven-ink)]"
@@ -139,7 +150,7 @@ export default function HomePage() {
       </header>
 
       <main>
-        <section className="content-container-wide grid gap-8 px-0 py-14 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-16 lg:py-24">
+        <section className="content-container-wide grid gap-8 px-0 py-12 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-16 lg:py-20">
           <div className="animate-enter">
             <div className="flex flex-wrap items-center gap-2">
               <div className="inline-flex items-center gap-2 rounded-full border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] px-3 py-1">
@@ -218,71 +229,121 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="content-container-wide py-20 lg:py-28" id="features">
-          <div className="max-w-[62ch]">
-            <p className="text-label">What Haven gives you</p>
-            <h2 className="text-h1 mt-4">The parts of immigration support that usually live in six tabs and a stressed group chat.</h2>
-          </div>
-          <div className="mt-10 grid gap-4 lg:grid-cols-3">
-            {features.map((feature, index) => (
-              <article
-                key={feature.title}
-                className={cn(
-                  "animate-enter group relative overflow-hidden rounded-[var(--radius-2xl)] p-6",
-                  "shadow-[0_2px_16px_-4px_rgba(44,54,48,0.07)] transition-all duration-200",
-                  "hover:shadow-[0_8px_32px_-8px_rgba(44,54,48,0.14)] hover:-translate-y-0.5",
-                  index === 1 ? "bg-[var(--haven-sky-light)]" : "bg-[var(--haven-sand)]"
-                )}
-              >
-                <div
-                  className={cn(
-                    "absolute inset-x-0 top-0 h-[3px]",
-                    index === 1 ? "bg-[var(--haven-sky)]" : "bg-[var(--haven-sage)]"
-                  )}
-                />
-                <div
-                  className={cn(
-                    "flex h-11 w-11 items-center justify-center rounded-[var(--radius-xl)] text-[var(--haven-ink)]",
-                    index === 1 ? "bg-white/70" : "bg-[var(--haven-white)]"
-                  )}
-                >
-                  <feature.icon className="h-5 w-5" />
+        <section className="border-y border-[var(--color-border)] bg-[var(--haven-sand)]">
+          <div className="content-container-wide py-14 lg:py-20">
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[var(--haven-sky-mid)] bg-[var(--haven-sky-light)] px-3 py-1">
+              <Heart className="h-3.5 w-3.5 text-[var(--haven-sky-ink)]" />
+              <p className="text-[11px] font-medium tracking-wide text-[var(--haven-sky-ink)]">Coming soon</p>
+            </div>
+            <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
+              <div>
+                <h2 className="text-h1 max-w-[22ch]">Five forms. One packet. Zero guesswork.</h2>
+                <p className="text-body mt-4 max-w-[58ch]">
+                  A marriage-based green card requires filing up to five interconnected USCIS forms — I-130, I-485, I-864, I-765, and I-131 — where a single inconsistency between forms can trigger a months-long delay. Haven&apos;s packet builder walks you through every question, flags mismatches before you mail anything, and tells you upfront whether your case is one you should DIY or hand to a personal attorney.
+                </p>
+                <p className="text-body-sm mt-3 text-[var(--haven-ink-mid)] max-w-[55ch]">
+                  Already tracking your H-1B timeline in Haven? A marriage-based green card can run in parallel with your employment-based process.
+                </p>
+                <div className="mt-6 flex flex-wrap gap-3">
+                  {["Adjustment of Status", "I-130 · I-485 · I-864", "Free to start"].map((tag) => (
+                    <span key={tag} className="tag tag-visa">{tag}</span>
+                  ))}
                 </div>
-                <h3 className="text-h2 mt-5">{feature.title}</h3>
-                <p className="text-body mt-3">{feature.description}</p>
-              </article>
-            ))}
+              </div>
+              <div className="grid gap-3">
+                {[
+                  {
+                    title: "Covers the whole AOS packet",
+                    body: "I-130 through I-131, plus I-693 medical exam prep. Generates your document checklist based on your specific situation."
+                  },
+                  {
+                    title: "Catches what people miss",
+                    body: "Flags mismatched dates, inconsistent names, and missing signatures across forms before you submit — the most common RFE triggers."
+                  },
+                  {
+                    title: "Tells you when to call a lawyer",
+                    body: "Prior visa denial, overstay, borderline income? Flags complicating factors at intake so you don't waste government fees on a case that needs professional guidance."
+                  }
+                ].map(({ title, body }) => (
+                  <div key={title} className="rounded-[var(--radius-lg)] border border-dashed border-[var(--haven-sky-mid)] bg-[var(--haven-white)] p-4">
+                    <p className="text-h3">{title}</p>
+                    <p className="text-body-sm mt-2">{body}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </section>
 
-        <section className="content-container-wide py-20 lg:py-28" id="how-it-works">
-          <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
-            <div>
-              <p className="text-label">How it works</p>
-              <h2 className="text-h1 mt-4">Give Haven a few details. Get value back immediately.</h2>
-              <p className="text-body mt-4 max-w-[60ch]">
-                The setup is short by design. Each answer unlocks a timeline, better recommendations, or a more relevant cohort.
-              </p>
+        <section className="border-y border-[var(--color-border)] bg-[var(--haven-white)]" id="features">
+          <div className="content-container-wide py-14 lg:py-20">
+            <div className="max-w-[62ch]">
+              <p className="text-label">What Haven gives you</p>
+              <h2 className="text-h1 mt-4">The parts of immigration support that usually live in six tabs and a stressed group chat.</h2>
             </div>
-            <div className="rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-6">
-              <div className="timeline">
-                {[
-                  ["Step 1", "Add your visa status and country of birth", "So Haven can place you in the right path."],
-                  ["Step 2", "See your milestone dates and action windows", "Deterministic dates where possible, honest ranges where not."],
-                  ["Step 3", "Plan for layoffs, renewals, and employer changes", "One calm plan instead of a generic warning banner."],
-                  ["Step 4", "Learn from people who already went through it", "Community guidance shows what worked in practice."]
-                ].map(([label, title, copy], index) => (
-                  <div key={label} className="timeline-item">
-                    <div className="timeline-track">
-                      <div className={cn("timeline-dot", index === 1 ? "timeline-dot-active" : "timeline-dot-done")} />
-                    </div>
-                    <div className="timeline-content">
-                      <p className="text-label">{label}</p>
-                      <p className="text-h3 mt-1">{title}</p>
-                      <p className="text-body-sm mt-2">{copy}</p>
-                    </div>
+            <div className="mt-10 grid gap-4 lg:grid-cols-3">
+              {features.map((feature, index) => (
+                <article
+                  key={feature.title}
+                  className={cn(
+                    "animate-enter group relative overflow-hidden rounded-[var(--radius-2xl)] p-6",
+                    "shadow-[0_2px_16px_-4px_rgba(44,54,48,0.07)] transition-all duration-200",
+                    "hover:shadow-[0_8px_32px_-8px_rgba(44,54,48,0.14)] hover:-translate-y-0.5",
+                    index === 1 ? "bg-[var(--haven-sky-light)]" : "bg-[var(--haven-sand)]"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "absolute inset-x-0 top-0 h-[3px]",
+                      index === 1 ? "bg-[var(--haven-sky)]" : "bg-[var(--haven-sage)]"
+                    )}
+                  />
+                  <div
+                    className={cn(
+                      "flex h-11 w-11 items-center justify-center rounded-[var(--radius-xl)] text-[var(--haven-ink)]",
+                      index === 1 ? "bg-white/70" : "bg-[var(--haven-white)]"
+                    )}
+                  >
+                    <feature.icon className="h-5 w-5" />
                   </div>
-                ))}
+                  <h3 className="text-h2 mt-5">{feature.title}</h3>
+                  <p className="text-body mt-3">{feature.description}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="border-y border-[var(--color-border)] bg-[var(--haven-sand)]" id="how-it-works">
+          <div className="content-container-wide py-14 lg:py-20">
+            <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+              <div>
+                <p className="text-label">How it works</p>
+                <h2 className="text-h1 mt-4">Give Haven a few details. Get value back immediately.</h2>
+                <p className="text-body mt-4 max-w-[60ch]">
+                  The setup is short by design. Each answer unlocks a timeline, better recommendations, or more relevant stories from people in the same situation.
+                </p>
+              </div>
+              <div className="rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-6">
+                <div className="timeline">
+                  {[
+                    ["Step 1", "Add your visa status and country of birth", "So Haven can place you in the right path."],
+                    ["Step 2", "See your milestone dates and action windows", "Deterministic dates where possible, honest ranges where not."],
+                    ["Step 3", "Plan for layoffs, renewals, and employer changes", "One calm plan instead of a generic warning banner."],
+                    ["Step 4", "Learn from people who already went through it", "Community guidance shows what worked in practice."]
+                  ].map(([label, title, copy], index) => (
+                    <div key={label} className="timeline-item">
+                      <div className="timeline-track">
+                        <div className={cn("timeline-dot", index === 1 ? "timeline-dot-active" : "timeline-dot-done")} />
+                      </div>
+                      <div className="timeline-content">
+                        <p className="text-label">{label}</p>
+                        <p className="text-h3 mt-1">{title}</p>
+                        <p className="text-body-sm mt-2">{copy}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -326,40 +387,84 @@ export default function HomePage() {
           </section>
         ) : null}
 
-        <section className="content-container-wide py-20 lg:py-28" id="community">
-          <div className="max-w-[62ch]">
-            <p className="text-label">Community stories</p>
-            <h2 className="text-h1 mt-4">People trust specifics, not slogans.</h2>
-          </div>
-          <div className="mt-10 grid gap-4 lg:grid-cols-2">
-            {stories.map((story) => (
-              <article key={story.title} className="flex flex-col rounded-[var(--radius-xl)] border border-[var(--haven-sky-mid)] bg-[var(--haven-sky-light)] p-6 shadow-[0_2px_12px_-4px_rgba(58,110,132,0.08)]">
-                <div className="flex items-center gap-0.5">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} className="h-3.5 w-3.5 fill-[var(--haven-sky-ink)] text-[var(--haven-sky-ink)]" />
-                  ))}
-                </div>
-                <h3 className="text-h2 mt-4">{story.title}</h3>
-                <p className="text-body mt-3 flex-1">{story.body}</p>
-                <div className="mt-5 flex items-center gap-3 border-t border-[var(--haven-sky-mid)] pt-4">
-                  <div className="avatar avatar-sm avatar-community flex-shrink-0">{story.initials}</div>
-                  <div>
-                    <p className="text-[13px] font-medium leading-none text-[var(--haven-ink)]">{story.author}</p>
-                    <p className="text-caption mt-1">{story.detail}</p>
+        <section className="border-y border-[var(--color-border)] bg-[var(--haven-sky-light)]" id="community">
+          <div className="content-container-wide py-14 lg:py-20">
+            <div className="max-w-[62ch]">
+              <p className="text-label">Community stories</p>
+              <h2 className="text-h1 mt-4">People trust specifics, not slogans.</h2>
+            </div>
+            <div className="mt-10 grid gap-4 lg:grid-cols-2">
+              {stories.map((story) => (
+                <article key={story.title} className="flex flex-col rounded-[var(--radius-xl)] border border-[var(--haven-sky-mid)] bg-[var(--haven-white)] p-6 shadow-[0_2px_12px_-4px_rgba(58,110,132,0.08)]">
+                  <div className="flex items-center gap-0.5">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star key={i} className="h-3.5 w-3.5 fill-[var(--haven-sky-ink)] text-[var(--haven-sky-ink)]" />
+                    ))}
                   </div>
-                </div>
-              </article>
-            ))}
+                  <h3 className="text-h2 mt-4">{story.title}</h3>
+                  <p className="text-body mt-3 flex-1">{story.body}</p>
+                  <div className="mt-5 flex items-center gap-3 border-t border-[var(--haven-sky-mid)] pt-4">
+                    <div className="avatar avatar-sm avatar-community flex-shrink-0">{story.initials}</div>
+                    <div>
+                      <p className="text-[13px] font-medium leading-none text-[var(--haven-ink)]">{story.author}</p>
+                      <p className="text-caption mt-1">{story.detail}</p>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
           </div>
         </section>
 
-        <section className="content-container-wide py-20 lg:py-28">
+        <section className="border-y border-[var(--color-border)] bg-[var(--haven-white)]">
+          <div className="content-container-wide py-14 lg:py-20">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-[62ch]">
+              <p className="text-label">Free tools</p>
+              <h2 className="text-h1 mt-4">Useful calculators and checkers you can open right now — no account needed.</h2>
+              <p className="text-body mt-4 max-w-[58ch]">
+                Try any tool before you sign up. Grace periods, Visa Bulletin math, document prep — useful on their own, more powerful inside Haven.
+              </p>
+            </div>
+            <Link className={buttonVariants({ variant: "outline" })} href="/tools">
+              Explore all tools
+            </Link>
+          </div>
+
+          <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {publicTools.map((tool) => {
+              const Icon = toolIcons[tool.slug];
+
+              return (
+              <Link
+                key={tool.slug}
+                href={`/tools/${tool.slug}`}
+                className="group rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-6 shadow-[0_8px_32px_-12px_rgba(44,54,48,0.12)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_36px_-12px_rgba(44,54,48,0.18)]"
+              >
+                <div className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-xl)] bg-[var(--haven-sage-light)] text-[var(--haven-ink)]">
+                  <Icon className="h-5 w-5" />
+                </div>
+                <h3 className="text-h2 mt-5">{tool.title}</h3>
+                <p className="text-body mt-3">{tool.teaser}</p>
+                <span className="mt-5 inline-flex items-center gap-1 text-[13px] font-medium text-[var(--haven-ink)]">
+                  Use this tool
+                  <ArrowRight className="h-3.5 w-3.5 transition-transform duration-150 group-hover:translate-x-0.5" />
+                </span>
+              </Link>
+            );
+            })}
+          </div>
+          </div>
+        </section>
+
+        <section className="border-y border-[var(--color-border)] bg-[var(--haven-sand)]">
+          <div className="content-container-wide py-14 lg:py-20">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-[62ch]">
               <p className="text-label">Popular guides</p>
-              <h2 className="text-h1 mt-4">Search-intent pages for layoffs, grace periods, and transfers.</h2>
+              <h2 className="text-h1 mt-4">Plain-language guides for layoffs, grace periods, and transfers.</h2>
               <p className="text-body mt-4 max-w-[58ch]">
-                These public guides are built for the moments when people are actively trying to understand what to do next on an H-1B timeline.
+                Step-by-step guidance for the moments when you need to know what to do next — written in plain language, not legalese.
               </p>
             </div>
             <Link className={buttonVariants({ variant: "outline" })} href="/guides">
@@ -372,9 +477,11 @@ export default function HomePage() {
               <GuideCard key={guide.slug} guide={guide} />
             ))}
           </div>
+          </div>
         </section>
 
-        <section className="content-container-wide py-20 lg:py-28">
+        <section className="border-y border-[var(--color-border)] bg-[var(--haven-white)]">
+          <div className="content-container-wide py-14 lg:py-20">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-[62ch]">
               <p className="text-label">From the blog</p>
@@ -393,9 +500,10 @@ export default function HomePage() {
               <BlogCard key={post.slug} post={post} />
             ))}
           </div>
+          </div>
         </section>
 
-        <section className="content-container-wide py-20 lg:py-28">
+        <section className="content-container-wide py-14 lg:py-20">
           <div className="rounded-[var(--radius-2xl)] bg-[var(--haven-ink)] px-6 py-10 text-[var(--haven-cream)] md:px-10 md:py-12">
             <div className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(253,250,246,0.18)] bg-[rgba(253,250,246,0.08)] px-3 py-1">
               <Sparkles className="h-3 w-3 text-[rgba(253,250,246,0.72)]" />
@@ -422,6 +530,9 @@ export default function HomePage() {
         <div className="content-container-wide flex flex-col gap-4 py-8 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-6">
             <HavenBrand compact />
+            <Link className="text-caption text-[var(--haven-ink-mid)] transition-colors hover:text-[var(--haven-ink)]" href="/tools">
+              Free tools
+            </Link>
             {IMMIG_WIZARD_URL ? (
               <a
                 href={IMMIG_WIZARD_URL}
