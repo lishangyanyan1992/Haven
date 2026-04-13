@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { GuideCard } from "@/components/app/guide-card";
-import { HavenBrand } from "@/components/app/haven-brand";
+import { PublicNavbar } from "@/components/app/public-navbar";
 import { buttonVariants } from "@/components/ui/button";
 import { formatGuideDate, getAllGuides, getGuide, getRelatedGuides } from "@/lib/guides";
 import { absoluteUrl } from "@/lib/seo";
@@ -112,30 +112,7 @@ export default async function GuidePage({ params }: GuidePageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqStructuredData) }}
       />
-      <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[rgba(253,250,246,0.92)] backdrop-blur-md">
-        <div className="content-container-wide flex h-16 items-center justify-between gap-4">
-          <Link href="/">
-            <HavenBrand />
-          </Link>
-          <div className="flex items-center gap-3">
-            <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/about">
-              About
-            </Link>
-            <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/guides">
-              Guides
-            </Link>
-            <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/blog">
-              Blog
-            </Link>
-            <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/login">
-              Sign in
-            </Link>
-            <Link className={buttonVariants({ variant: "default" })} href="/register">
-              Get started
-            </Link>
-          </div>
-        </div>
-      </header>
+      <PublicNavbar currentPath="/guides" />
 
       <main className="content-container-wide py-12 lg:py-20">
         <div className="mx-auto max-w-[78ch]">

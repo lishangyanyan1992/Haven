@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { HavenBrand } from "@/components/app/haven-brand";
+import { PublicNavbar } from "@/components/app/public-navbar";
 import { buttonVariants } from "@/components/ui/button";
 import { formatBlogDate, getAllBlogPosts, getBlogPost } from "@/lib/blog";
 import { absoluteUrl } from "@/lib/seo";
@@ -43,11 +44,22 @@ export async function generateMetadata({ params }: BlogPostPageProps): Promise<M
       title: post.seoTitle ?? post.title,
       description: post.seoDescription ?? post.excerpt,
       publishedTime: new Date(post.publishedAt).toISOString(),
-      authors: [post.author]
+      authors: [post.author],
+      images: post.image
+        ? [
+            {
+              url: absoluteUrl(post.image.src).toString(),
+              width: post.image.width,
+              height: post.image.height,
+              alt: post.image.alt
+            }
+          ]
+        : undefined
     },
     twitter: {
       title: post.seoTitle ?? post.title,
-      description: post.seoDescription ?? post.excerpt
+      description: post.seoDescription ?? post.excerpt,
+      images: post.image ? [absoluteUrl(post.image.src).toString()] : undefined
     }
   };
 }
@@ -91,30 +103,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     <div className="min-h-screen">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbData) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(blogPostingData) }} />
-      <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[rgba(253,250,246,0.92)] backdrop-blur-md">
-        <div className="content-container-wide flex h-16 items-center justify-between gap-4">
-          <Link href="/">
-            <HavenBrand />
-          </Link>
-          <div className="flex items-center gap-3">
-            <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/about">
-              About
-            </Link>
-            <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/guides">
-              Guides
-            </Link>
-            <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/blog">
-              Blog
-            </Link>
-            <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/login">
-              Sign in
-            </Link>
-            <Link className={buttonVariants({ variant: "default" })} href="/register">
-              Get started
-            </Link>
-          </div>
-        </div>
-      </header>
+      <PublicNavbar currentPath="/blog" />
 
       <main className="content-container-wide py-12 lg:py-20">
         <div className="mx-auto max-w-[78ch]">
@@ -127,6 +116,23 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
             </div>
             <h1 className="text-display mt-5 max-w-[16ch]">{post.title}</h1>
             <p className="text-body mt-6 max-w-[62ch]">{post.excerpt}</p>
+            {post.image ? (
+              <figure className="mt-8 overflow-hidden rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-cream)]">
+                <Image
+                  src={post.image.src}
+                  alt={post.image.alt}
+                  width={post.image.width}
+                  height={post.image.height}
+                  className="h-auto w-full"
+                  priority
+                />
+                {post.image.caption ? (
+                  <figcaption className="border-t border-[var(--color-border)] px-5 py-4 text-body-sm">
+                    {post.image.caption}
+                  </figcaption>
+                ) : null}
+              </figure>
+            ) : null}
           </div>
 
           <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-start">

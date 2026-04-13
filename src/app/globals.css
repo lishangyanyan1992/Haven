@@ -3,8 +3,6 @@
 @import "tailwindcss";
 @config "../../tailwind.config.ts";
 
-@source "../**/*.{ts,tsx}";
-
 :root {
   --haven-ink: #2c3630;
   --haven-ink-mid: #4a5c54;
@@ -68,6 +66,12 @@
   --radius-xl: 16px;
   --radius-2xl: 20px;
   --radius-full: 9999px;
+
+  --container-padding: 1rem;
+  --container-reading-max: 48rem;
+  --container-page-max: 78rem;
+  --container-visual-max: 90rem;
+  --app-shell-max: 108rem;
 }
 
 @theme inline {
@@ -178,7 +182,7 @@ body::before {
   /* ── Typography ── */
   .text-display {
     font-family: var(--font-display);
-    font-size: clamp(2.25rem, 5.5vw, 4rem);
+    font-size: clamp(2.5rem, 5.8vw, 4.5rem);
     font-weight: 400;
     line-height: 1.06;
     letter-spacing: -0.025em;
@@ -192,7 +196,7 @@ body::before {
 
   .text-h1 {
     font-family: var(--font-body);
-    font-size: clamp(1.6rem, 3vw, 2.1rem);
+    font-size: clamp(1.85rem, 3.2vw, 2.5rem);
     font-weight: 500;
     line-height: 1.18;
     letter-spacing: -0.02em;
@@ -201,7 +205,7 @@ body::before {
 
   .text-h2 {
     font-family: var(--font-body);
-    font-size: 19px;
+    font-size: 21px;
     font-weight: 500;
     line-height: 1.3;
     letter-spacing: -0.01em;
@@ -210,7 +214,7 @@ body::before {
 
   .text-h3 {
     font-family: var(--font-body);
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 500;
     line-height: 1.4;
     letter-spacing: -0.005em;
@@ -219,23 +223,23 @@ body::before {
 
   .text-body {
     font-family: var(--font-body);
+    font-size: 17px;
+    font-weight: 400;
+    line-height: 1.7;
+    color: var(--color-text-secondary);
+  }
+
+  .text-body-sm {
+    font-family: var(--font-body);
     font-size: 15px;
     font-weight: 400;
     line-height: 1.65;
     color: var(--color-text-secondary);
   }
 
-  .text-body-sm {
-    font-family: var(--font-body);
-    font-size: 13px;
-    font-weight: 400;
-    line-height: 1.6;
-    color: var(--color-text-secondary);
-  }
-
   .text-caption {
     font-family: var(--font-body);
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 400;
     line-height: 1.5;
     color: var(--color-text-tertiary);
@@ -243,7 +247,7 @@ body::before {
 
   .text-label {
     font-family: var(--font-body);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     line-height: 1.4;
     letter-spacing: 0.08em;
@@ -269,18 +273,33 @@ body::before {
 
 @layer components {
   /* ── Layout containers ── */
-  .content-container {
+  .content-container,
+  .content-container-reading {
     width: 100%;
-    max-width: 720px;
+    max-width: var(--container-reading-max);
     margin: 0 auto;
-    padding: 0 var(--space-6);
+    padding-inline: var(--container-padding);
   }
 
-  .content-container-wide {
+  .content-container-wide,
+  .content-container-page {
     width: 100%;
-    max-width: 1080px;
+    max-width: var(--container-page-max);
     margin: 0 auto;
-    padding: 0 var(--space-6);
+    padding-inline: var(--container-padding);
+  }
+
+  .content-container-visual {
+    width: 100%;
+    max-width: var(--container-visual-max);
+    margin: 0 auto;
+    padding-inline: var(--container-padding);
+  }
+
+  .app-shell-frame {
+    width: 100%;
+    max-width: var(--app-shell-max);
+    margin: 0 auto;
   }
 
   /* ── Form ── */
@@ -437,10 +456,58 @@ body::before {
   50%       { opacity: 0.6; }
 }
 
+@media (min-width: 768px) {
+  :root {
+    --container-padding: 1.5rem;
+    --container-page-max: 84rem;
+    --container-visual-max: 98rem;
+    --app-shell-max: 112rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --container-padding: 2rem;
+    --container-page-max: 88rem;
+    --container-visual-max: 106rem;
+    --app-shell-max: 118rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  :root {
+    --container-padding: 4.5rem;
+    --container-page-max: 94rem;
+    --container-visual-max: 114rem;
+    --app-shell-max: 124rem;
+  }
+}
+
+@media (min-width: 1440px) {
+  :root {
+    --container-padding: 6rem;
+    --container-page-max: 100rem;
+    --container-visual-max: 122rem;
+    --app-shell-max: 130rem;
+  }
+}
+
+@media (min-width: 1728px) {
+  :root {
+    --container-padding: 8rem;
+    --container-page-max: 106rem;
+    --container-visual-max: 132rem;
+    --app-shell-max: 136rem;
+  }
+}
+
 @media (max-width: 768px) {
   .content-container,
-  .content-container-wide {
-    padding: 0 var(--space-4);
+  .content-container-reading,
+  .content-container-wide,
+  .content-container-page,
+  .content-container-visual {
+    padding-inline: var(--container-padding);
   }
 }
 

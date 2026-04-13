@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { HavenBrand } from "@/components/app/haven-brand";
+import { PublicNavbar } from "@/components/app/public-navbar";
 import { buttonVariants } from "@/components/ui/button";
 import { absoluteUrl } from "@/lib/seo";
 import { buildBreadcrumbStructuredData, getAuthorProfile } from "@/lib/site";
@@ -37,29 +37,9 @@ export default function AboutPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbData) }}
       />
-      <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[rgba(253,250,246,0.92)] backdrop-blur-md">
-        <div className="content-container-wide flex h-16 items-center justify-between gap-4">
-          <Link href="/">
-            <HavenBrand />
-          </Link>
-          <div className="flex items-center gap-3">
-            <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/guides">
-              Guides
-            </Link>
-            <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/blog">
-              Blog
-            </Link>
-            <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/login">
-              Sign in
-            </Link>
-            <Link className={buttonVariants({ variant: "default" })} href="/register">
-              Get started
-            </Link>
-          </div>
-        </div>
-      </header>
+      <PublicNavbar currentPath="/about" />
 
-      <main className="content-container-wide py-16 lg:py-24">
+      <main className="content-container-visual py-16 lg:py-24 xl:py-28">
         <section className="max-w-[72ch]">
           <p className="text-label">About Haven</p>
           <h1 className="text-display mt-5 max-w-[14ch]">Built for the moments when immigration decisions get expensive.</h1>

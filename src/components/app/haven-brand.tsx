@@ -9,7 +9,7 @@ export function HavenBrand({
   return (
     <span
       className={cn(
-        "font-[family-name:var(--font-display)] text-[22px] leading-none tracking-tight select-none",
+        "font-[family-name:var(--font-display)] text-[44px] leading-none tracking-tight select-none",
         className
       )}
     >

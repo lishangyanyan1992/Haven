@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
 import { BlogCard } from "@/components/app/blog-card";
-import { HavenBrand } from "@/components/app/haven-brand";
-import { buttonVariants } from "@/components/ui/button";
+import { PublicNavbar } from "@/components/app/public-navbar";
 import { getAllBlogPosts } from "@/lib/blog";
 import { absoluteUrl } from "@/lib/seo";
 
@@ -29,33 +27,10 @@ export default function BlogIndexPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[rgba(253,250,246,0.92)] backdrop-blur-md">
-        <div className="content-container-wide flex h-16 items-center justify-between gap-4">
-          <Link href="/">
-            <HavenBrand />
-          </Link>
-          <div className="flex items-center gap-3">
-            <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/">
-              Home
-            </Link>
-            <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/guides">
-              Guides
-            </Link>
-            <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/about">
-              About
-            </Link>
-            <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/login">
-              Sign in
-            </Link>
-            <Link className={buttonVariants({ variant: "default" })} href="/register">
-              Get started
-            </Link>
-          </div>
-        </div>
-      </header>
+      <PublicNavbar currentPath="/blog" />
 
       <main>
-        <section className="content-container-wide py-16 lg:py-24">
+        <section className="content-container-visual py-16 lg:py-24 xl:py-28">
           <div className="max-w-[72ch]">
             <p className="text-label">Haven blog</p>
             <h1 className="text-display mt-5 max-w-[14ch]">Guidance for the moments when immigration gets noisy.</h1>
@@ -64,7 +39,7 @@ export default function BlogIndexPage() {
             </p>
           </div>
 
-          <div className="mt-12 grid gap-5 lg:grid-cols-3">
+          <div className="mt-12 grid gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {posts.map((post) => (
               <BlogCard key={post.slug} post={post} />
             ))}

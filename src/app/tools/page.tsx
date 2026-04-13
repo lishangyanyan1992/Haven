@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Heart, ShieldCheck, Wrench } from "lucide-react";
 
-import { HavenBrand } from "@/components/app/haven-brand";
-import { buttonVariants } from "@/components/ui/button";
+import { PublicNavbar } from "@/components/app/public-navbar";
 import { absoluteUrl } from "@/lib/seo";
 import { buildBreadcrumbStructuredData } from "@/lib/site";
 import { ToolsWorkspace } from "@/app/tools/ToolsWorkspace";
@@ -37,41 +35,10 @@ export default function ToolsPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbData) }}
       />
-      <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[rgba(253,250,246,0.92)] backdrop-blur-md">
-        <div className="content-container-wide flex h-16 items-center justify-between gap-4">
-          <Link href="/">
-            <HavenBrand />
-          </Link>
-          <nav className="hidden items-center gap-6 md:flex">
-            <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/">
-              Home
-            </Link>
-            <Link className="text-body-sm font-medium text-[var(--haven-ink)]" href="/tools">
-              Tools
-            </Link>
-            <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/guides">
-              Guides
-            </Link>
-            <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/blog">
-              Blog
-            </Link>
-            <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/about">
-              About
-            </Link>
-          </nav>
-          <div className="flex items-center gap-3">
-            <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/login">
-              Sign in
-            </Link>
-            <Link className={buttonVariants({ variant: "default" })} href="/register">
-              Get started
-            </Link>
-          </div>
-        </div>
-      </header>
+      <PublicNavbar currentPath="/tools" />
 
       <main>
-        <section className="content-container-wide py-16 lg:py-24">
+        <section className="content-container-visual py-16 lg:py-24 xl:py-28">
           <div className="page-intro">
             <div className="flex flex-wrap items-center gap-2">
               <div className="inline-flex items-center gap-2 rounded-full border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] px-3 py-1">
@@ -90,12 +57,12 @@ export default function ToolsPage() {
           </div>
         </section>
 
-        <section className="content-container-wide pb-16 lg:pb-24">
+        <section className="content-container-visual pb-16 lg:pb-24 xl:pb-28">
           <ToolsWorkspace />
         </section>
 
         <section className="border-t border-[var(--color-border)] bg-[var(--haven-sand)]">
-          <div className="content-container-wide py-14 lg:py-20">
+          <div className="content-container-visual py-14 lg:py-20 xl:py-24">
             <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[var(--haven-sky-mid)] bg-[var(--haven-sky-light)] px-3 py-1">
               <Heart className="h-3.5 w-3.5 text-[var(--haven-sky-ink)]" />
               <p className="text-[11px] font-medium tracking-wide text-[var(--haven-sky-ink)]">Coming soon</p>
@@ -112,7 +79,7 @@ export default function ToolsPage() {
                   ))}
                 </div>
               </div>
-              <div className="grid gap-3">
+              <div className="grid gap-3 xl:grid-cols-3 xl:gap-4">
                 {[
                   {
                     title: "Full AOS packet",

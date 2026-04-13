@@ -62,7 +62,7 @@ export async function AppShell({
   return (
     <div className="min-h-screen bg-[var(--color-bg)]">
       <MixpanelAuthTracker destination={activePath} email={profile.email} userId={profile.id} />
-      <div className="app-shell mx-auto grid min-h-screen max-w-[1600px] grid-cols-1 lg:grid-cols-[240px_1fr]">
+      <div className="app-shell-frame grid min-h-screen grid-cols-1 lg:grid-cols-[248px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)]">
         <aside className="border-b border-[var(--color-border)] bg-[var(--haven-sand)] px-4 py-5 lg:min-h-screen lg:border-b-0 lg:border-r">
           <div className="flex items-center justify-between gap-3 lg:block">
             <HavenBrand />
@@ -136,7 +136,7 @@ export async function AppShell({
         </aside>
 
         <div className="min-w-0">
-          <header className="topbar sticky top-0 z-20 flex min-h-14 items-center justify-between border-b border-[var(--color-border)] bg-[rgba(253,250,246,0.94)] px-4 backdrop-blur-sm md:px-6">
+          <header className="topbar sticky top-0 z-20 flex min-h-14 items-center justify-between border-b border-[var(--color-border)] bg-[rgba(253,250,246,0.94)] px-4 backdrop-blur-sm md:px-6 xl:px-8 2xl:px-10">
             <div>
               <p className="text-label">Haven app</p>
               <p className="text-body-sm">Clear next steps, grounded in what people like you experienced.</p>
@@ -149,8 +149,8 @@ export async function AppShell({
 
           {crisisState ? <CrisisBanner crisisState={crisisState} /> : null}
 
-          <main className="p-4 md:p-6 lg:p-8">
-            <div className="content-container-wide">{children}</div>
+          <main className="p-4 md:p-6 lg:p-8 xl:p-10 2xl:p-12">
+            <div className="content-container-visual">{children}</div>
           </main>
         </div>
       </div>

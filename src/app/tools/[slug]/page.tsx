@@ -4,8 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Share2 } from "lucide-react";
 
 import { ToolsWorkspace } from "@/app/tools/ToolsWorkspace";
-import { HavenBrand } from "@/components/app/haven-brand";
-import { buttonVariants } from "@/components/ui/button";
+import { PublicNavbar } from "@/components/app/public-navbar";
 import { absoluteUrl } from "@/lib/seo";
 import { buildBreadcrumbStructuredData } from "@/lib/site";
 import { getPublicTool, publicTools, type ToolSlug } from "@/lib/tools";
@@ -68,38 +67,7 @@ export default async function IndividualToolPage({ params }: ToolPageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbData) }}
       />
-      <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[rgba(253,250,246,0.92)] backdrop-blur-md">
-        <div className="content-container-wide flex h-16 items-center justify-between gap-4">
-          <Link href="/">
-            <HavenBrand />
-          </Link>
-          <nav className="hidden items-center gap-6 md:flex">
-            <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/">
-              Home
-            </Link>
-            <Link className="text-body-sm font-medium text-[var(--haven-ink)]" href="/tools">
-              Tools
-            </Link>
-            <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/guides">
-              Guides
-            </Link>
-            <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/blog">
-              Blog
-            </Link>
-            <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/about">
-              About
-            </Link>
-          </nav>
-          <div className="flex items-center gap-3">
-            <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/login">
-              Sign in
-            </Link>
-            <Link className={buttonVariants({ variant: "default" })} href="/register">
-              Get started
-            </Link>
-          </div>
-        </div>
-      </header>
+      <PublicNavbar currentPath="/tools" />
 
       <main>
         <section className="content-container-wide py-16 lg:py-24">
