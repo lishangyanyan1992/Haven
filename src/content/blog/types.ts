@@ -11,6 +11,14 @@ export type BlogSource = {
   publisher: string;
 };
 
+export type BlogImage = {
+  src: string;
+  alt: string;
+  width: number;
+  height: number;
+  caption?: string;
+};
+
 export type BlogPost = {
   slug: string;
   title: string;
@@ -21,6 +29,7 @@ export type BlogPost = {
   author: string;
   seoTitle?: string;
   seoDescription?: string;
+  image?: BlogImage;
   keyTakeaways: string[];
   sections: BlogSection[];
   sources?: BlogSource[];
