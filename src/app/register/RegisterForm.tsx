@@ -17,7 +17,7 @@ function getPasswordStrength(pw: string): { met: boolean; label: string }[] {
   ];
 }
 
-export function RegisterForm({ defaultEmail }: { defaultEmail?: string }) {
+export function RegisterForm({ defaultEmail, defaultFullName }: { defaultEmail?: string; defaultFullName?: string }) {
   const [password, setPassword] = useState("");
   const [touched, setTouched] = useState(false);
   const [submitAttempted, setSubmitAttempted] = useState(false);
@@ -45,7 +45,7 @@ export function RegisterForm({ defaultEmail }: { defaultEmail?: string }) {
     <form ref={formRef} action={signUpAction} className="mt-6 space-y-4" onSubmit={handleSubmit}>
       <div>
         <label className="field-label">Full name</label>
-        <Input autoComplete="name" name="fullName" placeholder="Your name" required />
+        <Input autoComplete="name" defaultValue={defaultFullName} name="fullName" placeholder="Your name" required />
       </div>
       <div>
         <label className="field-label">Email</label>

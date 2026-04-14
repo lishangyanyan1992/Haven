@@ -30,7 +30,16 @@ export const emailIngestConfirmationSchema = z.object({
   acceptedFieldLabels: z.array(z.string())
 });
 
+export const waitlistSignupSchema = z.object({
+  fullName: z.string().trim().min(2).max(120),
+  email: z.string().trim().email().max(320),
+  interestKey: z.string().trim().min(1).max(120),
+  interestLabel: z.string().trim().min(1).max(160),
+  sourcePath: z.string().trim().startsWith("/").max(200).default("/")
+});
+
 export type OnboardingStepOneInput = z.infer<typeof onboardingStepOneSchema>;
 export type OnboardingStepTwoInput = z.infer<typeof onboardingStepTwoSchema>;
 export type OnboardingStepThreeInput = z.infer<typeof onboardingStepThreeSchema>;
 export type OnboardingStepFourInput = z.infer<typeof onboardingStepFourSchema>;
+export type WaitlistSignupInput = z.infer<typeof waitlistSignupSchema>;

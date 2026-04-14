@@ -29,9 +29,9 @@ const benefits = [
 export default async function RegisterPage({
   searchParams
 }: {
-  searchParams: Promise<{ email?: string; message?: string }>;
+  searchParams: Promise<{ email?: string; fullName?: string; message?: string }>;
 }) {
-  const { email = "", message } = await searchParams;
+  const { email = "", fullName = "", message } = await searchParams;
 
   return (
     <div className="min-h-screen">
@@ -83,6 +83,12 @@ export default async function RegisterPage({
           )}
 
           {/* debug: {message} */}
+          {message === "waitlist" && (
+            <div className="mt-5 rounded-[var(--radius-lg)] border border-[var(--haven-sky-mid)] bg-[var(--haven-sky-light)] px-4 py-3 text-body-sm">
+              Early-access request started. Finish creating your Haven profile and we&apos;ll keep you posted on the packet builder.
+            </div>
+          )}
+
           {(message === "rate_limited") && (
             <div className="mt-5 rounded-[var(--radius-lg)] border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] px-4 py-3 text-body-sm">
               Too many sign-up attempts right now. Please wait a few minutes and try again.
@@ -98,7 +104,7 @@ export default async function RegisterPage({
             </div>
           </div>
 
-          <RegisterForm defaultEmail={email} />
+          <RegisterForm defaultEmail={email} defaultFullName={fullName} />
 
           <p className="text-caption mt-6">
             By creating an account, you agree to Haven&apos;s terms and privacy policy. Haven provides information, not legal advice.

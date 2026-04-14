@@ -16,7 +16,8 @@ import {
   onboardingStepFourSchema,
   onboardingStepOneSchema,
   onboardingStepThreeSchema,
-  onboardingStepTwoSchema
+  onboardingStepTwoSchema,
+  waitlistSignupSchema
 } from "@/lib/validation";
 
 async function requireUser() {
@@ -229,6 +230,71 @@ export async function signUpAction(formData: FormData) {
 
   // Email confirmation enabled — ask user to verify first
   redirect(`/login?email=${encodeURIComponent(email)}&message=confirm_email`);
+}
+
+export async function submitWaitlistAction(input: {
+  fullName: string;
+  email: string;
+  interestKey: string;
+  interestLabel: string;
+  sourcePath?: string;
+}) {
+  const parsed = waitlistSignupSchema.safeParse({
+    ...input,
+    fullName: String(input.fullName ?? "").trim(),
+    email: String(input.email ?? "").trim().toLowerCase(),
+    interestKey: String(input.interestKey ?? "").trim(),
+    interestLabel: String(input.interestLabel ?? "").trim(),
+    sourcePath: String(input.sourcePath ?? "/").trim() || "/"
+  });
+
+  if (!parsed.success) {
+    return {
+      status: "error" as const,
+      message: "Enter a valid name and email."
+    };
+  }
+
+  try {
+    const admin = createSupabaseAdminClient() as any;
+    const now = new Date().toISOString();
+    const normalizedEmail = parsed.data.email.toLowerCase();
+
+    const { error } = await admin.from("waitlist_signups").upsert(
+      {
+        full_name: parsed.data.fullName,
+        email: parsed.data.email,
+        normalized_email: normalizedEmail,
+        interest_key: parsed.data.interestKey,
+        interest_label: parsed.data.interestLabel,
+        source_path: parsed.data.sourcePath,
+        updated_at: now
+      },
+      {
+        onConflict: "normalized_email,interest_key,source_path",
+        ignoreDuplicates: false
+      }
+    );
+
+    if (error) {
+      console.error("[waitlist] failed to save signup", error);
+      return {
+        status: "error" as const,
+        message: "Could not save your request right now. Please try again."
+      };
+    }
+
+    return {
+      status: "success" as const,
+      message: `You're on the list for ${parsed.data.interestLabel}.`
+    };
+  } catch (error) {
+    console.error("[waitlist] unexpected error", error);
+    return {
+      status: "error" as const,
+      message: "Could not save your request right now. Please try again."
+    };
+  }
 }
 
 export async function completeOnboardingAction(formData: FormData) {

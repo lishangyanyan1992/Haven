@@ -1051,6 +1051,45 @@ export type Database = {
         }
         Relationships: []
       }
+      waitlist_signups: {
+        Row: {
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          interest_key: string
+          interest_label: string
+          metadata: Json
+          normalized_email: string
+          source_path: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          full_name: string
+          id?: string
+          interest_key: string
+          interest_label: string
+          metadata?: Json
+          normalized_email: string
+          source_path?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+          interest_key?: string
+          interest_label?: string
+          metadata?: Json
+          normalized_email?: string
+          source_path?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       visa_bulletin_entries: {
         Row: {
           bulletin_month: number
