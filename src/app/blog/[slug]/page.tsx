@@ -117,14 +117,6 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
             </div>
             <h1 className="text-display mt-5 max-w-[24ch]">{post.title}</h1>
             <p className="text-body mt-6 max-w-[70ch]">{post.excerpt}</p>
-            <figure className="mt-8 overflow-hidden rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-cream)]">
-              <Image src={image.src} alt={image.alt} width={image.width} height={image.height} className="h-auto w-full" priority />
-              {post.image?.caption ? (
-                <figcaption className="border-t border-[var(--color-border)] px-5 py-4 text-body-sm">
-                  {post.image.caption}
-                </figcaption>
-              ) : null}
-            </figure>
           </div>
 
           <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px] xl:grid-cols-[minmax(0,1fr)_320px] 2xl:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
@@ -138,6 +130,22 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
                         {paragraph}
                       </p>
                     ))}
+                    {section.image ? (
+                      <figure className="mt-6 overflow-hidden rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-cream)]">
+                        <Image
+                          src={section.image.src}
+                          alt={section.image.alt}
+                          width={section.image.width}
+                          height={section.image.height}
+                          className="h-auto w-full"
+                        />
+                        {section.image.caption ? (
+                          <figcaption className="border-t border-[var(--color-border)] px-5 py-4 text-body-sm">
+                            {section.image.caption}
+                          </figcaption>
+                        ) : null}
+                      </figure>
+                    ) : null}
                     {section.bullets?.length ? (
                       <ul className="mt-4 space-y-3 pl-5">
                         {section.bullets.map((bullet) => (

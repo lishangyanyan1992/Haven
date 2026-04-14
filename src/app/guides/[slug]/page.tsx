@@ -115,7 +115,7 @@ export default async function GuidePage({ params }: GuidePageProps) {
       <PublicNavbar currentPath="/guides" />
 
       <main className="content-container-wide py-12 lg:py-20">
-        <div className="mx-auto max-w-[78ch]">
+        <div className="mx-auto max-w-[96rem]">
           <div className="rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-7 shadow-[0_10px_40px_-12px_rgba(44,54,48,0.14)] md:p-10">
             <div className="flex flex-wrap items-center gap-2">
               <span className="tag tag-visa">{guide.category}</span>
@@ -123,43 +123,45 @@ export default async function GuidePage({ params }: GuidePageProps) {
               <span className="text-caption">{guide.readingTime}</span>
               <span className="text-caption">By {author.name}</span>
             </div>
-            <h1 className="text-display mt-5 max-w-[16ch]">{guide.title}</h1>
-            <p className="text-body mt-6 max-w-[62ch]">{guide.excerpt}</p>
+            <h1 className="text-display mt-5 max-w-[24ch]">{guide.title}</h1>
+            <p className="text-body mt-6 max-w-[70ch]">{guide.excerpt}</p>
           </div>
 
-          <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-start">
-            <article className="rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-7 md:p-10">
-              {guide.sections.map((section, index) => (
-                <section key={section.heading} className={index === 0 ? "" : "mt-10"}>
-                  <h2 className="text-h1">{section.heading}</h2>
-                  {section.paragraphs.map((paragraph) => (
-                    <p key={paragraph} className="text-body mt-4">
-                      {paragraph}
-                    </p>
-                  ))}
-                  {section.bullets?.length ? (
-                    <ul className="mt-4 space-y-3 pl-5">
-                      {section.bullets.map((bullet) => (
-                        <li key={bullet} className="text-body list-disc">
-                          {bullet}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </section>
-              ))}
+          <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px] xl:grid-cols-[minmax(0,1fr)_320px] 2xl:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
+            <article className="min-w-0 rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-7 md:p-10 xl:p-12">
+              <div className="max-w-[76ch]">
+                {guide.sections.map((section, index) => (
+                  <section key={section.heading} className={index === 0 ? "" : "mt-10"}>
+                    <h2 className="text-h1">{section.heading}</h2>
+                    {section.paragraphs.map((paragraph) => (
+                      <p key={paragraph} className="text-body mt-4">
+                        {paragraph}
+                      </p>
+                    ))}
+                    {section.bullets?.length ? (
+                      <ul className="mt-4 space-y-3 pl-5">
+                        {section.bullets.map((bullet) => (
+                          <li key={bullet} className="text-body list-disc">
+                            {bullet}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </section>
+                ))}
 
-              <section className="mt-12 border-t border-[var(--color-border)] pt-10">
-                <p className="text-label">Frequently asked</p>
-                <div className="mt-5 space-y-5">
-                  {guide.faqs.map((faq) => (
-                    <div key={faq.question} className="rounded-[var(--radius-xl)] bg-[var(--haven-sand)] p-5">
-                      <h3 className="text-h3">{faq.question}</h3>
-                      <p className="text-body-sm mt-2">{faq.answer}</p>
-                    </div>
-                  ))}
-                </div>
-              </section>
+                <section className="mt-12 border-t border-[var(--color-border)] pt-10">
+                  <p className="text-label">Frequently asked</p>
+                  <div className="mt-5 space-y-5">
+                    {guide.faqs.map((faq) => (
+                      <div key={faq.question} className="rounded-[var(--radius-xl)] bg-[var(--haven-sand)] p-5">
+                        <h3 className="text-h3">{faq.question}</h3>
+                        <p className="text-body-sm mt-2">{faq.answer}</p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              </div>
             </article>
 
             <aside className="space-y-6">

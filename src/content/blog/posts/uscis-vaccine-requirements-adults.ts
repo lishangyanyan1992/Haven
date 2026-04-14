@@ -13,12 +13,12 @@ export const uscisVaccineRequirementsAdultsPost: BlogPost = {
   seoDescription:
     "A current, sourced guide to USCIS vaccine requirements for adults filing Form I-693, including polio, hepatitis B, MMR, varicella, flu, and what counts as proof.",
   image: {
-    src: "/blog/uscis-vaccine-requirements-adults-chart.svg",
-    alt: "Haven chart summarizing USCIS vaccine requirements for adults filing Form I-693, including Tdap or Td, polio, MMR, hepatitis B, varicella, and flu.",
-    width: 1600,
-    height: 1000,
+    src: "/blog/uscis-vaccine-requirements-adults-upright.jpg",
+    alt: "Uploaded CDC vaccine requirement table image used in the article about USCIS vaccine requirements for adults filing Form I-693.",
+    width: 1707,
+    height: 1280,
     caption:
-      "Haven’s simplified adult vaccine snapshot based on current CDC civil-surgeon guidance and USCIS Form I-693 instructions."
+      "Uploaded reference image showing the full vaccine requirement table discussed in this article."
   },
   keyTakeaways: [
     "For many adult green card applicants, the highest-friction vaccines are polio, hepatitis B, MMR, varicella, flu, and sometimes Tdap/Td catch-up.",
@@ -30,7 +30,15 @@ export const uscisVaccineRequirementsAdultsPost: BlogPost = {
       paragraphs: [
         "If you are trying to figure out which vaccines are needed for a green card medical exam, the short answer is that it depends on your age, your prior records, and whether you can prove immunity.",
         "For adult applicants, the current CDC table used by civil surgeons shows that the most common immigration vaccine questions center on Tdap or Td, polio, MMR, hepatitis B, varicella, and influenza. The image you shared is a CDC age table, but the current official CDC vaccination instructions for civil surgeons are dated March 11, 2025, so it is better to use that version as the source of truth."
-      ]
+      ],
+      image: {
+        src: "/blog/uscis-vaccine-requirements-adults-upright.jpg",
+        alt: "Uploaded CDC vaccine requirement table image discussed in this article, including the circled polio and hepatitis B rows.",
+        width: 1707,
+        height: 1280,
+        caption:
+          "Full uploaded table image, preserved in the body of the article so all of the original table detail remains visible."
+      }
     },
     {
       heading: "1. Which vaccines many adult applicants need to think about",

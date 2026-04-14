@@ -1,22 +1,23 @@
-export type BlogSection = {
-  heading?: string;
-  paragraphs?: string[];
-  bullets?: string[];
-  note?: string;
-};
-
-export type BlogSource = {
-  title: string;
-  url: string;
-  publisher: string;
-};
-
 export type BlogImage = {
   src: string;
   alt: string;
   width: number;
   height: number;
   caption?: string;
+};
+
+export type BlogSection = {
+  heading?: string;
+  paragraphs?: string[];
+  bullets?: string[];
+  note?: string;
+  image?: BlogImage;
+};
+
+export type BlogSource = {
+  title: string;
+  url: string;
+  publisher: string;
 };
 
 export type BlogPost = {
