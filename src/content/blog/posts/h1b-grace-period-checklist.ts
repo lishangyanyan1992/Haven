@@ -6,9 +6,9 @@ export const h1bGracePeriodChecklistPost: BlogPost = {
   excerpt:
     "A practical sequence for the first week after a layoff so you protect optionality before the clock starts feeling smaller.",
   category: "Layoff planning",
-  publishedAt: "2026-04-01",
+  publishedAt: "2026-03-21",
   readingTime: "6 min read",
-  author: "Haven team",
+  author: "Haven editorial team",
   seoTitle: "H-1B 60-day grace period checklist",
   seoDescription:
     "A calm first-week checklist for H-1B holders dealing with a layoff and a 60-day grace period.",
@@ -61,6 +61,23 @@ export const h1bGracePeriodChecklistPost: BlogPost = {
         "When you reach out to recruiters or attorneys, give them the facts that change urgency: visa type, country, final employment date, work authorization constraints, and whether you already have an employer in process.",
         "Specific inputs get specific answers. Vague panic messages usually get generic replies."
       ]
+    }
+  ],
+  sources: [
+    {
+      title: "Options for Nonimmigrant Workers Following Termination of Employment",
+      url: "https://www.uscis.gov/newsroom/alerts/options-for-nonimmigrant-workers-following-termination-of-employment",
+      publisher: "USCIS"
+    },
+    {
+      title: "Change My Nonimmigrant Status",
+      url: "https://www.uscis.gov/visit-the-united-states/change-my-nonimmigrant-status",
+      publisher: "USCIS"
+    },
+    {
+      title: "I-539, Application To Extend/Change Nonimmigrant Status",
+      url: "https://www.uscis.gov/i-539",
+      publisher: "USCIS"
     }
   ]
 };

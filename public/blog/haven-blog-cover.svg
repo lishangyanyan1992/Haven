@@ -1,0 +1,24 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1600" height="900" rx="36" fill="#FDFAF6"/>
+  <rect x="40" y="40" width="1520" height="820" rx="32" fill="#FFFFFF" stroke="#E4ECE8" stroke-width="2"/>
+  <circle cx="1380" cy="180" r="180" fill="#EAF4F8"/>
+  <circle cx="210" cy="760" r="190" fill="#E8F0ED"/>
+  <rect x="92" y="92" width="1416" height="190" rx="28" fill="#2C3630"/>
+  <text x="128" y="168" fill="#FDFAF6" font-family="DM Serif Display, Georgia, serif" font-size="62" font-weight="400">Haven blog</text>
+  <text x="128" y="226" fill="#D7E4DE" font-family="DM Sans, Arial, sans-serif" font-size="29" font-weight="500">Practical immigration guidance for layoffs, transfers, visas, and planning decisions.</text>
+  <rect x="1185" y="118" width="240" height="60" rx="30" fill="#E8F0ED"/>
+  <text x="1248" y="157" fill="#2C3630" font-family="DM Sans, Arial, sans-serif" font-size="30" font-weight="700">Ha</text>
+  <text x="1292" y="157" fill="#8BA89A" font-family="DM Sans, Arial, sans-serif" font-size="30" font-weight="700">ven</text>
+  <text x="128" y="386" fill="#2C3630" font-family="DM Sans, Arial, sans-serif" font-size="28" font-weight="700">Built for answer-first reading</text>
+  <text x="128" y="430" fill="#4A5C54" font-family="DM Sans, Arial, sans-serif" font-size="24">Clear summaries, trustworthy sources, and next-step oriented writing.</text>
+  <rect x="128" y="500" width="420" height="128" rx="24" fill="#EAF4F8"/>
+  <text x="162" y="554" fill="#3A6E84" font-family="DM Sans, Arial, sans-serif" font-size="22" font-weight="700">Search intent</text>
+  <text x="162" y="595" fill="#2C3630" font-family="DM Sans, Arial, sans-serif" font-size="32" font-weight="700">Real questions people ask</text>
+  <rect x="590" y="500" width="420" height="128" rx="24" fill="#FAF0EB"/>
+  <text x="624" y="554" fill="#8C4C35" font-family="DM Sans, Arial, sans-serif" font-size="22" font-weight="700">Citations</text>
+  <text x="624" y="595" fill="#2C3630" font-family="DM Sans, Arial, sans-serif" font-size="32" font-weight="700">Official sources when facts matter</text>
+  <rect x="1052" y="500" width="420" height="128" rx="24" fill="#E8F0ED"/>
+  <text x="1086" y="554" fill="#4A5C54" font-family="DM Sans, Arial, sans-serif" font-size="22" font-weight="700">Structure</text>
+  <text x="1086" y="595" fill="#2C3630" font-family="DM Sans, Arial, sans-serif" font-size="32" font-weight="700">Readable by humans and LLMs</text>
+  <text x="128" y="758" fill="#7A8E86" font-family="DM Sans, Arial, sans-serif" font-size="20">Default cover for Haven articles without a custom chart or illustration.</text>
+</svg>

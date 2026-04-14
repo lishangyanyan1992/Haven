@@ -1,0 +1,54 @@
+<svg width="1600" height="1000" viewBox="0 0 1600 1000" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1600" height="1000" rx="32" fill="#FDFAF6"/>
+  <rect x="40" y="40" width="1520" height="920" rx="28" fill="#FFFFFF" stroke="#E4ECE8" stroke-width="2"/>
+  <circle cx="1450" cy="150" r="150" fill="#EAF4F8"/>
+  <circle cx="180" cy="880" r="180" fill="#E8F0ED"/>
+  <rect x="92" y="92" width="1416" height="180" rx="26" fill="#2C3630"/>
+  <text x="128" y="150" fill="#FDFAF6" font-family="DM Serif Display, Georgia, serif" font-size="56" font-weight="400">USCIS vaccine requirements for adults</text>
+  <text x="128" y="205" fill="#D7E4DE" font-family="DM Sans, Arial, sans-serif" font-size="28" font-weight="500">A branded adult-only snapshot for Form I-693, based on current CDC and USCIS guidance.</text>
+  <rect x="1180" y="118" width="248" height="60" rx="30" fill="#E8F0ED"/>
+  <text x="1247" y="157" fill="#2C3630" font-family="DM Sans, Arial, sans-serif" font-size="30" font-weight="700">Ha</text>
+  <text x="1291" y="157" fill="#8BA89A" font-family="DM Sans, Arial, sans-serif" font-size="30" font-weight="700">ven</text>
+  <text x="128" y="336" fill="#4A5C54" font-family="DM Sans, Arial, sans-serif" font-size="24" font-weight="500">Use this as a prep guide, not the final legal record. Your civil surgeon maps the CDC table to your exact age, records, and immunity proof.</text>
+
+  <rect x="92" y="388" width="1416" height="68" rx="18" fill="#F4EFE8"/>
+  <text x="126" y="431" fill="#2C3630" font-family="DM Sans, Arial, sans-serif" font-size="24" font-weight="700">Vaccine</text>
+  <text x="620" y="431" fill="#2C3630" font-family="DM Sans, Arial, sans-serif" font-size="24" font-weight="700">Adults 18-59</text>
+  <text x="995" y="431" fill="#2C3630" font-family="DM Sans, Arial, sans-serif" font-size="24" font-weight="700">Adults 60+</text>
+  <text x="1220" y="431" fill="#2C3630" font-family="DM Sans, Arial, sans-serif" font-size="24" font-weight="700">What matters most</text>
+
+  <rect x="92" y="472" width="1416" height="86" rx="18" fill="#FFFFFF" stroke="#E6EEEA"/>
+  <text x="126" y="522" fill="#2C3630" font-family="DM Sans, Arial, sans-serif" font-size="28" font-weight="700">Tdap / Td</text>
+  <text x="620" y="522" fill="#3A6E84" font-family="DM Sans, Arial, sans-serif" font-size="24" font-weight="700">Often yes</text>
+  <text x="995" y="522" fill="#3A6E84" font-family="DM Sans, Arial, sans-serif" font-size="24" font-weight="700">Often yes</text>
+  <text x="1220" y="508" fill="#4A5C54" font-family="DM Sans, Arial, sans-serif" font-size="20">Primary series and booster history</text>
+  <text x="1220" y="534" fill="#4A5C54" font-family="DM Sans, Arial, sans-serif" font-size="20">usually drive this row.</text>
+
+  <rect x="92" y="572" width="1416" height="86" rx="18" fill="#EAF4F8" stroke="#D5E6EE"/>
+  <text x="126" y="622" fill="#2C3630" font-family="DM Sans, Arial, sans-serif" font-size="28" font-weight="700">Polio</text>
+  <text x="620" y="622" fill="#8C4C35" font-family="DM Sans, Arial, sans-serif" font-size="24" font-weight="700">Depends</text>
+  <text x="995" y="622" fill="#8C4C35" font-family="DM Sans, Arial, sans-serif" font-size="24" font-weight="700">Depends</text>
+  <text x="1220" y="608" fill="#4A5C54" font-family="DM Sans, Arial, sans-serif" font-size="20">Adults without a documented primary</text>
+  <text x="1220" y="634" fill="#4A5C54" font-family="DM Sans, Arial, sans-serif" font-size="20">series face the most questions here.</text>
+
+  <rect x="92" y="672" width="1416" height="86" rx="18" fill="#FFFFFF" stroke="#E6EEEA"/>
+  <text x="126" y="722" fill="#2C3630" font-family="DM Sans, Arial, sans-serif" font-size="28" font-weight="700">MMR</text>
+  <text x="620" y="722" fill="#3A6E84" font-family="DM Sans, Arial, sans-serif" font-size="24" font-weight="700">Usually yes</text>
+  <text x="995" y="722" fill="#4A5C54" font-family="DM Sans, Arial, sans-serif" font-size="24" font-weight="700">Case-specific</text>
+  <text x="1220" y="708" fill="#4A5C54" font-family="DM Sans, Arial, sans-serif" font-size="20">Birth year and immunity records</text>
+  <text x="1220" y="734" fill="#4A5C54" font-family="DM Sans, Arial, sans-serif" font-size="20">matter more than memory.</text>
+
+  <rect x="92" y="772" width="1416" height="86" rx="18" fill="#FAF0EB" stroke="#F0D9CD"/>
+  <text x="126" y="822" fill="#2C3630" font-family="DM Sans, Arial, sans-serif" font-size="28" font-weight="700">Hepatitis B</text>
+  <text x="620" y="822" fill="#8C4C35" font-family="DM Sans, Arial, sans-serif" font-size="24" font-weight="700">Yes</text>
+  <text x="995" y="822" fill="#8C4C35" font-family="DM Sans, Arial, sans-serif" font-size="24" font-weight="700">Usually no</text>
+  <text x="1220" y="808" fill="#4A5C54" font-family="DM Sans, Arial, sans-serif" font-size="20">CDC’s civil-surgeon table covers</text>
+  <text x="1220" y="834" fill="#4A5C54" font-family="DM Sans, Arial, sans-serif" font-size="20">adults through age 59.</text>
+
+  <rect x="92" y="872" width="1416" height="86" rx="18" fill="#FFFFFF" stroke="#E6EEEA"/>
+  <text x="126" y="922" fill="#2C3630" font-family="DM Sans, Arial, sans-serif" font-size="28" font-weight="700">Varicella / Flu</text>
+  <text x="620" y="922" fill="#3A6E84" font-family="DM Sans, Arial, sans-serif" font-size="24" font-weight="700">Usually yes</text>
+  <text x="995" y="922" fill="#3A6E84" font-family="DM Sans, Arial, sans-serif" font-size="24" font-weight="700">Usually yes</text>
+  <text x="1220" y="908" fill="#4A5C54" font-family="DM Sans, Arial, sans-serif" font-size="20">Varicella can be solved with immunity</text>
+  <text x="1220" y="934" fill="#4A5C54" font-family="DM Sans, Arial, sans-serif" font-size="20">proof; flu is seasonal.</text>
+</svg>

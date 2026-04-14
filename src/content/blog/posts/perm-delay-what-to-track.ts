@@ -6,9 +6,9 @@ export const permDelayWhatToTrackPost: BlogPost = {
   excerpt:
     "If your green card process depends on PERM, these are the signals worth watching and the noise you can safely ignore.",
   category: "Green card planning",
-  publishedAt: "2026-03-24",
+  publishedAt: "2026-03-27",
   readingTime: "5 min read",
-  author: "Haven team",
+  author: "Haven editorial team",
   seoTitle: "What to track when PERM is delayed",
   seoDescription:
     "Four concrete things to track when PERM timing starts affecting H-1B extensions and long-term planning.",
@@ -57,6 +57,23 @@ export const permDelayWhatToTrackPost: BlogPost = {
         "The point is not to assume failure. The point is to avoid surprise."
       ],
       note: "A stable immigration plan usually has one primary path and one credible fallback."
+    }
+  ],
+  sources: [
+    {
+      title: "Permanent Labor Certification",
+      url: "https://www.dol.gov/agencies/eta/foreign-labor/programs/permanent",
+      publisher: "U.S. Department of Labor"
+    },
+    {
+      title: "FLAG System",
+      url: "https://flag.dol.gov/",
+      publisher: "U.S. Department of Labor"
+    },
+    {
+      title: "Green Card for Employment-Based Immigrants",
+      url: "https://www.uscis.gov/green-card/green-card-eligibility/green-card-for-employment-based-immigrants",
+      publisher: "USCIS"
     }
   ]
 };

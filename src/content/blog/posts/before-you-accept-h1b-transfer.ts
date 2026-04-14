@@ -8,7 +8,7 @@ export const beforeYouAcceptH1bTransferPost: BlogPost = {
   category: "Job changes",
   publishedAt: "2026-03-11",
   readingTime: "7 min read",
-  author: "Haven team",
+  author: "Haven editorial team",
   seoTitle: "H-1B transfer offer checklist",
   seoDescription:
     "What to verify before accepting an H-1B transfer offer so you do not trade one immigration problem for another.",
@@ -51,6 +51,23 @@ export const beforeYouAcceptH1bTransferPost: BlogPost = {
         "Even strong offers slip. Hiring plans change, legal intake drags, or documents surface late. A one-page backup plan keeps the process from feeling existential if the timeline moves.",
         "The best transfer processes feel boring because the assumptions were checked early."
       ]
+    }
+  ],
+  sources: [
+    {
+      title: "H-1B Specialty Occupations, DOD Cooperative Research and Development Project Workers, and Fashion Models",
+      url: "https://www.uscis.gov/working-in-the-united-states/h-1b-specialty-occupations",
+      publisher: "USCIS"
+    },
+    {
+      title: "Green Card for Employment-Based Immigrants",
+      url: "https://www.uscis.gov/green-card/green-card-eligibility/green-card-for-employment-based-immigrants",
+      publisher: "USCIS"
+    },
+    {
+      title: "Options for Nonimmigrant Workers Following Termination of Employment",
+      url: "https://www.uscis.gov/newsroom/alerts/options-for-nonimmigrant-workers-following-termination-of-employment",
+      publisher: "USCIS"
     }
   ]
 };

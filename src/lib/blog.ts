@@ -1,4 +1,4 @@
-import { blogPosts, type BlogPost } from "@/content/blog";
+import { blogPosts, type BlogImage, type BlogPost } from "@/content/blog";
 
 const blogDateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "long",
@@ -22,4 +22,15 @@ export function getBlogPost(slug: string): BlogPost | undefined {
 
 export function formatBlogDate(date: string): string {
   return blogDateFormatter.format(new Date(date));
+}
+
+export function getBlogImage(post: BlogPost): BlogImage {
+  return (
+    post.image ?? {
+      src: "/blog/haven-blog-cover.svg",
+      alt: `${post.title} | Haven blog cover`,
+      width: 1600,
+      height: 900
+    }
+  );
 }
