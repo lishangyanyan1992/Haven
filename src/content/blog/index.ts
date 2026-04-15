@@ -1,3 +1,8 @@
+import { specialImmigrantsPermanentResidencyEb4Post } from "@/content/blog/posts/special-immigrants-permanent-residency-eb4";
+import { employerSponsorshipPermanentResidencyPost } from "@/content/blog/posts/employer-sponsorship-permanent-residency";
+import { familyMemberPermanentResidenceFaqPost } from "@/content/blog/posts/family-member-permanent-residence-faq";
+import { familyAndSelfSponsorshipPermanentResidencyPost } from "@/content/blog/posts/family-and-self-sponsorship-permanent-residency";
+import { immigrantVsNonimmigrantVisaPost } from "@/content/blog/posts/immigrant-vs-nonimmigrant-visa";
 import { shortTermVisaGuidePassportVisaVwpI539Post } from "@/content/blog/posts/short-term-visa-guide-passport-visa-vwp-i539";
 import { humanitarianVisasSTUVPost } from "@/content/blog/posts/humanitarian-visas-s-t-u-v";
 import { beforeYouAcceptH1bTransferPost } from "@/content/blog/posts/before-you-accept-h1b-transfer";
@@ -15,6 +20,11 @@ export type { BlogImage, BlogPost, BlogSection, BlogSource } from "@/content/blo
 
 // Add a new post import here and it will appear in the blog automatically.
 export const blogPosts = [
+  specialImmigrantsPermanentResidencyEb4Post,
+  employerSponsorshipPermanentResidencyPost,
+  familyMemberPermanentResidenceFaqPost,
+  familyAndSelfSponsorshipPermanentResidencyPost,
+  immigrantVsNonimmigrantVisaPost,
   shortTermVisaGuidePassportVisaVwpI539Post,
   humanitarianVisasSTUVPost,
   temporaryWorkVisasHLOPQRPost,
