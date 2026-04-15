@@ -27,14 +27,14 @@ export const shortTermVisaGuidePassportVisaVwpI539Post: BlogPost = {
     {
       heading: "1. Passport vs visa: what each one actually does",
       paragraphs: [
-        "The lecture uses a simple analogy: a passport is like the door and a visa is like the key. That is not a technical legal definition, but it is a useful practical model.",
+        "A simple practical model is that the passport is the core travel document and the visa is the U.S. permission mechanism tied to a temporary purpose.",
         "The State Department explains that visas are placed in the traveler’s passport, which is the travel document issued by the traveler’s country of citizenship. In other words, your passport is your identity and travel document, while the visa reflects a U.S. immigration classification for a temporary purpose such as visiting, studying, or working."
       ]
     },
     {
       heading: "2. Not every short-term traveler needs a visa",
       paragraphs: [
-        "One of the most important points in the lecture is that some travelers can come for short visits without first applying for a visitor visa. That is the Visa Waiver Program, or VWP.",
+        "Some travelers can come for short visits without first applying for a visitor visa. That is the Visa Waiver Program, or VWP.",
         "The State Department and CBP say the Visa Waiver Program allows eligible citizens or nationals of designated countries to travel to the United States for business or tourism for stays of 90 days or less without obtaining a visa first, as long as they meet the program rules and have valid ESTA approval."
       ],
       bullets: [
@@ -43,12 +43,12 @@ export const shortTermVisaGuidePassportVisaVwpI539Post: BlogPost = {
         "Travelers need ESTA approval before boarding",
         "ESTA approval does not guarantee admission at the port of entry"
       ],
-      note: "The VWP country list can change, so it is better to check the current official State Department or CBP page than rely on an older course recording."
+      note: "The VWP country list can change, so it is better to check the current official State Department or CBP page before making plans."
     },
     {
       heading: "3. Visa Waiver Program is not the same as a general visa exemption",
       paragraphs: [
-        "The lecture correctly suggests that VWP is limited. It does not replace every visa category.",
+        "The Visa Waiver Program is limited. It does not replace every visa category.",
         "If someone wants to work, study, or enter under another specialized nonimmigrant category, the Visa Waiver Program is usually not the answer. It is mainly a business-or-tourism pathway for eligible travelers from participating countries."
       ]
     },
@@ -62,7 +62,7 @@ export const shortTermVisaGuidePassportVisaVwpI539Post: BlogPost = {
     {
       heading: "5. What if you came as a visitor and now want to stay longer?",
       paragraphs: [
-        "The lecture points to the right form: in many cases, the application used to extend stay or change to another nonimmigrant classification is Form I-539.",
+        "In many cases, the application used to extend stay or change to another nonimmigrant classification is Form I-539.",
         "USCIS says certain nonimmigrants use Form I-539 to extend stay or change to another nonimmigrant status. USCIS also recommends filing before the current authorized stay expires and notes that some categories are not eligible or have special restrictions."
       ],
       bullets: [
@@ -75,14 +75,14 @@ export const shortTermVisaGuidePassportVisaVwpI539Post: BlogPost = {
     {
       heading: "6. What if you came as a visitor and now want to study?",
       paragraphs: [
-        "The lecture says this can be done if you apply before the visitor period expires, and that is broadly right, but the official rules are more nuanced.",
+        "This may be possible if you apply before the visitor period expires, but the official rules are more nuanced.",
         "USCIS has specific guidance for B-1 and B-2 visitors who want to enroll in school, and not every situation is treated the same way. The safe principle is that you should not assume you can simply start studying and fix the immigration paperwork later."
       ]
     },
     {
       heading: "7. Short-term visa categories still depend on purpose",
       paragraphs: [
-        "The lecture ends by organizing nonimmigrant visas by function, and that is still one of the clearest ways to think about them.",
+        "One of the clearest ways to think about nonimmigrant visas is by function.",
         "At a high level, short-term or temporary entry paths are usually grouped by purpose: visiting, studying, working temporarily, or entering for certain humanitarian reasons. But the actual visa letter depends on the legal category that matches the purpose."
       ],
       bullets: [
@@ -95,7 +95,7 @@ export const shortTermVisaGuidePassportVisaVwpI539Post: BlogPost = {
     {
       heading: "8. Where to check official rules before you act",
       paragraphs: [
-        "The lecture is right that immigration law changes constantly and that people should not rely only on a static class summary. The most practical official starting point is the State Department’s visa site for visa type selection and USCIS for status changes, extensions, and forms.",
+        "Immigration law changes constantly, and people should not rely only on a static summary. The most practical official starting point is the State Department’s visa site for visa type selection and USCIS for status changes, extensions, and forms.",
         "If someone needs legal help rather than general information, AILA’s lawyer search and the Immigration Advocates Network directory are both useful starting points. The second one is especially important for people looking for free or low-cost nonprofit legal help."
       ]
     },

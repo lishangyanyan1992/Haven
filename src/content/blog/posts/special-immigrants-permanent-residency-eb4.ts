@@ -17,6 +17,28 @@ export const specialImmigrantsPermanentResidencyEb4Post: BlogPost = {
     "Labor certification is generally not part of the EB-4 process, but many cases still require careful category-specific evidence and often Form I-360.",
     "EB-4 visa availability is not always current, so the Visa Bulletin still matters even in these specialized categories."
   ],
+  faqs: [
+    {
+      question: "Does EB-4 usually require labor certification?",
+      answer:
+        "No. EB-4 generally does not use the same labor-certification process that many EB-2 and EB-3 cases require."
+    },
+    {
+      question: "What form is often used for EB-4 special immigrant cases?",
+      answer:
+        "Many EB-4 subcategories use Form I-360, although the exact filing mechanics depend on the specific subcategory."
+    },
+    {
+      question: "Is EB-4 always current in the Visa Bulletin?",
+      answer:
+        "No. EB-4 can be backlogged, so visa availability still needs to be checked in the current Visa Bulletin."
+    }
+  ],
+  relatedSlugs: [
+    "employer-sponsorship-permanent-residency",
+    "eb5-investor-green-card",
+    "immigrant-vs-nonimmigrant-visa"
+  ],
   sections: [
     {
       paragraphs: [
@@ -28,13 +50,13 @@ export const specialImmigrantsPermanentResidencyEb4Post: BlogPost = {
       heading: "1. What the EB-4 special immigrant category is",
       paragraphs: [
         "USCIS describes EB-4 as the employment-based fourth preference category for special immigrants. The category exists in the employment-based system, but it is not the same as a normal employer-sponsored permanent worker case.",
-        "The lecture gets that general point right. It is a separate fourth-preference path with its own subcategories, and labor certification is generally not the first step the way it is in many EB-2 and EB-3 cases."
+        "It is a separate fourth-preference path with its own subcategories, and labor certification is generally not the first step the way it is in many EB-2 and EB-3 cases."
       ]
     },
     {
       heading: "2. Who may qualify as a special immigrant",
       paragraphs: [
-        "The lecture lists a long set of examples, and many of them do trace back to the broader special-immigrant concept. But the safest way to understand the category is to use the current USCIS EB-4 list, because these subcategories are technical and can change over time.",
+        "The safest way to understand the category is to use the current USCIS EB-4 list, because these subcategories are technical and can change over time.",
         "As of USCIS’s current EB-4 page, the qualifying groups include several specialized classes that Congress carved out separately from the standard labor-certification worker system."
       ],
       bullets: [
@@ -50,10 +72,10 @@ export const specialImmigrantsPermanentResidencyEb4Post: BlogPost = {
       ]
     },
     {
-      heading: "3. Why the lecture needs updating on some examples",
+      heading: "3. Why current category matching matters",
       paragraphs: [
-        "The lecture’s references to Iraqi and Afghan interpreters, translators, and other nationals who provided service to the U.S. government point toward special immigrant visa programs that many people associate with the EB-4 framework. But those programs are better understood today through their own specific USCIS and State guidance rather than by assuming every past example remains available in the same way.",
-        "That is the recurring problem with older immigration lectures: the structure is often useful, but the exact category list can drift over time."
+        "References to Iraqi and Afghan interpreters, translators, and other nationals who provided service to the U.S. government point toward special immigrant visa programs that many people associate with the EB-4 framework. Those programs are better understood through their own specific USCIS and State guidance rather than by assuming every past example remains available in the same way.",
+        "The category list is technical enough that the current USCIS classification should control the analysis."
       ],
       note: "For publish-safe guidance, it is better to rely on the current USCIS EB-4 category list than on older examples alone."
     },
@@ -74,7 +96,7 @@ export const specialImmigrantsPermanentResidencyEb4Post: BlogPost = {
     {
       heading: "6. Some EB-4 cases are employer-linked, but not in the usual way",
       paragraphs: [
-        "The lecture refers to broadcasters, ministers, and certain government-related workers, and those examples help explain why EB-4 feels unusual. Some of these cases still involve an institution, organization, or qualifying employer-like sponsor, but they do not look like a normal PERM-plus-I-140 workflow.",
+        "Broadcasters, ministers, and certain government-related workers help explain why EB-4 feels unusual. Some of these cases still involve an institution, organization, or qualifying employer-like sponsor, but they do not look like a normal PERM-plus-I-140 workflow.",
         "For example, certain broadcaster cases involve the U.S. Agency for Global Media or one of its grantees. Religious-worker cases have their own statutory and evidentiary structure. These are specialized categories, not generic job-offer cases."
       ]
     },
@@ -86,9 +108,9 @@ export const specialImmigrantsPermanentResidencyEb4Post: BlogPost = {
       ]
     },
     {
-      heading: "8. How EB-4 differs from EB-5, even though lectures often discuss them together",
+      heading: "8. How EB-4 differs from EB-5",
       paragraphs: [
-        "The lecture moves from special immigrants into immigrant investors because both are later employment-based preference groups. But they should not be blended together.",
+        "EB-4 and EB-5 are both later employment-based preference groups, but they should not be blended together.",
         "EB-4 is the special-immigrant category. EB-5 is the immigrant-investor category for people making a qualifying investment and creating jobs. They are different preference classes with different filings, thresholds, and legal logic."
       ]
     },
@@ -109,7 +131,7 @@ export const specialImmigrantsPermanentResidencyEb4Post: BlogPost = {
       heading: "10. The bottom line",
       paragraphs: [
         "Special immigrants for permanent residency fall under the EB-4 category, and that category works differently from the standard employer-sponsored green card paths most people know.",
-        "The lecture is useful on the basic point that EB-4 exists as its own employment-based preference and usually does not require labor certification. But the current subcategory list, petition form, and visa-availability picture need to come from up-to-date USCIS and State sources, because this is one of the more technical corners of employment-based immigration."
+        "The current subcategory list, petition form, and visa-availability picture need to come from up-to-date USCIS and State sources, because this is one of the more technical corners of employment-based immigration."
       ]
     }
   ],

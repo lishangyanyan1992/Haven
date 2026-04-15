@@ -3,9 +3,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { BlogCard } from "@/components/app/blog-card";
 import { PublicNavbar } from "@/components/app/public-navbar";
 import { buttonVariants } from "@/components/ui/button";
-import { formatBlogDate, getAllBlogPosts, getBlogImage, getBlogPost } from "@/lib/blog";
+import { formatBlogDate, getAllBlogPosts, getBlogImage, getBlogPost, getRelatedBlogPosts } from "@/lib/blog";
 import { absoluteUrl } from "@/lib/seo";
 import { buildBreadcrumbStructuredData, getAuthorProfile } from "@/lib/site";
 
@@ -73,6 +74,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
 
   const author = getAuthorProfile(post.author);
   const image = getBlogImage(post);
+  const relatedPosts = getRelatedBlogPosts(post);
   const breadcrumbData = buildBreadcrumbStructuredData([
     { name: "Home", path: "/" },
     { name: "Blog", path: "/blog" },
@@ -99,16 +101,44 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     image: absoluteUrl(image.src).toString(),
     mainEntityOfPage: absoluteUrl(`/blog/${post.slug}`).toString()
   };
+  const faqStructuredData = post.faqs?.length
+    ? {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: post.faqs.map((faq) => ({
+          "@type": "Question",
+          name: faq.question,
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: faq.answer
+          }
+        }))
+      }
+    : null;
 
   return (
     <div className="min-h-screen">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbData) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(blogPostingData) }} />
+      {faqStructuredData ? (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqStructuredData) }} />
+      ) : null}
       <PublicNavbar currentPath="/blog" />
 
       <main className="content-container-wide py-12 lg:py-20">
         <div className="mx-auto max-w-[96rem]">
           <div className="rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-7 shadow-[0_10px_40px_-12px_rgba(44,54,48,0.14)] md:p-10">
+            <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 text-[13px] text-[var(--haven-muted)]">
+              <Link className="underline-offset-2 hover:underline" href="/">
+                Home
+              </Link>
+              <span>/</span>
+              <Link className="underline-offset-2 hover:underline" href="/blog">
+                Blog
+              </Link>
+              <span>/</span>
+              <span className="text-[var(--haven-ink)]">{post.title}</span>
+            </nav>
             <div className="flex flex-wrap items-center gap-2">
               <span className="tag tag-visa">{post.category}</span>
               <span className="text-caption">{formatBlogDate(post.publishedAt)}</span>
@@ -183,6 +213,19 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
                     </div>
                   </section>
                 ) : null}
+                {post.faqs?.length ? (
+                  <section className="mt-12 border-t border-[var(--color-border)] pt-10">
+                    <p className="text-label">Frequently asked</p>
+                    <div className="mt-5 space-y-5">
+                      {post.faqs.map((faq) => (
+                        <div key={faq.question} className="rounded-[var(--radius-xl)] bg-[var(--haven-sand)] p-5">
+                          <h3 className="text-h3">{faq.question}</h3>
+                          <p className="text-body-sm mt-2">{faq.answer}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
               </div>
             </article>
 
@@ -219,6 +262,25 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
               </div>
             </aside>
           </div>
+
+          {relatedPosts.length ? (
+            <section className="mt-14">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div className="max-w-[56ch]">
+                  <p className="text-label">Related articles</p>
+                  <h2 className="text-h1 mt-3">Keep building the full picture.</h2>
+                </div>
+                <Link className={buttonVariants({ variant: "outline" })} href="/blog">
+                  Browse all articles
+                </Link>
+              </div>
+              <div className="mt-8 grid gap-5 lg:grid-cols-3">
+                {relatedPosts.map((relatedPost) => (
+                  <BlogCard key={relatedPost.slug} post={relatedPost} />
+                ))}
+              </div>
+            </section>
+          ) : null}
         </div>
       </main>
     </div>

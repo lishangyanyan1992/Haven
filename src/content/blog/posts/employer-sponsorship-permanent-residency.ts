@@ -17,11 +17,33 @@ export const employerSponsorshipPermanentResidencyPost: BlogPost = {
     "Many EB-2 and EB-3 cases require permanent labor certification before the employer files Form I-140, but some EB-1 and NIW cases work differently.",
     "Not every employment-based green card needs a sponsoring employer in the same way because some categories allow self-petitioning."
   ],
+  faqs: [
+    {
+      question: "What form usually starts an employer-sponsored green card case?",
+      answer:
+        "For many employer-sponsored permanent residence cases in EB-1, EB-2, and EB-3, the main immigrant petition is Form I-140."
+    },
+    {
+      question: "Do all employer-sponsored green cards require labor certification?",
+      answer:
+        "No. Many EB-2 and EB-3 cases require permanent labor certification, but some categories such as EB-1 extraordinary ability and EB-2 national interest waiver work differently."
+    },
+    {
+      question: "Can any employment-based green card be self-petitioned?",
+      answer:
+        "No. Self-petitioning is limited to certain categories, most notably EB-1 extraordinary ability and some EB-2 national interest waiver cases."
+    }
+  ],
+  relatedSlugs: [
+    "special-immigrants-permanent-residency-eb4",
+    "eb5-investor-green-card",
+    "immigrant-vs-nonimmigrant-visa"
+  ],
   sections: [
     {
       paragraphs: [
         "Another major path to lawful permanent residence is sponsorship through work. In practical terms, that means a U.S. employer may petition for a foreign worker to receive an employment-based immigrant visa and eventually a green card.",
-        "The lecture gets the overall structure right: employment-based permanent residence is divided into preference categories, much like family-based permanent residence. But the details matter a lot, especially the difference between labor certification, Form I-140, and the limited categories where a person can petition without a traditional sponsoring employer."
+        "Employment-based permanent residence is divided into preference categories, much like family-based permanent residence. The details matter a lot, especially the difference between labor certification, Form I-140, and the limited categories where a person can petition without a traditional sponsoring employer."
       ]
     },
     {
@@ -34,7 +56,7 @@ export const employerSponsorshipPermanentResidencyPost: BlogPost = {
     {
       heading: "2. The five employment-based preference groups",
       paragraphs: [
-        "The immigration statute organizes employment-based immigrant visas into preference groups commonly referred to as EB-1 through EB-5. The lecture focuses most heavily on the first three, which is where most employer-sponsored green card questions arise."
+        "The immigration statute organizes employment-based immigrant visas into preference groups commonly referred to as EB-1 through EB-5. In practice, the first three are where most employer-sponsored green card questions arise."
       ],
       bullets: [
         "EB-1: priority workers",
@@ -47,7 +69,7 @@ export const employerSponsorshipPermanentResidencyPost: BlogPost = {
     {
       heading: "3. EB-1: priority workers",
       paragraphs: [
-        "USCIS describes EB-1 as the category for priority workers. The lecture’s examples are directionally right: this category includes people with extraordinary ability, outstanding professors and researchers, and certain multinational executives or managers.",
+        "USCIS describes EB-1 as the category for priority workers. This category includes people with extraordinary ability, outstanding professors and researchers, and certain multinational executives or managers.",
         "One important nuance is that not all EB-1 cases work the same way. An extraordinary-ability applicant may self-petition. Outstanding professors and researchers and multinational managers or executives generally require an employer petitioner."
       ],
       bullets: [
@@ -59,7 +81,7 @@ export const employerSponsorshipPermanentResidencyPost: BlogPost = {
     {
       heading: "4. EB-2: advanced degrees, exceptional ability, and the national interest waiver",
       paragraphs: [
-        "The lecture is also right that EB-2 often involves professionals with advanced degrees or persons of exceptional ability. In many standard EB-2 cases, the employer first completes the permanent labor certification process with the Department of Labor and then files Form I-140 with USCIS.",
+        "EB-2 often involves professionals with advanced degrees or persons of exceptional ability. In many standard EB-2 cases, the employer first completes the permanent labor certification process with the Department of Labor and then files Form I-140 with USCIS.",
         "But EB-2 also contains one of the most important exceptions in employment-based immigration: the national interest waiver, often called the NIW. USCIS explains that people seeking an NIW can ask the government to waive the job-offer and labor-certification requirements if the proposed work has sufficient national importance. That means some EB-2 applicants can self-petition instead of relying on a standard employer-sponsored case."
       ],
       note: "The NIW is not a shortcut for everyone. It is a specific exception with its own evidence standard."
@@ -67,7 +89,7 @@ export const employerSponsorshipPermanentResidencyPost: BlogPost = {
     {
       heading: "5. EB-3: skilled workers, professionals, and other workers",
       paragraphs: [
-        "EB-3 is the category the lecture describes for skilled workers, professionals, and unskilled or other workers. USCIS currently breaks this group into skilled workers, professionals, and other workers.",
+        "USCIS currently breaks EB-3 into skilled workers, professionals, and other workers.",
         "The definitions matter. Skilled workers usually need at least two years of training or experience. Professionals generally need at least a U.S. bachelor’s degree or foreign equivalent, and the job itself must require that degree. Other workers are for positions requiring less than two years of training or experience, so long as the job is not temporary or seasonal."
       ],
       bullets: [
@@ -79,28 +101,28 @@ export const employerSponsorshipPermanentResidencyPost: BlogPost = {
     {
       heading: "6. The labor certification step and why it exists",
       paragraphs: [
-        "The lecture describes a two-step process for many employer-sponsored green cards, and that is broadly correct. The Department of Labor oversees permanent labor certification, often referred to as PERM, and the purpose is to test the labor market and verify that hiring the foreign worker will not displace qualified U.S. workers under the governing rules.",
-        "After a required labor certification is approved, the employer generally uses that approval in the immigrant petition process with USCIS. This is where the lecture’s form reference needs correction: in these employment-based cases, the petition filed with USCIS is Form I-140, not Form I-130."
+        "The Department of Labor oversees permanent labor certification, often referred to as PERM, and the purpose is to test the labor market and verify that hiring the foreign worker will not displace qualified U.S. workers under the governing rules.",
+        "After a required labor certification is approved, the employer generally uses that approval in the immigrant petition process with USCIS. In these employment-based cases, the petition filed with USCIS is Form I-140, not Form I-130."
       ]
     },
     {
       heading: "7. Form I-140 is the key petition in these cases",
       paragraphs: [
-        "This is one of the most important corrections to make from the lecture. Form I-130 is for family-based petitions. Employer-sponsored permanent residence in EB-1, EB-2, and EB-3 generally uses Form I-140, Immigrant Petition for Alien Worker.",
+        "Form I-130 is for family-based petitions. Employer-sponsored permanent residence in EB-1, EB-2, and EB-3 generally uses Form I-140, Immigrant Petition for Alien Worker.",
         "USCIS’s I-140 materials also reflect the modern filing structure for labor-certification-supported cases, including cases using ETA-9089 data from the Department of Labor’s FLAG system."
       ]
     },
     {
       heading: "8. When self-petitioning is possible in employment-based immigration",
       paragraphs: [
-        "Most employer-sponsored green card cases really do require an employer petitioner. But the lecture is right that this is not universal.",
+        "Most employer-sponsored green card cases really do require an employer petitioner, but that is not universal.",
         "Two of the most important self-petition scenarios are EB-1 extraordinary ability and EB-2 national interest waiver. In those categories, the applicant may be able to file without a traditional employer sponsor if the legal standard is met."
       ]
     },
     {
       heading: "9. EB-4 and EB-5 still matter, even though they work differently",
       paragraphs: [
-        "The lecture also references special immigrants and job-creating investors, and those remain part of the employment-based permanent residence system.",
+        "Special immigrants and job-creating investors remain part of the employment-based permanent residence system.",
         "EB-4 covers certain special immigrants, while EB-5 is the immigrant investor path for people who make a qualifying investment and create jobs. These are less useful as a general employer-sponsorship explainer, but they are still part of the overall employment-based permanent residence structure."
       ]
     },
@@ -121,7 +143,7 @@ export const employerSponsorshipPermanentResidencyPost: BlogPost = {
       heading: "11. The bottom line",
       paragraphs: [
         "Employer sponsorship for permanent residency is not one single program. It is a set of employment-based preference categories with different rules for who qualifies, who files, and whether labor certification is required first.",
-        "The lecture’s structure is useful, but the exact legal mechanics matter. EB-1, EB-2, and EB-3 are the main categories people mean when they talk about employer-sponsored green cards, and the key filings are usually PERM where required and Form I-140 with USCIS."
+        "EB-1, EB-2, and EB-3 are the main categories people mean when they talk about employer-sponsored green cards, and the key filings are usually PERM where required and Form I-140 with USCIS."
       ]
     }
   ],

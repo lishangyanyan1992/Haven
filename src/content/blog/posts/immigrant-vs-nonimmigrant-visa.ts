@@ -17,6 +17,28 @@ export const immigrantVsNonimmigrantVisaPost: BlogPost = {
     "Most nonimmigrant visa categories require the applicant to show nonimmigrant intent, which is why immigrant intent can trigger a 214(b) refusal.",
     "A few categories, such as H-1B and L, are treated differently because U.S. law allows dual intent in those paths."
   ],
+  faqs: [
+    {
+      question: "What is the main difference between an immigrant visa and a nonimmigrant visa?",
+      answer:
+        "The main difference is purpose. An immigrant visa is for permanent residence in the United States, while a nonimmigrant visa is for a temporary stay tied to a specific purpose like visiting, studying, or temporary work."
+    },
+    {
+      question: "Can a person with a nonimmigrant visa later get a green card?",
+      answer:
+        "Sometimes yes, but it depends on the category, the facts, and whether the person followed the rules of the status they entered with. Some categories also allow dual intent, which makes that path more flexible."
+    },
+    {
+      question: "Why do some nonimmigrant visas get denied under 214(b)?",
+      answer:
+        "A 214(b) refusal usually means the officer concluded that the applicant either did not qualify for the specific temporary visa category or did not overcome the presumption of immigrant intent."
+    }
+  ],
+  relatedSlugs: [
+    "short-term-visa-guide-passport-visa-vwp-i539",
+    "family-and-self-sponsorship-permanent-residency",
+    "employer-sponsorship-permanent-residency"
+  ],
   sections: [
     {
       paragraphs: [

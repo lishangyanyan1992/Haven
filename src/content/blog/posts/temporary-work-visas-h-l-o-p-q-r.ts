@@ -21,7 +21,7 @@ export const temporaryWorkVisasHLOPQRPost: BlogPost = {
     {
       paragraphs: [
         "A temporary work visa is not one single category. It is a group of nonimmigrant classifications that let someone come to the United States to work for a limited period and for a specific purpose.",
-        "The lecture’s core idea is right: people can come to the United States to work temporarily, but the legal path depends on the type of work, the employer relationship, and the category Congress and the agencies have created for that purpose."
+        "People can come to the United States to work temporarily, but the legal path depends on the type of work, the employer relationship, and the category Congress and the agencies have created for that purpose."
       ]
     },
     {
@@ -47,14 +47,14 @@ export const temporaryWorkVisasHLOPQRPost: BlogPost = {
     {
       heading: "3. H-1B is narrower than people think",
       paragraphs: [
-        "The lecture bundles specialty occupations, fashion models, and certain defense-related roles into the H-1B family, and USCIS’s temporary worker chart supports that broader family structure.",
+        "USCIS’s temporary worker chart reflects the broader H-1B family structure that includes specialty occupations, certain fashion models, and certain defense-related roles.",
         "But in practice, the standard H-1B conversation is usually about specialty occupations in fields requiring highly specialized knowledge. That is only one part of the H-1B framework, even if it is the best-known one."
       ]
     },
     {
       heading: "4. H-2A and H-2B are both temporary labor programs, but not for the same industries",
       paragraphs: [
-        "The lecture’s apple-picking and farm-work examples fit the H-2A category well. USCIS describes H-2A as the route for temporary or seasonal agricultural workers.",
+        "USCIS describes H-2A as the route for temporary or seasonal agricultural workers.",
         "H-2B is the nonagricultural counterpart. USCIS says it covers temporary nonagricultural jobs when the employer meets the regulatory requirements and can show a qualifying temporary need."
       ],
       note: "Both H-2A and H-2B are employer-driven processes and are not general-purpose work visas for anyone who wants a temporary U.S. job."
@@ -62,21 +62,21 @@ export const temporaryWorkVisasHLOPQRPost: BlogPost = {
     {
       heading: "5. H-3 is about training, not ordinary employment",
       paragraphs: [
-        "The lecture correctly points out that H-3 can sound a little like study, but it is not the same as entering on a student visa. USCIS describes H-3 as a category for trainees other than medical or academic trainees, and for practical training in the education of children with disabilities.",
+        "H-3 can sound a little like study, but it is not the same as entering on a student visa. USCIS describes H-3 as a category for trainees other than medical or academic trainees, and for practical training in the education of children with disabilities.",
         "So the point of H-3 is not simply taking classes. It is receiving structured training that fits the category’s rules."
       ]
     },
     {
       heading: "6. L-1 is for intracompany transfers",
       paragraphs: [
-        "If a company has operations abroad and in the United States, the L classification may be the right path for an employee being transferred within that organization. This is the intracompany transferee idea the lecture emphasizes.",
+        "If a company has operations abroad and in the United States, the L classification may be the right path for an employee being transferred within that organization.",
         "USCIS divides L-1 into L-1A for executives and managers and L-1B for employees with specialized knowledge. In other words, L is not just any sponsored job offer. It depends on a qualifying company relationship and a qualifying employee role."
       ]
     },
     {
       heading: "7. O and P visas are different even though both can involve high-level talent",
       paragraphs: [
-        "The lecture moves from O to P because both categories can involve highly visible talent, but they are not interchangeable.",
+        "O and P categories can both involve highly visible talent, but they are not interchangeable.",
         "USCIS describes O-1 for people with extraordinary ability or achievement in fields such as science, arts, education, business, athletics, or motion picture and television production. P classifications, by contrast, are built around internationally recognized athletes and entertainers, reciprocal exchange performers, and culturally unique artists or entertainers."
       ],
       bullets: [
@@ -90,21 +90,21 @@ export const temporaryWorkVisasHLOPQRPost: BlogPost = {
     {
       heading: "8. Q-1 is for international cultural exchange",
       paragraphs: [
-        "The lecture’s summary of Q is close to the official description. USCIS says Q-1 is for people participating in an international cultural exchange program that provides practical training or employment while also sharing the history, culture, and traditions of the person’s home country.",
+        "USCIS says Q-1 is for people participating in an international cultural exchange program that provides practical training or employment while also sharing the history, culture, and traditions of the person’s home country.",
         "That makes Q-1 different from a standard work visa focused only on labor needs. The cultural-exchange purpose is central to the category."
       ]
     },
     {
       heading: "9. R-1 is for religious workers",
       paragraphs: [
-        "The lecture describes the R route as temporary religious work sponsored by a faith-based organization, and that is the right basic idea.",
-        "USCIS classifies R-1 for religious workers. The sponsoring organization must petition for the worker, and the worker must fit the legal requirements for that religious role. The lecture also mentions prior experience, which tracks the reality that religious-worker cases come with category-specific eligibility rules rather than a simple job-offer model."
+        "R-1 covers temporary religious work sponsored by a qualifying faith-based organization.",
+        "USCIS classifies R-1 for religious workers. The sponsoring organization must petition for the worker, and the worker must fit the legal requirements for that religious role. Religious-worker cases come with category-specific eligibility rules rather than a simple job-offer model."
       ]
     },
     {
       heading: "10. Form I-129 is the common petition backbone",
       paragraphs: [
-        "One of the most useful parts of the lecture is the repeated point that many temporary worker categories start with the petitioner, not the worker. That is still true.",
+        "Many temporary worker categories start with the petitioner, not the worker.",
         "USCIS says petitioners use Form I-129, Petition for a Nonimmigrant Worker, for many of these temporary work classifications, including H-1B, H-2A, H-2B, H-3, L-1, O-1, P, Q-1, and R-1. In many cases, the employer or sponsoring organization files first, and the worker applies for a visa later if one is required."
       ],
       note: "The exact filing path can differ by category, and some categories involve Department of Labor or other agency steps before the visa interview."
@@ -129,7 +129,7 @@ export const temporaryWorkVisasHLOPQRPost: BlogPost = {
     {
       heading: "12. The bottom line",
       paragraphs: [
-        "The lecture is right that there are many ways to come to the United States for temporary work, but they are not variations of one generic work visa. Each category has its own legal purpose, sponsor requirements, and eligibility rules.",
+        "There are many ways to come to the United States for temporary work, but they are not variations of one generic work visa. Each category has its own legal purpose, sponsor requirements, and eligibility rules.",
         "For most people, the first real question is not which letter sounds familiar. It is which classification actually matches the facts of the job, the employer, and the reason the worker is coming to the United States."
       ]
     }

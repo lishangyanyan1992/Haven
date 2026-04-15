@@ -39,7 +39,7 @@ export const usImmigrationLegalFrameworkPost: BlogPost = {
     {
       heading: "2. Congress creates the core immigration statute",
       paragraphs: [
-        "The lecture is right to start with Congress. In the U.S. system, Congress is the legislative branch, and immigration law begins with statutes enacted there.",
+        "In the U.S. system, Congress is the legislative branch, and immigration law begins with statutes enacted there.",
         "For immigration, the core statute is the Immigration and Nationality Act, often called the INA. That statute sets out the major categories, eligibility rules, and powers that agencies later implement."
       ]
     },
@@ -73,14 +73,14 @@ export const usImmigrationLegalFrameworkPost: BlogPost = {
     {
       heading: "6. Why nonimmigrant status is often described as temporary",
       paragraphs: [
-        "The lecture uses a building analogy: a short-term visitor can enter the lobby, but cannot stay forever without a different status. That is a useful way to explain nonimmigrant status.",
+        "A useful way to think about nonimmigrant status is as a short-term entry that does not by itself authorize permanent residence.",
         "In general, a nonimmigrant visa is for a temporary stay tied to a particular purpose. Depending on the category, that purpose may be visiting, studying, working temporarily, participating in an exchange, or seeking certain humanitarian protections."
       ]
     },
     {
       heading: "7. Visa letters are shorthand for purpose",
       paragraphs: [
-        "The lecture also explains visa letters as signals in the system, and that is a practical way to think about them. The State Department’s visa directory lists many nonimmigrant categories by letter, and each category corresponds to a specific purpose under immigration law.",
+        "The State Department’s visa directory lists many nonimmigrant categories by letter, and each category corresponds to a specific purpose under immigration law.",
         "For example, B is commonly associated with business or tourism visitors, F and M with students, J with exchange visitors, K with fiance-related processing, L with intracompany transferees, O with extraordinary ability, P with performers and athletes, Q with cultural exchange, and R with certain religious workers."
       ],
       bullets: [
@@ -105,7 +105,7 @@ export const usImmigrationLegalFrameworkPost: BlogPost = {
     {
       heading: "9. Why getting help matters",
       paragraphs: [
-        "The lecture emphasizes that immigration law is always changing, and that point is correct. It is easy to rely on a summary that was accurate a year ago but incomplete now.",
+        "Immigration law is always changing. It is easy to rely on a summary that was accurate a year ago but incomplete now.",
         "If you need advice about your own case, it is safer to talk to a licensed immigration lawyer or a qualified nonprofit legal-services provider than to rely on a general explainer alone. AILA’s lawyer search and the Immigration Advocates Network directory are both practical starting points."
       ]
     },

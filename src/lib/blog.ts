@@ -20,6 +20,26 @@ export function getBlogPost(slug: string): BlogPost | undefined {
   return blogPosts.find((post) => post.slug === slug);
 }
 
+export function getRelatedBlogPosts(post: BlogPost, limit = 3): BlogPost[] {
+  const explicitRelated = (post.relatedSlugs ?? [])
+    .map((slug) => getBlogPost(slug))
+    .filter((candidate): candidate is BlogPost => Boolean(candidate))
+    .filter((candidate) => candidate.slug !== post.slug);
+
+  if (explicitRelated.length >= limit) {
+    return explicitRelated.slice(0, limit);
+  }
+
+  const fallback = getAllBlogPosts().filter(
+    (candidate) =>
+      candidate.slug !== post.slug &&
+      candidate.category === post.category &&
+      !explicitRelated.some((related) => related.slug === candidate.slug)
+  );
+
+  return [...explicitRelated, ...fallback].slice(0, limit);
+}
+
 export function formatBlogDate(date: string): string {
   return blogDateFormatter.format(new Date(date));
 }

@@ -55,7 +55,7 @@ export const shortTermUsVisasB1B2K1Post: BlogPost = {
     {
       heading: "3. What B visitor visas are not for",
       paragraphs: [
-        "One of the most important points from the lecture is still correct: if you want to come to the United States to study full time, work in a regular job, or immigrate permanently, a B visitor visa is usually not the right path.",
+        "If you want to come to the United States to study full time, work in a regular job, or immigrate permanently, a B visitor visa is usually not the right path.",
         "The State Department specifically says visitor visas are not for employment, long-term academic study, paid performances, or permanent residence. That is why people should match the visa category to the real purpose of the trip instead of trying to fit every temporary plan into B-1 or B-2."
       ]
     },
@@ -73,16 +73,16 @@ export const shortTermUsVisasB1B2K1Post: BlogPost = {
       ]
     },
     {
-      heading: "5. One lecture detail worth correcting",
+      heading: "5. The in-person meeting rule for K-1 cases",
       paragraphs: [
-        "The lecture describes the fiance process as requiring that the U.S. citizen has physically seen the person abroad. The official rule is narrower and more precise than that summary.",
+        "The official rule is narrower and more precise than the shorthand many people use.",
         "USCIS explains that, in general, the U.S. citizen and foreign-citizen fiance must have met each other in person within the two years before filing the petition, unless a waiver applies. That is not exactly the same as saying the meeting had to happen abroad."
       ]
     },
     {
       heading: "6. How the K-1 process usually moves",
       paragraphs: [
-        "The lecture’s basic sequence is directionally right. The U.S. citizen files Form I-129F with USCIS. If USCIS approves the petition, the case is sent onward for consular processing. The foreign-citizen fiance then receives instructions from the embassy or consulate, completes required forms and a medical examination, attends an interview, and if approved receives a K-1 visa for travel.",
+        "The U.S. citizen files Form I-129F with USCIS. If USCIS approves the petition, the case is sent onward for consular processing. The foreign-citizen fiance then receives instructions from the embassy or consulate, completes required forms and a medical examination, attends an interview, and if approved receives a K-1 visa for travel.",
         "After entering the United States on a K-1 visa, the couple must marry within 90 days. If they do, the foreign-citizen spouse can then apply for adjustment of status with USCIS."
       ]
     },

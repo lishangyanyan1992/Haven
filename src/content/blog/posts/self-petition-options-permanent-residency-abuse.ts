@@ -17,6 +17,28 @@ export const selfPetitionOptionsPermanentResidencyAbusePost: BlogPost = {
     "The main petition is Form I-360, not Form I-130 and not Form I-361.",
     "Eligibility depends heavily on the exact relationship and the immigration status of the abusive relative."
   ],
+  faqs: [
+    {
+      question: "What form is used for a VAWA self-petition?",
+      answer:
+        "The form used for a VAWA self-petition is Form I-360, Petition for Amerasian, Widow(er), or Special Immigrant."
+    },
+    {
+      question: "Can any abused family member self-petition under VAWA?",
+      answer:
+        "No. Eligibility depends on the exact relationship and the immigration status of the abusive relative. Not every abusive family relationship fits the VAWA self-petition rules."
+    },
+    {
+      question: "Does a VAWA self-petition automatically grant a green card?",
+      answer:
+        "No. An approved self-petition can open the path, but the person still has to meet the requirements for lawful permanent residence."
+    }
+  ],
+  relatedSlugs: [
+    "family-and-self-sponsorship-permanent-residency",
+    "family-member-permanent-residence-faq",
+    "immigrant-vs-nonimmigrant-visa"
+  ],
   sections: [
     {
       paragraphs: [
@@ -48,7 +70,7 @@ export const selfPetitionOptionsPermanentResidencyAbusePost: BlogPost = {
     {
       heading: "3. What relationships do not fit the normal VAWA self-petition rule",
       paragraphs: [
-        "This is where older lectures can mislead people. Not every abusive family relationship creates VAWA eligibility.",
+        "Not every abusive family relationship creates VAWA eligibility.",
         "For example, if two nonimmigrants are married to each other and one abuses the other, that does not automatically create a VAWA self-petition path. The abusive person generally must be a qualifying U.S. citizen or lawful permanent resident relative, or a U.S. citizen son or daughter in the parent-abuse context."
       ],
       note: "That is why the sponsor or abuser’s status is not a side issue. It is part of the legal rule."
@@ -56,7 +78,7 @@ export const selfPetitionOptionsPermanentResidencyAbusePost: BlogPost = {
     {
       heading: "4. The correct form is I-360",
       paragraphs: [
-        "The lecture you shared gets one important form number wrong. The self-petition used in this area is Form I-360, Petition for Amerasian, Widow(er), or Special Immigrant.",
+        "The self-petition used in this area is Form I-360, Petition for Amerasian, Widow(er), or Special Immigrant.",
         "It is not Form I-361. And it is also not the standard family petition Form I-130, because the whole point of the VAWA route is that the victim does not need the abusive relative to act as petitioner."
       ]
     },
@@ -92,7 +114,7 @@ export const selfPetitionOptionsPermanentResidencyAbusePost: BlogPost = {
       heading: "8. The bottom line",
       paragraphs: [
         "There is a real self-petition option for permanent residency when abuse is involved, but it is not open-ended. It is a specific VAWA-based exception to the normal family-petition structure.",
-        "The lecture’s core point is correct: in some abuse cases, the immigrant does not have to rely on the abusive petitioner. But the details matter enough that the safest approach is to check the current USCIS VAWA guidance and the exact qualifying relationship before filing."
+        "In some abuse cases, the immigrant does not have to rely on the abusive petitioner. But the details matter enough that the safest approach is to check the current USCIS VAWA guidance and the exact qualifying relationship before filing."
       ]
     }
   ],

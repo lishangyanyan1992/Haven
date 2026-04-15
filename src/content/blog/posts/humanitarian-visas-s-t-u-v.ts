@@ -21,7 +21,7 @@ export const humanitarianVisasSTUVPost: BlogPost = {
     {
       paragraphs: [
         "When people search for a humanitarian visa, they are usually not talking about tourism, school, or employment. They are talking about immigration relief built for vulnerable situations such as trafficking, criminal victimization, or cooperation with law enforcement.",
-        "The lecture is directionally right that U.S. immigration law has special categories for people in these situations, but the details matter. The main categories most people need to understand are S, T, and U. The V visa is different and much narrower than many older lectures make it sound."
+        "U.S. immigration law has special categories for people in these situations, but the details matter. The main categories most people need to understand are S, T, and U. The V visa is different and much narrower than many people expect."
       ]
     },
     {
@@ -41,7 +41,7 @@ export const humanitarianVisasSTUVPost: BlogPost = {
       heading: "2. T visa: for certain survivors of severe trafficking",
       paragraphs: [
         "The T visa is one of the most important humanitarian categories for survivors of human trafficking. USCIS says T nonimmigrant status is for certain victims of a severe form of trafficking in persons.",
-        "This is broader and more structured than the lecture’s simplified example. The person must show that they were trafficked, are physically present in the United States or at a port of entry because of trafficking, complied with reasonable requests for assistance from law enforcement unless an exception applies, and would face extreme hardship involving unusual and severe harm if removed."
+        "The person must show that they were trafficked, are physically present in the United States or at a port of entry because of trafficking, complied with reasonable requests for assistance from law enforcement unless an exception applies, and would face extreme hardship involving unusual and severe harm if removed."
       ],
       bullets: [
         "Form I-914 is the core application",
@@ -79,9 +79,9 @@ export const humanitarianVisasSTUVPost: BlogPost = {
       ]
     },
     {
-      heading: "5. A major correction to older lectures: the V visa is very limited today",
+      heading: "5. Why the V visa is very limited today",
       paragraphs: [
-        "The lecture describes the V visa as a family-together option while waiting for an immigrant visa, which reflects the original idea behind the category. But in current practice, the category is extremely narrow.",
+        "The V visa was originally created as a family-together option while waiting for an immigrant visa, but in current practice the category is extremely narrow.",
         "USCIS says V nonimmigrant status is available only in cases tied to Form I-130 petitions filed on or before December 21, 2000, along with other waiting-period requirements. So while the V visa still exists, it is not a general modern solution for families currently waiting on green card processing."
       ],
       note: "For most current applicants, V status is not the humanitarian or family-processing answer they are looking for."
@@ -89,7 +89,7 @@ export const humanitarianVisasSTUVPost: BlogPost = {
     {
       heading: "6. Why these cases usually need more than a general explainer",
       paragraphs: [
-        "The lecture emphasizes that nonprofits may help with these forms, and that point is still important. Humanitarian cases are evidence-heavy, fact-specific, and often tied to criminal investigations, trauma history, or admissibility issues.",
+        "Nonprofits may help with these forms, and that point is still important. Humanitarian cases are evidence-heavy, fact-specific, and often tied to criminal investigations, trauma history, or admissibility issues.",
         "That is why people should treat a blog article as orientation, not as individualized legal advice. In real cases, the quality of the evidence, law-enforcement certification, personal statement, and waiver strategy can change the outcome."
       ]
     },

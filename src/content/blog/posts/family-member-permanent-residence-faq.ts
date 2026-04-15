@@ -17,6 +17,11 @@ export const familyMemberPermanentResidenceFaqPost: BlogPost = {
     "Immediate relatives of U.S. citizens are treated differently from family-preference categories because visas are always available for immediate relatives.",
     "Most family-based green card cases involve Form I-130, and many also require Form I-864, a legally binding Affidavit of Support."
   ],
+  relatedSlugs: [
+    "family-and-self-sponsorship-permanent-residency",
+    "self-petition-options-permanent-residency-abuse",
+    "immigrant-vs-nonimmigrant-visa"
+  ],
   sections: [
     {
       paragraphs: [

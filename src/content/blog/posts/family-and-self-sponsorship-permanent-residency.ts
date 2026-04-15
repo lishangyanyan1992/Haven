@@ -17,6 +17,28 @@ export const familyAndSelfSponsorshipPermanentResidencyPost: BlogPost = {
     "Most family-preference categories are subject to annual caps and Visa Bulletin wait times, while immediate relatives of U.S. citizens usually do not wait for a visa number.",
     "Form I-130 is usually the first petition in a standard family-based permanent residence case."
   ],
+  faqs: [
+    {
+      question: "Who can sponsor a family member for permanent residency?",
+      answer:
+        "A U.S. citizen can sponsor more categories of relatives than a lawful permanent resident can. The exact list depends on whether the petitioner is a U.S. citizen or a green card holder and on the specific family relationship."
+    },
+    {
+      question: "Do immediate relatives of U.S. citizens have to wait for a visa number?",
+      answer:
+        "Immediate relatives of U.S. citizens generally do not wait for a visa number in the same way family-preference immigrants do, because immigrant visas are always available for immediate-relative cases."
+    },
+    {
+      question: "What form usually starts a family-based green card case?",
+      answer:
+        "Most standard family-based green card cases start with Form I-130, Petition for Alien Relative."
+    }
+  ],
+  relatedSlugs: [
+    "family-member-permanent-residence-faq",
+    "self-petition-options-permanent-residency-abuse",
+    "immigrant-vs-nonimmigrant-visa"
+  ],
   sections: [
     {
       paragraphs: [
@@ -38,7 +60,7 @@ export const familyAndSelfSponsorshipPermanentResidencyPost: BlogPost = {
     {
       heading: "2. The family-preference categories that actually matter",
       paragraphs: [
-        "The lecture gets the overall framework right, but some of the labels need correction. USCIS currently lists the family-preference categories this way.",
+        "USCIS currently lists the family-preference categories this way.",
         "These categories are for relatives who are not immediate relatives, and they move based on priority dates and visa availability."
       ],
       bullets: [
@@ -48,7 +70,7 @@ export const familyAndSelfSponsorshipPermanentResidencyPost: BlogPost = {
         "F3: married sons and daughters of U.S. citizens",
         "F4: brothers and sisters of U.S. citizens, if the U.S. citizen is at least 21"
       ],
-      note: "The lecture’s statement that the third preference is for unmarried sons or daughters of U.S. citizens is outdated. That is the first preference, not the third."
+      note: "The first preference is for unmarried sons and daughters of U.S. citizens age 21 or older. The third preference is for married sons and daughters of U.S. citizens."
     },
     {
       heading: "3. What form starts a family-based permanent residence case",
@@ -93,7 +115,7 @@ export const familyAndSelfSponsorshipPermanentResidencyPost: BlogPost = {
       heading: "7. The bottom line",
       paragraphs: [
         "Family-based permanent residency is not one single process. It is a set of relationship-based paths, and the path depends mainly on whether the beneficiary is an immediate relative or a family-preference immigrant.",
-        "The lecture’s core idea is correct: family can open the door to permanent residency. But the exact category labels, the Visa Bulletin, and the petition process matter enough that you should always check the current USCIS and State guidance before filing."
+        "Family can open the door to permanent residency. But the exact category labels, the Visa Bulletin, and the petition process matter enough that you should always check the current USCIS and State guidance before filing."
       ]
     }
   ],

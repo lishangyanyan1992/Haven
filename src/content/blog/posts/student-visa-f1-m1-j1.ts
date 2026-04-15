@@ -21,7 +21,7 @@ export const studentVisaF1M1J1Post: BlogPost = {
     {
       paragraphs: [
         "People often say student visa as if it were one category, but in practice the United States uses different visa types depending on the kind of study program you are entering.",
-        "The lecture is directionally right that there are three common short-term study paths: academic study, vocational or technical study, and exchange-based study. The legal categories most people need to understand are F-1, M-1, and J-1."
+        "There are three common short-term study paths: academic study, vocational or technical study, and exchange-based study. The legal categories most people need to understand are F-1, M-1, and J-1."
       ]
     },
     {
@@ -42,7 +42,7 @@ export const studentVisaF1M1J1Post: BlogPost = {
     {
       heading: "2. M-1: vocational or technical study",
       paragraphs: [
-        "The lecture correctly distinguishes vocational training from standard academic study. If the school is a vocational or other recognized nonacademic institution, the State Department says the usual category is M rather than F.",
+        "If the school is a vocational or other recognized nonacademic institution, the State Department says the usual category is M rather than F.",
         "That makes M-1 the more relevant path for many technical, trade, or vocational programs that are not primarily academic and are not language-training programs."
       ],
       bullets: [
@@ -55,13 +55,13 @@ export const studentVisaF1M1J1Post: BlogPost = {
       heading: "3. J-1: exchange-based study and training",
       paragraphs: [
         "J-1 is different from both F-1 and M-1 because it is built around participation in an approved exchange program. That can include university exchange study, research, teaching, internships, camp counseling, au pair programs, and other exchange categories recognized by the Department of State.",
-        "The lecture uses Fulbright as a common example, and that is a good one. A student or scholar entering through a sponsored exchange program may come in J-1 status rather than F-1 or M-1."
+        "A student or scholar entering through a sponsored exchange program may come in J-1 status rather than F-1 or M-1."
       ]
     },
     {
       heading: "4. The process usually starts with school or program acceptance",
       paragraphs: [
-        "The lecture gets the sequence broadly right: first you get accepted, and then the visa process starts. Before applying for a student or exchange visa, the applicant must first be accepted by the school or exchange sponsor.",
+        "Before applying for a student or exchange visa, the applicant must first be accepted by the school or exchange sponsor.",
         "For F-1 and M-1 cases, the school must be certified to enroll international students through the Student and Exchange Visitor Program. A designated school official at an SEVP-certified school issues Form I-20 after the school has accepted the student and verified the required admissions materials."
       ],
       bullets: [
@@ -76,14 +76,14 @@ export const studentVisaF1M1J1Post: BlogPost = {
     {
       heading: "5. Not every school can enroll international students",
       paragraphs: [
-        "One important point in the lecture is that the institution must be recognized by the U.S. government for this purpose. That is correct, but the official framework is more specific.",
+        "The institution must be properly recognized by the U.S. government for this purpose, but the official framework is more specific than that shorthand suggests.",
         "ICE’s Student and Exchange Visitor Program explains that it monitors F and M students and ensures that the institutions accepting them are certified and follow the applicable federal rules. In other words, admission to a school is not enough by itself if the school is not properly authorized to enroll international students in that visa category."
       ]
     },
     {
       heading: "6. J-1 and the two-year home-country requirement",
       paragraphs: [
-        "The most legally complicated part of the lecture is the J-1 two-year residency rule. Some J-1 holders are subject to the two-year home-country physical presence requirement under INA section 212(e), but not every J-1 participant is.",
+        "Some J-1 holders are subject to the two-year home-country physical presence requirement under INA section 212(e), but not every J-1 participant is.",
         "The Department of State says this requirement can apply if the exchange program was government funded, involved a field on the Exchange Visitor Skills List for the person’s country, or involved graduate medical education or training."
       ],
       bullets: [
@@ -96,14 +96,14 @@ export const studentVisaF1M1J1Post: BlogPost = {
     {
       heading: "7. What 212(e) can block",
       paragraphs: [
-        "The lecture frames the rule as needing to go home before staying longer, and that is roughly the practical issue. The official State Department language is more precise.",
+        "The practical issue is often whether the person must return home before taking certain later immigration steps, but the official State Department language is more precise.",
         "If you are subject to the two-year home-country physical presence requirement, you generally cannot change status in the United States, adjust to permanent residence, receive an immigrant visa, or receive certain H, L, or K visas until you satisfy the requirement or obtain a waiver."
       ]
     },
     {
       heading: "8. The five main J-1 waiver bases",
       paragraphs: [
-        "The lecture says there are five ways to seek a waiver, and current State Department guidance still frames waiver eligibility around five bases. The exact labels matter."
+        "Current State Department guidance still frames waiver eligibility around five bases. The exact labels matter."
       ],
       bullets: [
         "No Objection Statement from the home government",
@@ -129,7 +129,7 @@ export const studentVisaF1M1J1Post: BlogPost = {
     {
       heading: "10. The bottom line",
       paragraphs: [
-        "The lecture’s big idea is right: if you want to study in the United States, the visa category depends on what kind of study you are doing. Academic study usually points to F-1. Vocational study usually points to M-1. Exchange-based study or training usually points to J-1.",
+        "If you want to study in the United States, the visa category depends on what kind of study you are doing. Academic study usually points to F-1. Vocational study usually points to M-1. Exchange-based study or training usually points to J-1.",
         "The part that trips people up is that the category affects more than the interview. It also affects which documents you need, which institution can sponsor you, and whether later restrictions like the J-1 two-year residency rule may apply."
       ]
     }

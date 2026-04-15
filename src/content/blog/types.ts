@@ -20,6 +20,11 @@ export type BlogSource = {
   publisher: string;
 };
 
+export type BlogFaq = {
+  question: string;
+  answer: string;
+};
+
 export type BlogPost = {
   slug: string;
   title: string;
@@ -34,4 +39,6 @@ export type BlogPost = {
   keyTakeaways: string[];
   sections: BlogSection[];
   sources?: BlogSource[];
+  faqs?: BlogFaq[];
+  relatedSlugs?: string[];
 };

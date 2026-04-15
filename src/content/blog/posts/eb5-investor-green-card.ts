@@ -17,11 +17,33 @@ export const eb5InvestorGreenCardPost: BlogPost = {
     "For petitions filed on or after March 15, 2022, the standard minimum investment amount is $1,050,000, or $800,000 in a targeted employment area or infrastructure project.",
     "The process usually starts with Form I-526 or I-526E and ends with Form I-829 to remove the conditions on permanent residence."
   ],
+  faqs: [
+    {
+      question: "What is the current minimum investment amount for EB-5?",
+      answer:
+        "For petitions filed on or after March 15, 2022, the standard minimum investment amount is $1,050,000, or $800,000 if the project qualifies as a targeted employment area or infrastructure project."
+    },
+    {
+      question: "Does EB-5 lead directly to permanent residence without conditions?",
+      answer:
+        "No. EB-5 usually leads first to conditional permanent residence for two years, followed by Form I-829 to remove the conditions."
+    },
+    {
+      question: "What is the difference between Form I-526 and Form I-526E?",
+      answer:
+        "Form I-526 is generally for a standalone investor, while Form I-526E is generally for a regional center investor."
+    }
+  ],
+  relatedSlugs: [
+    "employer-sponsorship-permanent-residency",
+    "special-immigrants-permanent-residency-eb4",
+    "immigrant-vs-nonimmigrant-visa"
+  ],
   sections: [
     {
       paragraphs: [
         "The employment-based fifth preference category, usually called EB-5, is one of the most distinctive green card paths because it is based on investment and job creation rather than a standard family petition or employer-sponsored labor-market case.",
-        "Congress created the EB-5 program in 1990 to stimulate the U.S. economy through capital investment and job creation. That basic policy goal is still the same today, but the current rules, filing forms, and minimum investment amounts are not the same as older lectures or older blog posts."
+        "Congress created the EB-5 program in 1990 to stimulate the U.S. economy through capital investment and job creation. That basic policy goal is still the same today, but the current rules, filing forms, and minimum investment amounts have changed over time."
       ]
     },
     {
@@ -34,7 +56,7 @@ export const eb5InvestorGreenCardPost: BlogPost = {
     {
       heading: "2. The current minimum investment amounts",
       paragraphs: [
-        "This is the first place where older explanations are often wrong. USCIS says the current investment minimums depend on the filing date and investment location.",
+        "USCIS says the current investment minimums depend on the filing date and investment location.",
         "For petitions filed on or after March 15, 2022, the standard minimum investment amount is $1,050,000. If the investment is in a targeted employment area or an infrastructure project, the minimum amount is $800,000."
       ],
       bullets: [
@@ -42,7 +64,7 @@ export const eb5InvestorGreenCardPost: BlogPost = {
         "Targeted employment area or infrastructure project amount for newer filings: $800,000",
         "These amounts are scheduled for inflation-based adjustment every five years, with the first such adjustment for petitions filed on or after January 1, 2027"
       ],
-      note: "The lecture’s $900,000 and $1.8 million figures reflected an earlier rule set, not the current post-2022 framework."
+      note: "For petitions filed on or after March 15, 2022, the controlling investment thresholds are $1,050,000 generally and $800,000 for a targeted employment area or infrastructure project."
     },
     {
       heading: "3. What a targeted employment area means",
@@ -94,7 +116,7 @@ export const eb5InvestorGreenCardPost: BlogPost = {
     {
       heading: "9. The Visa Bulletin still matters for EB-5",
       paragraphs: [
-        "The lecture correctly noted that employment-based immigrant categories can have backlogs, and that remains true for EB-5. The State Department’s Visa Bulletin now breaks the category into unreserved and set-aside visa groups.",
+        "Employment-based immigrant categories can have backlogs, and that remains true for EB-5. The State Department’s Visa Bulletin now breaks the category into unreserved and set-aside visa groups.",
         "As of April 2026, the Visa Bulletin shows the unreserved EB-5 category as current for most chargeability areas, but not for China-mainland born or India. The set-aside categories for rural, high-unemployment, and infrastructure projects are current across the board in the April 2026 bulletin."
       ],
       bullets: [
