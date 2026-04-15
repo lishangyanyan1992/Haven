@@ -2,20 +2,20 @@ import type { BlogPost } from "@/content/blog/types";
 
 export const familyAndSelfSponsorshipPermanentResidencyPost: BlogPost = {
   slug: "family-and-self-sponsorship-permanent-residency",
-  title: "Family sponsorship and self-petition options for permanent residency",
+  title: "Family sponsorship for permanent residency",
   excerpt:
-    "If you want permanent residency through family, the first question is whether you are an immediate relative of a U.S. citizen or in a family-preference category. If abuse is part of the case, some people can self-petition instead of relying on the family member who should have sponsored them.",
+    "If you want permanent residency through family, the first question is whether you are an immediate relative of a U.S. citizen or in a family-preference category. That one distinction affects who can sponsor whom, whether a visa is immediately available, and whether the Visa Bulletin controls the timeline.",
   category: "Family immigration",
-  publishedAt: "2026-04-15",
-  readingTime: "8 min read",
+  publishedAt: "2026-03-29",
+  readingTime: "7 min read",
   author: "Haven editorial team",
-  seoTitle: "Family sponsorship and self-petition for permanent residency explained",
+  seoTitle: "Family sponsorship for permanent residency explained",
   seoDescription:
-    "A practical guide to family sponsorship for permanent residency, including immediate relatives, F1 through F4 family preference categories, the Visa Bulletin, Form I-130, and VAWA self-petitions on Form I-360.",
+    "A practical guide to family sponsorship for permanent residency, including immediate relatives, F1 through F4 family preference categories, the Visa Bulletin, and Form I-130.",
   keyTakeaways: [
     "Family-based permanent residency starts with the relationship category: immediate relative or family-preference category.",
     "Most family-preference categories are subject to annual caps and Visa Bulletin wait times, while immediate relatives of U.S. citizens usually do not wait for a visa number.",
-    "If the sponsoring relative is abusive, some spouses, children, and parents may be able to self-petition through VAWA using Form I-360."
+    "Form I-130 is usually the first petition in a standard family-based permanent residence case."
   ],
   sections: [
     {
@@ -77,34 +77,7 @@ export const familyAndSelfSponsorshipPermanentResidencyPost: BlogPost = {
       ]
     },
     {
-      heading: "6. What self-petition means in the family context",
-      paragraphs: [
-        "The lecture’s exception point is important: some people do not have to depend on the abusive relative to file the family case. Congress created that protection through the Violence Against Women Act, commonly called VAWA.",
-        "USCIS explains that abused spouses and children of U.S. citizens or lawful permanent residents, and abused parents of U.S. citizens, may be able to file for themselves without the abuser’s knowledge, consent, or participation. In other words, the person who should have been the family sponsor does not control the immigration path."
-      ]
-    },
-    {
-      heading: "7. The correct self-petition form is I-360, not I-361",
-      paragraphs: [
-        "This is one place where the lecture is wrong. The family-based VAWA self-petition is filed on Form I-360, not Form I-361.",
-        "USCIS’s VAWA page explains that the self-petition route is available only in certain qualifying relationships. That means the abusive person generally must be a U.S. citizen or lawful permanent resident spouse or parent, or a U.S. citizen son or daughter in the parent-abuse context."
-      ],
-      bullets: [
-        "Abused spouse of a U.S. citizen or lawful permanent resident may qualify",
-        "Abused child of a U.S. citizen or lawful permanent resident may qualify",
-        "Abused parent of a U.S. citizen son or daughter may qualify",
-        "Not every abusive family relationship creates VAWA eligibility"
-      ]
-    },
-    {
-      heading: "8. Why the sponsor’s status matters in self-petition cases",
-      paragraphs: [
-        "The lecture is directionally right on this point. VAWA self-petition eligibility depends heavily on the immigration status of the abusive relative.",
-        "If two nonimmigrants are married to each other and one abuses the other, that does not automatically create a VAWA self-petition path. The core VAWA family self-petition framework is tied to abuse by a qualifying U.S. citizen or lawful permanent resident relative, or by a U.S. citizen son or daughter in the parent context."
-      ]
-    },
-    {
-      heading: "9. A practical way to analyze a family or self-petition case",
+      heading: "6. A practical way to analyze a family sponsorship case",
       paragraphs: [
         "When people say they want family sponsorship for permanent residency, the legal analysis usually starts with four questions.",
         "Who is the sponsoring relative? What is that person’s status? What exact relationship exists? And is there a visa immediately available or will the case wait in a preference category line?"
@@ -113,14 +86,14 @@ export const familyAndSelfSponsorshipPermanentResidencyPost: BlogPost = {
         "Identify whether the petitioner is a U.S. citizen or lawful permanent resident",
         "Identify whether the relationship is immediate-relative or preference-based",
         "Check whether the case needs the Visa Bulletin",
-        "If abuse is involved, check whether a VAWA self-petition may apply instead of a standard I-130 route"
+        "Confirm whether the case will move through adjustment of status or consular processing"
       ]
     },
     {
-      heading: "10. The bottom line",
+      heading: "7. The bottom line",
       paragraphs: [
-        "Family-based permanent residency is not one single process. It is a set of relationship-based paths, and the path depends on whether the beneficiary is an immediate relative, a family-preference immigrant, or someone who may need to self-petition because the sponsoring relative is abusive.",
-        "The lecture’s core idea is correct: family can open the door to permanent residency, and in some abuse cases self-petitioning is possible. But the exact category labels, the Visa Bulletin, and the correct form numbers matter enough that you should always check the current USCIS and State guidance before filing."
+        "Family-based permanent residency is not one single process. It is a set of relationship-based paths, and the path depends mainly on whether the beneficiary is an immediate relative or a family-preference immigrant.",
+        "The lecture’s core idea is correct: family can open the door to permanent residency. But the exact category labels, the Visa Bulletin, and the petition process matter enough that you should always check the current USCIS and State guidance before filing."
       ]
     }
   ],
@@ -143,11 +116,6 @@ export const familyAndSelfSponsorshipPermanentResidencyPost: BlogPost = {
     {
       title: "I-130, Petition for Alien Relative",
       url: "https://www.uscis.gov/i-130",
-      publisher: "USCIS"
-    },
-    {
-      title: "Abused Spouses, Children and Parents",
-      url: "https://www.uscis.gov/humanitarian/abused-spouses-children-and-parents",
       publisher: "USCIS"
     },
     {

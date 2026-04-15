@@ -1,3 +1,5 @@
+import { selfPetitionOptionsPermanentResidencyAbusePost } from "@/content/blog/posts/self-petition-options-permanent-residency-abuse";
+import { eb5InvestorGreenCardPost } from "@/content/blog/posts/eb5-investor-green-card";
 import { specialImmigrantsPermanentResidencyEb4Post } from "@/content/blog/posts/special-immigrants-permanent-residency-eb4";
 import { employerSponsorshipPermanentResidencyPost } from "@/content/blog/posts/employer-sponsorship-permanent-residency";
 import { familyMemberPermanentResidenceFaqPost } from "@/content/blog/posts/family-member-permanent-residence-faq";
@@ -20,6 +22,8 @@ export type { BlogImage, BlogPost, BlogSection, BlogSource } from "@/content/blo
 
 // Add a new post import here and it will appear in the blog automatically.
 export const blogPosts = [
+  selfPetitionOptionsPermanentResidencyAbusePost,
+  eb5InvestorGreenCardPost,
   specialImmigrantsPermanentResidencyEb4Post,
   employerSponsorshipPermanentResidencyPost,
   familyMemberPermanentResidenceFaqPost,

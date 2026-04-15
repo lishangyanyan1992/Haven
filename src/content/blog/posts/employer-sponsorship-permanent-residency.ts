@@ -6,7 +6,7 @@ export const employerSponsorshipPermanentResidencyPost: BlogPost = {
   excerpt:
     "One of the main ways to get permanent residence is through an employer. The core structure is employment-based first, second, and third preference, with additional paths for special immigrants and immigrant investors. The harder part is understanding when you need labor certification, when you need Form I-140, and when self-petitioning is possible.",
   category: "Employment immigration",
-  publishedAt: "2026-04-15",
+  publishedAt: "2026-04-07",
   readingTime: "8 min read",
   author: "Haven editorial team",
   seoTitle: "Employer sponsorship for permanent residency explained",

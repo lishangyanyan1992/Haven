@@ -6,7 +6,7 @@ export const immigrantVsNonimmigrantVisaPost: BlogPost = {
   excerpt:
     "The short answer is that an immigrant visa is for living in the United States permanently, while a nonimmigrant visa is for a temporary purpose like visiting, studying, or working. The harder part is understanding intent, dual intent, and the exceptions.",
   category: "Legal basics",
-  publishedAt: "2026-04-15",
+  publishedAt: "2026-04-04",
   readingTime: "7 min read",
   author: "Haven editorial team",
   seoTitle: "Immigrant visa vs nonimmigrant visa: what is the difference?",
