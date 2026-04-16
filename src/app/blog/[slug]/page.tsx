@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { BlogCard } from "@/components/app/blog-card";
+import { InformationDisclaimer } from "@/components/app/information-disclaimer";
 import { PublicNavbar } from "@/components/app/public-navbar";
 import { buttonVariants } from "@/components/ui/button";
 import { formatBlogDate, getAllBlogPosts, getBlogImage, getBlogPost, getRelatedBlogPosts } from "@/lib/blog";
@@ -152,8 +153,9 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
           <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px] xl:grid-cols-[minmax(0,1fr)_320px] 2xl:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
             <article className="min-w-0 rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-7 md:p-10 xl:p-12">
               <div className="max-w-[76ch]">
+                <InformationDisclaimer />
                 {post.sections.map((section, index) => (
-                  <section key={section.heading ?? index} className={index === 0 ? "" : "mt-10"}>
+                  <section key={section.heading ?? index} className="mt-10 first:mt-10">
                     {section.heading ? <h2 className="text-h1">{section.heading}</h2> : null}
                     {section.paragraphs?.map((paragraph) => (
                       <p key={paragraph} className="text-body mt-4">
@@ -237,6 +239,9 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
                     {takeaway}
                   </p>
                 ))}
+              </div>
+              <div className="mt-8 border-t border-[var(--color-border)] pt-6">
+                <InformationDisclaimer compact />
               </div>
               <div className="mt-8 border-t border-[var(--color-border)] pt-6">
                 <p className="text-h3">{author.name}</p>

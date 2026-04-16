@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { GuideCard } from "@/components/app/guide-card";
+import { InformationDisclaimer } from "@/components/app/information-disclaimer";
 import { PublicNavbar } from "@/components/app/public-navbar";
 import { buttonVariants } from "@/components/ui/button";
 import { formatGuideDate, getAllGuides, getGuide, getRelatedGuides } from "@/lib/guides";
@@ -130,8 +131,9 @@ export default async function GuidePage({ params }: GuidePageProps) {
           <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px] xl:grid-cols-[minmax(0,1fr)_320px] 2xl:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
             <article className="min-w-0 rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-7 md:p-10 xl:p-12">
               <div className="max-w-[76ch]">
+                <InformationDisclaimer />
                 {guide.sections.map((section, index) => (
-                  <section key={section.heading} className={index === 0 ? "" : "mt-10"}>
+                  <section key={section.heading} className="mt-10 first:mt-10">
                     <h2 className="text-h1">{section.heading}</h2>
                     {section.paragraphs.map((paragraph) => (
                       <p key={paragraph} className="text-body mt-4">
@@ -173,6 +175,9 @@ export default async function GuidePage({ params }: GuidePageProps) {
                       {point}
                     </p>
                   ))}
+                </div>
+                <div className="mt-8 border-t border-[var(--color-border)] pt-6">
+                  <InformationDisclaimer compact />
                 </div>
               </div>
 
