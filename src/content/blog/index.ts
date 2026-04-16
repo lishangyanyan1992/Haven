@@ -1,3 +1,7 @@
+import { diversityVisaAndSijsGreenCardPathsPost } from "@/content/blog/posts/diversity-visa-and-sijs-green-card-paths";
+import { credibleFearVsReasonableFearPost } from "@/content/blog/posts/credible-fear-vs-reasonable-fear";
+import { asylumVsWithholdingVsCatPost } from "@/content/blog/posts/asylum-vs-withholding-vs-cat";
+import { asylumVsRefugeeStatusPost } from "@/content/blog/posts/asylum-vs-refugee-status";
 import { selfPetitionOptionsPermanentResidencyAbusePost } from "@/content/blog/posts/self-petition-options-permanent-residency-abuse";
 import { eb5InvestorGreenCardPost } from "@/content/blog/posts/eb5-investor-green-card";
 import { specialImmigrantsPermanentResidencyEb4Post } from "@/content/blog/posts/special-immigrants-permanent-residency-eb4";
@@ -22,6 +26,10 @@ export type { BlogImage, BlogPost, BlogSection, BlogSource } from "@/content/blo
 
 // Add a new post import here and it will appear in the blog automatically.
 export const blogPosts = [
+  diversityVisaAndSijsGreenCardPathsPost,
+  credibleFearVsReasonableFearPost,
+  asylumVsWithholdingVsCatPost,
+  asylumVsRefugeeStatusPost,
   selfPetitionOptionsPermanentResidencyAbusePost,
   eb5InvestorGreenCardPost,
   specialImmigrantsPermanentResidencyEb4Post,
