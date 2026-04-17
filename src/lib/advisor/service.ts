@@ -12,6 +12,7 @@ import type {
   AdvisorUserContext,
   CommunityAdviceSummary,
   Concern,
+  HavenWorkspaceSnapshot,
   KnowledgeChunk
 } from "@/types/domain";
 import {
@@ -537,8 +538,8 @@ async function generateAdvisorAnswer(input: {
   return fallbackAnswer(input.question, input.userContext, input.knowledge, input.community, input.topics);
 }
 
-export async function getAdvisorWorkspaceSeed() {
-  const snapshot = await getSnapshot();
+export async function getAdvisorWorkspaceSeed(snapshotArg?: HavenWorkspaceSnapshot) {
+  const snapshot = snapshotArg ?? await getSnapshot();
 
   return {
     suggestedPrompts: buildSuggestedPrompts(snapshot),

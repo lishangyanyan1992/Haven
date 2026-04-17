@@ -24,11 +24,12 @@ export default async function SettingsPage({
   searchParams?: Promise<{ saved?: string }>;
 }) {
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
-  const [{ profile }, crisisState] = await Promise.all([getSnapshot(), getCrisisState()]);
+  const [snapshot, crisisState] = await Promise.all([getSnapshot(), getCrisisState()]);
+  const { profile } = snapshot;
   const greenCardStage = inferGreenCardStage(profile);
 
   return (
-    <AppShell activePath="/settings" crisisState={crisisState}>
+    <AppShell activePath="/settings" crisisState={crisisState} snapshot={snapshot}>
       <div className="space-y-6">
         <section className="page-intro">
           <p className="text-label">Profile settings</p>

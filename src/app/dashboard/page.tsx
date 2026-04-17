@@ -91,7 +91,7 @@ export default async function DashboardPage({
   const crisisProgressWidth = crisisState ? `${Math.max((crisisState.dayNumber / 60) * 100, 2)}%` : "0%";
 
   return (
-    <AppShell activePath="/dashboard" crisisState={crisisState}>
+    <AppShell activePath="/dashboard" crisisState={crisisState} snapshot={snapshot}>
       <div className="space-y-6">
         {resolvedSearchParams?.setup === "local" && (
           <div className="rounded-[var(--radius-lg)] border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] px-5 py-4 text-body-sm">

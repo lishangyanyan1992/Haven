@@ -2,7 +2,6 @@ import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
 
 import { HavenBrand } from "@/components/app/haven-brand";
-import { GoogleSignInButton } from "@/components/app/google-sign-in-button";
 import { LoginEventTracker } from "@/components/app/login-event-tracker";
 import { LoginSubmitButton } from "@/components/app/login-submit-button";
 import { Input } from "@/components/ui/input";
@@ -120,22 +119,7 @@ export default async function LoginPage({
             </div>
           )}
 
-          {message === "oauth_error" && (
-            <div className="mt-5 rounded-[var(--radius-lg)] border border-[#e8b4b4] bg-[#fdf0f0] px-4 py-3 text-body-sm text-[#7a3030]">
-              Google sign-in did not complete. Please try again.
-            </div>
-          )}
-
-          <div className="mt-6">
-            <GoogleSignInButton />
-            <div className="relative my-5 flex items-center">
-              <div className="flex-grow border-t border-[var(--color-border)]" />
-              <span className="mx-3 shrink-0 text-caption text-[var(--color-text-secondary)]">or continue with email</span>
-              <div className="flex-grow border-t border-[var(--color-border)]" />
-            </div>
-          </div>
-
-          <form action={signInAction} className="space-y-4">
+          <form action={signInAction} className="mt-6 space-y-4">
             <input type="hidden" name="redirectTo" value={redirectTo} />
             <div>
               <label className="field-label">Email</label>

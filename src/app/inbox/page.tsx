@@ -18,10 +18,11 @@ import { CONTACT_ROLE_LABELS, type ContactRole, type EmailThread } from "@/types
 export const metadata = noIndexMetadata;
 
 export default async function InboxPage() {
-  const [{ emailInbox, emailAlias, emailThreads, emailContacts, documents }, crisisState] = await Promise.all([
+  const [snapshot, crisisState] = await Promise.all([
     getSnapshot(),
     getCrisisState(),
   ]);
+  const { emailInbox, emailAlias, emailThreads, emailContacts, documents } = snapshot;
   const missingEssentials = getMissingVaultEssentials(documents);
   const crisisCriticalCount = documents.filter((document) => document.crisisCritical).length;
 
@@ -29,7 +30,7 @@ export default async function InboxPage() {
   const threadlessEmails = emailInbox.filter((e) => !e.threadId);
 
   return (
-    <AppShell activePath="/inbox" crisisState={crisisState}>
+    <AppShell activePath="/inbox" crisisState={crisisState} snapshot={snapshot}>
       <div className="space-y-6">
         <section className="page-intro">
           <p className="text-label">Document vault</p>

@@ -50,11 +50,12 @@ const samplePosts = [
 const filterTags = ["All", "AC21", "Layoffs", "Visa Bulletin", "H1B", "EB-2", "EB-3", "Green Card", "Job Change"];
 
 export default async function CommunityPage() {
-  const [{ cohorts, profile }, crisisState] = await Promise.all([getSnapshot(), getCrisisState()]);
+  const [snapshot, crisisState] = await Promise.all([getSnapshot(), getCrisisState()]);
+  const { cohorts, profile } = snapshot;
   const primaryCohort = cohorts[0];
 
   return (
-    <AppShell activePath="/community" crisisState={crisisState}>
+    <AppShell activePath="/community" crisisState={crisisState} snapshot={snapshot}>
       <div className="space-y-6">
         <section className="rounded-[var(--radius-2xl)] border border-[var(--haven-sky-mid)] bg-[var(--haven-sky-light)] p-6 md:p-8">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">

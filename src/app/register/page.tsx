@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Clock3, ShieldAlert, Users } from "lucide-react";
 
 import { HavenBrand } from "@/components/app/haven-brand";
-import { GoogleSignInButton } from "@/components/app/google-sign-in-button";
 import { noIndexMetadata } from "@/lib/seo";
 import { RegisterForm } from "./RegisterForm";
 
@@ -96,15 +95,8 @@ export default async function RegisterPage({
           )}
 
           <div className="mt-6">
-            <GoogleSignInButton label="Sign up with Google" />
-            <div className="relative my-5 flex items-center">
-              <div className="flex-grow border-t border-[var(--color-border)]" />
-              <span className="mx-3 shrink-0 text-caption text-[var(--color-text-secondary)]">or create account with email</span>
-              <div className="flex-grow border-t border-[var(--color-border)]" />
-            </div>
+            <RegisterForm defaultEmail={email} defaultFullName={fullName} />
           </div>
-
-          <RegisterForm defaultEmail={email} defaultFullName={fullName} />
 
           <p className="text-caption mt-6">
             By creating an account, you agree to Haven&apos;s terms and privacy policy. Haven provides information, not legal advice.

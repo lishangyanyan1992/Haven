@@ -34,8 +34,8 @@ async function requireUser() {
 }
 
 /**
- * Shared post-auth routing logic used by both email/password sign-in
- * and the OAuth callback. Returns the redirect path as a string.
+ * Shared post-auth routing logic for authenticated users.
+ * Returns the redirect path as a string.
  */
 export async function resolvePostAuthRedirect(
   userId: string,

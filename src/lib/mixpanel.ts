@@ -2,7 +2,7 @@
 
 import mixpanel from "mixpanel-browser";
 
-type LoginMethod = "password" | "google";
+type LoginMethod = "password";
 
 interface LoginAttempt {
   method: LoginMethod;
@@ -86,7 +86,7 @@ export function consumeLoginAttempt(): LoginAttempt | null {
 
   try {
     const parsed = JSON.parse(raw) as Partial<LoginAttempt>;
-    if ((parsed.method === "password" || parsed.method === "google") && typeof parsed.startedAt === "number") {
+    if (parsed.method === "password" && typeof parsed.startedAt === "number") {
       return {
         method: parsed.method,
         startedAt: parsed.startedAt

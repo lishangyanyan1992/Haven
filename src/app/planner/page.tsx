@@ -13,12 +13,13 @@ import Link from "next/link";
 export const metadata = noIndexMetadata;
 
 export default async function PlannerPage() {
-  const [{ planner, profile }, crisisState] = await Promise.all([getSnapshot(), getCrisisState()]);
+  const [snapshot, crisisState] = await Promise.all([getSnapshot(), getCrisisState()]);
+  const { planner, profile } = snapshot;
   const crisisChecklist = buildChecklist(profile);
   const dayProgressWidth = crisisState ? `${Math.max((crisisState.dayNumber / 60) * 100, 2)}%` : "20%";
 
   return (
-    <AppShell activePath="/planner" crisisState={crisisState}>
+    <AppShell activePath="/planner" crisisState={crisisState} snapshot={snapshot}>
       <div className="space-y-6">
         <section className="page-intro">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">

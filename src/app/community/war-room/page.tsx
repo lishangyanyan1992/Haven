@@ -7,10 +7,11 @@ import { noIndexMetadata } from "@/lib/seo";
 export const metadata = noIndexMetadata;
 
 export default async function WarRoomPage() {
-  const [{ warRoom }, crisisState] = await Promise.all([getSnapshot(), getCrisisState()]);
+  const [snapshot, crisisState] = await Promise.all([getSnapshot(), getCrisisState()]);
+  const { warRoom } = snapshot;
 
   return (
-    <AppShell activePath="/community" crisisState={crisisState}>
+    <AppShell activePath="/community" crisisState={crisisState} snapshot={snapshot}>
       <div className="space-y-6">
         <section className="rounded-[var(--radius-2xl)] border border-[var(--haven-blush)] bg-[var(--haven-blush-light)] p-6 md:p-8">
           <p className="text-label text-[var(--haven-blush-ink)]">High-urgency space</p>

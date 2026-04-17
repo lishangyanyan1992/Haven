@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getActiveCrisisEvent } from "@/server/crisis-actions";
@@ -17,7 +19,7 @@ function getDayNumber(activatedAt: Date): number {
   return Math.min(Math.max(raw, 1), 60);
 }
 
-export async function getCrisisState(): Promise<CrisisState | null> {
+export const getCrisisState = cache(async (): Promise<CrisisState | null> => {
   try {
     const supabase = await createSupabaseServerClient();
     const admin = createSupabaseAdminClient();
@@ -54,4 +56,4 @@ export async function getCrisisState(): Promise<CrisisState | null> {
   } catch {
     return null;
   }
-}
+});

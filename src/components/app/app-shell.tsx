@@ -17,6 +17,9 @@ import { MixpanelAuthTracker } from "@/components/app/mixpanel-auth-tracker";
 import { Badge } from "@/components/ui/badge";
 import type { CrisisState } from "@/lib/get-crisis-state";
 import { getSnapshot } from "@/lib/repositories/case-compass";
+import type { HavenWorkspaceSnapshot } from "@/types/domain";
+
+type AppShellSnapshot = Pick<HavenWorkspaceSnapshot, "profile" | "dashboard">;
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -31,13 +34,15 @@ const navItems = [
 export async function AppShell({
   children,
   activePath,
-  crisisState
+  crisisState,
+  snapshot
 }: {
   children: ReactNode;
   activePath: string;
   crisisState?: CrisisState | null;
+  snapshot?: AppShellSnapshot;
 }) {
-  const { profile, dashboard } = await getSnapshot();
+  const { profile, dashboard } = snapshot ?? await getSnapshot();
   const isCrisisActive = Boolean(crisisState);
   const crisisProgressWidth = crisisState ? `${Math.max((crisisState.dayNumber / 60) * 100, 2)}%` : "74%";
 

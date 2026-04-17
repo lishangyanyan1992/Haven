@@ -8,10 +8,11 @@ import { noIndexMetadata } from "@/lib/seo";
 export const metadata = noIndexMetadata;
 
 export default async function TimelinePage() {
-  const [{ timelineEvents }, crisisState] = await Promise.all([getSnapshot(), getCrisisState()]);
+  const [snapshot, crisisState] = await Promise.all([getSnapshot(), getCrisisState()]);
+  const { timelineEvents } = snapshot;
 
   return (
-    <AppShell activePath="/timeline" crisisState={crisisState}>
+    <AppShell activePath="/timeline" crisisState={crisisState} snapshot={snapshot}>
       <div className="space-y-6">
         <section className="page-intro">
           <p className="text-label">Timeline engine</p>

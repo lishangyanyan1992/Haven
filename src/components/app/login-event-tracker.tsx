@@ -4,7 +4,7 @@ import { useEffect } from "react";
 
 import { consumeLoginAttempt, resetMixpanel, trackEvent } from "@/lib/mixpanel";
 
-const FAILURE_MESSAGES = new Set(["invalid_credentials", "oauth_error"]);
+const FAILURE_MESSAGES = new Set(["invalid_credentials"]);
 
 export function LoginEventTracker({ message }: { message?: string }) {
   useEffect(() => {
