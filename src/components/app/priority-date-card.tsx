@@ -70,7 +70,8 @@ export function PriorityDateCard({ intelligence }: PriorityDateCardProps) {
         label: point.label,
         cutoffLabel: point.cutoffLabel,
         cutoffTimestamp: point.cutoffTimestamp as number
-      })) ?? [];
+      }))
+      .slice(-3) ?? [];
   const sourcePulledAt = formatSourcePulledAt(intelligence?.sourcePulledAt);
 
   return (
@@ -168,9 +169,24 @@ export function PriorityDateCard({ intelligence }: PriorityDateCardProps) {
                   </ResponsiveContainer>
                 </div>
               </div>
+            ) : chartPoints.length > 0 ? (
+              <div className="rounded-[var(--radius-lg)] bg-[var(--haven-white)] p-4">
+                <p className="text-label">Recent movement</p>
+                <p className="mt-2 text-body-sm text-[var(--color-text-secondary)]">
+                  Showing the last {chartPoints.length} official bulletin update{chartPoints.length === 1 ? "" : "s"} Haven has on file.
+                </p>
+                <div className="mt-4 grid gap-3 md:grid-cols-3">
+                  {chartPoints.map((point) => (
+                    <div key={point.label} className="rounded-[var(--radius-md)] bg-[var(--haven-sand)] p-3">
+                      <p className="text-label">{point.label}</p>
+                      <p className="mt-2 text-body-sm">{point.cutoffLabel === "C" ? "Current" : point.cutoffLabel}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
             ) : (
               <div className="rounded-[var(--radius-lg)] bg-[var(--haven-white)] p-4 text-body-sm text-[var(--color-text-secondary)]">
-                Haven will show a movement chart after at least 3 monthly bulletin syncs are available.
+                Haven will populate this section as soon as official bulletin history is available for your queue.
               </div>
             )}
 

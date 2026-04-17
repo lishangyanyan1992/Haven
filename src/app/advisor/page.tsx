@@ -1,5 +1,4 @@
 import { AppShell } from "@/components/app/app-shell";
-import { ImmigrationUpdates } from "@/components/app/immigration-updates";
 import { getAdvisorUsage, getAdvisorWorkspaceSeed } from "@/lib/advisor/service";
 import { getCrisisState } from "@/lib/get-crisis-state";
 import { getAppShellSnapshot } from "@/lib/repositories/case-compass";
@@ -19,14 +18,11 @@ export default async function AdvisorPage() {
 
   return (
     <AppShell activePath="/advisor" crisisState={crisisState} snapshot={snapshot}>
-      <div className="space-y-6">
-        <ImmigrationUpdates />
-        <AdvisorWorkspace
-          advisorUsage={advisorUsage}
-          suggestedPrompts={seed.suggestedPrompts}
-          welcomeMessage={seed.welcomeMessage}
-        />
-      </div>
+      <AdvisorWorkspace
+        advisorUsage={advisorUsage}
+        suggestedPrompts={seed.suggestedPrompts}
+        welcomeMessage={seed.welcomeMessage}
+      />
     </AppShell>
   );
 }

@@ -19,10 +19,10 @@ import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/planner", label: "Layoff Planner", icon: ShieldAlert },
-  { href: "/advisor", label: "Advisor", icon: MessageSquareQuote },
-  { href: "/community", label: "Community", icon: Users },
   { href: "/inbox", label: "Document Vault", icon: FileText },
+  { href: "/community", label: "Community", icon: Users },
+  { href: "/advisor", label: "Advisor", icon: MessageSquareQuote },
+  { href: "/planner", label: "Layoff Planner", icon: ShieldAlert },
   { href: "/settings", label: "Settings", icon: Settings }
 ];
 
