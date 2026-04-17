@@ -1,3 +1,10 @@
+import { cancellationOfRemovalExplainedPost } from "@/content/blog/posts/cancellation-of-removal-explained";
+import { securityPublicChargeUnlawfulVotingDeportabilityPost } from "@/content/blog/posts/security-public-charge-unlawful-voting-deportability";
+import { groundsOfDeportabilityExplainedPost } from "@/content/blog/posts/grounds-of-deportability-explained";
+import { waiversOfInadmissibilityExplainedPost } from "@/content/blog/posts/waivers-of-inadmissibility-explained";
+import { citizenshipIneligibilityPriorRemovalMiscInadmissibilityPost } from "@/content/blog/posts/citizenship-ineligibility-prior-removal-misc-inadmissibility";
+import { publicChargeFraudAndDocumentationInadmissibilityPost } from "@/content/blog/posts/public-charge-fraud-and-documentation-inadmissibility";
+import { whatMakesSomeoneInadmissiblePost } from "@/content/blog/posts/what-makes-someone-inadmissible";
 import { diversityVisaAndSijsGreenCardPathsPost } from "@/content/blog/posts/diversity-visa-and-sijs-green-card-paths";
 import { credibleFearVsReasonableFearPost } from "@/content/blog/posts/credible-fear-vs-reasonable-fear";
 import { asylumVsWithholdingVsCatPost } from "@/content/blog/posts/asylum-vs-withholding-vs-cat";
@@ -26,6 +33,13 @@ export type { BlogImage, BlogPost, BlogSection, BlogSource } from "@/content/blo
 
 // Add a new post import here and it will appear in the blog automatically.
 export const blogPosts = [
+  cancellationOfRemovalExplainedPost,
+  securityPublicChargeUnlawfulVotingDeportabilityPost,
+  groundsOfDeportabilityExplainedPost,
+  waiversOfInadmissibilityExplainedPost,
+  citizenshipIneligibilityPriorRemovalMiscInadmissibilityPost,
+  publicChargeFraudAndDocumentationInadmissibilityPost,
+  whatMakesSomeoneInadmissiblePost,
   diversityVisaAndSijsGreenCardPathsPost,
   credibleFearVsReasonableFearPost,
   asylumVsWithholdingVsCatPost,
