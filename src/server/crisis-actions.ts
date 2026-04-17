@@ -26,6 +26,14 @@ async function requireUser() {
   return { supabase, user };
 }
 
+function getElapsedCrisisDays(activatedAtIso: string) {
+  return Math.floor((Date.now() - new Date(activatedAtIso).getTime()) / 86400000) + 1;
+}
+
+function hasCrisisExpired(activatedAtIso: string) {
+  return getElapsedCrisisDays(activatedAtIso) > 60;
+}
+
 function revalidateCrisisSurfaces() {
   revalidatePath("/dashboard");
   revalidatePath("/planner");
@@ -49,6 +57,23 @@ export async function getActiveCrisisEvent(): Promise<ActiveLayoffEventRow | nul
 
   if (error) {
     throw new Error(`Failed to load crisis mode: ${error.message}`);
+  }
+
+  if (data && hasCrisisExpired(data.activated_at)) {
+    const { error: resolveError } = await admin
+      .from("layoff_events")
+      .update({
+        resolved_at: new Date().toISOString(),
+        resolution_type: "dismissed",
+      })
+      .eq("id", data.id);
+
+    if (resolveError) {
+      throw new Error(`Failed to expire crisis mode: ${resolveError.message}`);
+    }
+
+    revalidateCrisisSurfaces();
+    return null;
   }
 
   return data;

@@ -16,7 +16,9 @@ export default async function PlannerPage() {
   const [snapshot, crisisState] = await Promise.all([getPlannerPageData(), getCrisisState()]);
   const { planner, profile } = snapshot;
   const crisisChecklist = buildChecklist(profile);
-  const dayProgressWidth = crisisState ? `${Math.max((crisisState.dayNumber / 60) * 100, 2)}%` : "20%";
+  const dayNumber = crisisState?.dayNumber ?? 0;
+  const daysRemaining = crisisState?.daysRemaining ?? 0;
+  const dayProgressWidth = crisisState ? `${Math.max((dayNumber / 60) * 100, 2)}%` : "0%";
 
   return (
     <AppShell activePath="/planner" crisisState={crisisState} snapshot={snapshot}>
@@ -52,11 +54,11 @@ export default async function PlannerPage() {
               <div>
                 <p className="text-label text-[var(--haven-blush-ink)]">Grace period</p>
                 <p className="text-h3 mt-1">
-                  {crisisState ? `Day ${crisisState.dayNumber} of 60` : "Day 12 of 60"}
+                  Day {dayNumber} of 60
                 </p>
               </div>
-              <Badge variant="urgent">
-                {crisisState ? `${crisisState.daysRemaining} days left` : "48 days left"}
+              <Badge variant={crisisState ? "urgent" : "pending"}>
+                {daysRemaining} days left
               </Badge>
             </div>
             <div className="mt-4 countdown-bar">
