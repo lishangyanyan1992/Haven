@@ -7,15 +7,17 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import type { AdvisorUsage } from "@/lib/advisor/service";
 import { trackEvent } from "@/lib/mixpanel";
 import type { AdvisorAnswerPayload, AdvisorMessage } from "@/types/domain";
 
 type AdvisorWorkspaceProps = {
+  advisorUsage: AdvisorUsage;
   suggestedPrompts: string[];
   welcomeMessage: AdvisorAnswerPayload;
 };
 
-export function AdvisorWorkspace({ suggestedPrompts, welcomeMessage }: AdvisorWorkspaceProps) {
+export function AdvisorWorkspace({ advisorUsage, suggestedPrompts, welcomeMessage }: AdvisorWorkspaceProps) {
   const [messages, setMessages] = useState<AdvisorMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -110,8 +112,12 @@ export function AdvisorWorkspace({ suggestedPrompts, welcomeMessage }: AdvisorWo
             <p className="text-body mt-4">
               This version does not save conversation history. Haven answers from official sources plus your current Haven snapshot, and everything resets when you refresh.
             </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Badge variant="active">{advisorUsage.remaining} of {advisorUsage.limit} credits left</Badge>
+              <Badge variant="pending">{advisorUsage.renewalLabel}</Badge>
+            </div>
             <p className="text-caption mt-3">
-              Limit: 5 new advisor conversations within 24 hours. Follow-up questions inside the same open conversation do not count again.
+              Limit: {advisorUsage.limit} new advisor conversations within 24 hours. Follow-up questions inside the same open conversation do not count again.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">

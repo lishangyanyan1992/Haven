@@ -111,6 +111,7 @@ export interface PriorityDateIntelligence {
   latestCutoffLabel: string;
   latestCutoffDate?: string;
   sourceUrl: string;
+  sourcePulledAt?: string;
   isCurrent: boolean;
   gapLabel?: string;
   estimateLabel?: string;

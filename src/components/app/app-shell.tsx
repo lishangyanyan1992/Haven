@@ -5,6 +5,7 @@ import {
 import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
+import { getAdvisorUsage } from "@/lib/advisor/service";
 import { AppShellNav } from "@/components/app/app-shell-nav";
 import { HavenBrand } from "@/components/app/haven-brand";
 import { CrisisBanner } from "@/components/app/crisis-banner";
@@ -28,6 +29,7 @@ export async function AppShell({
   snapshot?: AppShellSnapshot;
 }) {
   const { profile, dashboard } = snapshot ?? await getSnapshot();
+  const advisorUsage = await getAdvisorUsage();
   const isCrisisActive = Boolean(crisisState);
   const crisisProgressWidth = crisisState ? `${Math.max((crisisState.dayNumber / 60) * 100, 2)}%` : "74%";
 
@@ -81,7 +83,12 @@ export async function AppShell({
             </p>
           </div>
 
-          <AppShellNav activePath={activePath} crisisDayNumber={crisisState?.dayNumber} />
+          <AppShellNav
+            activePath={activePath}
+            advisorUsage={advisorUsage}
+            crisisDayNumber={crisisState?.dayNumber}
+            showPlanner={Boolean(crisisState) || activePath.startsWith("/planner")}
+          />
 
           <div className="mt-6 rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-4">
             <div className="flex items-start gap-3">

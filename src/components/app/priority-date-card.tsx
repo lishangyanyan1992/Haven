@@ -45,6 +45,23 @@ function formatTooltipLabel(label: string | number) {
   return String(label);
 }
 
+function formatSourcePulledAt(value?: string) {
+  if (!value) return null;
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  });
+}
+
 export function PriorityDateCard({ intelligence }: PriorityDateCardProps) {
   const chartPoints =
     intelligence?.historyPoints
@@ -54,19 +71,26 @@ export function PriorityDateCard({ intelligence }: PriorityDateCardProps) {
         cutoffLabel: point.cutoffLabel,
         cutoffTimestamp: point.cutoffTimestamp as number
       })) ?? [];
+  const sourcePulledAt = formatSourcePulledAt(intelligence?.sourcePulledAt);
 
   return (
     <Card variant="alert" className="h-full">
       <CardHeader>
         <div>
           <p className="text-label">Priority date intelligence</p>
-          <CardTitle className="mt-2">Real bulletin movement, not a placeholder range</CardTitle>
+          <CardTitle className="mt-2">Official visa bulletin movement for your case</CardTitle>
         </div>
         <TrendingUp className="h-5 w-5 text-[var(--haven-sky-ink)]" />
       </CardHeader>
       <CardContent className="space-y-4">
         {intelligence ? (
           <>
+            <div className="rounded-[var(--radius-lg)] bg-[var(--haven-white)] p-4">
+              <p className="text-label">Source</p>
+              <p className="mt-2 text-body-sm">Weekly sync from the official U.S. Department of State Visa Bulletin.</p>
+              {sourcePulledAt ? <p className="mt-2 text-caption">Last pulled {sourcePulledAt}</p> : null}
+            </div>
+
             <div className="rounded-[var(--radius-lg)] bg-[var(--haven-white)] p-4">
               <p className="text-label">
                 Current {intelligence.category} {intelligence.country} cutoff

@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  const expectedSecret = env.VISA_BULLETIN_SYNC_SECRET;
+  const expectedSecret = env.VISA_BULLETIN_SYNC_SECRET ?? process.env.CRON_SECRET;
 
   if (!expectedSecret) {
     return NextResponse.json({ error: "endpoint_not_configured" }, { status: 503 });

@@ -1,10 +1,10 @@
 import { AlertCircle, ArrowUpRight, CalendarClock } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getImmigrationUpdates } from "@/lib/immigration-updates";
+import { getImmigrationUpdates, type ImmigrationUpdate } from "@/lib/immigration-updates";
 
-export async function ImmigrationUpdates() {
-  const updates = await getImmigrationUpdates();
+export async function ImmigrationUpdates({ updates: providedUpdates }: { updates?: ImmigrationUpdate[] }) {
+  const updates = providedUpdates ?? await getImmigrationUpdates();
 
   return (
     <section className="space-y-4">

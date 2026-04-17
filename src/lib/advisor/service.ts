@@ -1,3 +1,4 @@
+import { cache } from "react";
 import OpenAI from "openai";
 
 import { env, hasSupabaseEnv } from "@/lib/env";
@@ -38,6 +39,14 @@ type AdvisorIdentity = {
   isMock: boolean;
 };
 
+export type AdvisorUsage = {
+  limit: number;
+  used: number;
+  remaining: number;
+  renewalLabel: string;
+  nextRenewalAt: string | null;
+};
+
 const ADVISOR_CONVERSATION_LIMIT = 5;
 const ADVISOR_CONVERSATION_WINDOW_HOURS = 24;
 
@@ -73,6 +82,25 @@ function formatTimestamp(input: string) {
     hour: "numeric",
     minute: "2-digit"
   }).format(new Date(input));
+}
+
+function formatAdvisorRenewal(msUntilRenewal: number | null) {
+  if (msUntilRenewal == null) return "fully available";
+  if (msUntilRenewal <= 60000) return "renews in under 1m";
+
+  const totalMinutes = Math.ceil(msUntilRenewal / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours <= 0) {
+    return `renews in ${minutes}m`;
+  }
+
+  if (minutes === 0) {
+    return `renews in ${hours}h`;
+  }
+
+  return `renews in ${hours}h ${minutes}m`;
 }
 
 function asPgVector(input: number[]) {
@@ -155,6 +183,58 @@ async function getAdvisorIdentity(): Promise<AdvisorIdentity> {
     isMock: false
   };
 }
+
+export const getAdvisorUsage = cache(async (): Promise<AdvisorUsage> => {
+  if (!hasSupabaseEnv) {
+    return {
+      limit: ADVISOR_CONVERSATION_LIMIT,
+      used: 0,
+      remaining: ADVISOR_CONVERSATION_LIMIT,
+      renewalLabel: "fully available",
+      nextRenewalAt: null
+    };
+  }
+
+  const identity = await getAdvisorIdentity();
+  if (identity.isMock) {
+    return {
+      limit: ADVISOR_CONVERSATION_LIMIT,
+      used: 0,
+      remaining: ADVISOR_CONVERSATION_LIMIT,
+      renewalLabel: "fully available",
+      nextRenewalAt: null
+    };
+  }
+
+  const admin = createSupabaseAdminClient() as any;
+  const windowStartMs = Date.now() - ADVISOR_CONVERSATION_WINDOW_HOURS * 60 * 60 * 1000;
+  const windowStartIso = new Date(windowStartMs).toISOString();
+  const { data: rows, error } = await admin
+    .from("advisor_threads")
+    .select("created_at")
+    .eq("user_id", identity.id)
+    .gte("created_at", windowStartIso)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    throw new Error(`Unable to load advisor usage: ${error.message}`);
+  }
+
+  const used = rows?.length ?? 0;
+  const remaining = Math.max(ADVISOR_CONVERSATION_LIMIT - used, 0);
+  const oldestCreatedAt = rows?.[0]?.created_at ? new Date(rows[0].created_at).getTime() : null;
+  const nextRenewalAtMs = oldestCreatedAt != null
+    ? oldestCreatedAt + ADVISOR_CONVERSATION_WINDOW_HOURS * 60 * 60 * 1000
+    : null;
+
+  return {
+    limit: ADVISOR_CONVERSATION_LIMIT,
+    used,
+    remaining,
+    renewalLabel: formatAdvisorRenewal(nextRenewalAtMs != null ? Math.max(nextRenewalAtMs - Date.now(), 0) : null),
+    nextRenewalAt: nextRenewalAtMs != null ? new Date(nextRenewalAtMs).toISOString() : null
+  };
+});
 
 function buildAdvisorContext(snapshot: Awaited<ReturnType<typeof getSnapshot>>): AdvisorUserContext {
   const { profile, dashboard, timelineEvents, emailInbox, cohorts, warRoom } = snapshot;
