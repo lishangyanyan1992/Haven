@@ -34,7 +34,7 @@ export default async function InboxPage() {
       <div className="space-y-6">
         <section className="page-intro">
           <p className="text-label">Document vault</p>
-          <h1 className="text-h1 mt-4">Store the files your attorney will ask for in the next 48 hours.</h1>
+          <h1 className="text-h1 mt-4">Store the important files and info.</h1>
           <p className="text-body mt-4 max-w-[68ch]">
             When HR calls you into a room on a Tuesday, Haven should already have your I-140 notice, H-1B packet,
             PERM record, passport page, and the rest of your crisis-critical file stack.
