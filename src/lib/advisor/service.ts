@@ -178,7 +178,9 @@ function buildAdvisorContext(snapshot: Awaited<ReturnType<typeof getSnapshot>>):
   };
 }
 
-function buildSuggestedPrompts(snapshot: Awaited<ReturnType<typeof getSnapshot>>) {
+type AdvisorSeedSnapshot = Pick<HavenWorkspaceSnapshot, "profile">;
+
+function buildSuggestedPrompts(snapshot: AdvisorSeedSnapshot) {
   const [firstConcern] = snapshot.profile.topConcerns;
   return [
     `How does my ${snapshot.profile.preferenceCategory} + ${snapshot.profile.countryOfBirth} path affect what I should watch next?`,
@@ -189,7 +191,7 @@ function buildSuggestedPrompts(snapshot: Awaited<ReturnType<typeof getSnapshot>>
   ];
 }
 
-function createWelcomePayload(snapshot: Awaited<ReturnType<typeof getSnapshot>>): AdvisorAnswerPayload {
+function createWelcomePayload(snapshot: AdvisorSeedSnapshot): AdvisorAnswerPayload {
   return {
     answer_markdown: `I can help with work visa and green card questions using official immigration sources plus your Haven profile.\n\nStart with one of these:\n- ${buildSuggestedPrompts(snapshot).join("\n- ")}`,
     confidence: "medium",
@@ -538,7 +540,7 @@ async function generateAdvisorAnswer(input: {
   return fallbackAnswer(input.question, input.userContext, input.knowledge, input.community, input.topics);
 }
 
-export async function getAdvisorWorkspaceSeed(snapshotArg?: HavenWorkspaceSnapshot) {
+export async function getAdvisorWorkspaceSeed(snapshotArg?: AdvisorSeedSnapshot) {
   const snapshot = snapshotArg ?? await getSnapshot();
 
   return {

@@ -6,14 +6,14 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buildChecklist } from "@/lib/crisis-checklist";
 import { getCrisisState } from "@/lib/get-crisis-state";
-import { getSnapshot } from "@/lib/repositories/case-compass";
+import { getPlannerPageData } from "@/lib/repositories/case-compass";
 import { noIndexMetadata } from "@/lib/seo";
 import Link from "next/link";
 
 export const metadata = noIndexMetadata;
 
 export default async function PlannerPage() {
-  const [snapshot, crisisState] = await Promise.all([getSnapshot(), getCrisisState()]);
+  const [snapshot, crisisState] = await Promise.all([getPlannerPageData(), getCrisisState()]);
   const { planner, profile } = snapshot;
   const crisisChecklist = buildChecklist(profile);
   const dayProgressWidth = crisisState ? `${Math.max((crisisState.dayNumber / 60) * 100, 2)}%` : "20%";

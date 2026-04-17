@@ -11,7 +11,9 @@ import type {
   EmailContact,
   EmailIngestRecord,
   EmailThread,
+  HavenWorkspaceSnapshot,
   ImmigrationProfile,
+  PriorityDateIntelligence,
   TimelineEvent,
   UserDocument
 } from "@/types/domain";
@@ -29,6 +31,12 @@ type EmailFieldRow = Database["public"]["Tables"]["email_extracted_fields"]["Row
 type EmailContactRow = Database["public"]["Tables"]["email_contacts"]["Row"];
 type EmailThreadRow = Database["public"]["Tables"]["email_threads"]["Row"];
 type DocumentRow = Database["public"]["Tables"]["user_documents"]["Row"];
+type SnapshotContext = {
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>;
+  userId: string | null;
+  snapshot: HavenWorkspaceSnapshot;
+  priorityDateIntelligence: PriorityDateIntelligence | null;
+};
 
 function mapProfileRow(row: ProfileRow): ImmigrationProfile {
   return {
@@ -215,109 +223,254 @@ function buildDocuments(rows: DocumentRow[]): UserDocument[] {
   }));
 }
 
+function buildShellSnapshot(snapshot: HavenWorkspaceSnapshot) {
+  return {
+    profile: snapshot.profile,
+    dashboard: snapshot.dashboard
+  };
+}
+
+async function buildSnapshotContext(): Promise<SnapshotContext> {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      supabase,
+      userId: null,
+      snapshot: havenSnapshot,
+      priorityDateIntelligence: null
+    };
+  }
+
+  const [{ data: profileRow }, { data: derivedSignalRow }] = await Promise.all([
+    supabase.from("user_profiles").select("*").eq("id", user.id).maybeSingle(),
+    supabase.from("derived_signals").select("*").eq("user_id", user.id).maybeSingle()
+  ]);
+
+  if (!profileRow) {
+    return {
+      supabase,
+      userId: user.id,
+      snapshot: havenSnapshot,
+      priorityDateIntelligence: null
+    };
+  }
+
+  const profile = mapProfileRow(profileRow);
+  const priorityDateIntelligence = await getPriorityDateIntelligence(profile);
+  const priorityDateSignals = getPriorityDateSignalOverrides(priorityDateIntelligence);
+  let snapshot = mergeSnapshotProfile(havenSnapshot, profile, priorityDateSignals);
+
+  if (derivedSignalRow) {
+    const mappedSignals = mapDerivedSignals(derivedSignalRow, profile, priorityDateSignals);
+    snapshot = {
+      ...snapshot,
+      dashboard: {
+        ...snapshot.dashboard,
+        signals: mappedSignals
+      }
+    };
+  }
+
+  return {
+    supabase,
+    userId: user.id,
+    snapshot,
+    priorityDateIntelligence
+  };
+}
+
+async function applyTimelineData(context: SnapshotContext, limit?: number) {
+  if (!context.userId) {
+    return context.snapshot;
+  }
+
+  let query = context.supabase
+    .from("timeline_events")
+    .select("*")
+    .eq("user_id", context.userId)
+    .order("created_at", { ascending: true });
+
+  if (typeof limit === "number") {
+    query = query.limit(limit);
+  }
+
+  const { data: timelineRows } = await query;
+  if (!timelineRows || timelineRows.length === 0) {
+    return context.snapshot;
+  }
+
+  const timelineEvents = timelineRows.map(mapTimelineEvent);
+  return {
+    ...context.snapshot,
+    dashboard: {
+      ...context.snapshot.dashboard,
+      timelineHighlights: timelineEvents.slice(0, 2)
+    },
+    ...(typeof limit === "number" ? null : { timelineEvents })
+  };
+}
+
+async function loadCommunitySnapshot(
+  context: SnapshotContext
+): Promise<Pick<HavenWorkspaceSnapshot, "cohorts" | "warRoom">> {
+  if (!context.userId) {
+    return {
+      cohorts: context.snapshot.cohorts,
+      warRoom: context.snapshot.warRoom
+    };
+  }
+
+  const [{ data: communitySpaceRows }, { data: membershipRows }, { data: postRows }] = await Promise.all([
+    context.supabase.from("community_spaces").select("*"),
+    context.supabase.from("community_memberships").select("*").eq("user_id", context.userId),
+    context.supabase.from("community_posts").select("*")
+  ]);
+
+  if (!communitySpaceRows || !membershipRows || !postRows) {
+    return {
+      cohorts: context.snapshot.cohorts,
+      warRoom: context.snapshot.warRoom
+    };
+  }
+
+  const { cohorts, warRoom } = buildCommunitySpaces(
+    communitySpaceRows,
+    membershipRows,
+    postRows,
+    context.snapshot.profile
+  );
+
+  return {
+    cohorts: cohorts.length > 0 ? cohorts : context.snapshot.cohorts,
+    warRoom
+  };
+}
+
+async function loadInboxSnapshot(
+  context: SnapshotContext
+): Promise<Pick<HavenWorkspaceSnapshot, "emailAlias" | "emailInbox" | "emailThreads" | "emailContacts" | "documents">> {
+  if (!context.userId) {
+    return {
+      emailAlias: context.snapshot.emailAlias,
+      emailInbox: context.snapshot.emailInbox,
+      emailThreads: context.snapshot.emailThreads,
+      emailContacts: context.snapshot.emailContacts,
+      documents: context.snapshot.documents
+    };
+  }
+
+  const [
+    { data: aliasRow },
+    { data: emailRows },
+    { data: contactRows },
+    { data: threadRows },
+    { data: documentRows }
+  ] = await Promise.all([
+    context.supabase.from("email_aliases").select("*").eq("user_id", context.userId).maybeSingle(),
+    context.supabase.from("email_ingest_records").select("*").eq("user_id", context.userId).order("received_at", { ascending: false }),
+    context.supabase.from("email_contacts").select("*").eq("user_id", context.userId),
+    context.supabase.from("email_threads").select("*").eq("user_id", context.userId).order("last_email_at", { ascending: false }),
+    context.supabase.from("user_documents").select("*").eq("user_id", context.userId).order("uploaded_at", { ascending: false })
+  ]);
+
+  const recordIds = (emailRows ?? []).map((row) => row.id);
+  const { data: fieldRows } = recordIds.length > 0
+    ? await context.supabase.from("email_extracted_fields").select("*").in("record_id", recordIds)
+    : { data: [] as EmailFieldRow[] };
+
+  const contacts = buildEmailContacts(contactRows ?? []);
+  const inbox = buildEmailInbox(aliasRow ?? null, emailRows ?? [], fieldRows ?? [], contacts);
+  const threads = buildEmailThreads(threadRows ?? [], inbox);
+
+  return {
+    emailAlias: aliasRow?.alias ?? null,
+    emailInbox: inbox,
+    emailThreads: threads,
+    emailContacts: contacts,
+    documents: documentRows ? buildDocuments(documentRows) : context.snapshot.documents
+  };
+}
+
+export async function getSupabaseShellSnapshot() {
+  const context = await buildSnapshotContext();
+  return buildShellSnapshot(context.snapshot);
+}
+
+export async function getSupabaseDashboardPageData() {
+  const context = await buildSnapshotContext();
+  const snapshot = await applyTimelineData(context, 2);
+
+  return {
+    ...buildShellSnapshot(snapshot),
+    priorityDateIntelligence: context.priorityDateIntelligence
+  };
+}
+
+export async function getSupabaseTimelinePageData() {
+  const context = await buildSnapshotContext();
+  const snapshot = await applyTimelineData(context);
+
+  return {
+    ...buildShellSnapshot(snapshot),
+    timelineEvents: snapshot.timelineEvents
+  };
+}
+
+export async function getSupabasePlannerPageData() {
+  const context = await buildSnapshotContext();
+  return {
+    ...buildShellSnapshot(context.snapshot),
+    planner: context.snapshot.planner
+  };
+}
+
+export async function getSupabaseCommunityPageData() {
+  const context = await buildSnapshotContext();
+  const community = await loadCommunitySnapshot(context);
+
+  return {
+    ...buildShellSnapshot(context.snapshot),
+    cohorts: community.cohorts
+  };
+}
+
+export async function getSupabaseWarRoomPageData() {
+  const context = await buildSnapshotContext();
+  const community = await loadCommunitySnapshot(context);
+
+  return {
+    ...buildShellSnapshot(context.snapshot),
+    warRoom: community.warRoom
+  };
+}
+
+export async function getSupabaseInboxPageData() {
+  const context = await buildSnapshotContext();
+  const inbox = await loadInboxSnapshot(context);
+
+  return {
+    ...buildShellSnapshot(context.snapshot),
+    ...inbox
+  };
+}
+
 export const supabaseHavenRepository: HavenRepository = {
   async getSnapshot() {
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user }
-    } = await supabase.auth.getUser();
+    const context = await buildSnapshotContext();
+    let snapshot = await applyTimelineData(context);
+    const community = await loadCommunitySnapshot(context);
+    const inbox = await loadInboxSnapshot(context);
 
-    if (!user) {
-      return havenSnapshot;
-    }
-
-    const [
-      { data: profileRow },
-      { data: derivedSignalRow },
-      { data: timelineRows },
-      { data: communitySpaceRows },
-      { data: membershipRows },
-      { data: postRows },
-      { data: aliasRow },
-      { data: emailRows },
-      { data: contactRows },
-      { data: threadRows },
-      { data: documentRows }
-    ] = await Promise.all([
-      supabase.from("user_profiles").select("*").eq("id", user.id).maybeSingle(),
-      supabase.from("derived_signals").select("*").eq("user_id", user.id).maybeSingle(),
-      supabase.from("timeline_events").select("*").eq("user_id", user.id).order("created_at", { ascending: true }),
-      supabase.from("community_spaces").select("*"),
-      supabase.from("community_memberships").select("*").eq("user_id", user.id),
-      supabase.from("community_posts").select("*"),
-      supabase.from("email_aliases").select("*").eq("user_id", user.id).maybeSingle(),
-      supabase.from("email_ingest_records").select("*").eq("user_id", user.id).order("received_at", { ascending: false }),
-      supabase.from("email_contacts").select("*").eq("user_id", user.id),
-      supabase.from("email_threads").select("*").eq("user_id", user.id).order("last_email_at", { ascending: false }),
-      supabase.from("user_documents").select("*").eq("user_id", user.id).order("uploaded_at", { ascending: false })
-    ]);
-
-    if (!profileRow) {
-      return havenSnapshot;
-    }
-
-    const profile = mapProfileRow(profileRow);
-    const priorityDateIntelligence = await getPriorityDateIntelligence(profile);
-    const priorityDateSignals = getPriorityDateSignalOverrides(priorityDateIntelligence);
-    let snapshot = mergeSnapshotProfile(havenSnapshot, profile, priorityDateSignals);
-
-    if (derivedSignalRow) {
-      const mappedSignals = mapDerivedSignals(derivedSignalRow, profile, priorityDateSignals);
-      snapshot = {
-        ...snapshot,
-        dashboard: {
-          ...snapshot.dashboard,
-          signals: mappedSignals
-        }
-      };
-    }
-
-    if (timelineRows && timelineRows.length > 0) {
-      const timelineEvents = timelineRows.map(mapTimelineEvent);
-      snapshot = {
-        ...snapshot,
-        dashboard: {
-          ...snapshot.dashboard,
-          timelineHighlights: timelineEvents.slice(0, 2)
-        },
-        timelineEvents
-      };
-    }
-
-    if (communitySpaceRows && membershipRows && postRows) {
-      const { cohorts, warRoom } = buildCommunitySpaces(communitySpaceRows, membershipRows, postRows, profile);
-      snapshot = {
-        ...snapshot,
-        cohorts: cohorts.length > 0 ? cohorts : snapshot.cohorts,
-        warRoom
-      };
-    }
-
-    if (emailRows) {
-      const recordIds = emailRows.map((row) => row.id);
-      const { data: fieldRows } = recordIds.length > 0
-        ? await supabase.from("email_extracted_fields").select("*").in("record_id", recordIds)
-        : { data: [] as EmailFieldRow[] };
-
-      const contacts = buildEmailContacts(contactRows ?? []);
-      const inbox = buildEmailInbox(aliasRow ?? null, emailRows, fieldRows ?? [], contacts);
-      const threads = buildEmailThreads(threadRows ?? [], inbox);
-
-      snapshot = {
-        ...snapshot,
-        emailAlias: aliasRow?.alias ?? null,
-        emailInbox: inbox,
-        emailThreads: threads,
-        emailContacts: contacts
-      };
-    }
-
-    if (documentRows) {
-      snapshot = {
-        ...snapshot,
-        documents: buildDocuments(documentRows)
-      };
-    }
+    snapshot = {
+      ...snapshot,
+      cohorts: community.cohorts,
+      warRoom: community.warRoom,
+      ...inbox
+    };
 
     return snapshot;
   }

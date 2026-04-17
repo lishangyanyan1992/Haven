@@ -5,7 +5,7 @@ import { AppShell } from "@/components/app/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCrisisState } from "@/lib/get-crisis-state";
-import { getSnapshot } from "@/lib/repositories/case-compass";
+import { getCommunityPageData } from "@/lib/repositories/case-compass";
 import { noIndexMetadata } from "@/lib/seo";
 import { CommunityComposer } from "./CommunityComposer";
 
@@ -50,7 +50,7 @@ const samplePosts = [
 const filterTags = ["All", "AC21", "Layoffs", "Visa Bulletin", "H1B", "EB-2", "EB-3", "Green Card", "Job Change"];
 
 export default async function CommunityPage() {
-  const [snapshot, crisisState] = await Promise.all([getSnapshot(), getCrisisState()]);
+  const [snapshot, crisisState] = await Promise.all([getCommunityPageData(), getCrisisState()]);
   const { cohorts, profile } = snapshot;
   const primaryCohort = cohorts[0];
 

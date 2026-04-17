@@ -4,13 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { getCrisisState } from "@/lib/get-crisis-state";
-import { getSnapshot } from "@/lib/repositories/case-compass";
+import { getAppShellSnapshot } from "@/lib/repositories/case-compass";
 import { noIndexMetadata } from "@/lib/seo";
 import { saveProfileSettingsAction } from "@/server/actions";
 
 export const metadata = noIndexMetadata;
 
-function inferGreenCardStage(profile: Awaited<ReturnType<typeof getSnapshot>>["profile"]) {
+function inferGreenCardStage(profile: Awaited<ReturnType<typeof getAppShellSnapshot>>["profile"]) {
   if (profile.i485Filed) return "i485_filed";
   if (profile.i140Approved) return "i140_approved";
   if (profile.permStage === "certified") return "perm_certified";
@@ -24,7 +24,7 @@ export default async function SettingsPage({
   searchParams?: Promise<{ saved?: string }>;
 }) {
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
-  const [snapshot, crisisState] = await Promise.all([getSnapshot(), getCrisisState()]);
+  const [snapshot, crisisState] = await Promise.all([getAppShellSnapshot(), getCrisisState()]);
   const { profile } = snapshot;
   const greenCardStage = inferGreenCardStage(profile);
 

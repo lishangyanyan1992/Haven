@@ -9,7 +9,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatBytes, getMissingVaultEssentials } from "@/lib/document-vault";
 import { getCrisisState } from "@/lib/get-crisis-state";
-import { getSnapshot } from "@/lib/repositories/case-compass";
+import { getInboxPageData } from "@/lib/repositories/case-compass";
 import { noIndexMetadata } from "@/lib/seo";
 import { deleteVaultDocument } from "@/server/document-actions";
 import { labelContactAction } from "@/server/actions";
@@ -19,7 +19,7 @@ export const metadata = noIndexMetadata;
 
 export default async function InboxPage() {
   const [snapshot, crisisState] = await Promise.all([
-    getSnapshot(),
+    getInboxPageData(),
     getCrisisState(),
   ]);
   const { emailInbox, emailAlias, emailThreads, emailContacts, documents } = snapshot;

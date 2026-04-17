@@ -13,9 +13,9 @@ import { Select } from "@/components/ui/select";
 import { buildChecklist } from "@/lib/crisis-checklist";
 import { getCrisisState } from "@/lib/get-crisis-state";
 import { mergeSnapshotProfile } from "@/lib/haven";
-import { getPriorityDateIntelligence } from "@/lib/priority-date-intelligence";
 import { ONBOARDING_OVERRIDE_COOKIE, parseOverrideCookie, persistProfileDraft } from "@/lib/profile-sync";
-import { getSnapshot } from "@/lib/repositories/case-compass";
+import { getDashboardPageData } from "@/lib/repositories/case-compass";
+import { havenSnapshot } from "@/lib/repositories/mock-data";
 import { noIndexMetadata } from "@/lib/seo";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
@@ -54,7 +54,7 @@ export default async function DashboardPage({
     }
   }
 
-  const [initialSnapshot, crisisState] = await Promise.all([getSnapshot(), getCrisisState()]);
+  const [initialSnapshot, crisisState] = await Promise.all([getDashboardPageData(), getCrisisState()]);
   let snapshot = initialSnapshot;
 
   if (shouldUseOverrideFallback && overrideDraft) {
@@ -77,14 +77,22 @@ export default async function DashboardPage({
           : snapshot.profile.topConcerns
       };
 
-      snapshot = mergeSnapshotProfile(snapshot, profile);
+      const mergedSnapshot = mergeSnapshotProfile(havenSnapshot, profile);
+      snapshot = {
+        ...snapshot,
+        profile: mergedSnapshot.profile,
+        dashboard: {
+          ...mergedSnapshot.dashboard,
+          timelineHighlights: snapshot.dashboard.timelineHighlights
+        }
+      };
     } catch {
       // Ignore malformed override cookies and keep the persisted snapshot.
     }
   }
 
   const { profile, dashboard } = snapshot;
-  const priorityDateIntelligence = await getPriorityDateIntelligence(profile);
+  const priorityDateIntelligence = initialSnapshot.priorityDateIntelligence;
   const readiness = readinessMeta[dashboard.signals.layoffReadinessScore as keyof typeof readinessMeta] ?? readinessMeta.medium;
   const checklistItems = buildChecklist(profile);
   const checklistProgress = crisisState ? Math.round((crisisState.completedItemKeys.length / checklistItems.length) * 100) : 0;
