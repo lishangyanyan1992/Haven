@@ -334,7 +334,9 @@ export async function completeOnboardingAction(formData: FormData) {
     preferenceCategory: String(formData.get("preferenceCategory") ?? ""),
     i140Approved: String(formData.get("i140Approved") ?? "false"),
     spouseVisaStatus: String(formData.get("spouseVisaStatus") ?? ""),
-    topConcerns: formData.getAll("topConcerns").map(String)
+    topConcerns: formData.getAll("topConcerns").map(String),
+    communityReplyEmailNotifications: String(formData.get("communityReplyEmailNotifications") ?? "false"),
+    statusUpdateEmailNotifications: String(formData.get("statusUpdateEmailNotifications") ?? "false")
   });
 
   await admin.from("email_aliases").upsert({

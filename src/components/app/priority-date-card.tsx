@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpRight, CalendarClock, TrendingUp } from "lucide-react";
+import { ArrowUpRight, TrendingUp } from "lucide-react";
 import {
   Area,
   AreaChart,
@@ -113,18 +113,16 @@ export function PriorityDateCard({ intelligence }: PriorityDateCardProps) {
                 <p className="mt-2 text-body-sm">
                   {intelligence.estimateLabel ?? "Haven needs more bulletin history to estimate when your date may become current."}
                 </p>
+                {intelligence.estimateDetails?.length ? (
+                  <div className="mt-3 space-y-2">
+                    {intelligence.estimateDetails.map((detail) => (
+                      <p key={detail} className="text-caption">
+                        {detail}
+                      </p>
+                    ))}
+                  </div>
+                ) : null}
               </div>
-            </div>
-
-            <div className="rounded-[var(--radius-lg)] bg-[var(--haven-white)] p-4">
-              <div className="flex items-center gap-2">
-                <CalendarClock className="h-4 w-4 text-[var(--haven-sky-ink)]" />
-                <p className="text-label">Signal</p>
-              </div>
-              <p className="mt-3 text-body-sm">{intelligence.visaBulletinPosition}</p>
-              {intelligence.velocityLabel ? (
-                <p className="mt-2 text-caption">Using {intelligence.velocityLabel} as the current movement baseline.</p>
-              ) : null}
             </div>
 
             {chartPoints.length >= 3 ? (

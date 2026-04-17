@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  CalendarClock,
   FileText,
   LayoutDashboard,
   LoaderCircle,
@@ -20,7 +19,6 @@ import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/timeline", label: "Timeline", icon: CalendarClock },
   { href: "/planner", label: "Layoff Planner", icon: ShieldAlert },
   { href: "/advisor", label: "Advisor", icon: MessageSquareQuote },
   { href: "/community", label: "Community", icon: Users },

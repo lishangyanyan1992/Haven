@@ -3,6 +3,7 @@ import Link from "next/link";
 import { CalendarClock, MessageCircle, Timer } from "lucide-react";
 
 import { DashboardChangeHighlight, DashboardChangeProvider } from "@/components/app/dashboard-change-highlight";
+import { DashboardPriorityChecklist } from "@/components/app/dashboard-priority-checklist";
 import { AppShell } from "@/components/app/app-shell";
 import { CrisisActivationModal } from "@/components/app/crisis-activation-modal";
 import { ImmigrationUpdates } from "@/components/app/immigration-updates";
@@ -208,9 +209,6 @@ export default async function DashboardPage({
                       {profile.visaType} · {profile.preferenceCategory} · {profile.countryOfBirth}
                       {profile.employerName ? ` · ${profile.employerName}` : ""}
                     </p>
-                    <p className="text-body mt-4 max-w-[60ch]">
-                      This is a lot. Let&apos;s take it one step at a time, starting with what matters most today.
-                    </p>
                   </div>
                   {dashboard.signals.layoffReadinessScore !== "high" ? <CrisisActivationModal /> : null}
                 </div>
@@ -219,36 +217,8 @@ export default async function DashboardPage({
           </DashboardChangeHighlight>
 
           <DashboardChangeHighlight sectionId="nextActions">
-            <Card>
-              <CardHeader>
-                <div>
-                  <p className="text-label">Priority</p>
-                  <CardTitle className="mt-2">What to focus on now</CardTitle>
-                </div>
-                <Badge variant="urgent">Current queue</Badge>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {dashboard.nextActions.map((item, index) => (
-                  <div key={item} className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--haven-cream)] p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--haven-sage-light)] text-sm font-medium text-[var(--haven-ink)]">
-                        {index + 1}
-                      </div>
-                      <div>
-                        <p className="text-h3">{item}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+            <DashboardPriorityChecklist initialItems={dashboard.nextActions} profileId={profile.id} />
           </DashboardChangeHighlight>
-
-          {showPriorityDateSection ? (
-            <DashboardChangeHighlight sectionId="priorityDate">
-              <PriorityDateCard intelligence={priorityDateIntelligence} />
-            </DashboardChangeHighlight>
-          ) : null}
 
           {crisisState ? (
             <DashboardChangeHighlight sectionId="crisisResolution">
@@ -327,6 +297,12 @@ export default async function DashboardPage({
               </CardContent>
             </Card>
           </DashboardChangeHighlight>
+
+          {showPriorityDateSection ? (
+            <DashboardChangeHighlight sectionId="priorityDate">
+              <PriorityDateCard intelligence={priorityDateIntelligence} />
+            </DashboardChangeHighlight>
+          ) : null}
 
           <DashboardChangeHighlight sectionId="officialUpdates">
             <ImmigrationUpdates updates={updates} />

@@ -972,6 +972,7 @@ export type Database = {
       }
       user_profiles: {
         Row: {
+          community_reply_email_notifications: boolean
           country_of_birth: string
           created_at: string
           current_visa_expiry_date: string | null
@@ -993,11 +994,13 @@ export type Database = {
           primary_goal: Database["public"]["Enums"]["primary_goal"]
           priority_date: string | null
           spouse_visa_status: Database["public"]["Enums"]["spouse_visa_status"]
+          status_update_email_notifications: boolean
           top_concerns: Database["public"]["Enums"]["concern"][]
           updated_at: string
           visa_type: Database["public"]["Enums"]["visa_type"]
         }
         Insert: {
+          community_reply_email_notifications?: boolean
           country_of_birth: string
           created_at?: string
           current_visa_expiry_date?: string | null
@@ -1019,11 +1022,13 @@ export type Database = {
           primary_goal?: Database["public"]["Enums"]["primary_goal"]
           priority_date?: string | null
           spouse_visa_status?: Database["public"]["Enums"]["spouse_visa_status"]
+          status_update_email_notifications?: boolean
           top_concerns?: Database["public"]["Enums"]["concern"][]
           updated_at?: string
           visa_type: Database["public"]["Enums"]["visa_type"]
         }
         Update: {
+          community_reply_email_notifications?: boolean
           country_of_birth?: string
           created_at?: string
           current_visa_expiry_date?: string | null
@@ -1045,11 +1050,47 @@ export type Database = {
           primary_goal?: Database["public"]["Enums"]["primary_goal"]
           priority_date?: string | null
           spouse_visa_status?: Database["public"]["Enums"]["spouse_visa_status"]
+          status_update_email_notifications?: boolean
           top_concerns?: Database["public"]["Enums"]["concern"][]
           updated_at?: string
           visa_type?: Database["public"]["Enums"]["visa_type"]
         }
         Relationships: []
+      }
+      email_notification_deliveries: {
+        Row: {
+          created_at: string
+          dedupe_key: string
+          id: string
+          metadata: Json | null
+          notification_kind: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          dedupe_key: string
+          id?: string
+          metadata?: Json | null
+          notification_kind: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          dedupe_key?: string
+          id?: string
+          metadata?: Json | null
+          notification_kind?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_notification_deliveries_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       waitlist_signups: {
         Row: {

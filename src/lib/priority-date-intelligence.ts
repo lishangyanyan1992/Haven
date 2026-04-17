@@ -74,6 +74,22 @@ function formatGapLabel(priorityDate: Date, cutoffDate: Date) {
   return `${years} year${years === 1 ? "" : "s"}, ${remainingMonths} month${remainingMonths === 1 ? "" : "s"} ahead of cutoff`;
 }
 
+function formatDurationLabel(totalMonths: number) {
+  const clampedMonths = Math.max(totalMonths, 0);
+  const years = Math.floor(clampedMonths / 12);
+  const remainingMonths = clampedMonths % 12;
+
+  if (years === 0) {
+    return `${remainingMonths} month${remainingMonths === 1 ? "" : "s"}`;
+  }
+
+  if (remainingMonths === 0) {
+    return `${years} year${years === 1 ? "" : "s"}`;
+  }
+
+  return `${years} year${years === 1 ? "" : "s"} and ${remainingMonths} month${remainingMonths === 1 ? "" : "s"}`;
+}
+
 function calculateVelocity(historyRows: VisaBulletinRow[]) {
   const datedRows = historyRows
     .filter((row) => row.cutoff_date)
@@ -220,7 +236,8 @@ export async function getPriorityDateIntelligence(
       velocityLabel: velocity.label,
       historyPoints,
       visaBulletinPosition: `${category} ${country} is current under the latest final action dates bulletin.`,
-      estimateLabel: "Your priority date is already current under final action dates."
+      estimateLabel: "Your priority date is already current under final action dates.",
+      estimateDetails: ["No projection is needed because the latest official cutoff already covers your priority date."]
     };
   }
 
@@ -240,6 +257,9 @@ export async function getPriorityDateIntelligence(
   }
 
   const gapLabel = formatGapLabel(priorityDate, latestCutoffDate);
+  const bulletinDate = new Date(Date.UTC(latest.bulletin_year, latest.bulletin_month - 1, 1));
+  const queueDepthMonths = differenceInWholeMonths(bulletinDate, latestCutoffDate);
+  const queueDepthLabel = formatDurationLabel(queueDepthMonths);
   const estimatedGreenCardDateRange = estimateCurrentRange(
     priorityDate,
     latest.bulletin_year,
@@ -260,6 +280,11 @@ export async function getPriorityDateIntelligence(
     velocityLabel: velocity.label,
     estimatedGreenCardDateRange,
     estimateLabel: `At ${velocity.label} average pace, current around ${estimatedGreenCardDateRange}.`,
+    estimateDetails: [
+      `Haven starts with the latest ${latestBulletinLabel} final action bulletin and the current cutoff of ${latestCutoffLabel}. That places today's queue about ${queueDepthLabel} deep.`,
+      `It then uses the recent bulletin movement average of ${velocity.label} to project how long it may take for the cutoff to reach your priority date.`,
+      `The ${estimatedGreenCardDateRange} range is intentionally wide because bulletin movement can speed up, stall, or retrogress from month to month.`
+    ],
     visaBulletinPosition: `Current ${category} ${country} cutoff is ${latestCutoffLabel}. You are ${gapLabel}.`,
     historyPoints
   };

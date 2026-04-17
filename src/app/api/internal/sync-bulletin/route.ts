@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { env } from "@/lib/env";
+import { sendVisaBulletinStatusUpdateEmails } from "@/lib/email-notifications";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { fetchLatestVisaBulletin } from "@/lib/visa-bulletin-parser";
 
@@ -46,11 +47,14 @@ export async function GET(request: Request) {
     revalidatePath("/dashboard");
     revalidatePath("/timeline");
 
+    const notificationResult = await sendVisaBulletinStatusUpdateEmails(bulletin);
+
     return NextResponse.json({
       syncedAt: new Date().toISOString(),
       bulletinLabel: bulletin.bulletinLabel,
       sourceUrl: bulletin.sourceUrl,
-      entriesUpserted: bulletin.entries.length
+      entriesUpserted: bulletin.entries.length,
+      emailNotifications: notificationResult
     });
   } catch (error) {
     return NextResponse.json(

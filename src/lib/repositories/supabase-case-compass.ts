@@ -61,7 +61,9 @@ function mapProfileRow(row: ProfileRow): ImmigrationProfile {
     employmentStatus: row.employment_status as ImmigrationProfile["employmentStatus"],
     spouseVisaStatus: row.spouse_visa_status as ImmigrationProfile["spouseVisaStatus"],
     primaryGoal: row.primary_goal as ImmigrationProfile["primaryGoal"],
-    topConcerns: row.top_concerns as ImmigrationProfile["topConcerns"]
+    topConcerns: row.top_concerns as ImmigrationProfile["topConcerns"],
+    communityReplyEmailNotifications: row.community_reply_email_notifications,
+    statusUpdateEmailNotifications: row.status_update_email_notifications
   };
 }
 

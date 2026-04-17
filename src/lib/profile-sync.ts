@@ -18,6 +18,8 @@ type ProfileDraft = Partial<{
   i140Approved: string | boolean;
   spouseVisaStatus: string;
   topConcerns: string[];
+  communityReplyEmailNotifications: string | boolean;
+  statusUpdateEmailNotifications: string | boolean;
 }>;
 
 const visaTypes: VisaType[] = ["OPT", "STEM OPT", "H1B", "H4", "O-1", "GC", "Citizen"];
@@ -106,7 +108,15 @@ function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unk
         : null,
     i485_filed: greenCardStage === "i485_filed",
     spouse_visa_status: asEnumValue(rawDraft.spouseVisaStatus ?? existingRow?.spouse_visa_status, spouseVisaStatuses, "none"),
-    top_concerns: asConcerns(rawDraft.topConcerns) ?? (existingConcerns.length > 0 ? existingConcerns : ["layoffs"])
+    top_concerns: asConcerns(rawDraft.topConcerns) ?? (existingConcerns.length > 0 ? existingConcerns : ["layoffs"]),
+    community_reply_email_notifications:
+      rawDraft.communityReplyEmailNotifications !== undefined
+        ? rawDraft.communityReplyEmailNotifications === true || rawDraft.communityReplyEmailNotifications === "true"
+        : Boolean(existingRow?.community_reply_email_notifications),
+    status_update_email_notifications:
+      rawDraft.statusUpdateEmailNotifications !== undefined
+        ? rawDraft.statusUpdateEmailNotifications === true || rawDraft.statusUpdateEmailNotifications === "true"
+        : Boolean(existingRow?.status_update_email_notifications)
   };
 }
 
@@ -133,7 +143,9 @@ function mapProfileRow(row: Record<string, unknown>): ImmigrationProfile {
     employmentStatus: row.employment_status as ImmigrationProfile["employmentStatus"],
     spouseVisaStatus: row.spouse_visa_status as ImmigrationProfile["spouseVisaStatus"],
     primaryGoal: row.primary_goal as ImmigrationProfile["primaryGoal"],
-    topConcerns: ((row.top_concerns as string[] | null) ?? []) as ImmigrationProfile["topConcerns"]
+    topConcerns: ((row.top_concerns as string[] | null) ?? []) as ImmigrationProfile["topConcerns"],
+    communityReplyEmailNotifications: Boolean(row.community_reply_email_notifications),
+    statusUpdateEmailNotifications: Boolean(row.status_update_email_notifications)
   };
 }
 

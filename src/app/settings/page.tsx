@@ -41,7 +41,7 @@ export default async function SettingsPage({
 
         {resolvedSearchParams?.saved === "1" && (
           <div className="rounded-[var(--radius-lg)] border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] px-5 py-4 text-body-sm">
-            Profile updated. Haven is now using the information below across the app.
+            Profile and email settings updated. Haven is now using the information below across the app.
           </div>
         )}
 
@@ -197,6 +197,38 @@ export default async function SettingsPage({
                     </div>
                   </label>
                 ))}
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid gap-6 xl:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <div>
+                  <p className="text-label">Email settings</p>
+                  <CardTitle className="mt-2">Choose which Haven updates land in your inbox</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Field label="Community replies">
+                  <Select defaultValue={profile.communityReplyEmailNotifications ? "true" : "false"} name="communityReplyEmailNotifications">
+                    <option value="false">No</option>
+                    <option value="true">Yes</option>
+                  </Select>
+                </Field>
+                <p className="text-body-sm text-[var(--color-text-secondary)]">
+                  Send an email when Haven starts notifying you about replies to your community posts and threads.
+                </p>
+
+                <Field label="Status updates">
+                  <Select defaultValue={profile.statusUpdateEmailNotifications ? "true" : "false"} name="statusUpdateEmailNotifications">
+                    <option value="false">No</option>
+                    <option value="true">Yes</option>
+                  </Select>
+                </Field>
+                <p className="text-body-sm text-[var(--color-text-secondary)]">
+                  Send an email when official immigration status inputs change, such as new monthly priority date bulletin movement for your queue.
+                </p>
               </CardContent>
             </Card>
           </div>

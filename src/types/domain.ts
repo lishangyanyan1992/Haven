@@ -82,6 +82,8 @@ export interface ImmigrationProfile {
   spouseVisaStatus: SpouseVisaStatus;
   primaryGoal: PrimaryGoal;
   topConcerns: Concern[];
+  communityReplyEmailNotifications?: boolean;
+  statusUpdateEmailNotifications?: boolean;
 }
 
 export interface DerivedProfileSignals {
@@ -115,6 +117,7 @@ export interface PriorityDateIntelligence {
   isCurrent: boolean;
   gapLabel?: string;
   estimateLabel?: string;
+  estimateDetails?: string[];
   estimatedGreenCardDateRange?: string;
   velocityLabel?: string;
   visaBulletinPosition: string;
