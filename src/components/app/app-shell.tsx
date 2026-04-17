@@ -1,16 +1,11 @@
 import Link from "next/link";
 import {
-  CalendarClock,
   FileText,
-  LayoutDashboard,
-  MessageSquareQuote,
-  Settings,
-  ShieldAlert,
-  Users
 } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
+import { AppShellNav } from "@/components/app/app-shell-nav";
 import { HavenBrand } from "@/components/app/haven-brand";
 import { CrisisBanner } from "@/components/app/crisis-banner";
 import { MixpanelAuthTracker } from "@/components/app/mixpanel-auth-tracker";
@@ -20,16 +15,6 @@ import { getSnapshot } from "@/lib/repositories/case-compass";
 import type { HavenWorkspaceSnapshot } from "@/types/domain";
 
 type AppShellSnapshot = Pick<HavenWorkspaceSnapshot, "profile" | "dashboard">;
-
-const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/timeline", label: "Timeline", icon: CalendarClock },
-  { href: "/planner", label: "Layoff Planner", icon: ShieldAlert },
-  { href: "/advisor", label: "Advisor", icon: MessageSquareQuote },
-  { href: "/community", label: "Community", icon: Users },
-  { href: "/inbox", label: "Document Vault", icon: FileText },
-  { href: "/settings", label: "Settings", icon: Settings }
-];
 
 export async function AppShell({
   children,
@@ -96,34 +81,7 @@ export async function AppShell({
             </p>
           </div>
 
-          <nav className="mt-6 grid gap-1">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activePath.startsWith(item.href);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "relative flex min-h-11 items-center gap-3 rounded-[var(--radius-md)] px-3 py-2 text-sm transition-colors duration-150",
-                    isActive
-                      ? "bg-[var(--haven-sage-light)] font-medium text-[var(--haven-ink)]"
-                      : "text-[var(--color-text-secondary)] hover:bg-[var(--haven-sage-light)] hover:text-[var(--haven-ink)]"
-                  )}
-                >
-                  {isActive && (
-                    <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-sm bg-[var(--haven-sage)]" />
-                  )}
-                  <Icon className="h-4 w-4" />
-                  <span>{item.label}</span>
-                  {item.href === "/dashboard" && crisisState && (
-                    <Badge variant="urgent">Day {crisisState.dayNumber} / 60</Badge>
-                  )}
-                  {item.href === "/community" && <Badge variant="count">3</Badge>}
-                </Link>
-              );
-            })}
-          </nav>
+          <AppShellNav activePath={activePath} crisisDayNumber={crisisState?.dayNumber} />
 
           <div className="mt-6 rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-4">
             <div className="flex items-start gap-3">
