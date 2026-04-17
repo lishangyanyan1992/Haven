@@ -81,7 +81,8 @@ export const advisorHistoryMessageSchema = z.object({
 
 export const advisorRespondSchema = z.object({
   content: z.string().trim().min(4).max(4000),
-  history: z.array(advisorHistoryMessageSchema).max(12).optional().default([])
+  history: z.array(advisorHistoryMessageSchema).max(12).optional().default([]),
+  conversationId: z.string().uuid().optional()
 });
 
 export const createThreadSchema = z.object({

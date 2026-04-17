@@ -17,6 +17,7 @@ type AdvisorWorkspaceProps = {
 
 export function AdvisorWorkspace({ suggestedPrompts, welcomeMessage }: AdvisorWorkspaceProps) {
   const [messages, setMessages] = useState<AdvisorMessage[]>([]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
@@ -71,6 +72,7 @@ export function AdvisorWorkspace({ suggestedPrompts, welcomeMessage }: AdvisorWo
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             content,
+            conversationId: conversationId ?? undefined,
             history: nextMessages.map((message) => ({
               role: message.role,
               content: message.role === "assistant" ? message.answerPayload?.answer_markdown ?? message.content : message.content
@@ -88,6 +90,7 @@ export function AdvisorWorkspace({ suggestedPrompts, welcomeMessage }: AdvisorWo
           user_id: null,
           results_count: 1
         });
+        setConversationId(body.conversationId ?? null);
         setMessages([...nextMessages, body.assistantMessage]);
         setStreamingMessageId(body.assistantMessage.id);
       } catch (caughtError) {
@@ -106,6 +109,9 @@ export function AdvisorWorkspace({ suggestedPrompts, welcomeMessage }: AdvisorWo
             <h1 className="text-h1 mt-4">Ask visa and green card questions with source-backed answers.</h1>
             <p className="text-body mt-4">
               This version does not save conversation history. Haven answers from official sources plus your current Haven snapshot, and everything resets when you refresh.
+            </p>
+            <p className="text-caption mt-3">
+              Limit: 5 new advisor conversations within 24 hours. Follow-up questions inside the same open conversation do not count again.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -138,6 +144,7 @@ export function AdvisorWorkspace({ suggestedPrompts, welcomeMessage }: AdvisorWo
           <Button
             onClick={() => {
               setMessages([]);
+              setConversationId(null);
               setError(null);
               setStreamingMessageId(null);
             }}

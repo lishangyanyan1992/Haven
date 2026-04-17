@@ -38,6 +38,16 @@ type AdvisorIdentity = {
   isMock: boolean;
 };
 
+const ADVISOR_CONVERSATION_LIMIT = 5;
+const ADVISOR_CONVERSATION_WINDOW_HOURS = 24;
+
+class AdvisorRateLimitError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AdvisorRateLimitError";
+  }
+}
+
 type TopicBucket = "h1b" | "visa-bulletin" | "perm" | "adjustment-of-status" | "job-change" | "layoffs" | "haven-product";
 
 function getOpenAIClient() {
@@ -213,6 +223,62 @@ function createAssistantMessage(threadId: string, payload: AdvisorAnswerPayload)
     createdAt,
     answerPayload: payload
   };
+}
+
+async function reserveAdvisorConversation(userId: string, content: string, conversationId?: string) {
+  if (!hasSupabaseEnv) {
+    return conversationId ?? "session";
+  }
+
+  const admin = createSupabaseAdminClient() as any;
+
+  if (conversationId) {
+    const { data: existingThread, error } = await admin
+      .from("advisor_threads")
+      .select("id")
+      .eq("id", conversationId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Unable to load advisor conversation: ${error.message}`);
+    }
+
+    if (existingThread?.id) {
+      return existingThread.id as string;
+    }
+  }
+
+  const windowStart = new Date(Date.now() - ADVISOR_CONVERSATION_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
+  const { count, error: countError } = await admin
+    .from("advisor_threads")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("created_at", windowStart);
+
+  if (countError) {
+    throw new Error(`Unable to enforce advisor conversation limit: ${countError.message}`);
+  }
+
+  if ((count ?? 0) >= ADVISOR_CONVERSATION_LIMIT) {
+    throw new AdvisorRateLimitError("You can start up to 5 advisor conversations within 24 hours. Please try again later.");
+  }
+
+  const title = content.trim().slice(0, 120) || "New conversation";
+  const { data: newThread, error: insertError } = await admin
+    .from("advisor_threads")
+    .insert({
+      user_id: userId,
+      title
+    })
+    .select("id")
+    .single();
+
+  if (insertError || !newThread?.id) {
+    throw new Error(`Unable to create advisor conversation: ${insertError?.message ?? "Missing thread id."}`);
+  }
+
+  return newThread.id as string;
 }
 
 function buildContextBlock(label: string, lines: string[]) {
@@ -552,20 +618,22 @@ export async function getAdvisorWorkspaceSeed(snapshotArg?: AdvisorSeedSnapshot)
 export async function respondToAdvisorMessage(rawInput: {
   content: string;
   history?: Array<{ role: "user" | "assistant"; content: string }>;
+  conversationId?: string;
 }) {
-  await getAdvisorIdentity();
+  const identity = await getAdvisorIdentity();
   const parsed = advisorRespondSchema.safeParse(rawInput);
 
   if (!parsed.success) {
     throw new Error("Message content is required.");
   }
 
-  const { content, history: rawHistory } = parsed.data;
+  const { content, history: rawHistory, conversationId } = parsed.data;
 
   const moderation = await moderateMessage(content);
   const snapshot = await getSnapshot();
 
   if (moderation.flagged) {
+    const threadId = conversationId ?? "session";
     const flaggedAnswer: AdvisorAnswerPayload = {
       answer_markdown:
         "I can help with work visa and green card questions, but I can’t continue with this message as written. Rephrase it as a factual immigration or Haven-product question and I’ll answer from official sources.",
@@ -583,20 +651,25 @@ export async function respondToAdvisorMessage(rawInput: {
 
     return {
       userMessage: null,
-      assistantMessage: createAssistantMessage("session", flaggedAnswer)
+      assistantMessage: createAssistantMessage(threadId, flaggedAnswer),
+      conversationId: threadId
     };
   }
 
+  const threadId = identity.isMock
+    ? conversationId ?? "session"
+    : await reserveAdvisorConversation(identity.id, content, conversationId);
+
   const userMessage: AdvisorMessage = {
     id: `user-${Date.now()}`,
-    threadId: "session",
+    threadId,
     role: "user",
     content,
     createdAt: new Date().toISOString()
   };
   const history: AdvisorMessage[] = rawHistory.map((message, index) => ({
     id: `history-${index}`,
-    threadId: "session",
+    threadId,
     role: message.role,
     content: message.content,
     createdAt: new Date(Date.now() - (rawHistory.length - index) * 1000).toISOString()
@@ -614,12 +687,17 @@ export async function respondToAdvisorMessage(rawInput: {
     history,
     topics
   });
-  const assistantMessage = createAssistantMessage("session", answer);
+  const assistantMessage = createAssistantMessage(threadId, answer);
 
   return {
     userMessage,
-    assistantMessage
+    assistantMessage,
+    conversationId: threadId
   };
+}
+
+export function isAdvisorRateLimitError(error: unknown) {
+  return error instanceof AdvisorRateLimitError;
 }
 
 export async function syncTrustedSources() {

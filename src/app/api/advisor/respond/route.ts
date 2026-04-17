@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { respondToAdvisorMessage } from "@/lib/advisor/service";
+import { isAdvisorRateLimitError, respondToAdvisorMessage } from "@/lib/advisor/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
@@ -16,8 +16,14 @@ export async function POST(request: Request) {
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
     console.error("[advisor/respond] error:", error);
+    if (isAdvisorRateLimitError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 429 }
+      );
+    }
     return NextResponse.json(
-      { error: "Unable to create advisor response." },
+      { error: error instanceof Error ? error.message : "Unable to create advisor response." },
       { status: 500 }
     );
   }
