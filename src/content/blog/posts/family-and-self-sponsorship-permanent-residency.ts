@@ -6,7 +6,7 @@ export const familyAndSelfSponsorshipPermanentResidencyPost: BlogPost = {
   excerpt:
     "If you want permanent residency through family, the first question is whether you are an immediate relative of a U.S. citizen or in a family-preference category. That one distinction affects who can sponsor whom, whether a visa is immediately available, and whether the Visa Bulletin controls the timeline.",
   category: "Family immigration",
-  publishedAt: "2026-03-29",
+  publishedAt: "2026-03-28",
   readingTime: "7 min read",
   author: "Haven editorial team",
   seoTitle: "Family sponsorship for permanent residency explained",

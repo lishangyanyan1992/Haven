@@ -5,8 +5,8 @@ export const whatMakesSomeoneInadmissiblePost: BlogPost = {
   title: "What can make someone inadmissible to the United States?",
   excerpt:
     "Even if someone appears to qualify for a visa or green card, they can still be found inadmissible under U.S. immigration law. This guide explains the current inadmissibility grounds in 2026, including health, criminal, security, public-charge, fraud, prior-removal, and documentation issues.",
-  category: "Legal basics",
-  publishedAt: "2026-04-17",
+  category: "Inadmissibility and deportability",
+  publishedAt: "2026-04-11",
   readingTime: "10 min read",
   author: "Haven editorial team",
   seoTitle: "What makes someone inadmissible to the U.S.? Grounds of inadmissibility explained",

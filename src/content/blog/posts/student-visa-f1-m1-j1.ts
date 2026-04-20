@@ -6,7 +6,7 @@ export const studentVisaF1M1J1Post: BlogPost = {
   excerpt:
     "If you want to come to the United States to study, the right visa depends on the kind of program you are entering. This guide explains the difference between F-1 academic student visas, M-1 vocational student visas, and J-1 exchange visitor visas.",
   category: "Visa basics",
-  publishedAt: "2026-04-11",
+  publishedAt: "2026-03-23",
   readingTime: "8 min read",
   author: "Haven editorial team",
   seoTitle: "Student visa guide: F-1, M-1, and J-1 explained",

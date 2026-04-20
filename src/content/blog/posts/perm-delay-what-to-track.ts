@@ -5,8 +5,8 @@ export const permDelayWhatToTrackPost: BlogPost = {
   title: "PERM delays feel abstract until they hit your timeline. Track these 4 things.",
   excerpt:
     "If your green card process depends on PERM, these are the signals worth watching and the noise you can safely ignore.",
-  category: "Green card planning",
-  publishedAt: "2026-03-27",
+  category: "Employment Green Card",
+  publishedAt: "2026-04-05",
   readingTime: "5 min read",
   author: "Haven editorial team",
   seoTitle: "What to track when PERM is delayed",

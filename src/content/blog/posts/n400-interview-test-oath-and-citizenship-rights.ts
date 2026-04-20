@@ -5,8 +5,8 @@ export const n400InterviewTestOathAndCitizenshipRightsPost: BlogPost = {
   title: "What happens after you file Form N-400? Interview, test, oath, and citizenship rights",
   excerpt:
     "After you file Form N-400, USCIS usually moves your case through biometrics handling, a naturalization interview, English and civics testing unless an exception applies, and then an oath ceremony if approved. The exact process and timing depend on the field office, the filing date, and whether you qualify for age- or disability-based exceptions.",
-  category: "Legal basics",
-  publishedAt: "2026-04-20",
+  category: "Citizenship and naturalization",
+  publishedAt: "2026-04-16",
   readingTime: "10 min read",
   author: "Haven editorial team",
   seoTitle: "What happens after filing N-400 in 2026? Interview, test, oath, and rights",

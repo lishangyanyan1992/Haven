@@ -5,8 +5,8 @@ export const usImmigrationLegalFrameworkPost: BlogPost = {
   title: "U.S. immigration legal framework: statutes, regulations, courts, and visa categories",
   excerpt:
     "If U.S. immigration law feels confusing, part of the reason is that it comes from more than one place. This guide explains how Congress, executive agencies, and the courts shape immigration rules, and how visa categories fit into that structure.",
-  category: "Legal basics",
-  publishedAt: "2026-04-10",
+  category: "Visa basics",
+  publishedAt: "2026-03-19",
   readingTime: "7 min read",
   author: "Haven editorial team",
   seoTitle: "U.S. immigration legal framework explained",

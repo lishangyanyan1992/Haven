@@ -6,7 +6,7 @@ export const temporaryWorkVisasHLOPQRPost: BlogPost = {
   excerpt:
     "If you want to work in the United States for a limited period, the right visa depends on the kind of job, who is sponsoring you, and whether the work is temporary, specialized, cultural, or religious. This guide explains the main temporary work visa paths.",
   category: "Visa basics",
-  publishedAt: "2026-04-12",
+  publishedAt: "2026-03-24",
   readingTime: "8 min read",
   author: "Haven editorial team",
   seoTitle: "Temporary work visas in the U.S.: H, L, O, P, Q, and R explained",

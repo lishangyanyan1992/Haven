@@ -6,7 +6,7 @@ export const shortTermUsVisasB1B2K1Post: BlogPost = {
   excerpt:
     "If you want to come to the United States temporarily, the right path depends on why you are coming. This guide explains the difference between B-1 business visitor visas, B-2 tourism visas, and the K-1 fiance visa.",
   category: "Visa basics",
-  publishedAt: "2026-04-08",
+  publishedAt: "2026-03-21",
   readingTime: "6 min read",
   author: "Haven editorial team",
   seoTitle: "Short-term U.S. visas: B-1 vs B-2 vs K-1 explained",

@@ -5,8 +5,8 @@ export const credibleFearVsReasonableFearPost: BlogPost = {
   title: "Credible fear vs. reasonable fear: what changes in immigration screening",
   excerpt:
     "Credible fear and reasonable fear are both threshold screenings, but they apply in different procedural settings and lead to different next steps. This guide explains who gets which interview, what standard applies, and what happens after a positive or negative finding.",
-  category: "Humanitarian relief",
-  publishedAt: "2026-04-16",
+  category: "Humanitarian relief and other",
+  publishedAt: "2026-04-10",
   readingTime: "8 min read",
   author: "Haven editorial team",
   seoTitle: "Credible fear vs reasonable fear: key differences in 2026",

@@ -5,8 +5,8 @@ export const eb5InvestorGreenCardPost: BlogPost = {
   title: "EB-5 investor green card: how the immigrant investor path works",
   excerpt:
     "The EB-5 path is the employment-based fifth preference category for immigrant investors. It is not a typical employer-sponsored green card. Instead, it is built around investing the required amount of capital in a qualifying U.S. commercial enterprise and creating or preserving at least 10 full-time jobs for qualifying workers.",
-  category: "Employment immigration",
-  publishedAt: "2026-04-15",
+  category: "Employment Green Card",
+  publishedAt: "2026-04-03",
   readingTime: "8 min read",
   author: "Haven editorial team",
   seoTitle: "EB-5 investor green card explained",

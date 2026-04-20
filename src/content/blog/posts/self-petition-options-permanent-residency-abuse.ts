@@ -6,7 +6,7 @@ export const selfPetitionOptionsPermanentResidencyAbusePost: BlogPost = {
   excerpt:
     "Some people do not have to rely on an abusive family member to start the green card process. Under VAWA, certain abused spouses, children, and parents may be able to self-petition for permanent residency without the abuser’s knowledge or consent.",
   category: "Family immigration",
-  publishedAt: "2026-04-05",
+  publishedAt: "2026-03-31",
   readingTime: "7 min read",
   author: "Haven editorial team",
   seoTitle: "Self-petition options for permanent residency in abuse cases",

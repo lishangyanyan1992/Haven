@@ -6,7 +6,7 @@ export const familyMemberPermanentResidenceFaqPost: BlogPost = {
   excerpt:
     "If you are trying to get a green card through a spouse, parent, child, or sibling, the biggest questions are usually about who can sponsor whom, how long it takes, what Form I-130 does, and whether there is a waiting line. This FAQ answers the common issues with current USCIS and State sources.",
   category: "Family immigration",
-  publishedAt: "2026-04-01",
+  publishedAt: "2026-03-27",
   readingTime: "8 min read",
   author: "Haven editorial team",
   seoTitle: "Family member permanent residence FAQ",

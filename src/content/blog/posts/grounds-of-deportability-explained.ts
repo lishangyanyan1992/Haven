@@ -5,8 +5,8 @@ export const groundsOfDeportabilityExplainedPost: BlogPost = {
   title: "Grounds of deportability explained: what can make someone removable after admission",
   excerpt:
     "Inadmissibility and deportability are related but not identical. This guide explains the main deportability grounds under INA 237 in 2026, including status violations, criminal grounds, document fraud, security issues, public charge, and unlawful voting.",
-  category: "Legal basics",
-  publishedAt: "2026-04-17",
+  category: "Inadmissibility and deportability",
+  publishedAt: "2026-04-14",
   readingTime: "10 min read",
   author: "Haven editorial team",
   seoTitle: "Grounds of deportability explained: what can make someone removable after admission",

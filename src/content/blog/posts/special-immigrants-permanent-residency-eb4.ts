@@ -5,8 +5,8 @@ export const specialImmigrantsPermanentResidencyEb4Post: BlogPost = {
   title: "Special immigrants for permanent residency: how the EB-4 category works",
   excerpt:
     "The EB-4 category is one of the less intuitive green card paths. It is for certain special immigrants, not for the typical employer-sponsored professional case, and it works under its own rules for eligibility, petitioning, and visa availability.",
-  category: "Employment immigration",
-  publishedAt: "2026-04-09",
+  category: "Employment Green Card",
+  publishedAt: "2026-04-02",
   readingTime: "7 min read",
   author: "Haven editorial team",
   seoTitle: "Special immigrants for permanent residency: EB-4 explained",

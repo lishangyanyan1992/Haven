@@ -5,8 +5,8 @@ export const howToBecomeAUsCitizenPost: BlogPost = {
   title: "How do you become a U.S. citizen? Birth, parents, and naturalization explained",
   excerpt:
     "U.S. citizenship usually comes through one of three paths: birth in the United States, citizenship through U.S. citizen parents, or naturalization after becoming a lawful permanent resident. The details matter, especially for children born abroad and for green card holders preparing Form N-400.",
-  category: "Legal basics",
-  publishedAt: "2026-04-20",
+  category: "Citizenship and naturalization",
+  publishedAt: "2026-04-19",
   readingTime: "9 min read",
   author: "Haven editorial team",
   seoTitle: "How to become a U.S. citizen in 2026: birth, parents, or naturalization",

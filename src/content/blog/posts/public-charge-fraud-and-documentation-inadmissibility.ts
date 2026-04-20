@@ -5,8 +5,8 @@ export const publicChargeFraudAndDocumentationInadmissibilityPost: BlogPost = {
   title: "Public charge, fraud, and documentation problems: four inadmissibility grounds people mix up",
   excerpt:
     "Public charge, labor certification, fraud, and missing documents are separate inadmissibility issues under U.S. immigration law. This guide explains what each ground actually means in 2026 and why older explanations often blur them together.",
-  category: "Legal basics",
-  publishedAt: "2026-04-17",
+  category: "Inadmissibility and deportability",
+  publishedAt: "2026-04-12",
   readingTime: "9 min read",
   author: "Haven editorial team",
   seoTitle: "Public charge, fraud, and documentation inadmissibility explained",

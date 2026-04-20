@@ -6,7 +6,7 @@ export const welcomeToTheHavenBlogPost: BlogPost = {
   excerpt:
     "After being laid off twice on an H-1B, I wanted a better way to navigate timelines, uncertainty, and decisions that should never depend on fragmented internet advice.",
   category: "Founder story",
-  publishedAt: "2026-03-17",
+  publishedAt: "2026-03-12",
   readingTime: "5 min read",
   author: "Haven founder",
   seoTitle: "Why I Started Haven",

@@ -6,7 +6,7 @@ export const uscisVaccineRequirementsAdultsPost: BlogPost = {
   excerpt:
     "If you are preparing for a green card medical exam, the biggest adult questions are usually about polio, hepatitis B, MMR, varicella, flu, and whether one visit is enough. Here is what the current CDC and USCIS rules say.",
   category: "Medical exam",
-  publishedAt: "2026-04-06",
+  publishedAt: "2026-04-07",
   readingTime: "7 min read",
   author: "Haven editorial team",
   seoTitle: "USCIS vaccine requirements for adults for Form I-693",

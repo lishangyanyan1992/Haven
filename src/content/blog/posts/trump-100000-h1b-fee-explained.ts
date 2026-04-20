@@ -5,8 +5,8 @@ export const trump100000H1BFeeExplainedPost: BlogPost = {
   title: "Trump’s new $100,000 H-1B fee: what it covers, what it does not, and why people are confused",
   excerpt:
     "The new fee announced on September 19, 2025 is large, but the scope matters. Here is what the White House, USCIS, Congress’s research arm, and AP reporting say it actually applies to.",
-  category: "Policy explainer",
-  publishedAt: "2026-04-02",
+  category: "H1B",
+  publishedAt: "2026-03-16",
   readingTime: "6 min read",
   author: "Haven editorial team",
   seoTitle: "Trump $100,000 H-1B fee explained",

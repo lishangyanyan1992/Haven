@@ -5,8 +5,8 @@ export const asylumVsRefugeeStatusPost: BlogPost = {
   title: "Asylum vs. refugee status: who qualifies and how the U.S. process works in 2026",
   excerpt:
     "Asylum and refugee protection use the same core legal standard, but the process changes based on where you are, how you apply, and which rules control your case. This guide explains the difference, the current forms, deadlines, and what happens after approval.",
-  category: "Humanitarian relief",
-  publishedAt: "2026-04-16",
+  category: "Humanitarian relief and other",
+  publishedAt: "2026-04-08",
   readingTime: "10 min read",
   author: "Haven editorial team",
   seoTitle: "Asylum vs refugee status: who qualifies and how the U.S. process works",

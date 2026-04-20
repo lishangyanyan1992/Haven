@@ -5,8 +5,8 @@ export const cancellationOfRemovalExplainedPost: BlogPost = {
   title: "Cancellation of removal explained: relief for permanent residents and nonpermanent residents",
   excerpt:
     "Cancellation of removal is not a general waiver form. It is a specific form of relief in immigration court for certain lawful permanent residents, certain nonpermanent residents, and some survivors of abuse who meet strict statutory requirements.",
-  category: "Legal basics",
-  publishedAt: "2026-04-17",
+  category: "Inadmissibility and deportability",
+  publishedAt: "2026-04-18",
   readingTime: "10 min read",
   author: "Haven editorial team",
   seoTitle: "Cancellation of removal explained: LPR and non-LPR eligibility in 2026",

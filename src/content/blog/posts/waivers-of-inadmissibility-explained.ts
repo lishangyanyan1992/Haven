@@ -5,7 +5,7 @@ export const waiversOfInadmissibilityExplainedPost: BlogPost = {
   title: "Waivers of inadmissibility explained: when forgiveness is possible and when it is not",
   excerpt:
     "Some inadmissibility grounds can be waived, but not all of them, and not all waivers use the same form or legal standard. This guide explains how waivers of inadmissibility work in 2026 for immigrant visas, adjustment of status, and certain nonimmigrant cases.",
-  category: "Legal basics",
+  category: "Inadmissibility and deportability",
   publishedAt: "2026-04-17",
   readingTime: "10 min read",
   author: "Haven editorial team",

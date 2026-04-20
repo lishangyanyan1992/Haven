@@ -5,8 +5,8 @@ export const beforeYouAcceptH1bTransferPost: BlogPost = {
   title: "Before you accept an H-1B transfer offer, pressure-test these details.",
   excerpt:
     "A transfer can solve the immediate problem fast, but the wrong assumptions about timing, location, or green card continuity create new risk.",
-  category: "Job changes",
-  publishedAt: "2026-03-11",
+  category: "H1B",
+  publishedAt: "2026-03-13",
   readingTime: "7 min read",
   author: "Haven editorial team",
   seoTitle: "H-1B transfer offer checklist",

@@ -5,8 +5,8 @@ export const asylumVsWithholdingVsCatPost: BlogPost = {
   title: "Asylum vs. withholding of removal vs. CAT: the key differences in 2026",
   excerpt:
     "Asylum, withholding of removal, and protection under the Convention Against Torture all can stop removal in serious fear cases, but they do not offer the same burden of proof, family benefits, or path to a green card.",
-  category: "Humanitarian relief",
-  publishedAt: "2026-04-16",
+  category: "Humanitarian relief and other",
+  publishedAt: "2026-04-09",
   readingTime: "9 min read",
   author: "Haven editorial team",
   seoTitle: "Asylum vs withholding of removal vs CAT: what changes in 2026",

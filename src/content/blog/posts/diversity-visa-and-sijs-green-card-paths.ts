@@ -5,8 +5,8 @@ export const diversityVisaAndSijsGreenCardPathsPost: BlogPost = {
   title: "Diversity Visa and SIJS: two lesser-known green card paths",
   excerpt:
     "Most people think about green cards through family, employer sponsorship, or asylum. But two other paths still matter in 2026: the Diversity Visa lottery and Special Immigrant Juvenile Status for certain children in the United States.",
-  category: "Permanent residency",
-  publishedAt: "2026-04-16",
+  category: "Humanitarian relief and other",
+  publishedAt: "2026-04-06",
   readingTime: "10 min read",
   author: "Haven editorial team",
   seoTitle: "Diversity Visa lottery and SIJS explained: two lesser-known green card paths",

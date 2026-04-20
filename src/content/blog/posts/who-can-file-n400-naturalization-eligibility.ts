@@ -5,7 +5,7 @@ export const whoCanFileN400NaturalizationEligibilityPost: BlogPost = {
   title: "Who can file Form N-400? Naturalization eligibility explained",
   excerpt:
     "Form N-400 is for lawful permanent residents who are eligible to naturalize, not for people who are already U.S. citizens through birth or parents. The key questions are which eligibility track applies, whether continuous residence and physical presence are intact, and whether any criminal or background issues create risk.",
-  category: "Legal basics",
+  category: "Citizenship and naturalization",
   publishedAt: "2026-04-20",
   readingTime: "9 min read",
   author: "Haven editorial team",

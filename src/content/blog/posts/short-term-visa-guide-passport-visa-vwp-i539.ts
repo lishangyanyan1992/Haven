@@ -6,7 +6,7 @@ export const shortTermVisaGuidePassportVisaVwpI539Post: BlogPost = {
   excerpt:
     "If you want to come to the United States temporarily, the first question is not just which visa letter applies. It is whether you need a visa at all, what your passport does, and what happens if you later need to extend or change status.",
   category: "Visa basics",
-  publishedAt: "2026-04-14",
+  publishedAt: "2026-03-22",
   readingTime: "8 min read",
   author: "Haven editorial team",
   seoTitle: "Short-term visa guide for the U.S.: passport, visa, VWP, and I-539",

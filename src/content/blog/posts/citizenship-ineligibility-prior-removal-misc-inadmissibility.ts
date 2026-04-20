@@ -5,8 +5,8 @@ export const citizenshipIneligibilityPriorRemovalMiscInadmissibilityPost: BlogPo
   title: "Citizenship ineligibility, prior removal, and miscellaneous inadmissibility grounds explained",
   excerpt:
     "Some of the least intuitive inadmissibility grounds sit near the end of INA 212(a): citizenship ineligibility, prior removal and unlawful presence bars, and a mixed group of special grounds like polygamy, unlawful voting, child abduction, and tax-motivated renunciation of citizenship.",
-  category: "Legal basics",
-  publishedAt: "2026-04-17",
+  category: "Inadmissibility and deportability",
+  publishedAt: "2026-04-13",
   readingTime: "9 min read",
   author: "Haven editorial team",
   seoTitle: "Citizenship ineligibility, prior removal, and miscellaneous inadmissibility grounds",

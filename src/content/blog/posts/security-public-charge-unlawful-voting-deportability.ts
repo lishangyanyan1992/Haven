@@ -5,8 +5,8 @@ export const securityPublicChargeUnlawfulVotingDeportabilityPost: BlogPost = {
   title: "Security, public charge, and unlawful voting as deportability grounds",
   excerpt:
     "Not every removal case is about a criminal conviction or an overstay. INA 237 also includes security-related grounds, a very narrow public-charge deportability rule, and unlawful-voting grounds that can apply even without a conviction.",
-  category: "Legal basics",
-  publishedAt: "2026-04-17",
+  category: "Inadmissibility and deportability",
+  publishedAt: "2026-04-15",
   readingTime: "9 min read",
   author: "Haven editorial team",
   seoTitle: "Security, public charge, and unlawful voting deportability grounds explained",

@@ -5,8 +5,8 @@ export const h1bGracePeriodChecklistPost: BlogPost = {
   title: "Laid off on H-1B? Start with a 60-day checklist, not a panic spiral.",
   excerpt:
     "A practical sequence for the first week after a layoff so you protect optionality before the clock starts feeling smaller.",
-  category: "Layoff planning",
-  publishedAt: "2026-03-21",
+  category: "H1B",
+  publishedAt: "2026-03-15",
   readingTime: "6 min read",
   author: "Haven editorial team",
   seoTitle: "H-1B 60-day grace period checklist",
