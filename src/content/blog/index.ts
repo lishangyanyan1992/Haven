@@ -1,3 +1,6 @@
+import { n400InterviewTestOathAndCitizenshipRightsPost } from "@/content/blog/posts/n400-interview-test-oath-and-citizenship-rights";
+import { whoCanFileN400NaturalizationEligibilityPost } from "@/content/blog/posts/who-can-file-n400-naturalization-eligibility";
+import { howToBecomeAUsCitizenPost } from "@/content/blog/posts/how-to-become-a-us-citizen";
 import { cancellationOfRemovalExplainedPost } from "@/content/blog/posts/cancellation-of-removal-explained";
 import { securityPublicChargeUnlawfulVotingDeportabilityPost } from "@/content/blog/posts/security-public-charge-unlawful-voting-deportability";
 import { groundsOfDeportabilityExplainedPost } from "@/content/blog/posts/grounds-of-deportability-explained";
@@ -33,6 +36,9 @@ export type { BlogImage, BlogPost, BlogSection, BlogSource } from "@/content/blo
 
 // Add a new post import here and it will appear in the blog automatically.
 export const blogPosts = [
+  n400InterviewTestOathAndCitizenshipRightsPost,
+  whoCanFileN400NaturalizationEligibilityPost,
+  howToBecomeAUsCitizenPost,
   cancellationOfRemovalExplainedPost,
   securityPublicChargeUnlawfulVotingDeportabilityPost,
   groundsOfDeportabilityExplainedPost,
