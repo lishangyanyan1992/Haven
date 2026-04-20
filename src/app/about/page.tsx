@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 
 import { PublicNavbar } from "@/components/app/public-navbar";
@@ -25,7 +26,6 @@ export const metadata: Metadata = {
 
 export default function AboutPage() {
   const founder = getAuthorProfile("Haven founder");
-  const editorial = getAuthorProfile("Haven editorial team");
   const breadcrumbData = buildBreadcrumbStructuredData([
     { name: "Home", path: "/" },
     { name: "About", path: "/about" }
@@ -42,21 +42,39 @@ export default function AboutPage() {
       <main className="content-container-visual py-16 lg:py-24 xl:py-28">
         <section className="max-w-[72ch]">
           <p className="text-label">About Haven</p>
-          <h1 className="text-display mt-5 max-w-[14ch]">Built for the moments when immigration decisions get expensive.</h1>
+          <h1 className="text-display mt-5 max-w-fit">
+            <span className="block whitespace-nowrap">Built by those who&apos;ve lived it,</span>
+            <span className="block whitespace-nowrap">for those navigating it now.</span>
+          </h1>
           <p className="text-body mt-6 max-w-[62ch]">
-            Haven exists to reduce uncertainty for H-1B and adjacent visa holders navigating layoffs, employer changes,
-            deadlines, and next-step decisions that usually get scattered across group chats, attorney calls, and forum threads.
+            Haven exists to reduce uncertainty for global talent navigating layoffs, employer changes, deadlines, and
+            critical next-step decisions that are often scattered across group chats, attorney calls, and forum
+            threads.
           </p>
         </section>
 
-        <section className="mt-12 grid gap-6 lg:grid-cols-2">
+        <section className="mt-12 max-w-[72ch]">
           <article id="founder" className="rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-7">
             <p className="text-label">Founder</p>
+            <div className="relative mt-5 aspect-square max-w-[220px] overflow-hidden rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-cream)]">
+              <Image
+                src="/about/yanyan-passport.jpg"
+                alt="Portrait of Yanyan, founder of Haven"
+                width={600}
+                height={600}
+                className="h-full w-full object-cover"
+                sizes="220px"
+              />
+            </div>
             <h2 className="text-h1 mt-4">{founder.name}</h2>
-            <p className="text-body mt-4">{founder.description}</p>
             <p className="text-body mt-4">
-              Haven started after two H-1B layoffs made one thing obvious: the hardest part was not just finding
-              information. It was making time-sensitive decisions with incomplete visibility and no shared system of truth.
+              Yanyan built Haven after experiencing two H-1B layoffs firsthand and seeing how difficult it can be to
+              build a life in the United States while navigating immigration uncertainty.
+            </p>
+            <p className="text-body mt-4">
+              Those experiences made one thing clear: the hardest part is not just finding information. It is staying
+              proactive, making time-sensitive decisions with incomplete visibility, and navigating a system with no
+              shared source of truth.
             </p>
             <div className="mt-6">
               <Link className={buttonVariants({ variant: "outline" })} href="/blog/why-i-started-haven">
@@ -64,43 +82,15 @@ export default function AboutPage() {
               </Link>
             </div>
           </article>
-
-          <article id="editorial" className="rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-sand)] p-7">
-            <p className="text-label">Editorial approach</p>
-            <h2 className="text-h1 mt-4">{editorial.name}</h2>
-            <p className="text-body mt-4">{editorial.description}</p>
-            <ul className="mt-5 space-y-3 pl-5">
-              <li className="text-body list-disc">Write for real decisions, not generic traffic.</li>
-              <li className="text-body list-disc">Prefer concrete next steps and comparison frameworks.</li>
-              <li className="text-body list-disc">Keep legal boundaries clear: informational guidance, not legal advice.</li>
-              <li className="text-body list-disc">Update public pages when workflows or assumptions change.</li>
-            </ul>
-          </article>
-        </section>
-
-        <section className="mt-12 rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-7">
-          <p className="text-label">What to expect from Haven content</p>
-          <div className="mt-5 grid gap-5 lg:grid-cols-3">
-            {[
-              ["Decision-first", "Public pages are written to help users evaluate what matters next, not just define terms."],
-              ["Pattern-aware", "Guides are designed to connect individual decisions to broader timing and workflow patterns."],
-              ["Source-conscious", "Haven does not replace counsel. Public content is meant to reduce confusion and improve preparation."]
-            ].map(([title, body]) => (
-              <div key={title} className="rounded-[var(--radius-xl)] bg-[var(--haven-cream)] p-5">
-                <h3 className="text-h3">{title}</h3>
-                <p className="text-body-sm mt-2">{body}</p>
-              </div>
-            ))}
-          </div>
         </section>
 
         <section className="mt-12 flex flex-col gap-4 sm:flex-row">
-          <Link className={buttonVariants({ variant: "default", size: "lg" })} href="/guides">
-            Explore public guides
-          </Link>
-          <Link className={buttonVariants({ variant: "outline", size: "lg" })} href="/blog">
-            Read the blog
-          </Link>
+            <Link className={buttonVariants({ variant: "default", size: "lg" })} href="/guides">
+              Explore public guides
+            </Link>
+            <Link className={buttonVariants({ variant: "outline", size: "lg" })} href="/blog">
+              Read the blog
+            </Link>
         </section>
       </main>
     </div>
