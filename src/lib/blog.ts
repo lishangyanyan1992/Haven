@@ -1,5 +1,7 @@
 import { blogPosts, type BlogImage, type BlogPost } from "@/content/blog";
 
+const unlistedBlogSlugs = new Set(["why-i-started-haven"]);
+
 const blogDateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "long",
   day: "numeric",
@@ -8,38 +10,42 @@ const blogDateFormatter = new Intl.DateTimeFormat("en-US", {
 
 const blogCategoryOrder = [
   "Founder story",
-  "Layoff planning",
-  "Job changes",
-  "Green card planning",
+  "H1B",
+  "Employment Green Card",
   "Permanent residency",
   "Family immigration",
-  "Employment immigration",
-  "Humanitarian relief",
+  "Humanitarian relief and other",
   "Visa basics",
-  "Legal basics",
+  "Immigration system basics",
+  "Inadmissibility and deportability",
+  "Citizenship and naturalization",
   "Policy explainer",
   "Medical exam"
 ] as const;
 
 const blogCategoryDescriptions: Record<string, string> = {
   "Founder story": "Why Haven exists and the lived experience behind the product.",
-  "Layoff planning": "What to do next when your status timeline gets compressed.",
-  "Job changes": "How to evaluate transfers, offers, and employer moves.",
-  "Green card planning": "What to track when permanent-residence timelines start drifting.",
+  H1B: "Practical guidance for layoffs, transfers, and status planning on H-1B.",
   "Permanent residency": "Less common green-card paths and how they actually work.",
   "Family immigration": "Family-based routes to permanent residence and related questions.",
-  "Employment immigration": "Employer-sponsored and employment-based green-card categories.",
-  "Humanitarian relief": "Asylum, refugee, and protection-based pathways explained clearly.",
+  "Employment Green Card": "Employer-sponsored and employment-based green-card categories.",
+  "Humanitarian relief and other": "Asylum, refugee, protection-based, and other less common pathways explained clearly.",
   "Visa basics": "Short-term visas and nonimmigrant categories, without the noise.",
-  "Legal basics": "The legal framework and terminology behind U.S. immigration rules.",
+  "Immigration system basics": "Core immigration concepts, legal structure, and status vocabulary explained clearly.",
+  "Inadmissibility and deportability": "What can block entry, create removal risk, or sometimes be waived.",
+  "Citizenship and naturalization": "How citizenship eligibility, N-400 filing, and the naturalization process work.",
   "Policy explainer": "What changed, what it means, and what to verify next.",
   "Medical exam": "Form I-693 and medical-exam requirements that affect filings."
 };
 
-export function getAllBlogPosts(): BlogPost[] {
+export function getAllBlogPostsIncludingUnlisted(): BlogPost[] {
   return [...blogPosts].sort(
     (left, right) => new Date(right.publishedAt).getTime() - new Date(left.publishedAt).getTime()
   );
+}
+
+export function getAllBlogPosts(): BlogPost[] {
+  return getAllBlogPostsIncludingUnlisted().filter((post) => !unlistedBlogSlugs.has(post.slug));
 }
 
 export function getRecentBlogPosts(limit = 3): BlogPost[] {
@@ -62,7 +68,7 @@ export function fromBlogCategorySlug(categorySlug: string): string | undefined {
 }
 
 export function getBlogCategories(): string[] {
-  const categories = Array.from(new Set(blogPosts.map((post) => post.category)));
+  const categories = Array.from(new Set(getAllBlogPosts().map((post) => post.category)));
 
   return categories.sort((left, right) => {
     const leftIndex = blogCategoryOrder.indexOf(left as (typeof blogCategoryOrder)[number]);
@@ -96,6 +102,25 @@ export function getBlogPostsByCategory(posts = getAllBlogPosts()): Array<{
       posts: posts.filter((post) => post.category === category)
     }))
     .filter((group) => group.posts.length > 0);
+}
+
+const featuredBlogSlugs = [
+  "h1b-grace-period-checklist",
+  "before-you-accept-h1b-transfer",
+  "perm-delay-what-to-track"
+];
+
+export function getFeaturedBlogPosts(): BlogPost[] {
+  return featuredBlogSlugs
+    .map((slug) => getBlogPost(slug))
+    .filter((post): post is BlogPost => Boolean(post));
+}
+
+export function getBlogPostWordCount(post: BlogPost): number {
+  const text = post.sections
+    .flatMap((s) => [...(s.paragraphs ?? []), ...(s.bullets ?? [])])
+    .join(" ");
+  return text.split(/\s+/).filter(Boolean).length;
 }
 
 export function getRelatedBlogPosts(post: BlogPost, limit = 3): BlogPost[] {

@@ -7,29 +7,37 @@ import { BlogCard } from "@/components/app/blog-card";
 import { InformationDisclaimer } from "@/components/app/information-disclaimer";
 import { PublicNavbar } from "@/components/app/public-navbar";
 import { buttonVariants } from "@/components/ui/button";
-import { formatBlogDate, getAllBlogPosts, getBlogImage, getBlogPost, getRelatedBlogPosts } from "@/lib/blog";
+import {
+  formatBlogDate,
+  getAllBlogPostsIncludingUnlisted,
+  getBlogImage,
+  getBlogPost,
+  getBlogPostWordCount,
+  getRelatedBlogPosts
+} from "@/lib/blog";
 import { absoluteUrl } from "@/lib/seo";
 import { buildBreadcrumbStructuredData, getAuthorProfile } from "@/lib/site";
 
 type BlogPostPageProps = {
-  params: Promise<{
-    slug: string;
-  }>;
+  params: Promise<{ slug: string }>;
 };
 
+function toSectionId(heading: string): string {
+  return heading
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
 export function generateStaticParams() {
-  return getAllBlogPosts().map((post) => ({ slug: post.slug }));
+  return getAllBlogPostsIncludingUnlisted().map((post) => ({ slug: post.slug }));
 }
 
 export async function generateMetadata({ params }: BlogPostPageProps): Promise<Metadata> {
   const { slug } = await params;
   const post = getBlogPost(slug);
 
-  if (!post) {
-    return {
-      title: "Blog | Haven"
-    };
-  }
+  if (!post) return { title: "Blog | Haven" };
 
   const author = getAuthorProfile(post.author);
   const image = getBlogImage(post);
@@ -38,24 +46,16 @@ export async function generateMetadata({ params }: BlogPostPageProps): Promise<M
     title: post.seoTitle ?? post.title,
     description: post.seoDescription ?? post.excerpt,
     authors: [{ name: author.name, url: absoluteUrl(author.path).toString() }],
-    alternates: {
-      canonical: `/blog/${post.slug}`
-    },
+    alternates: { canonical: `/blog/${post.slug}` },
     openGraph: {
       type: "article",
       url: absoluteUrl(`/blog/${post.slug}`),
       title: post.seoTitle ?? post.title,
       description: post.seoDescription ?? post.excerpt,
       publishedTime: new Date(post.publishedAt).toISOString(),
+      modifiedTime: post.updatedAt ? new Date(post.updatedAt).toISOString() : new Date(post.publishedAt).toISOString(),
       authors: [post.author],
-      images: [
-        {
-          url: absoluteUrl(image.src).toString(),
-          width: image.width,
-          height: image.height,
-          alt: image.alt
-        }
-      ]
+      images: [{ url: absoluteUrl(image.src).toString(), width: image.width, height: image.height, alt: image.alt }]
     },
     twitter: {
       title: post.seoTitle ?? post.title,
@@ -69,25 +69,33 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
   const { slug } = await params;
   const post = getBlogPost(slug);
 
-  if (!post) {
-    notFound();
-  }
+  if (!post) notFound();
 
   const author = getAuthorProfile(post.author);
   const image = getBlogImage(post);
   const relatedPosts = getRelatedBlogPosts(post);
+  const wordCount = getBlogPostWordCount(post);
+  const sectionsWithHeadings = post.sections.filter((s) => s.heading);
+  const showToC = sectionsWithHeadings.length >= 3;
+
   const breadcrumbData = buildBreadcrumbStructuredData([
     { name: "Home", path: "/" },
     { name: "Blog", path: "/blog" },
     { name: post.title, path: `/blog/${post.slug}` }
   ]);
+
   const blogPostingData = {
     "@context": "https://schema.org",
     "@type": "BlogPosting",
     headline: post.title,
     description: post.seoDescription ?? post.excerpt,
     datePublished: new Date(post.publishedAt).toISOString(),
-    dateModified: new Date(post.publishedAt).toISOString(),
+    dateModified: post.updatedAt
+      ? new Date(post.updatedAt).toISOString()
+      : new Date(post.publishedAt).toISOString(),
+    articleSection: post.category,
+    wordCount,
+    keywords: [post.category, "U.S. immigration", "Haven"],
     author: {
       "@type": "Person",
       name: author.name,
@@ -100,8 +108,12 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
       url: absoluteUrl("/").toString()
     },
     image: absoluteUrl(image.src).toString(),
-    mainEntityOfPage: absoluteUrl(`/blog/${post.slug}`).toString()
+    mainEntityOfPage: absoluteUrl(`/blog/${post.slug}`).toString(),
+    ...(post.keyTakeaways.length > 0 && {
+      abstract: post.keyTakeaways.join(" ")
+    })
   };
+
   const faqStructuredData = post.faqs?.length
     ? {
         "@context": "https://schema.org",
@@ -109,10 +121,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
         mainEntity: post.faqs.map((faq) => ({
           "@type": "Question",
           name: faq.question,
-          acceptedAnswer: {
-            "@type": "Answer",
-            text: faq.answer
-          }
+          acceptedAnswer: { "@type": "Answer", text: faq.answer }
         }))
       }
     : null;
@@ -128,21 +137,23 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
 
       <main className="content-container-wide py-12 lg:py-20">
         <div className="mx-auto max-w-[96rem]">
+          {/* Header card */}
           <div className="rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-7 shadow-[0_10px_40px_-12px_rgba(44,54,48,0.14)] md:p-10">
             <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 text-[13px] text-[var(--haven-muted)]">
-              <Link className="underline-offset-2 hover:underline" href="/">
-                Home
-              </Link>
+              <Link className="underline-offset-2 hover:underline" href="/">Home</Link>
               <span>/</span>
-              <Link className="underline-offset-2 hover:underline" href="/blog">
-                Blog
-              </Link>
+              <Link className="underline-offset-2 hover:underline" href="/blog">Blog</Link>
               <span>/</span>
               <span className="text-[var(--haven-ink)]">{post.title}</span>
             </nav>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="mt-4 flex flex-wrap items-center gap-2">
               <span className="tag tag-visa">{post.category}</span>
               <span className="text-caption">{formatBlogDate(post.publishedAt)}</span>
+              {post.updatedAt && (
+                <span className="text-caption text-[var(--haven-ink-mid)]">
+                  Updated {formatBlogDate(post.updatedAt)}
+                </span>
+              )}
               <span className="text-caption">{post.readingTime}</span>
               <span className="text-caption">By {author.name}</span>
             </div>
@@ -151,16 +162,42 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
           </div>
 
           <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px] xl:grid-cols-[minmax(0,1fr)_320px] 2xl:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
+            {/* Article body */}
             <article className="min-w-0 rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-7 md:p-10 xl:p-12">
               <div className="max-w-[76ch]">
                 <InformationDisclaimer />
+
+                {/* Table of contents */}
+                {showToC && (
+                  <nav
+                    aria-label="Table of contents"
+                    className="mt-6 rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-sand)] p-5"
+                  >
+                    <p className="text-label">In this article</p>
+                    <ol className="mt-3 space-y-2">
+                      {sectionsWithHeadings.map((section, i) => (
+                        <li key={section.heading}>
+                          <a
+                            href={`#${toSectionId(section.heading!)}`}
+                            className="text-body-sm text-[var(--haven-ink)] underline-offset-2 hover:underline"
+                          >
+                            {i + 1}. {section.heading}
+                          </a>
+                        </li>
+                      ))}
+                    </ol>
+                  </nav>
+                )}
+
                 {post.sections.map((section, index) => (
-                  <section key={section.heading ?? index} className="mt-10 first:mt-10">
+                  <section
+                    key={section.heading ?? index}
+                    id={section.heading ? toSectionId(section.heading) : undefined}
+                    className="mt-10 first:mt-10"
+                  >
                     {section.heading ? <h2 className="text-h1">{section.heading}</h2> : null}
                     {section.paragraphs?.map((paragraph) => (
-                      <p key={paragraph} className="text-body mt-4">
-                        {paragraph}
-                      </p>
+                      <p key={paragraph} className="text-body mt-4">{paragraph}</p>
                     ))}
                     {section.image ? (
                       <figure className="mt-6 overflow-hidden rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-cream)]">
@@ -181,9 +218,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
                     {section.bullets?.length ? (
                       <ul className="mt-4 space-y-3 pl-5">
                         {section.bullets.map((bullet) => (
-                          <li key={bullet} className="text-body list-disc">
-                            {bullet}
-                          </li>
+                          <li key={bullet} className="text-body list-disc">{bullet}</li>
                         ))}
                       </ul>
                     ) : null}
@@ -192,8 +227,25 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
                         <p className="text-body-sm text-[var(--haven-sky-ink)]">{section.note}</p>
                       </div>
                     ) : null}
+
+                    {/* In-article CTA after the 2nd section */}
+                    {index === 1 && (
+                      <div className="mt-8 rounded-[var(--radius-xl)] border border-[var(--haven-sage-mid,var(--color-border))] bg-[rgba(236,243,238,0.92)] p-5">
+                        <p className="text-h3">Haven can help you track this.</p>
+                        <p className="text-body-sm mt-2 max-w-[52ch]">
+                          Turn timelines, action windows, and next steps into a personal plan grounded in your actual
+                          visa status — not a generic checklist.
+                        </p>
+                        <div className="mt-4">
+                          <Link className={buttonVariants({ variant: "default", size: "sm" })} href="/register">
+                            Get started free
+                          </Link>
+                        </div>
+                      </div>
+                    )}
                   </section>
                 ))}
+
                 {post.sources?.length ? (
                   <section className="mt-12 border-t border-[var(--color-border)] pt-10">
                     <p className="text-label">Sources</p>
@@ -215,6 +267,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
                     </div>
                   </section>
                 ) : null}
+
                 {post.faqs?.length ? (
                   <section className="mt-12 border-t border-[var(--color-border)] pt-10">
                     <p className="text-label">Frequently asked</p>
@@ -231,13 +284,12 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
               </div>
             </article>
 
-            <aside className="rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-sand)] p-6">
+            {/* Sidebar */}
+            <aside className="lg:sticky lg:top-6 rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-sand)] p-6">
               <p className="text-label">Key takeaways</p>
               <div className="mt-4 space-y-3">
                 {post.keyTakeaways.map((takeaway) => (
-                  <p key={takeaway} className="text-body-sm">
-                    {takeaway}
-                  </p>
+                  <p key={takeaway} className="text-body-sm">{takeaway}</p>
                 ))}
               </div>
               <div className="mt-8 border-t border-[var(--color-border)] pt-6">
@@ -247,8 +299,11 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
                 <p className="text-h3">{author.name}</p>
                 <p className="text-body-sm mt-2">{author.role}</p>
                 <p className="text-body-sm mt-2">{author.description}</p>
-                <Link className="mt-3 inline-flex text-[13px] font-medium text-[var(--haven-ink)] underline-offset-2 hover:underline" href={author.path}>
-                  More about Haven
+                <Link
+                  className="mt-3 inline-flex text-[13px] font-medium text-[var(--haven-ink)] underline-offset-2 hover:underline"
+                  href={author.path}
+                >
+                  {author.name === "Haven founder" ? "Read the founder story" : "About the author"}
                 </Link>
               </div>
               <div className="mt-8 border-t border-[var(--color-border)] pt-6">

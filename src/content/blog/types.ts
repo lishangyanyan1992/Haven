@@ -31,6 +31,7 @@ export type BlogPost = {
   excerpt: string;
   category: string;
   publishedAt: string;
+  updatedAt?: string;
   readingTime: string;
   author: string;
   seoTitle?: string;
