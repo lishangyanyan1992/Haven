@@ -31,8 +31,40 @@ import { trump100000H1BFeeExplainedPost } from "@/content/blog/posts/trump-10000
 import { uscisVaccineRequirementsAdultsPost } from "@/content/blog/posts/uscis-vaccine-requirements-adults";
 import { usImmigrationLegalFrameworkPost } from "@/content/blog/posts/us-immigration-legal-framework";
 import { welcomeToTheHavenBlogPost } from "@/content/blog/posts/welcome-to-the-haven-blog";
+import { guides } from "@/content/guides";
+import type { Guide } from "@/content/guides/types";
+import type { BlogPost } from "@/content/blog/types";
 
 export type { BlogImage, BlogPost, BlogSection, BlogSource } from "@/content/blog/types";
+
+const guidePublishDates: Record<string, string> = {
+  "h1b-layoff-checklist": "2026-03-14",
+  "h1b-60-day-grace-period": "2026-03-17",
+  "h1b-transfer-timeline": "2026-03-20",
+  "h1b-transfer-checklist": "2026-03-25",
+  "h1b-layoff-options": "2026-03-29"
+};
+
+function guideToBlogPost(guide: Guide): BlogPost {
+  return {
+    slug: guide.slug,
+    title: guide.title,
+    excerpt: guide.excerpt,
+    category: "H1B",
+    publishedAt: guidePublishDates[guide.slug] ?? guide.updatedAt,
+    updatedAt: guide.updatedAt,
+    readingTime: guide.readingTime,
+    author: guide.author,
+    seoTitle: guide.title,
+    seoDescription: guide.description,
+    keyTakeaways: guide.summaryPoints,
+    sections: guide.sections,
+    faqs: guide.faqs,
+    relatedSlugs: guide.relatedSlugs
+  };
+}
+
+const guideBlogPosts = guides.map(guideToBlogPost);
 
 // Add a new post import here and it will appear in the blog automatically.
 export const blogPosts = [
@@ -68,5 +100,6 @@ export const blogPosts = [
   h1bGracePeriodChecklistPost,
   welcomeToTheHavenBlogPost,
   permDelayWhatToTrackPost,
-  beforeYouAcceptH1bTransferPost
+  beforeYouAcceptH1bTransferPost,
+  ...guideBlogPosts
 ];

@@ -10,7 +10,6 @@ const KNOWN_BROKEN_IMMIG_WIZARD_HOST = "immig.haven-h1b.com";
 const navItems = [
   { href: "/", label: "Home" },
   { href: "/tools", label: "Tools" },
-  { href: "/guides", label: "Guides" },
   { href: "/blog", label: "Blog" },
   { href: "/about", label: "About" }
 ];

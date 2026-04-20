@@ -1,15 +1,12 @@
 import type { MetadataRoute } from "next";
 
 import { getAllBlogPosts } from "@/lib/blog";
-import { getAllGuides } from "@/lib/guides";
 import { absoluteUrl } from "@/lib/seo";
 import { publicTools } from "@/lib/tools";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const posts = getAllBlogPosts();
-  const guides = getAllGuides();
   const latestBlogDate = posts[0]?.publishedAt ?? new Date().toISOString();
-  const latestGuideDate = guides[0]?.updatedAt ?? new Date().toISOString();
 
   return [
     {
@@ -36,12 +33,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "weekly",
       priority: 0.85
     },
-    {
-      url: absoluteUrl("/guides").toString(),
-      lastModified: new Date(latestGuideDate),
-      changeFrequency: "weekly",
-      priority: 0.85
-    },
     ...publicTools.map((tool) => ({
       url: absoluteUrl(`/tools/${tool.slug}`).toString(),
       lastModified: new Date(),
@@ -53,12 +44,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: new Date(post.publishedAt),
       changeFrequency: "monthly" as const,
       priority: 0.7
-    })),
-    ...guides.map((guide) => ({
-      url: absoluteUrl(`/guides/${guide.slug}`).toString(),
-      lastModified: new Date(guide.updatedAt),
-      changeFrequency: "monthly" as const,
-      priority: 0.8
     }))
   ];
 }

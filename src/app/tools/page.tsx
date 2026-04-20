@@ -50,7 +50,7 @@ export default function ToolsPage() {
                 <p className="text-[11px] font-medium tracking-wide text-[var(--haven-sky-ink)]">No login required</p>
               </div>
             </div>
-            <h1 className="text-display mt-5 max-w-[12ch]">Useful immigration tools you can open right away.</h1>
+            <h1 className="text-display mt-5 max-w-[24ch]">Useful immigration tools you can open right away.</h1>
             <p className="text-body mt-6 max-w-[64ch]">
               This section is intentionally public. Use it for vaccine requirement checks, deadline estimates, priority-date math, and document prep before you decide whether you need the full Haven workflow.
             </p>

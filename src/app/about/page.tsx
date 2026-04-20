@@ -361,8 +361,8 @@ export default function AboutPage() {
                 <Link className={buttonVariants({ variant: "cream", size: "lg" })} href="/register">
                   Get started free
                 </Link>
-                <Link className={buttonVariants({ variant: "ghost-light", size: "lg" })} href="/guides">
-                  Explore public guides
+                <Link className={buttonVariants({ variant: "ghost-light", size: "lg" })} href="/blog?category=h1b">
+                  Explore H-1B articles
                 </Link>
               </div>
               <p className="mt-4 text-[12px] text-[rgba(253,250,246,0.45)]">Free to start · No credit card required</p>
