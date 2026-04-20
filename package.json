@@ -30,6 +30,7 @@
     "@vercel/speed-insights": "^2.0.0",
     "class-variance-authority": "latest",
     "clsx": "latest",
+    "framer-motion": "^12.38.0",
     "lucide-react": "latest",
     "mixpanel-browser": "^2.78.0",
     "next": "latest",
