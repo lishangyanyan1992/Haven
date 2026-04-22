@@ -64,7 +64,7 @@ const features = [
     cardClass: "bg-[rgba(240,247,249,0.92)]",
     accentClass: "bg-[var(--haven-sky)]",
     iconClass: "bg-[var(--haven-white)]",
-    layoutClass: "xl:col-span-3"
+    layoutClass: "xl:col-span-6"
   },
   {
     icon: Heart,
@@ -74,7 +74,7 @@ const features = [
     cardClass: "bg-[rgba(249,242,236,0.96)]",
     accentClass: "bg-[var(--haven-blush)]",
     iconClass: "bg-[var(--haven-white)]",
-    layoutClass: "xl:col-span-3"
+    layoutClass: "xl:col-span-6"
   },
 ];
 
@@ -429,7 +429,6 @@ export default function HomePage() {
                 I already have an account
               </Link>
             </div>
-            <p className="mt-4 text-[12px] text-[rgba(253,250,246,0.45)]">Free to start · No credit card required · Cancel anytime</p>
           </div>
         </section>
         </main>
