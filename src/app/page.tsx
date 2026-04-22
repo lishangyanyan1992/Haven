@@ -76,26 +76,6 @@ const features = [
     iconClass: "bg-[var(--haven-white)]",
     layoutClass: "xl:col-span-3"
   },
-  {
-    icon: Search,
-    title: "Service provider marketplace",
-    description: "Find lawyers, insurance, and other service providers tailored to international talent in the U.S.",
-    preview: MarketplaceFeaturePreview,
-    cardClass: "bg-[rgba(241,245,250,0.96)]",
-    accentClass: "bg-[var(--haven-sky)]",
-    iconClass: "bg-[var(--haven-white)]",
-    layoutClass: "xl:col-span-3"
-  },
-  {
-    icon: Sparkles,
-    title: "H-1B-friendly job board",
-    description: "Find roles from employers that understand sponsorship, transfers, and hiring international talent.",
-    preview: JobBoardFeaturePreview,
-    cardClass: "bg-[rgba(242,246,239,0.96)]",
-    accentClass: "bg-[var(--haven-sage)]",
-    iconClass: "bg-[var(--haven-white)]",
-    layoutClass: "xl:col-span-3"
-  }
 ];
 
 const stories = [

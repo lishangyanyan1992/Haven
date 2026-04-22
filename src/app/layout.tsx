@@ -11,7 +11,7 @@ import { getOrganizationStructuredData, getWebsiteStructuredData } from "@/lib/s
 export const metadata: Metadata = {
   metadataBase: siteUrl,
   title: {
-    default: "Haven",
+    default: "Haven - AI for Immigration",
     template: "%s | Haven"
   },
   description: "Immigration timeline, layoff planning, and community guidance for H-1B and adjacent visa holders.",
