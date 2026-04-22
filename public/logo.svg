@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 64" fill="none">
+  <path d="M32 6 L6 24 L6 52 L58 52 L58 24 Z" stroke="#1E5241" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M21 52 L21 40 Q21 33 32 33 Q43 33 43 40 L43 52" stroke="#1E5241" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <line x1="10" y1="24" x2="54" y2="24" stroke="#C98928" stroke-width="2.5" stroke-linecap="round"/>
+  <text x="74" y="38" font-family="'Cormorant Garamond', Georgia, serif" font-size="30" font-weight="300" fill="#18150F" letter-spacing="-0.5">Haven</text>
+</svg>

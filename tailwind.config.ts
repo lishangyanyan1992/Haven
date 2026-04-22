@@ -32,8 +32,8 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["DM Sans", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
-        display: ["DM Serif Display", "Georgia", "serif"],
-        mono: ["JetBrains Mono", "Fira Code", "monospace"]
+        display: ["Cormorant Garamond", "Georgia", "serif"],
+        mono: ["DM Mono", "Courier New", "monospace"]
       },
       fontSize: {
         "2xs": ["10px", { lineHeight: "14px", letterSpacing: "0" }]
