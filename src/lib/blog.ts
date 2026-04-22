@@ -11,6 +11,7 @@ const blogDateFormatter = new Intl.DateTimeFormat("en-US", {
 const blogCategoryOrder = [
   "Founder story",
   "H1B",
+  "Tool reviews",
   "Employment Green Card",
   "Permanent residency",
   "Family immigration",
@@ -26,6 +27,7 @@ const blogCategoryOrder = [
 const blogCategoryDescriptions: Record<string, string> = {
   "Founder story": "Why Haven exists and the lived experience behind the product.",
   H1B: "Practical guidance for layoffs, transfers, and status planning on H-1B.",
+  "Tool reviews": "Honest reviews of software, platforms, and services immigrants may actually use.",
   "Permanent residency": "Less common green-card paths and how they actually work.",
   "Family immigration": "Family-based routes to permanent residence and related questions.",
   "Employment Green Card": "Employer-sponsored and employment-based green-card categories.",
