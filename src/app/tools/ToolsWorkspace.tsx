@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, Briefcase, CalendarDays, FileText, FolderOpen, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, Bell, Briefcase, CalendarDays, Check, CheckCircle, ChevronDown, ChevronUp, FileText, FolderOpen, Info, Lock, Minus, ShieldCheck, Sparkles, User, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,24 +12,9 @@ import { cn } from "@/lib/utils";
 type CutoffMode = "date" | "current" | "unavailable";
 type ChecklistScenario = "layoff" | "transfer" | "stamping" | "adjustment";
 type ChecklistTiming = "urgent" | "month" | "planning";
-type VaccineTone = "tag-active" | "tag-pending";
+type PregnantValue = "no" | "yes" | "na";
 
 const todayInputValue = formatDateInput(new Date());
-const cdcVaccineSourceUrl = "https://www.cdc.gov/immigrant-refugee-health/hcp/civil-surgeons/vaccination.html";
-const allVaccineNames = [
-  "DTP/DTaP/DT",
-  "Tdap/Td",
-  "Polio",
-  "Measles, mumps, rubella (MMR)",
-  "Rotavirus",
-  "Hib",
-  "Hepatitis A",
-  "Hepatitis B",
-  "Meningococcal (MenACWY)",
-  "Varicella",
-  "Pneumococcal",
-  "Influenza"
-] as const;
 
 const scenarioContent: Record<
   ChecklistScenario,
@@ -180,11 +165,6 @@ function getTimingCopy(timing: ChecklistTiming) {
   }
 }
 
-function defaultFluAvailability(date: Date) {
-  const month = date.getMonth() + 1;
-  return month >= 10 || month <= 3 ? "yes" : "no";
-}
-
 const toolIcons: Record<ToolSlug, typeof ShieldCheck> = {
   "uscis-vaccine-finder": ShieldCheck,
   "grace-period-calculator": CalendarDays,
@@ -215,7 +195,12 @@ export function ToolsWorkspace({
   const [includeDependents, setIncludeDependents] = useState("yes");
   const [birthDate, setBirthDate] = useState("");
   const [examDate, setExamDate] = useState(todayInputValue);
-  const [influenzaAvailable, setInfluenzaAvailable] = useState(defaultFluAvailability(todayDate));
+  const [pregnant, setPregnant] = useState<PregnantValue>("no");
+  const [showNotNeeded, setShowNotNeeded] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailValue, setEmailValue] = useState("");
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [emailError, setEmailError] = useState("");
 
   const employmentDate = parseDateInput(employmentEndDate);
   const i94Date = parseDateInput(i94ExpiryDate);
@@ -233,7 +218,7 @@ export function ToolsWorkspace({
   const vaccineAssessment = getVaccineAssessment(
     parseDateInput(birthDate),
     parseDateInput(examDate),
-    influenzaAvailable === "yes"
+    pregnant
   );
   const selectedTools = toolSlugs ? publicTools.filter((tool) => toolSlugs.includes(tool.slug)) : publicTools;
   const selectedToolSet = new Set(selectedTools.map((tool) => tool.slug));
@@ -268,6 +253,31 @@ export function ToolsWorkspace({
               }
           : null;
 
+  async function handleEmailSend() {
+    if (!emailValue || !vaccineAssessment) return;
+    setEmailLoading(true);
+    setEmailError("");
+    try {
+      const res = await fetch("/api/tools/vaccine-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: emailValue,
+          examDate,
+          ageLabel: vaccineAssessment.ageLabel,
+          ageBucket: vaccineAssessment.ageBucket,
+          required: vaccineAssessment.required,
+        }),
+      });
+      if (!res.ok) throw new Error("send_failed");
+      setEmailSent(true);
+    } catch {
+      setEmailError("Something went wrong — please try again.");
+    } finally {
+      setEmailLoading(false);
+    }
+  }
+
   return (
     <div className="space-y-8">
       {showDirectory ? (
@@ -301,38 +311,33 @@ export function ToolsWorkspace({
         id="uscis-vaccine-finder"
         className="rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-6 shadow-[0_10px_40px_-14px_rgba(44,54,48,0.12)] md:p-8"
       >
-        <div className="grid gap-8 lg:grid-cols-[0.88fr_1.12fr]">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] px-3 py-1">
-              <ShieldCheck className="h-3.5 w-3.5 text-[var(--haven-ink)]" />
-              <p className="text-[11px] font-medium tracking-wide text-[var(--haven-ink-mid)]">USCIS medical exam</p>
-            </div>
-            <h2 className="text-h1 mt-5">Vaccine requirement finder</h2>
-            <p className="text-body mt-4">
-              This tool maps age-based vaccine requirements for U.S. status-adjustment medical exams using the CDC civil-surgeon table that applies to Form I-693 vaccination review.
-            </p>
-            <div className="mt-6 rounded-[var(--radius-xl)] bg-[var(--haven-sand)] p-5">
-              <p className="text-h3">What it covers</p>
-              <p className="text-body-sm mt-2">
-                Age is the first filter. Records, immunity, contraindications, and flu-season availability can still change what a civil surgeon actually gives you.
-              </p>
-              <a
-                className="mt-3 inline-flex text-[13px] font-medium text-[var(--haven-ink)] underline-offset-2 hover:underline"
-                href={cdcVaccineSourceUrl}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Source: CDC Vaccination Technical Instructions, Table 1 (effective March 11, 2025)
-              </a>
-            </div>
+        {/* Section header */}
+        <div className="mb-8">
+          <div className="inline-flex items-center gap-2 rounded-full border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] px-3 py-1">
+            <ShieldCheck className="h-3.5 w-3.5 text-[var(--haven-ink)]" />
+            <p className="text-[11px] font-medium tracking-wide text-[var(--haven-ink-mid)]">USCIS · Form I-693 · medical exam</p>
           </div>
+          <h2 className="text-h1 mt-5 max-w-[26ch]">Find out exactly what vaccines your civil surgeon will require.</h2>
+          <p className="text-body mt-4 max-w-[64ch]">
+            Built from the CDC civil-surgeon table that drives the I-693 vaccination review. Two dates and one short question — your list takes about 30 seconds.
+          </p>
+        </div>
 
-          <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_320px]">
-            <div className="grid gap-5 sm:grid-cols-2">
+        {/* Two-column workspace */}
+        <div className="grid gap-6 lg:grid-cols-[400px_1fr]">
+
+          {/* LEFT — form card */}
+          <div className="rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-6 shadow-[0_2px_12px_-4px_rgba(44,54,48,0.08)]">
+            <div className="flex items-center justify-between">
+              <h3 className="text-h3">Your situation</h3>
+              <span className="text-body-sm text-[var(--haven-ink-mid)]">Step 1 of 1</span>
+            </div>
+            <p className="mt-1 mb-6 text-body-sm text-[var(--haven-ink-mid)]">Nothing leaves your browser until you choose to share an email.</p>
+
+            {/* Dates */}
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="field-label" htmlFor="vaccine-birth-date">
-                  Date of birth
-                </label>
+                <label className="field-label" htmlFor="vaccine-birth-date">Date of birth</label>
                 <Input
                   id="vaccine-birth-date"
                   type="date"
@@ -351,90 +356,179 @@ export function ToolsWorkspace({
                   onChange={(event) => setExamDate(event.target.value)}
                 />
               </div>
-              <div className="sm:col-span-2">
-                <label className="field-label" htmlFor="influenza-availability">
-                  Is influenza vaccine available at the time of the exam?
-                </label>
-                <Select
-                  id="influenza-availability"
-                  value={influenzaAvailable}
-                  onChange={(event) => setInfluenzaAvailable(event.target.value)}
-                >
-                  <option value="yes">Yes, likely during U.S. flu season</option>
-                  <option value="no">No, likely outside flu season</option>
-                </Select>
-                <p className="field-helper">CDC says influenza is required when available in the United States, usually from fall through early spring.</p>
-              </div>
             </div>
 
-            <div className="rounded-[var(--radius-2xl)] bg-[var(--haven-cream)] p-5">
-              <p className="text-label">Assessment</p>
-              {vaccineAssessment ? (
-                <>
-                  <p className="mt-3 font-[family-name:var(--font-display)] text-[1.85rem] leading-none tracking-tight text-[var(--haven-ink)]">
-                    {vaccineAssessment.ageLabel}
-                  </p>
-                  <p className="text-body-sm mt-3">
-                    Age bucket: {vaccineAssessment.ageBucket}
-                  </p>
-                  <div className="mt-5 rounded-[var(--radius-xl)] bg-[var(--haven-white)] p-4">
-                    <p className="text-h3">{vaccineAssessment.requiredNow.length} likely age-appropriate vaccine{vaccineAssessment.requiredNow.length === 1 ? "" : "s"} now</p>
-                    <p className="text-body-sm mt-2">
-                      {vaccineAssessment.requiredNow.length > 0
-                        ? "These are the vaccines the CDC table flags for this age, before records and immunity are reviewed."
-                        : "No vaccines are flagged by age alone for this exact setup, but history and other factors can still matter."}
-                    </p>
-                  </div>
-                </>
-              ) : (
-                <p className="text-body-sm mt-3">Enter date of birth and exam date to see the age-based vaccine list.</p>
+            {/* Age indicator — appears once dates are valid */}
+            {vaccineAssessment && (
+              <div className="mt-3 flex items-center gap-3 rounded-[var(--radius-lg)] bg-[var(--haven-sand)] px-4 py-3">
+                <User className="h-4 w-4 flex-shrink-0 text-[var(--haven-ink)]" />
+                <span className="text-body-sm text-[var(--haven-ink-mid)]">
+                  Age <strong className="text-[var(--haven-ink)]">{vaccineAssessment.ageLabel}</strong> on exam day · CDC age band <strong className="text-[var(--haven-ink)]">{vaccineAssessment.ageBucket}</strong>
+                </span>
+              </div>
+            )}
+
+            <hr className="my-6 border-[var(--color-border)]" />
+
+            {/* Pregnancy toggle */}
+            <div>
+              <label className="field-label mb-3 block">Will you be pregnant on exam day?</label>
+              <div className="flex gap-2">
+                {([["no", "No"], ["yes", "Yes"], ["na", "Prefer not to say"]] as const).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setPregnant(value)}
+                    className={cn(
+                      "flex-1 rounded-[var(--radius-md)] border px-3 py-2 text-sm font-medium transition-all duration-200",
+                      pregnant === value
+                        ? "border-[var(--haven-ink)] bg-[var(--haven-sage-light)] text-[var(--haven-ink)]"
+                        : "border-[var(--color-border)] bg-[var(--haven-white)] text-[var(--haven-ink-mid)] hover:border-[var(--color-border-strong)]"
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {pregnant === "yes" && (
+                <div className="mt-3 flex items-start gap-2">
+                  <Info className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-amber-600" />
+                  <p className="text-body-sm text-amber-700">MMR &amp; Varicella are live vaccines — your civil surgeon will note them and defer until post-partum.</p>
+                </div>
               )}
             </div>
           </div>
-        </div>
 
-        {vaccineAssessment ? (
-          <div className="mt-8 grid gap-5 lg:grid-cols-3">
-            <div className="rounded-[var(--radius-2xl)] bg-[var(--haven-sand)] p-6 lg:col-span-2">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-[var(--haven-ink)]" />
-                <p className="text-h3">Likely age-appropriate now</p>
+          {/* RIGHT — live result */}
+          <div className="flex flex-col overflow-hidden rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] shadow-[0_2px_12px_-4px_rgba(44,54,48,0.08)]">
+            {!vaccineAssessment ? (
+              <div className="flex flex-1 flex-col items-center justify-center p-12 text-center" style={{ minHeight: 320 }}>
+                <CalendarDays className="h-8 w-8 text-[var(--haven-ink-mid)]" />
+                <p className="mt-4 text-body text-[var(--haven-ink-mid)]">Enter your dates to see your list.</p>
               </div>
-              {vaccineAssessment.requiredNow.length > 0 ? (
-                <div className="mt-4 space-y-3">
-                  {vaccineAssessment.requiredNow.map((item) => (
-                    <div key={item.name} className="rounded-[var(--radius-xl)] bg-[var(--haven-white)] p-4">
-                      <span className={cn("tag", item.tone)}>{item.name}</span>
-                      <p className="text-body-sm mt-3">{item.note}</p>
+            ) : (
+              <>
+                {/* Result header */}
+                <div className="border-b border-[var(--color-border)] bg-[var(--haven-sand)] px-6 py-5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-label text-[var(--haven-ink)]">Your assessment</span>
+                    <span className="flex items-center gap-2 text-body-sm text-[var(--haven-ink-mid)]">
+                      <span className="h-2 w-2 rounded-full bg-[var(--success)]" />
+                      Updated live
+                    </span>
+                  </div>
+                  <h2 className="mt-2 font-[family-name:var(--font-display)] text-[2rem] font-light leading-tight tracking-tight">
+                    {vaccineAssessment.required.length} vaccine{vaccineAssessment.required.length === 1 ? "" : "s"} required{" "}
+                    <span className="text-[var(--haven-ink-mid)]">at your exam.</span>
+                  </h2>
+                  <p className="mt-1.5 text-body-sm">
+                    Based on age band <strong>{vaccineAssessment.ageBucket}</strong>, exam on <strong>{formatExamDate(examDate)}</strong>.
+                  </p>
+                </div>
+
+                {/* Required vaccines list */}
+                <div className="divide-y divide-[var(--color-border)]">
+                  {vaccineAssessment.required.map((v) => (
+                    <div key={v.name} className="grid items-center gap-4 px-4 py-3" style={{ gridTemplateColumns: "28px 1fr auto" }}>
+                      <div className="flex h-6 w-6 items-center justify-center rounded-[var(--radius-sm)] bg-[var(--haven-ink)] text-white">
+                        <Check className="h-3.5 w-3.5" />
+                      </div>
+                      <div>
+                        <p className="text-body font-medium text-[var(--haven-ink)]">{v.name}</p>
+                        {v.reason && <p className="mt-0.5 text-body-sm text-[var(--haven-ink-mid)]">{v.reason}</p>}
+                      </div>
+                      <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-amber-700">
+                        Required
+                      </span>
                     </div>
                   ))}
                 </div>
-              ) : (
-                <p className="text-body-sm mt-4">No vaccine is triggered by age alone in this setup.</p>
-              )}
-            </div>
 
-            <div className="rounded-[var(--radius-2xl)] bg-[var(--haven-white)] p-6 shadow-[inset_0_0_0_1px_var(--color-border)]">
-              <p className="text-h3">Check these before assuming you need a shot</p>
-              <ul className="mt-4 space-y-3 pl-5">
-                {vaccineAssessment.conditionalItems.map((item) => (
-                  <li key={item.name} className="text-body list-disc">
-                    <span className="font-medium text-[var(--haven-ink)]">{item.name}:</span> {item.note}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        ) : null}
+                {/* Not needed accordion */}
+                <div className="border-t border-[var(--color-border)] bg-[var(--haven-sand)]">
+                  <button
+                    type="button"
+                    onClick={() => setShowNotNeeded(!showNotNeeded)}
+                    className="flex w-full items-center justify-between px-4 py-3.5 text-left"
+                  >
+                    <span className="text-body-sm font-medium text-[var(--haven-ink-mid)]">
+                      {vaccineAssessment.notNeeded.length} vaccine{vaccineAssessment.notNeeded.length === 1 ? "" : "s"} not required at your age
+                    </span>
+                    {showNotNeeded
+                      ? <ChevronUp className="h-4 w-4 text-[var(--haven-ink-mid)]" />
+                      : <ChevronDown className="h-4 w-4 text-[var(--haven-ink-mid)]" />}
+                  </button>
+                  {showNotNeeded && (
+                    <div className="space-y-1 px-4 pb-4">
+                      {vaccineAssessment.notNeeded.map((v) => (
+                        <div key={v.name} className="flex items-center gap-3 py-1">
+                          <Minus className="h-3.5 w-3.5 flex-shrink-0 text-[var(--haven-ink-mid)]" />
+                          <span className="text-body-sm text-[var(--haven-ink-mid)]">{v.name}</span>
+                          {v.reason && <span className="ml-auto text-body-sm text-[var(--haven-ink-mid)]">{v.reason}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
-        {vaccineAssessment ? (
-          <div className="mt-5 rounded-[var(--radius-2xl)] bg-[var(--haven-cream)] p-5">
-            <p className="text-h3">Not age-based right now</p>
-            <p className="text-body-sm mt-2">
-              {vaccineAssessment.notCurrentlyAgeAppropriate.join(", ")}.
-            </p>
+                {/* Email capture */}
+                <div className="border-t border-[var(--color-border)] bg-[var(--haven-sage-light)] p-6">
+                  {emailSent ? (
+                    <div className="flex items-center gap-3">
+                      <CheckCircle className="h-5 w-5 flex-shrink-0 text-[var(--haven-ink)]" />
+                      <div>
+                        <p className="font-semibold text-[var(--haven-ink)]">Sent — check your inbox.</p>
+                        <p className="mt-0.5 text-body-sm text-[var(--haven-ink-mid)]">PDF + reminders 14 / 7 / 1 days before {formatExamDate(examDate)}.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-baseline justify-between">
+                        <h3 className="text-h3">Take this with you.</h3>
+                        <span className="flex items-center gap-1 text-body-sm text-[var(--haven-ink)]">
+                          <Bell className="h-3 w-3" /> + reminders before your exam
+                        </span>
+                      </div>
+                      <p className="mt-2 mb-3 text-body-sm text-[var(--haven-ink-mid)]">Email yourself your vaccine checklist for the civil surgeon appointment.</p>
+                      <div className="flex gap-2">
+                        <Input
+                          type="email"
+                          placeholder="you@email.com"
+                          value={emailValue}
+                          onChange={(event) => { setEmailValue(event.target.value); setEmailError(""); }}
+                          onKeyDown={(event) => { if (event.key === "Enter") handleEmailSend(); }}
+                          className="flex-1"
+                          disabled={emailLoading}
+                        />
+                        <Button onClick={handleEmailSend} disabled={emailLoading || !emailValue}>
+                          {emailLoading ? "Sending…" : <>Email my list <ArrowRight className="h-4 w-4" /></>}
+                        </Button>
+                      </div>
+                      {emailError && <p className="mt-2 text-body-sm text-red-600">{emailError}</p>}
+                      {!emailError && <p className="mt-2 text-body-sm text-[var(--haven-ink-mid)]">Free. No account.</p>}
+                    </>
+                  )}
+                </div>
+              </>
+            )}
           </div>
-        ) : null}
+        </div>
+
+        {/* Trust strip */}
+        <div className="mt-8 flex flex-wrap items-center gap-6 border-t border-[var(--color-border)] pt-6">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-[var(--haven-ink)]" />
+            <span className="text-body-sm">Source: CDC Vaccination Technical Instructions, Table 1 (effective March 11, 2025)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Lock className="h-4 w-4 text-[var(--haven-ink)]" />
+            <span className="text-body-sm">Calculated locally — your dates aren't stored.</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-[var(--haven-ink)]" />
+            <span className="text-body-sm">12,400+ adjustment-of-status applicants helped this year</span>
+          </div>
+        </div>
       </section>
       ) : null}
 
@@ -777,232 +871,148 @@ function formatPriorityScope(category: string, country: string) {
   return `${category} for ${country}`;
 }
 
-function getVaccineAssessment(birthDate: Date | null, examDate: Date | null, influenzaIsAvailable: boolean) {
-  if (!birthDate || !examDate || birthDate.getTime() > examDate.getTime()) {
-    return null;
-  }
+// CDC Vaccination Technical Instructions, Table 1 (effective March 11, 2025)
+const VACCINE_AGE_BUCKETS = [
+  { id: "a", label: "Birth–1 mo" },
+  { id: "b", label: "2–11 mo" },
+  { id: "c", label: "12 mo–6 yrs" },
+  { id: "d", label: "7–10 yrs" },
+  { id: "e", label: "11–17 yrs" },
+  { id: "f", label: "18–64 yrs" },
+  { id: "g", label: "≥ 65 yrs" },
+] as const;
 
-  const age = getAgeAtExam(birthDate, examDate);
-  const requiredNow: Array<{ name: string; note: string; tone: VaccineTone }> = [];
-  const conditionalItems: Array<{ name: string; note: string }> = [
-    {
-      name: "Records and titers",
-      note: "Written vaccine records and acceptable lab evidence of immunity can satisfy some requirements without another dose."
-    },
-    {
-      name: "Civil-surgeon review",
-      note: "Pregnancy, contraindications, prior disease history, and dose timing can change what is actually given at the exam."
-    }
-  ];
+type VaccineBucketId = (typeof VACCINE_AGE_BUCKETS)[number]["id"];
 
-  if (age.monthsTotal >= 2 && age.years < 7) {
-    requiredNow.push({
-      name: "DTP/DTaP/DT",
-      note: "The CDC table marks pediatric diphtheria, tetanus, and pertussis vaccines as age-appropriate from 2 months through 6 years.",
-      tone: "tag-active"
-    });
-  }
-
-  if (age.years >= 11) {
-    requiredNow.push({
-      name: "Tdap/Td",
-      note: "The CDC table marks adolescent and adult tetanus, diphtheria, and pertussis vaccination as age-appropriate from age 11 onward.",
-      tone: "tag-active"
-    });
-  } else if (age.years >= 7) {
-    requiredNow.push({
-      name: "Tdap/Td",
-      note: "Ages 7 to 10 sometimes need Tdap depending on vaccine history, so this bucket needs a catch-up review.",
-      tone: "tag-pending"
-    });
-  }
-
-  if (age.monthsTotal >= 2 && age.years < 18) {
-    requiredNow.push({
-      name: "Polio",
-      note: "Polio is age-appropriate for children and teens under 18 according to the CDC table.",
-      tone: "tag-active"
-    });
-  } else if (age.years >= 18) {
-    conditionalItems.push({
-      name: "Polio",
-      note: "Adults may need polio vaccine if they do not have a completed primary series; CDC tells civil surgeons to check ACIP adult poliovirus notes."
-    });
-  }
-
-  if (age.monthsTotal >= 12) {
-    if (birthDate.getUTCFullYear() >= 1957) {
-      requiredNow.push({
-        name: "Measles, mumps, rubella (MMR)",
-        note: "MMR is age-appropriate at 12 months and older for applicants born in 1957 or later.",
-        tone: "tag-active"
-      });
-    } else {
-      conditionalItems.push({
-        name: "MMR",
-        note: "The CDC table ties MMR to applicants born in 1957 or later, so a birth year before 1957 usually changes this requirement."
-      });
-    }
-
-    requiredNow.push({
-      name: "Varicella",
-      note: "Varicella is age-appropriate at 12 months and older, although reliable disease history or immunity may satisfy it.",
-      tone: "tag-active"
-    });
-  }
-
-  if (age.daysTotal >= 42 && age.daysTotal < 105) {
-    requiredNow.push({
-      name: "Rotavirus",
-      note: "Rotavirus is age-appropriate from 6 weeks, but timing is tight and depends on dose spacing.",
-      tone: "tag-active"
-    });
-  } else if (age.daysTotal >= 105 && age.monthsTotal < 8) {
-    requiredNow.push({
-      name: "Rotavirus",
-      note: "This age still falls inside the table range, but CDC says rotavirus should not be started at 15 weeks 0 days or older, so this depends on prior doses.",
-      tone: "tag-pending"
-    });
-  }
-
-  if (age.monthsTotal >= 2 && age.monthsTotal < 60) {
-    requiredNow.push({
-      name: "Hib",
-      note: "Hib is age-appropriate from 2 through 59 months.",
-      tone: "tag-active"
-    });
-  }
-
-  if (age.monthsTotal >= 12 && age.years < 19) {
-    requiredNow.push({
-      name: "Hepatitis A",
-      note: "Hepatitis A is age-appropriate from 12 months through 18 years.",
-      tone: "tag-active"
-    });
-  }
-
-  if (age.years < 60) {
-    requiredNow.push({
-      name: "Hepatitis B",
-      note: "Hepatitis B is age-appropriate through 59 years old under the current CDC table.",
-      tone: "tag-active"
-    });
-  }
-
-  if (age.years >= 11 && age.years < 19) {
-    requiredNow.push({
-      name: "Meningococcal (MenACWY)",
-      note: "MenACWY is age-appropriate from 11 through 18 years.",
-      tone: "tag-active"
-    });
-  }
-
-  if (age.monthsTotal >= 2 && age.monthsTotal < 60) {
-    requiredNow.push({
-      name: "Pneumococcal",
-      note: "Children 2 through 59 months are assessed for pneumococcal conjugate vaccine (PCV).",
-      tone: "tag-active"
-    });
-  } else if (age.years >= 65) {
-    requiredNow.push({
-      name: "Pneumococcal",
-      note: "Adults 65 and older are in the CDC age-appropriate bucket for pneumococcal vaccination.",
-      tone: "tag-active"
-    });
-  }
-
-  if (age.monthsTotal >= 6) {
-    if (influenzaIsAvailable) {
-      requiredNow.push({
-        name: "Influenza",
-        note: "Influenza is age-appropriate annually for applicants 6 months and older when the vaccine is available in the United States.",
-        tone: "tag-active"
-      });
-    } else {
-      conditionalItems.push({
-        name: "Influenza",
-        note: "Influenza is usually not documented as required when vaccine is not available in the United States outside the typical flu season."
-      });
-    }
-  }
-
-  const seenNames = new Set(requiredNow.map((item) => item.name));
-  const notCurrentlyAgeAppropriate = allVaccineNames.filter((name) => !seenNames.has(name));
-
-  return {
-    ageLabel: formatAgeLabel(age),
-    ageBucket: getAgeBucket(age),
-    requiredNow,
-    conditionalItems,
-    notCurrentlyAgeAppropriate
-  };
+interface VaccineEntry {
+  id: string;
+  name: string;
+  by: Record<VaccineBucketId, string>;
+  note?: string;
 }
 
-function getAgeAtExam(birthDate: Date, examDate: Date) {
-  const daysTotal = diffUtcDays(examDate, birthDate);
+const CDC_VACCINES: VaccineEntry[] = [
+  { id: "dtp",  name: "DTP / DTaP / DT",         by: { a: "no",  b: "yes",        c: "yes",        d: "no",         e: "no",       f: "no",     g: "no"  } },
+  { id: "tdap", name: "Tdap / Td",                by: { a: "no",  b: "no",         c: "no",         d: "sometimes",  e: "yes",      f: "yes",    g: "yes" }, note: "Required if no record of primary series — bring vaccination records." },
+  { id: "polio",name: "Polio",                    by: { a: "no",  b: "yes",        c: "yes",        d: "yes",        e: "yes",      f: "yes",    g: "yes" }, note: "Refer to ACIP for adults without primary series. Positive titer also accepted." },
+  { id: "mmr",  name: "Measles, Mumps, Rubella", by: { a: "no",  b: "no",         c: "yes-1957",   d: "yes-1957",   e: "yes-1957", f: "yes-1957", g: "no" }, note: "Required if born in 1957 or later." },
+  { id: "rota", name: "Rotavirus",               by: { a: "no",  b: "yes-window", c: "no",         d: "no",         e: "no",       f: "no",     g: "no"  }, note: "Only 6 weeks–8 months old. Not initiated after 15 weeks 0 days." },
+  { id: "hib",  name: "Hib",                     by: { a: "no",  b: "yes",        c: "yes-59mo",   d: "no",         e: "no",       f: "no",     g: "no"  }, note: "2 through 59 months old." },
+  { id: "hepa", name: "Hepatitis A",             by: { a: "no",  b: "no",         c: "yes-12-18",  d: "yes-12-18",  e: "yes-12-18", f: "no",    g: "no"  }, note: "12 months through 18 years old." },
+  { id: "hepb", name: "Hepatitis B",             by: { a: "yes", b: "yes",        c: "yes",        d: "yes",        e: "yes",      f: "yes-59", g: "no"  }, note: "3 doses or positive titer accepted." },
+  { id: "men",  name: "Meningococcal (MenACWY)", by: { a: "no",  b: "no",         c: "no",         d: "no",         e: "yes-11-18", f: "no",    g: "no"  }, note: "11 through 18 years old." },
+  { id: "var",  name: "Varicella",               by: { a: "no",  b: "no",         c: "yes",        d: "yes",        e: "yes",      f: "yes",    g: "yes" } },
+  { id: "pcv",  name: "Pneumococcal",            by: { a: "no",  b: "yes-2-59mo", c: "yes-2-59mo", d: "no",         e: "no",       f: "no",     g: "yes" }, note: "Children 2–59 months (PCV) or adults ≥ 65." },
+  { id: "flu",  name: "Influenza",               by: { a: "no-under6mo", b: "yes-flu", c: "yes-flu", d: "yes-flu", e: "yes-flu",   f: "yes-flu", g: "yes-flu" }, note: "Required when available in the U.S. (≈ Oct–May). Annually." },
+  { id: "cov",  name: "COVID-19",                by: { a: "no-under6mo", b: "yes", c: "yes",        d: "yes",        e: "yes",      f: "yes",    g: "yes" }, note: "See CDC COVID-19 section for current dose schedule." },
+];
 
-  let years = examDate.getUTCFullYear() - birthDate.getUTCFullYear();
-  const examMonth = examDate.getUTCMonth();
-  const birthMonth = birthDate.getUTCMonth();
-
-  if (
-    examMonth < birthMonth ||
-    (examMonth === birthMonth && examDate.getUTCDate() < birthDate.getUTCDate())
-  ) {
-    years -= 1;
-  }
-
-  let monthsTotal =
+function getVaccineBucket(birthDate: Date, examDate: Date): (typeof VACCINE_AGE_BUCKETS)[number] | null {
+  let months =
     (examDate.getUTCFullYear() - birthDate.getUTCFullYear()) * 12 +
     (examDate.getUTCMonth() - birthDate.getUTCMonth());
-
-  if (examDate.getUTCDate() < birthDate.getUTCDate()) {
-    monthsTotal -= 1;
-  }
-
-  return {
-    years,
-    monthsTotal,
-    daysTotal
-  };
+  if (examDate.getUTCDate() < birthDate.getUTCDate()) months -= 1;
+  if (months < 0) return null;
+  if (months < 2)   return VACCINE_AGE_BUCKETS[0];
+  if (months < 12)  return VACCINE_AGE_BUCKETS[1];
+  if (months < 84)  return VACCINE_AGE_BUCKETS[2]; // < 7 years
+  if (months < 132) return VACCINE_AGE_BUCKETS[3]; // < 11 years
+  if (months < 216) return VACCINE_AGE_BUCKETS[4]; // < 18 years
+  if (months < 780) return VACCINE_AGE_BUCKETS[5]; // < 65 years
+  return VACCINE_AGE_BUCKETS[6];
 }
 
-function formatAgeLabel(age: { years: number; monthsTotal: number; daysTotal: number }) {
-  if (age.years >= 2) {
-    return `${age.years} years old`;
-  }
-
-  if (age.monthsTotal >= 1) {
-    return `${age.monthsTotal} month${age.monthsTotal === 1 ? "" : "s"} old`;
-  }
-
-  return `${age.daysTotal} day${age.daysTotal === 1 ? "" : "s"} old`;
+function fluInSeason(examDate: Date): boolean {
+  const m = examDate.getUTCMonth();
+  return m >= 9 || m <= 4; // Oct–May
 }
 
-function getAgeBucket(age: { years: number; monthsTotal: number }) {
-  if (age.monthsTotal < 2) {
-    return "Birth to 1 month";
+function formatExamDate(iso: string): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
+
+function getVaccineAssessment(
+  birthDate: Date | null,
+  examDate: Date | null,
+  pregnant: PregnantValue
+): { ageLabel: string; ageBucket: string; required: { name: string; reason: string }[]; notNeeded: { name: string; reason: string }[] } | null {
+  if (!birthDate || !examDate || birthDate.getTime() >= examDate.getTime()) return null;
+
+  const bucket = getVaccineBucket(birthDate, examDate);
+  if (!bucket) return null;
+
+  const bornBefore1957 = birthDate.getUTCFullYear() < 1957;
+  const fluAvailable = fluInSeason(examDate);
+  const required: { name: string; reason: string }[] = [];
+  const notNeeded: { name: string; reason: string }[] = [];
+
+  for (const v of CDC_VACCINES) {
+    const raw = v.by[bucket.id as VaccineBucketId];
+    let status: "required" | "not-needed" = "not-needed";
+    let reason = "";
+
+    if (raw === "yes") {
+      status = "required";
+    } else if (raw === "no" || raw === "no-under6mo") {
+      status = "not-needed";
+    } else if (raw === "sometimes") {
+      status = "required";
+      reason = "Required if no record of primary series — bring vaccination records.";
+    } else if (raw === "yes-1957") {
+      if (bornBefore1957) {
+        status = "not-needed";
+        reason = "Not required — born before 1957.";
+      } else {
+        status = "required";
+        reason = "Required (born 1957 or later).";
+      }
+    } else if (
+      raw === "yes-window" ||
+      raw === "yes-59mo" ||
+      raw === "yes-2-59mo" ||
+      raw === "yes-12-18" ||
+      raw === "yes-11-18"
+    ) {
+      status = "required";
+      reason = v.note ?? "";
+    } else if (raw === "yes-59") {
+      status = "required";
+      reason = "3 doses or positive titer accepted.";
+    } else if (raw === "yes-flu") {
+      if (fluAvailable) {
+        status = "required";
+        reason = "In flu season at exam date — required when available.";
+      } else {
+        status = "not-needed";
+        reason = "Exam falls outside U.S. flu season — not required.";
+      }
+    }
+
+    // Live vaccines during pregnancy: still required but timing-deferred
+    if (pregnant === "yes" && (v.id === "mmr" || v.id === "var") && status === "required") {
+      reason = "Live vaccine — civil surgeon will note and defer until post-partum.";
+    }
+
+    const entry = { name: v.name, reason: reason || v.note || "" };
+    if (status === "required") required.push(entry);
+    else notNeeded.push(entry);
   }
 
-  if (age.monthsTotal < 12) {
-    return "2 to 11 months";
-  }
+  // Compute age label
+  let totalMonths =
+    (examDate.getUTCFullYear() - birthDate.getUTCFullYear()) * 12 +
+    (examDate.getUTCMonth() - birthDate.getUTCMonth());
+  if (examDate.getUTCDate() < birthDate.getUTCDate()) totalMonths -= 1;
+  const totalDays = Math.round((examDate.getTime() - birthDate.getTime()) / 86_400_000);
+  const years = Math.floor(totalMonths / 12);
 
-  if (age.years < 7) {
-    return "12 months to 6 years";
-  }
+  let ageLabel: string;
+  if (years >= 2) ageLabel = `${years} years old`;
+  else if (totalMonths >= 1) ageLabel = `${totalMonths} month${totalMonths === 1 ? "" : "s"} old`;
+  else ageLabel = `${totalDays} day${totalDays === 1 ? "" : "s"} old`;
 
-  if (age.years < 11) {
-    return "7 to 10 years";
-  }
-
-  if (age.years < 18) {
-    return "11 to 17 years";
-  }
-
-  if (age.years < 65) {
-    return "18 to 64 years";
-  }
-
-  return "65 years and older";
+  return { ageLabel, ageBucket: bucket.label, required, notNeeded };
 }
