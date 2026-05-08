@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import type { FormEvent } from "react";
+import { startTransition, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, ShieldCheck, Upload } from "lucide-react";
 
@@ -33,12 +34,22 @@ export function DocumentVaultUploader() {
 
       setSuccess(`${payload.displayLabel} stored in your Haven vault.`);
       formRef.current?.reset();
-      router.refresh();
+      startTransition(() => {
+        router.refresh();
+      });
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "Upload failed.");
     } finally {
       setIsUploading(false);
     }
+  }
+
+  async function handleFormSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    await handleSubmit(formData);
   }
 
   return (
@@ -56,7 +67,7 @@ export function DocumentVaultUploader() {
 
       <form
         ref={formRef}
-        action={handleSubmit}
+        onSubmit={handleFormSubmit}
         className="grid gap-4 rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-5"
       >
         <div>

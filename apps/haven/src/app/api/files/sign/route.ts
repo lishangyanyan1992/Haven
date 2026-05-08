@@ -15,6 +15,8 @@ import {
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+type AuthenticatedUser = NonNullable<Awaited<ReturnType<typeof requireUser>>>;
+
 async function requireUser() {
   const supabase = await createSupabaseServerClient();
   const {
@@ -26,6 +28,63 @@ async function requireUser() {
   }
 
   return user;
+}
+
+async function ensureUserProfile(user: AuthenticatedUser) {
+  const admin = createSupabaseAdminClient();
+  const { data: existingProfile, error: profileLookupError } = await admin
+    .from("user_profiles")
+    .select("id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileLookupError) {
+    console.error("[files/sign] profile lookup error:", profileLookupError.message);
+    throw new Error("Failed to verify your Haven profile.");
+  }
+
+  if (existingProfile) {
+    return admin;
+  }
+
+  const fallbackName = typeof user.email === "string" && user.email.includes("@") ? user.email.split("@")[0] : "New Haven user";
+  const fullName =
+    typeof user.user_metadata?.full_name === "string" && user.user_metadata.full_name.trim().length > 0
+      ? user.user_metadata.full_name.trim()
+      : fallbackName;
+
+  const { error: profileInsertError } = await admin.from("user_profiles").upsert({
+    id: user.id,
+    full_name: fullName,
+    email: user.email ?? "",
+    visa_type: "H1B",
+    country_of_birth: "",
+    perm_stage: "not_started",
+    preference_category: "Not sure",
+    i485_filed: false,
+    i140_approved: false,
+    employment_status: "employed",
+    spouse_visa_status: "none",
+    primary_goal: "not_sure",
+    top_concerns: ["layoffs"]
+  });
+
+  if (profileInsertError) {
+    console.error("[files/sign] profile bootstrap error:", profileInsertError.message);
+    throw new Error("Failed to initialize your Haven profile.");
+  }
+
+  const { error: derivedSignalsError } = await admin.from("derived_signals").upsert({
+    user_id: user.id,
+    layoff_readiness_score: "low",
+    layoff_readiness_reasoning: ["Complete onboarding to calculate personalized readiness."]
+  });
+
+  if (derivedSignalsError) {
+    console.error("[files/sign] derived signals bootstrap error:", derivedSignalsError.message);
+  }
+
+  return admin;
 }
 
 export async function GET(request: Request) {
@@ -100,7 +159,7 @@ export async function POST(request: Request) {
     const contentType = file.type || "application/octet-stream";
     const extensionSafeName = sanitizeFilename(file.name || "document");
     const storagePath = `${user.id}/${new Date().toISOString().slice(0, 7)}/${randomUUID()}-${extensionSafeName}`;
-    const admin = createSupabaseAdminClient();
+    const admin = await ensureUserProfile(user);
     const fileBuffer = Buffer.from(await file.arrayBuffer());
 
     const { error: uploadError } = await admin.storage.from(HAVEN_VAULT_BUCKET).upload(storagePath, fileBuffer, {
