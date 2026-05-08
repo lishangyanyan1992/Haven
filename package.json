@@ -8,7 +8,7 @@
   "scripts": {
     "dev:haven": "npm run dev --workspace @haven/app",
     "dev:wizard": "npm run dev --workspace @haven/immig-wizard",
-    "vercel-build": "npm run build:webpack --workspace @haven/app",
+    "vercel-build": "cd apps/haven && ../../node_modules/.bin/next build --webpack && cd ../.. && rm -rf .next && cp -R apps/haven/.next .next",
     "env:pull:haven": "cd apps/haven && ../../node_modules/.bin/vercel env pull .env.vercel.local --yes --scope lishangyanyan1992s-projects",
     "env:pull:wizard": "cd apps/immig-wizard && ../../node_modules/.bin/vercel env pull .env.vercel.local --yes --scope lishangyanyan1992s-projects",
     "env:run:dev:haven": "cd apps/haven && ../../node_modules/.bin/vercel env run -e development -- ../../node_modules/.bin/next dev",
