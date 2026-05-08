@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CLI="$ROOT/scripts/supabase-cli.sh"
-OUT_FILE="$ROOT/src/types/database.ts"
+OUT_FILE="$ROOT/apps/haven/src/types/database.ts"
 
 if [ -f "$ROOT/.env.local" ]; then
   set -a

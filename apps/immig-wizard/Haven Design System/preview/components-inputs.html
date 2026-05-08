@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: var(--neutral-50); font-family: var(--font-body); padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+.row { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+.field { display: flex; flex-direction: column; gap: 5px; min-width: 200px; }
+.field label { font-size: 12px; font-weight: 500; color: var(--neutral-700); }
+.field input, .field select, .field textarea { 
+  font-family: var(--font-body); font-size: 14px; font-weight: 400;
+  border: 1.5px solid var(--neutral-300); border-radius: 8px; padding: 9px 12px;
+  background: var(--neutral-0); color: var(--neutral-900); outline: none;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+.field input:focus, .field select:focus { border-color: var(--green-500); box-shadow: 0 0 0 3px var(--green-50); }
+.field input.error { border-color: var(--error); background: var(--error-light); }
+.field input.success { border-color: var(--success); }
+.field input::placeholder { color: var(--neutral-400); }
+.field .hint { font-size: 11px; color: var(--neutral-400); }
+.field .error-msg { font-size: 11px; color: var(--error); }
+.field select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 7L11 1' stroke='%239E968A' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
+</style></head><body>
+<div class="row">
+  <div class="field">
+    <label>Full name</label>
+    <input type="text" placeholder="Priya Sharma">
+    <span class="hint">As it appears on your passport</span>
+  </div>
+  <div class="field">
+    <label>Email address</label>
+    <input type="email" value="priya@company.com" style="border-color:var(--green-500);box-shadow:0 0 0 3px var(--green-50)">
+  </div>
+  <div class="field">
+    <label>Visa type</label>
+    <select><option>H-1B</option><option>F-1/OPT</option><option>L-1</option><option>O-1</option></select>
+  </div>
+</div>
+<div class="row">
+  <div class="field">
+    <label>Priority date</label>
+    <input type="text" value="invalid format" class="error">
+    <span class="error-msg">Use format MM/YYYY (e.g. 10/2021)</span>
+  </div>
+  <div class="field">
+    <label>Case number</label>
+    <input type="text" value="HVN-2024-0821" class="success">
+    <span class="hint" style="color:var(--success)">Verified</span>
+  </div>
+  <div class="field" style="flex:1;min-width:260px">
+    <label>Notes</label>
+    <textarea rows="3" placeholder="Add any relevant notes about your case…" style="resize:none"></textarea>
+  </div>
+</div>
+</body></html>

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: var(--neutral-100); font-family: var(--font-body); padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+
+.swatch { padding: 28px 32px; border-radius: 12px; display: flex; flex-direction: column; gap: 20px; }
+.row { display: flex; align-items: center; gap: 20px; }
+.divider { width: 1px; height: 30px; }
+.label { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--neutral-400); }
+.tagline { font-family: var(--font-display); font-size: 16px; font-weight: 300; font-style: italic; }
+
+/* Icon strip */
+.icon-strip { display: flex; gap: 10px; align-items: flex-end; }
+.icon-box { display: flex; align-items: center; justify-content: center; border-radius: 22%; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<!-- Light -->
+<div class="swatch" style="background:var(--neutral-0);border:1px solid var(--neutral-200);box-shadow:0 1px 4px rgba(15,42,33,.06)">
+  <div class="label">Primary — on light</div>
+  <div class="row">
+    <img src="../assets/logo.svg" height="36" alt="Haven">
+    <div class="divider" style="background:var(--neutral-200)"></div>
+    <span class="tagline" style="color:var(--neutral-500)">Your path forward.</span>
+  </div>
+  <!-- Icon strip -->
+  <div>
+    <div class="label" style="margin-bottom:10px">Icon mark</div>
+    <div class="icon-strip">
+      <div class="icon-box" style="width:64px;height:64px;background:var(--neutral-0);border:1px solid var(--neutral-200)">
+        <img src="../assets/logo-icon.svg" width="40" height="40">
+      </div>
+      <div class="icon-box" style="width:48px;height:48px;background:var(--neutral-50);border:1px solid var(--neutral-200)">
+        <img src="../assets/logo-icon.svg" width="30" height="30">
+      </div>
+      <div class="icon-box" style="width:36px;height:36px;background:var(--neutral-100);border:1px solid var(--neutral-200)">
+        <img src="../assets/logo-icon.svg" width="22" height="22">
+      </div>
+      <div class="icon-box" style="width:24px;height:24px;background:var(--neutral-200)">
+        <img src="../assets/logo-icon.svg" width="15" height="15">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Dark -->
+<div class="swatch" style="background:var(--green-800)">
+  <div class="label" style="color:var(--green-400)">Inverse — on dark green</div>
+  <div class="row">
+    <img src="../assets/logo-inverse.svg" height="36" alt="Haven">
+    <div class="divider" style="background:rgba(255,255,255,0.15)"></div>
+    <span class="tagline" style="color:var(--green-300)">Your path forward.</span>
+  </div>
+  <div>
+    <div class="label" style="color:var(--green-400);margin-bottom:10px">Icon mark</div>
+    <div class="icon-strip">
+      <div class="icon-box" style="width:64px;height:64px;background:rgba(255,255,255,0.06);border-radius:14px">
+        <img src="../assets/logo-icon.svg" width="40" height="40" style="filter:brightness(0) invert(1)">
+      </div>
+      <div class="icon-box" style="width:48px;height:48px;background:rgba(255,255,255,0.04);border-radius:11px">
+        <img src="../assets/logo-icon.svg" width="30" height="30" style="filter:brightness(0) invert(1)">
+      </div>
+      <div class="icon-box" style="width:36px;height:36px;background:rgba(255,255,255,0.04);border-radius:8px">
+        <img src="../assets/logo-icon.svg" width="22" height="22" style="filter:brightness(0) invert(1)">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Cream -->
+<div class="swatch" style="background:var(--neutral-50);border:1px solid var(--neutral-200)">
+  <div class="label">On cream — marketing background</div>
+  <div class="row">
+    <img src="../assets/logo.svg" height="36" alt="Haven">
+  </div>
+</div>
+
+</body></html>

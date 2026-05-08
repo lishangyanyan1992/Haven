@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;1,400&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: var(--neutral-50); font-family: var(--font-body); padding: 24px; display: flex; gap: 16px; flex-wrap: wrap; }
+.card { background: var(--neutral-0); border: 1px solid var(--neutral-200); border-radius: 12px; box-shadow: var(--shadow-sm); transition: box-shadow 200ms cubic-bezier(0.16,1,0.3,1), border-color 200ms; }
+.card:hover { box-shadow: var(--shadow-md); border-color: var(--neutral-300); }
+.card-status { padding: 20px; width: 220px; }
+.card-task { padding: 16px 20px; width: 260px; display: flex; gap: 14px; align-items: flex-start; }
+.card-stat { padding: 20px; width: 160px; background: var(--green-800); border-color: transparent; }
+.eyebrow { font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--neutral-400); margin-bottom: 8px; }
+.card-title { font-family: var(--font-display); font-size: 18px; font-weight: 400; color: var(--neutral-900); margin-bottom: 4px; }
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 9999px; font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; }
+.check-circle { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+</style></head><body>
+
+<div class="card card-status">
+  <div class="eyebrow">Current Status</div>
+  <div class="card-title">H-1B — Active</div>
+  <div style="font-size:13px;color:var(--neutral-500);margin-bottom:12px">Expires Dec 15, 2026</div>
+  <span class="badge" style="background:var(--success-light);color:var(--success-dark)">● Approved</span>
+</div>
+
+<div class="card card-task">
+  <div class="check-circle" style="background:var(--warning-light)">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97b2a" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  </div>
+  <div>
+    <div style="font-size:13px;font-weight:600;color:var(--neutral-900);margin-bottom:3px">Upload I-94 document</div>
+    <div style="font-size:12px;color:var(--neutral-500);margin-bottom:8px">Required to verify your lawful status before filing.</div>
+    <span class="badge" style="background:var(--warning-light);color:var(--warning-dark)">Due in 3 days</span>
+  </div>
+</div>
+
+<div class="card card-stat">
+  <div style="font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--green-300);margin-bottom:8px">Priority Date</div>
+  <div style="font-family:var(--font-display);font-size:28px;font-weight:300;color:#fff;line-height:1.1;margin-bottom:4px">Oct 2021</div>
+  <div style="font-size:12px;color:var(--green-300)">Current: Aug 2021</div>
+  <div style="font-size:11px;color:var(--green-400);margin-top:8px">2 months away</div>
+</div>
+
+</body></html>

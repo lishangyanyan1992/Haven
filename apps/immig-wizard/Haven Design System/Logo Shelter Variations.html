@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Haven — Shelter Logo Variations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<style>body { margin: 0; background: #ebe8e2; }</style>
+</head>
+<body>
+<script type="text/babel">
+
+const G   = '#1E5241';
+const GD  = '#0f2a21';
+const GL  = '#2a6e56';
+const GLL = '#d9e8e0';
+const A   = '#C98928';
+const AL  = '#f0d49f';
+const N9  = '#18150F';
+const N0  = '#faf9f7';
+const CR  = "'Cormorant Garamond', Georgia, serif";
+const DS  = "'DM Sans', sans-serif";
+
+/* ── Shared layout helpers ────────────────────────── */
+function Row({ bg, children, noBorder }) {
+  const bgs = { light: N0, dark: GD, cream: '#f5f3ef', forest: G, amber: '#fdf8ef' };
+  return (
+    <div style={{
+      background: bgs[bg] || bg,
+      borderRadius: 10,
+      padding: '18px 22px',
+      display: 'flex', alignItems: 'center',
+      border: (bg === 'light' || bg === 'cream' || bg === 'amber') && !noBorder ? '1px solid #ddd8d0' : 'none',
+      marginBottom: 8,
+    }}>{children}</div>
+  );
+}
+
+function Label({ n, color = G }) {
+  return (
+    <div style={{ fontFamily: DS, fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color, marginBottom: 6 }}>
+      Variant {n}
+    </div>
+  );
+}
+function Title({ children }) {
+  return <div style={{ fontFamily: CR, fontSize: 20, fontWeight: 300, color: N9, marginBottom: 3 }}>{children}</div>;
+}
+function Desc({ children }) {
+  return <p style={{ fontFamily: DS, fontSize: 11.5, color: '#7d7570', lineHeight: 1.6, margin: '0 0 12px', maxWidth: 310 }}>{children}</p>;
+}
+
+/* ── Icon strip ───────────────────────────────────── */
+function IconStrip({ sizes = [64, 44, 32, 24], renderIcon }) {
+  return (
+    <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', marginTop: 4 }}>
+      {sizes.map((s, i) => (
+        <div key={i} style={{
+          width: s, height: s, flexShrink: 0,
+          background: i % 2 === 0 ? N0 : GD,
+          borderRadius: Math.round(s * 0.22),
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          border: i % 2 === 0 ? '1px solid #ddd8d0' : 'none',
+        }}>
+          {renderIcon(s, i % 2 === 0 ? 'light' : 'dark')}
+        </div>
+      ))}
+      <span style={{ fontFamily: DS, fontSize: 10, color: '#bfb8ab', alignSelf: 'center' }}>64 · 44 · 32 · 24</span>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════
+   VARIANT A — Classic refined
+   Original concept, tightened proportions + weight
+   ════════════════════════════════════════════════════ */
+function ShelterA({ dark, scale = 1 }) {
+  const s = scale;
+  const c = dark ? N0 : G;
+  return (
+    <svg width={64*s} height={56*s} viewBox="0 0 64 56" fill="none">
+      <path d="M32 6 L6 24 L6 52 L58 52 L58 24 Z" stroke={c} strokeWidth={2.2*s} strokeLinejoin="round" fill="none"/>
+      <path d="M20 52 L20 38 Q20 33 25 33 L39 33 Q44 33 44 38 L44 52" stroke={c} strokeWidth={2*s} strokeLinejoin="round" fill="none"/>
+      <line x1="1" y1="24" x2="63" y2="24" stroke={A} strokeWidth={2.2*s} strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+/* ════════════════════════════════════════════════════
+   VARIANT B — Rounded + warm
+   Rounded stroke joins soften the mark; more approachable
+   ════════════════════════════════════════════════════ */
+function ShelterB({ dark, scale = 1 }) {
+  const s = scale;
+  const c = dark ? N0 : G;
+  return (
+    <svg width={64*s} height={56*s} viewBox="0 0 64 56" fill="none">
+      {/* Rounded-join roof + walls */}
+      <path d="M32 6 L6 24 L6 52 L58 52 L58 24 Z"
+        stroke={c} strokeWidth={2.5*s} strokeLinejoin="round" strokeLinecap="round" fill="none"/>
+      {/* Door — fully rounded arch top */}
+      <path d="M21 52 L21 40 Q21 33 32 33 Q43 33 43 40 L43 52"
+        stroke={c} strokeWidth={2*s} strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+      {/* Amber eave line — short, elegant */}
+      <line x1="10" y1="24" x2="54" y2="24" stroke={A} strokeWidth={2.5*s} strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+/* ════════════════════════════════════════════════════
+   VARIANT C — Filled shelter
+   Subtle green fill inside the house; amber threshold
+   ════════════════════════════════════════════════════ */
+function ShelterC({ dark, scale = 1 }) {
+  const s = scale;
+  const c = dark ? N0 : G;
+  const fill = dark ? 'rgba(255,255,255,0.06)' : 'rgba(30,82,65,0.07)';
+  return (
+    <svg width={64*s} height={56*s} viewBox="0 0 64 56" fill="none">
+      {/* Filled house */}
+      <path d="M32 6 L6 24 L6 52 L58 52 L58 24 Z" stroke={c} strokeWidth={2*s} strokeLinejoin="round" fill={fill}/>
+      {/* Door cutout */}
+      <path d="M21 52 L21 40 Q21 33 32 33 Q43 33 43 40 L43 52" stroke={c} strokeWidth={2*s} strokeLinecap="round" fill={dark ? GD : N0}/>
+      {/* Amber threshold — full width of house base */}
+      <line x1="6" y1="24" x2="58" y2="24" stroke={A} strokeWidth={2.5*s} strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+/* ════════════════════════════════════════════════════
+   VARIANT D — Minimal roofline only
+   Just the peak + amber line. Ultra-minimal mark.
+   ════════════════════════════════════════════════════ */
+function ShelterD({ dark, scale = 1 }) {
+  const s = scale;
+  const c = dark ? N0 : G;
+  return (
+    <svg width={64*s} height={48*s} viewBox="0 0 64 48" fill="none">
+      {/* Just the gable */}
+      <path d="M4 28 L32 6 L60 28" stroke={c} strokeWidth={2.5*s} strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+      {/* Long amber eave */}
+      <line x1="0" y1="28" x2="64" y2="28" stroke={A} strokeWidth={2.5*s} strokeLinecap="round"/>
+      {/* Door — simple rectangle suggestion */}
+      <path d="M24 44 L24 36 Q24 32 32 32 Q40 32 40 36 L40 44" stroke={c} strokeWidth={2*s} strokeLinecap="round" fill="none"/>
+      <line x1="12" y1="44" x2="52" y2="44" stroke={c} strokeWidth={1.5*s} strokeLinecap="round" opacity="0.3"/>
+    </svg>
+  );
+}
+
+/* ════════════════════════════════════════════════════
+   VARIANT E — Stacked + bold
+   Icon above wordmark; heavier stroke weight for impact
+   ════════════════════════════════════════════════════ */
+function ShelterEIcon({ dark, scale = 1 }) {
+  const s = scale;
+  const c = dark ? N0 : G;
+  const fill = dark ? 'rgba(255,255,255,0.05)' : 'rgba(30,82,65,0.06)';
+  return (
+    <svg width={56*s} height={52*s} viewBox="0 0 56 52" fill="none">
+      <path d="M28 4 L4 20 L4 50 L52 50 L52 20 Z" stroke={c} strokeWidth={3*s} strokeLinejoin="round" fill={fill}/>
+      <path d="M18 50 L18 38 Q18 32 28 32 Q38 32 38 38 L38 50" stroke={c} strokeWidth={2.5*s} strokeLinecap="round" fill="none"/>
+      <line x1="1" y1="20" x2="55" y2="20" stroke={A} strokeWidth={3*s} strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+/* ════════════════════════════════════════════════════
+   VARIANT F — Window detail
+   House with a small circular window (porthole); warmth
+   ════════════════════════════════════════════════════ */
+function ShelterF({ dark, scale = 1 }) {
+  const s = scale;
+  const c = dark ? N0 : G;
+  return (
+    <svg width={64*s} height={56*s} viewBox="0 0 64 56" fill="none">
+      <path d="M32 6 L6 24 L6 52 L58 52 L58 24 Z" stroke={c} strokeWidth={2.2*s} strokeLinejoin="round" fill="none"/>
+      {/* Circular window — amber */}
+      <circle cx="32" cy="37" r={5.5*s} stroke={A} strokeWidth={2*s} fill="none"/>
+      <circle cx="32" cy="37" r={2*s} fill={A} opacity="0.5"/>
+      {/* Ground threshold */}
+      <line x1="1" y1="24" x2="63" y2="24" stroke={A} strokeWidth={2*s} strokeLinecap="round"/>
+      {/* Subtle eave ticks */}
+      <line x1="6" y1="24" x2="6" y2="28" stroke={c} strokeWidth={1.5*s} strokeLinecap="round" opacity="0.3"/>
+      <line x1="58" y1="24" x2="58" y2="28" stroke={c} strokeWidth={1.5*s} strokeLinecap="round" opacity="0.3"/>
+    </svg>
+  );
+}
+
+/* ── Wordmark component ──────────────────────────── */
+function WM({ dark, size = 30, weight = 300 }) {
+  return (
+    <svg width={size * 3.4} height={size * 1.4} viewBox={`0 0 ${size * 3.4} ${size * 1.4}`}>
+      <text
+        x="0" y={size} fontFamily={CR} fontSize={size}
+        fontWeight={weight} fill={dark ? N0 : N9} letterSpacing="-0.5"
+      >Haven</text>
+    </svg>
+  );
+}
+
+/* ── Full horizontal lockup ──────────────────────── */
+function Lockup({ Icon, dark, wmSize = 30, gap = 16 }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap }}>
+      <Icon dark={dark} />
+      <div style={{ width: 1, height: 28, background: dark ? 'rgba(255,255,255,0.15)' : '#d8d3c9' }}/>
+      <WM dark={dark} size={wmSize} />
+    </div>
+  );
+}
+
+/* ── Stacked lockup ──────────────────────────────── */
+function StackedLockup({ Icon, dark }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+      <Icon dark={dark} />
+      <svg width={110} height={38} viewBox="0 0 110 38">
+        <text x="0" y="28" fontFamily={CR} fontSize="32" fontWeight="300"
+          fill={dark ? N0 : N9} letterSpacing="-0.5">Haven</text>
+      </svg>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════
+   APP
+   ════════════════════════════════════════════════════ */
+function App() {
+  return (
+    <DesignCanvas title="Haven — Shelter Logo Variations">
+
+      {/* ── VARIANT A ── Refined classic ─────────── */}
+      <DCSection id="sA" title="A — Refined Classic">
+        <DCArtboard id="aA1" label="Lockups" width={380} height={420}>
+          <div style={{ padding: 24 }}>
+            <Label n="A" />
+            <Title>Refined Classic</Title>
+            <Desc>The original shelter concept, sharpened. Proportions tightened, eave line extending beyond the walls for a confident, grounded stance.</Desc>
+            <Row bg="light"><Lockup Icon={ShelterA} dark={false}/></Row>
+            <Row bg="dark"><Lockup Icon={ShelterA} dark={true}/></Row>
+            <Row bg="cream"><Lockup Icon={ShelterA} dark={false}/></Row>
+            <Row bg="forest">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <ShelterA dark={true}/>
+                <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.2)' }}/>
+                <svg width={106} height={38} viewBox="0 0 106 38">
+                  <text x="0" y="28" fontFamily={CR} fontSize="32" fontWeight="300" fill={N0} letterSpacing="-0.5">Haven</text>
+                </svg>
+              </div>
+            </Row>
+          </div>
+        </DCArtboard>
+        <DCArtboard id="aA2" label="Icon sizes" width={280} height={420}>
+          <div style={{ padding: 24 }}>
+            <Label n="A" />
+            <Title>Icon sizes</Title>
+            <IconStrip renderIcon={(s, mode) => (
+              <svg width={s*0.65} height={s*0.65} viewBox="0 0 64 56" fill="none">
+                <path d="M32 6 L6 24 L6 52 L58 52 L58 24 Z" stroke={mode==='dark'?N0:G} strokeWidth="2.5" strokeLinejoin="round" fill="none"/>
+                <path d="M20 52 L20 38 Q20 33 25 33 L39 33 Q44 33 44 38 L44 52" stroke={mode==='dark'?N0:G} strokeWidth="2" strokeLinejoin="round" fill="none"/>
+                <line x1="1" y1="24" x2="63" y2="24" stroke={A} strokeWidth="2.5" strokeLinecap="round"/>
+              </svg>
+            )}/>
+            <div style={{ marginTop: 20 }}>
+              <StackedLockup Icon={ShelterA} dark={false}/>
+            </div>
+            <div style={{ marginTop: 12, background: GD, borderRadius: 10, padding: 16, display: 'flex', justifyContent: 'center' }}>
+              <StackedLockup Icon={ShelterA} dark={true}/>
+            </div>
+          </div>
+        </DCArtboard>
+      </DCSection>
+
+      {/* ── VARIANT B ── Rounded + warm ──────────── */}
+      <DCSection id="sB" title="B — Rounded & Warm">
+        <DCArtboard id="aB1" label="Lockups" width={380} height={420}>
+          <div style={{ padding: 24 }}>
+            <Label n="B" color={GL}/>
+            <Title>Rounded & Warm</Title>
+            <Desc>Softened stroke caps and a fully arched doorway. The door reads as a welcoming opening rather than a structural element. Warmer, more human.</Desc>
+            <Row bg="light"><Lockup Icon={ShelterB} dark={false}/></Row>
+            <Row bg="dark"><Lockup Icon={ShelterB} dark={true}/></Row>
+            <Row bg="amber">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <ShelterB dark={false}/>
+                <div style={{ width: 1, height: 28, background: '#d8d3c9' }}/>
+                <svg width={106} height={38} viewBox="0 0 106 38">
+                  <text x="0" y="28" fontFamily={CR} fontSize="32" fontWeight="300" fill={N9} letterSpacing="-0.5">Haven</text>
+                </svg>
+              </div>
+            </Row>
+            <Row bg="cream"><Lockup Icon={ShelterB} dark={false}/></Row>
+          </div>
+        </DCArtboard>
+        <DCArtboard id="aB2" label="Icon sizes" width={280} height={420}>
+          <div style={{ padding: 24 }}>
+            <Label n="B" color={GL}/>
+            <Title>Icon sizes</Title>
+            <IconStrip renderIcon={(s, mode) => (
+              <svg width={s*0.65} height={s*0.65} viewBox="0 0 64 56" fill="none">
+                <path d="M32 6 L6 24 L6 52 L58 52 L58 24 Z" stroke={mode==='dark'?N0:G} strokeWidth="2.8" strokeLinejoin="round" strokeLinecap="round" fill="none"/>
+                <path d="M21 52 L21 40 Q21 33 32 33 Q43 33 43 40 L43 52" stroke={mode==='dark'?N0:G} strokeWidth="2.2" strokeLinecap="round" fill="none"/>
+                <line x1="10" y1="24" x2="54" y2="24" stroke={A} strokeWidth="3" strokeLinecap="round"/>
+              </svg>
+            )}/>
+            <div style={{ marginTop: 20 }}>
+              <StackedLockup Icon={ShelterB} dark={false}/>
+            </div>
+            <div style={{ marginTop: 12, background: GD, borderRadius: 10, padding: 16, display: 'flex', justifyContent: 'center' }}>
+              <StackedLockup Icon={ShelterB} dark={true}/>
+            </div>
+          </div>
+        </DCArtboard>
+      </DCSection>
+
+      {/* ── VARIANT C ── Filled ───────────────────── */}
+      <DCSection id="sC" title="C — Filled Shelter">
+        <DCArtboard id="aC1" label="Lockups" width={380} height={420}>
+          <div style={{ padding: 24 }}>
+            <Label n="C" color="#7d5216"/>
+            <Title>Filled Shelter</Title>
+            <Desc>A subtle green fill within the house shape gives depth and solidity. The door punches through to the background, creating a small negative-space moment.</Desc>
+            <Row bg="light"><Lockup Icon={ShelterC} dark={false}/></Row>
+            <Row bg="dark"><Lockup Icon={ShelterC} dark={true}/></Row>
+            <Row bg="cream"><Lockup Icon={ShelterC} dark={false}/></Row>
+            <Row bg="forest"><Lockup Icon={p => <ShelterC {...p} scale={1}/>} dark={true}/></Row>
+          </div>
+        </DCArtboard>
+        <DCArtboard id="aC2" label="Icon sizes" width={280} height={420}>
+          <div style={{ padding: 24 }}>
+            <Label n="C" color="#7d5216"/>
+            <Title>Icon sizes</Title>
+            <IconStrip renderIcon={(s, mode) => {
+              const c = mode==='dark' ? N0 : G;
+              const fill = mode==='dark' ? 'rgba(255,255,255,0.08)' : 'rgba(30,82,65,0.08)';
+              const bg2 = mode==='dark' ? GD : N0;
+              return (
+                <svg width={s*0.65} height={s*0.65} viewBox="0 0 64 56" fill="none">
+                  <path d="M32 6 L6 24 L6 52 L58 52 L58 24 Z" stroke={c} strokeWidth="2.2" strokeLinejoin="round" fill={fill}/>
+                  <path d="M21 52 L21 40 Q21 33 32 33 Q43 33 43 40 L43 52" stroke={c} strokeWidth="2" strokeLinecap="round" fill={bg2}/>
+                  <line x1="6" y1="24" x2="58" y2="24" stroke={A} strokeWidth="2.5" strokeLinecap="round"/>
+                </svg>
+              );
+            }}/>
+            <div style={{ marginTop: 20 }}>
+              <StackedLockup Icon={ShelterC} dark={false}/>
+            </div>
+            <div style={{ marginTop: 12, background: GD, borderRadius: 10, padding: 16, display: 'flex', justifyContent: 'center' }}>
+              <StackedLockup Icon={ShelterC} dark={true}/>
+            </div>
+          </div>
+        </DCArtboard>
+      </DCSection>
+
+      {/* ── VARIANT D ── Minimal roofline ────────── */}
+      <DCSection id="sD" title="D — Minimal Roofline">
+        <DCArtboard id="aD1" label="Lockups" width={380} height={420}>
+          <div style={{ padding: 24 }}>
+            <Label n="D" color="#163c30"/>
+            <Title>Minimal Roofline</Title>
+            <Desc>The most stripped-down interpretation. Just the gable peak + amber horizon line. High-end, editorial. The wordmark carries the weight; the mark is a pure gesture.</Desc>
+            <Row bg="light"><div style={{ display: 'flex', alignItems: 'center', gap: 16 }}><ShelterD dark={false}/><div style={{ width: 1, height: 28, background: '#d8d3c9' }}/><WM dark={false} size={30}/></div></Row>
+            <Row bg="dark"><div style={{ display: 'flex', alignItems: 'center', gap: 16 }}><ShelterD dark={true}/><div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.15)' }}/><WM dark={true} size={30}/></div></Row>
+            <Row bg="cream"><div style={{ display: 'flex', alignItems: 'center', gap: 16 }}><ShelterD dark={false}/><div style={{ width: 1, height: 28, background: '#d8d3c9' }}/><WM dark={false} size={30}/></div></Row>
+            <Row bg="amber"><div style={{ display: 'flex', alignItems: 'center', gap: 16 }}><ShelterD dark={false}/><div style={{ width: 1, height: 28, background: '#d8d3c9' }}/><WM dark={false} size={30}/></div></Row>
+          </div>
+        </DCArtboard>
+        <DCArtboard id="aD2" label="Icon sizes" width={280} height={420}>
+          <div style={{ padding: 24 }}>
+            <Label n="D" color="#163c30"/>
+            <Title>Icon sizes</Title>
+            <IconStrip renderIcon={(s, mode) => (
+              <svg width={s*0.7} height={s*0.6} viewBox="0 0 64 48" fill="none">
+                <path d="M4 28 L32 6 L60 28" stroke={mode==='dark'?N0:G} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                <line x1="0" y1="28" x2="64" y2="28" stroke={A} strokeWidth="3" strokeLinecap="round"/>
+                <path d="M24 44 L24 36 Q24 32 32 32 Q40 32 40 36 L40 44" stroke={mode==='dark'?N0:G} strokeWidth="2" strokeLinecap="round" fill="none"/>
+              </svg>
+            )}/>
+            <div style={{ marginTop: 20 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                <ShelterD dark={false}/>
+                <svg width={110} height={38} viewBox="0 0 110 38">
+                  <text x="0" y="28" fontFamily={CR} fontSize="32" fontWeight="300" fill={N9} letterSpacing="-0.5">Haven</text>
+                </svg>
+              </div>
+            </div>
+            <div style={{ marginTop: 12, background: GD, borderRadius: 10, padding: 16, display: 'flex', justifyContent: 'center' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                <ShelterD dark={true}/>
+                <svg width={110} height={38} viewBox="0 0 110 38">
+                  <text x="0" y="28" fontFamily={CR} fontSize="32" fontWeight="300" fill={N0} letterSpacing="-0.5">Haven</text>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </DCArtboard>
+      </DCSection>
+
+      {/* ── VARIANT E ── Bold / weighted ─────────── */}
+      <DCSection id="sE" title="E — Bold Weight">
+        <DCArtboard id="aE1" label="Lockups" width={380} height={420}>
+          <div style={{ padding: 24 }}>
+            <Label n="E" color={G}/>
+            <Title>Bold Weight</Title>
+            <Desc>Heavier strokes + medium-weight wordmark. Exudes trust and authority. Works well at small sizes and in employer-facing contexts.</Desc>
+            <Row bg="light">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <ShelterEIcon dark={false}/>
+                <div style={{ width: 1, height: 28, background: '#d8d3c9' }}/>
+                <svg width={106} height={38} viewBox="0 0 106 38">
+                  <text x="0" y="28" fontFamily={CR} fontSize="32" fontWeight="400" fill={N9} letterSpacing="-0.5">Haven</text>
+                </svg>
+              </div>
+            </Row>
+            <Row bg="dark">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <ShelterEIcon dark={true}/>
+                <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.15)' }}/>
+                <svg width={106} height={38} viewBox="0 0 106 38">
+                  <text x="0" y="28" fontFamily={CR} fontSize="32" fontWeight="400" fill={N0} letterSpacing="-0.5">Haven</text>
+                </svg>
+              </div>
+            </Row>
+            <Row bg="cream">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <ShelterEIcon dark={false}/>
+                <div style={{ width: 1, height: 28, background: '#d8d3c9' }}/>
+                <svg width={106} height={38} viewBox="0 0 106 38">
+                  <text x="0" y="28" fontFamily={CR} fontSize="32" fontWeight="400" fill={N9} letterSpacing="-0.5">Haven</text>
+                </svg>
+              </div>
+            </Row>
+          </div>
+        </DCArtboard>
+        <DCArtboard id="aE2" label="Icon sizes" width={280} height={420}>
+          <div style={{ padding: 24 }}>
+            <Label n="E" color={G}/>
+            <Title>Icon sizes</Title>
+            <IconStrip renderIcon={(s, mode) => {
+              const c = mode==='dark'?N0:G;
+              const f = mode==='dark'?'rgba(255,255,255,0.06)':'rgba(30,82,65,0.07)';
+              return (
+                <svg width={s*0.65} height={s*0.65} viewBox="0 0 56 52" fill="none">
+                  <path d="M28 4 L4 20 L4 50 L52 50 L52 20 Z" stroke={c} strokeWidth="3.5" strokeLinejoin="round" fill={f}/>
+                  <path d="M18 50 L18 38 Q18 32 28 32 Q38 32 38 38 L38 50" stroke={c} strokeWidth="3" strokeLinecap="round" fill="none"/>
+                  <line x1="1" y1="20" x2="55" y2="20" stroke={A} strokeWidth="3.5" strokeLinecap="round"/>
+                </svg>
+              );
+            }}/>
+            <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+              <ShelterEIcon dark={false}/>
+              <svg width={110} height={38} viewBox="0 0 110 38">
+                <text x="0" y="28" fontFamily={CR} fontSize="32" fontWeight="400" fill={N9} letterSpacing="-0.5">Haven</text>
+              </svg>
+            </div>
+          </div>
+        </DCArtboard>
+      </DCSection>
+
+      {/* ── VARIANT F ── Window detail ────────────── */}
+      <DCSection id="sF" title="F — Window Detail">
+        <DCArtboard id="aF1" label="Lockups" width={380} height={420}>
+          <div style={{ padding: 24 }}>
+            <Label n="F" color="#a66e1e"/>
+            <Title>Window Detail</Title>
+            <Desc>A circular window (porthole) replaces the door — adding warmth and a sense of looking out toward possibility. The amber circle glows within the house.</Desc>
+            <Row bg="light"><Lockup Icon={ShelterF} dark={false}/></Row>
+            <Row bg="dark"><Lockup Icon={ShelterF} dark={true}/></Row>
+            <Row bg="amber"><Lockup Icon={ShelterF} dark={false}/></Row>
+            <Row bg="forest">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <ShelterF dark={true}/>
+                <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.15)' }}/>
+                <svg width={106} height={38} viewBox="0 0 106 38">
+                  <text x="0" y="28" fontFamily={CR} fontSize="32" fontWeight="300" fill={N0} letterSpacing="-0.5">Haven</text>
+                </svg>
+              </div>
+            </Row>
+          </div>
+        </DCArtboard>
+        <DCArtboard id="aF2" label="Icon sizes" width={280} height={420}>
+          <div style={{ padding: 24 }}>
+            <Label n="F" color="#a66e1e"/>
+            <Title>Icon sizes</Title>
+            <IconStrip renderIcon={(s, mode) => {
+              const c = mode==='dark'?N0:G;
+              const r = s * 0.65;
+              return (
+                <svg width={r} height={r} viewBox="0 0 64 56" fill="none">
+                  <path d="M32 6 L6 24 L6 52 L58 52 L58 24 Z" stroke={c} strokeWidth="2.2" strokeLinejoin="round" fill="none"/>
+                  <circle cx="32" cy="37" r="6" stroke={A} strokeWidth="2.2" fill="none"/>
+                  <circle cx="32" cy="37" r="2.5" fill={A} opacity="0.6"/>
+                  <line x1="1" y1="24" x2="63" y2="24" stroke={A} strokeWidth="2.2" strokeLinecap="round"/>
+                </svg>
+              );
+            }}/>
+            <div style={{ marginTop: 20 }}>
+              <StackedLockup Icon={ShelterF} dark={false}/>
+            </div>
+            <div style={{ marginTop: 12, background: GD, borderRadius: 10, padding: 16, display: 'flex', justifyContent: 'center' }}>
+              <StackedLockup Icon={ShelterF} dark={true}/>
+            </div>
+          </div>
+        </DCArtboard>
+      </DCSection>
+
+      {/* ── All side by side ─────────────────────── */}
+      <DCSection id="sAll" title="All variations — quick compare">
+        <DCArtboard id="aAll" label="Light" width={480} height={460}>
+          <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {[
+              ['A', ShelterA, 'Refined Classic'],
+              ['B', ShelterB, 'Rounded & Warm'],
+              ['C', ShelterC, 'Filled'],
+              ['D', ShelterD, 'Minimal Roofline'],
+              ['E', ShelterEIcon, 'Bold Weight'],
+              ['F', ShelterF, 'Window Detail'],
+            ].map(([id, Icon, name]) => (
+              <div key={id} style={{
+                display: 'flex', alignItems: 'center', gap: 14, padding: '8px 12px',
+                background: N0, borderRadius: 8, border: '1px solid #ddd8d0'
+              }}>
+                <span style={{ fontFamily: DS, fontSize: 10, fontWeight: 700, color: '#9e968a', width: 14 }}>{id}</span>
+                <Icon dark={false}/>
+                <span style={{ fontFamily: DS, fontSize: 12, color: '#7d7570', marginLeft: 4 }}>{name}</span>
+              </div>
+            ))}
+          </div>
+        </DCArtboard>
+        <DCArtboard id="aAllDark" label="Dark" width={480} height={460}>
+          <div style={{ padding: 24, background: GD, height: '100%', borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {[
+              ['A', ShelterA, 'Refined Classic'],
+              ['B', ShelterB, 'Rounded & Warm'],
+              ['C', ShelterC, 'Filled'],
+              ['D', ShelterD, 'Minimal Roofline'],
+              ['E', ShelterEIcon, 'Bold Weight'],
+              ['F', ShelterF, 'Window Detail'],
+            ].map(([id, Icon, name]) => (
+              <div key={id} style={{
+                display: 'flex', alignItems: 'center', gap: 14, padding: '8px 12px',
+                background: 'rgba(255,255,255,0.05)', borderRadius: 8,
+              }}>
+                <span style={{ fontFamily: DS, fontSize: 10, fontWeight: 700, color: '#4d9077', width: 14 }}>{id}</span>
+                <Icon dark={true}/>
+                <span style={{ fontFamily: DS, fontSize: 12, color: '#80b39d', marginLeft: 4 }}>{name}</span>
+              </div>
+            ))}
+          </div>
+        </DCArtboard>
+      </DCSection>
+
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+<div id="root"></div>
+</body>
+</html>

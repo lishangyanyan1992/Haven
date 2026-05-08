@@ -1,0 +1,18 @@
+{
+  "name": "@haven/auth",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./env": "./src/env.ts",
+    "./cookie-options": "./src/cookie-options.ts",
+    "./browser": "./src/supabase-browser.ts",
+    "./server": "./src/supabase-server.ts",
+    "./admin": "./src/supabase-admin.ts",
+    "./redirects": "./src/redirects.ts"
+  },
+  "dependencies": {
+    "@supabase/ssr": "latest",
+    "@supabase/supabase-js": "latest",
+    "zod": "latest"
+  }
+}

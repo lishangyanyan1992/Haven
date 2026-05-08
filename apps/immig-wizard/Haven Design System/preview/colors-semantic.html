@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: var(--neutral-25); font-family: var(--font-body); padding: 20px; }
+.grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.group { display: flex; flex-direction: column; gap: 2px; border-radius: 8px; overflow: hidden; }
+.main { height: 52px; display: flex; align-items: center; justify-content: center; }
+.main span { font-size: 11px; font-weight: 600; color: #fff; letter-spacing: 0.06em; text-transform: uppercase; }
+.light { height: 28px; display: flex; align-items: center; padding: 0 8px; }
+.light span { font-size: 10px; font-weight: 500; }
+.name { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--neutral-500); padding: 4px 0 6px; }
+</style></head><body>
+<div class="grid">
+  <div class="group">
+    <div class="name">Success</div>
+    <div class="main" style="background:var(--success)"><span>●</span></div>
+    <div class="light" style="background:var(--success-light)"><span style="color:var(--success-dark)">Light</span></div>
+  </div>
+  <div class="group">
+    <div class="name">Warning</div>
+    <div class="main" style="background:var(--warning)"><span>●</span></div>
+    <div class="light" style="background:var(--warning-light)"><span style="color:var(--warning-dark)">Light</span></div>
+  </div>
+  <div class="group">
+    <div class="name">Error</div>
+    <div class="main" style="background:var(--error)"><span>●</span></div>
+    <div class="light" style="background:var(--error-light)"><span style="color:var(--error-dark)">Light</span></div>
+  </div>
+  <div class="group">
+    <div class="name">Info</div>
+    <div class="main" style="background:var(--info)"><span>●</span></div>
+    <div class="light" style="background:var(--info-light)"><span style="color:var(--info-dark)">Light</span></div>
+  </div>
+</div>
+</body></html>

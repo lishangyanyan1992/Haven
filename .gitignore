@@ -1,13 +1,17 @@
 .next
+apps/*/.next
 node_modules
 .env
 .env.local
+.env.vercel.*
 .env*.save
 coverage
 dist
 *.log
 *.tsbuildinfo
+apps/*/*.tsbuildinfo
 .DS_Store
 .claude/launch.json
 .claude/settings.local.json
 supabase/.temp
+.vercel

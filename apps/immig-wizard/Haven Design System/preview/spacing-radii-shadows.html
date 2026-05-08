@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: var(--neutral-50); font-family: var(--font-body); padding: 20px 24px; display: flex; gap: 32px; }
+.col { display: flex; flex-direction: column; gap: 12px; }
+.section-label { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--neutral-400); margin-bottom: 4px; }
+.radii { display: flex; gap: 10px; align-items: flex-end; }
+.radius-demo { background: var(--neutral-0); border: 1.5px solid var(--neutral-300); width: 44px; height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 4px; }
+.radius-demo span { font-size: 9px; color: var(--neutral-500); }
+.shadows { display: flex; flex-direction: column; gap: 12px; }
+.shadow-demo { background: var(--neutral-0); border-radius: var(--radius-md); padding: 8px 14px; display: flex; justify-content: space-between; align-items: center; }
+.shadow-demo span { font-size: 10px; font-weight: 500; color: var(--neutral-600); }
+.shadow-demo .val { font-size: 9px; color: var(--neutral-400); font-family: var(--font-mono); }
+</style></head><body>
+<div class="col" style="flex:1">
+  <div class="section-label">Border Radius</div>
+  <div class="radii">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div class="radius-demo" style="border-radius:4px"><span>sm</span></div>
+      <span style="font-size:9px;color:var(--neutral-400)">4px</span>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div class="radius-demo" style="border-radius:8px"><span>md</span></div>
+      <span style="font-size:9px;color:var(--neutral-400)">8px</span>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div class="radius-demo" style="border-radius:12px"><span>lg</span></div>
+      <span style="font-size:9px;color:var(--neutral-400)">12px</span>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div class="radius-demo" style="border-radius:16px"><span>xl</span></div>
+      <span style="font-size:9px;color:var(--neutral-400)">16px</span>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div class="radius-demo" style="border-radius:24px"><span>2xl</span></div>
+      <span style="font-size:9px;color:var(--neutral-400)">24px</span>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div class="radius-demo" style="border-radius:9999px"><span>full</span></div>
+      <span style="font-size:9px;color:var(--neutral-400)">full</span>
+    </div>
+  </div>
+</div>
+<div class="col" style="flex:1.2">
+  <div class="section-label">Shadow System</div>
+  <div class="shadows">
+    <div class="shadow-demo" style="box-shadow:var(--shadow-xs)"><span>shadow-xs</span><span class="val">0 1px 2px</span></div>
+    <div class="shadow-demo" style="box-shadow:var(--shadow-sm)"><span>shadow-sm</span><span class="val">card default</span></div>
+    <div class="shadow-demo" style="box-shadow:var(--shadow-md)"><span>shadow-md</span><span class="val">card hover</span></div>
+    <div class="shadow-demo" style="box-shadow:var(--shadow-lg)"><span>shadow-lg</span><span class="val">dropdown</span></div>
+    <div class="shadow-demo" style="box-shadow:var(--shadow-xl)"><span>shadow-xl</span><span class="val">modal</span></div>
+  </div>
+</div>
+</body></html>

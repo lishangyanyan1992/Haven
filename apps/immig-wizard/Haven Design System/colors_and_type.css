@@ -1,0 +1,204 @@
+/* ============================================================
+   HAVEN DESIGN SYSTEM — Colors & Typography
+   "Calm Clarity" — trusted guide for global talent
+   ============================================================ */
+
+/* ── Google Fonts ─────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300;1,9..40,400&family=DM+Mono:wght@300;400;500&display=swap');
+
+/* ── Base Color Palette ───────────────────────────────────── */
+:root {
+  /* Forest Green — Primary */
+  --green-50:  #f0f5f2;
+  --green-100: #d9e8e0;
+  --green-200: #b3d1c2;
+  --green-300: #80b39d;
+  --green-400: #4d9077;
+  --green-500: #2a6e56;
+  --green-600: #1e5241;
+  --green-700: #163c30;
+  --green-800: #0f2a21;
+  --green-900: #091a14;
+
+  /* Amber — Accent */
+  --amber-50:  #fdf8ef;
+  --amber-100: #f8ead0;
+  --amber-200: #f0d49f;
+  --amber-300: #e5b96b;
+  --amber-400: #d9a040;
+  --amber-500: #c98928;
+  --amber-600: #a66e1e;
+  --amber-700: #7d5216;
+  --amber-800: #55370e;
+  --amber-900: #2e1e07;
+
+  /* Warm Neutrals */
+  --neutral-0:   #ffffff;
+  --neutral-25:  #faf9f7;
+  --neutral-50:  #f5f3ef;
+  --neutral-100: #ece9e2;
+  --neutral-200: #d8d3c9;
+  --neutral-300: #bfb8ab;
+  --neutral-400: #9e968a;
+  --neutral-500: #7d7570;
+  --neutral-600: #5e5750;
+  --neutral-700: #403b35;
+  --neutral-800: #2a2520;
+  --neutral-900: #18150f;
+
+  /* Semantic — Status */
+  --success-light: #e6f4ee;
+  --success:       #2a7d52;
+  --success-dark:  #1a5236;
+
+  --warning-light: #fef3e0;
+  --warning:       #d97b2a;
+  --warning-dark:  #8f4f18;
+
+  --error-light:   #fdecea;
+  --error:         #c93a32;
+  --error-dark:    #8a221c;
+
+  --info-light:    #e8f1fb;
+  --info:          #2a65b8;
+  --info-dark:     #1a4078;
+
+  /* ── Semantic Color Roles ─────────────────────────────── */
+  --color-bg:          var(--neutral-25);
+  --color-bg-alt:      var(--neutral-50);
+  --color-bg-surface:  var(--neutral-0);
+  --color-bg-inverse:  var(--green-800);
+
+  --color-fg-1:        var(--neutral-900);
+  --color-fg-2:        var(--neutral-700);
+  --color-fg-3:        var(--neutral-500);
+  --color-fg-disabled: var(--neutral-400);
+  --color-fg-inverse:  var(--neutral-0);
+
+  --color-border:      var(--neutral-200);
+  --color-border-strong: var(--neutral-300);
+
+  --color-primary:     var(--green-600);
+  --color-primary-hover: var(--green-700);
+  --color-primary-subtle: var(--green-50);
+
+  --color-accent:      var(--amber-500);
+  --color-accent-hover: var(--amber-600);
+  --color-accent-subtle: var(--amber-50);
+
+  /* ── Typography Scale ─────────────────────────────────── */
+  --font-display: 'Cormorant Garamond', Georgia, serif;
+  --font-body:    'DM Sans', system-ui, sans-serif;
+  --font-mono:    'DM Mono', 'Courier New', monospace;
+
+  /* Type sizes — major third scale (1.25x) */
+  --text-xs:   0.75rem;    /* 12px */
+  --text-sm:   0.875rem;   /* 14px */
+  --text-base: 1rem;       /* 16px */
+  --text-lg:   1.125rem;   /* 18px */
+  --text-xl:   1.25rem;    /* 20px */
+  --text-2xl:  1.5rem;     /* 24px */
+  --text-3xl:  1.875rem;   /* 30px */
+  --text-4xl:  2.25rem;    /* 36px */
+  --text-5xl:  3rem;       /* 48px */
+  --text-6xl:  3.75rem;    /* 60px */
+  --text-7xl:  4.5rem;     /* 72px */
+
+  /* Line heights */
+  --leading-tight:  1.2;
+  --leading-snug:   1.35;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.7;
+
+  /* Letter spacing */
+  --tracking-tight:  -0.02em;
+  --tracking-normal: 0em;
+  --tracking-wide:   0.04em;
+  --tracking-wider:  0.08em;
+  --tracking-widest: 0.14em;
+
+  /* Font weights */
+  --weight-light:   300;
+  --weight-regular: 400;
+  --weight-medium:  500;
+  --weight-semibold: 600;
+  --weight-bold:    700;
+
+  /* ── Spacing Scale (base 4px) ─────────────────────────── */
+  --space-1:  0.25rem;   /* 4px */
+  --space-2:  0.5rem;    /* 8px */
+  --space-3:  0.75rem;   /* 12px */
+  --space-4:  1rem;      /* 16px */
+  --space-5:  1.25rem;   /* 20px */
+  --space-6:  1.5rem;    /* 24px */
+  --space-8:  2rem;      /* 32px */
+  --space-10: 2.5rem;    /* 40px */
+  --space-12: 3rem;      /* 48px */
+  --space-16: 4rem;      /* 64px */
+  --space-20: 5rem;      /* 80px */
+  --space-24: 6rem;      /* 96px */
+
+  /* ── Border Radius ────────────────────────────────────── */
+  --radius-sm:   4px;
+  --radius-md:   8px;
+  --radius-lg:   12px;
+  --radius-xl:   16px;
+  --radius-2xl:  24px;
+  --radius-full: 9999px;
+
+  /* ── Shadows ──────────────────────────────────────────── */
+  --shadow-xs:  0 1px 2px 0 rgba(15,42,33,0.05);
+  --shadow-sm:  0 1px 4px 0 rgba(15,42,33,0.07), 0 1px 2px -1px rgba(15,42,33,0.04);
+  --shadow-md:  0 4px 12px -2px rgba(15,42,33,0.08), 0 2px 4px -2px rgba(15,42,33,0.04);
+  --shadow-lg:  0 8px 24px -4px rgba(15,42,33,0.10), 0 4px 8px -4px rgba(15,42,33,0.05);
+  --shadow-xl:  0 16px 40px -6px rgba(15,42,33,0.12), 0 6px 12px -6px rgba(15,42,33,0.06);
+
+  /* ── Transitions ──────────────────────────────────────── */
+  --ease-out:  cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in:   cubic-bezier(0.5, 0, 0.84, 0);
+  --ease-inout: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-fast:   120ms;
+  --duration-base:   200ms;
+  --duration-slow:   350ms;
+}
+
+/* ── Semantic Type Roles ──────────────────────────────────── */
+:root {
+  /* Headings use display serif */
+  --h1-font:    var(--font-display);
+  --h1-size:    var(--text-5xl);
+  --h1-weight:  var(--weight-light);
+  --h1-leading: var(--leading-tight);
+  --h1-tracking: var(--tracking-tight);
+
+  --h2-font:    var(--font-display);
+  --h2-size:    var(--text-4xl);
+  --h2-weight:  var(--weight-light);
+  --h2-leading: var(--leading-tight);
+
+  --h3-font:    var(--font-display);
+  --h3-size:    var(--text-3xl);
+  --h3-weight:  var(--weight-regular);
+  --h3-leading: var(--leading-snug);
+
+  --h4-font:    var(--font-body);
+  --h4-size:    var(--text-xl);
+  --h4-weight:  var(--weight-semibold);
+  --h4-leading: var(--leading-snug);
+
+  --label-font:    var(--font-body);
+  --label-size:    var(--text-xs);
+  --label-weight:  var(--weight-medium);
+  --label-tracking: var(--tracking-widest);
+
+  --body-font:    var(--font-body);
+  --body-size:    var(--text-base);
+  --body-weight:  var(--weight-regular);
+  --body-leading: var(--leading-relaxed);
+
+  --body-sm-size: var(--text-sm);
+  --caption-size: var(--text-xs);
+
+  --code-font:    var(--font-mono);
+  --code-size:    var(--text-sm);
+}

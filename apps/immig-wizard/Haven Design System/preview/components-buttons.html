@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: var(--neutral-50); font-family: var(--font-body); padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+.row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.label { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--neutral-400); width: 80px; flex-shrink: 0; }
+/* Buttons */
+.btn { display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; font-family: var(--font-body); font-size: 14px; font-weight: 500; cursor: pointer; transition: all 200ms cubic-bezier(0.16,1,0.3,1); border: none; }
+.btn-primary { background: var(--green-600); color: #fff; padding: 10px 20px; }
+.btn-primary:hover { background: var(--green-700); box-shadow: var(--shadow-md); }
+.btn-secondary { background: var(--neutral-0); color: var(--neutral-800); padding: 10px 20px; border: 1.5px solid var(--neutral-300); }
+.btn-secondary:hover { border-color: var(--neutral-400); background: var(--neutral-50); }
+.btn-ghost { background: transparent; color: var(--green-600); padding: 10px 20px; }
+.btn-ghost:hover { background: var(--green-50); }
+.btn-accent { background: var(--amber-500); color: #fff; padding: 10px 20px; }
+.btn-accent:hover { background: var(--amber-600); }
+.btn-danger { background: var(--error-light); color: var(--error-dark); padding: 10px 20px; border: 1px solid var(--error); }
+.btn-sm { padding: 6px 14px; font-size: 13px; }
+.btn-lg { padding: 14px 28px; font-size: 16px; }
+.btn-disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+</style></head><body>
+<div class="row"><div class="label">Primary</div>
+  <button class="btn btn-primary">Get started</button>
+  <button class="btn btn-primary btn-sm">Get started</button>
+  <button class="btn btn-primary btn-lg">Get started</button>
+  <button class="btn btn-primary btn-disabled">Disabled</button>
+</div>
+<div class="row"><div class="label">Secondary</div>
+  <button class="btn btn-secondary">Learn more</button>
+  <button class="btn btn-secondary btn-sm">Learn more</button>
+  <button class="btn btn-secondary btn-disabled">Disabled</button>
+</div>
+<div class="row"><div class="label">Ghost</div>
+  <button class="btn btn-ghost">View details</button>
+  <button class="btn btn-ghost btn-sm">View details</button>
+</div>
+<div class="row"><div class="label">Accent</div>
+  <button class="btn btn-accent">Book a call</button>
+  <button class="btn btn-accent btn-sm">Book a call</button>
+</div>
+<div class="row"><div class="label">Danger</div>
+  <button class="btn btn-danger">Remove document</button>
+</div>
+</body></html>

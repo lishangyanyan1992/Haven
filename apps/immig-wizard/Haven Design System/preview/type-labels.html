@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: var(--neutral-25); font-family: var(--font-body); padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
+.row { display: flex; align-items: center; gap: 16px; }
+.meta { font-size: 10px; color: var(--neutral-400); width: 110px; flex-shrink: 0; }
+.eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--green-600); }
+.status-approved { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--success); background: var(--success-light); padding: 2px 8px; border-radius: 9999px; }
+.status-pending { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--warning-dark); background: var(--warning-light); padding: 2px 8px; border-radius: 9999px; }
+.status-action { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--error-dark); background: var(--error-light); padding: 2px 8px; border-radius: 9999px; }
+.mono { font-family: var(--font-mono); font-size: 13px; font-weight: 400; color: var(--neutral-700); background: var(--neutral-100); padding: 2px 8px; border-radius: 4px; }
+</style></head><body>
+<div class="row"><span class="meta">Eyebrow label</span><span class="eyebrow">Employment-Based · EB-2</span></div>
+<div class="row"><span class="meta">Status: approved</span><span class="status-approved">Approved</span></div>
+<div class="row"><span class="meta">Status: pending</span><span class="status-pending">In Progress</span></div>
+<div class="row"><span class="meta">Status: action req.</span><span class="status-action">Action Required</span></div>
+<div class="row"><span class="meta">Mono — case ID</span><span class="mono">Case #HVN-2024-0821</span></div>
+<div class="row"><span class="meta">Mono — date</span><span class="mono">Priority date: Oct 2021</span></div>
+</body></html>

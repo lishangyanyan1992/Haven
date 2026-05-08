@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Haven App — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../colors_and_type.css">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: var(--neutral-100); color: var(--neutral-900); font-family: var(--font-body); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+/* ── App shell ────────────────────────────────────────────── */
+.app-shell { display: flex; flex: 1; overflow: hidden; }
+
+/* ── Top bar ──────────────────────────────────────────────── */
+.topbar {
+  height: 52px; background: var(--neutral-0); border-bottom: 1px solid var(--neutral-200);
+  display: flex; align-items: center; padding: 0 20px; gap: 16px; flex-shrink: 0;
+}
+.topbar-logo { display: flex; align-items: center; gap: 8px; width: 220px; }
+.topbar-logo .wordmark { font-family: var(--font-display); font-size: 18px; font-weight: 300; color: var(--neutral-900); }
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--green-600); color: #fff; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; }
+.topbar-name { font-size: 13px; font-weight: 500; color: var(--neutral-700); }
+.notif-btn { width: 30px; height: 30px; border-radius: 7px; background: transparent; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--neutral-500); position: relative; }
+.notif-btn:hover { background: var(--neutral-100); }
+.notif-dot { width: 7px; height: 7px; background: var(--error); border-radius: 50%; position: absolute; top: 5px; right: 5px; border: 1.5px solid #fff; }
+
+/* ── Sidebar ──────────────────────────────────────────────── */
+.sidebar {
+  width: 220px; background: var(--neutral-0); border-right: 1px solid var(--neutral-200);
+  padding: 16px 10px; display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; overflow-y: auto;
+}
+.sidebar-section { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--neutral-400); padding: 10px 10px 4px; }
+.sidebar-item {
+  display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 7px;
+  font-size: 13px; font-weight: 400; color: var(--neutral-600); cursor: pointer;
+  transition: all 150ms; user-select: none;
+}
+.sidebar-item:hover { background: var(--neutral-50); color: var(--neutral-900); }
+.sidebar-item.active { background: var(--green-50); color: var(--green-700); font-weight: 500; }
+.sidebar-item svg { flex-shrink: 0; opacity: 0.65; }
+.sidebar-item.active svg { opacity: 1; }
+.sidebar-badge { margin-left: auto; background: var(--error); color: #fff; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 9999px; }
+.sidebar-divider { height: 1px; background: var(--neutral-100); margin: 8px 4px; }
+
+/* ── Main ─────────────────────────────────────────────────── */
+.main { flex: 1; overflow-y: auto; padding: 28px 32px; }
+.page-header { margin-bottom: 24px; }
+.page-title { font-family: var(--font-display); font-size: 28px; font-weight: 300; color: var(--neutral-900); }
+.page-subtitle { font-size: 14px; color: var(--neutral-500); margin-top: 3px; }
+
+/* ── Cards ────────────────────────────────────────────────── */
+.card { background: var(--neutral-0); border: 1px solid var(--neutral-200); border-radius: 12px; box-shadow: var(--shadow-sm); }
+.card:hover { box-shadow: var(--shadow-md); }
+
+/* Stat row */
+.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+.stat-card { padding: 18px 20px; }
+.stat-label { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--neutral-400); margin-bottom: 6px; }
+.stat-value { font-family: var(--font-display); font-size: 26px; font-weight: 300; color: var(--neutral-900); line-height: 1; margin-bottom: 4px; }
+.stat-sub { font-size: 12px; color: var(--neutral-500); }
+.stat-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; padding: 2px 7px; border-radius: 9999px; }
+
+/* Timeline card */
+.timeline-card { padding: 20px 24px; }
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.card-title { font-size: 14px; font-weight: 600; color: var(--neutral-800); }
+.card-action { font-size: 12px; font-weight: 500; color: var(--green-600); cursor: pointer; }
+.card-action:hover { color: var(--green-700); }
+.timeline { display: flex; flex-direction: column; }
+.tl-item { display: flex; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--neutral-100); }
+.tl-item:last-child { border: none; }
+.tl-icon { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.tl-content { flex: 1; }
+.tl-title { font-size: 13px; font-weight: 500; color: var(--neutral-800); margin-bottom: 2px; }
+.tl-meta { font-size: 11px; color: var(--neutral-500); }
+.tl-date { font-size: 11px; font-family: var(--font-mono); color: var(--neutral-400); flex-shrink: 0; align-self: center; }
+
+/* Task list */
+.task-card { padding: 20px 24px; }
+.task-item { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--neutral-100); cursor: pointer; transition: background 150ms; border-radius: 6px; margin: 0 -8px; padding: 10px 8px; }
+.task-item:last-child { border: none; }
+.task-item:hover { background: var(--neutral-50); }
+.task-check { width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid var(--neutral-300); flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center; background: var(--neutral-0); transition: all 150ms; }
+.task-check.done { background: var(--success); border-color: var(--success); }
+.task-title-text { font-size: 13px; font-weight: 500; color: var(--neutral-800); margin-bottom: 3px; }
+.task-title-text.done { color: var(--neutral-400); text-decoration: line-through; }
+.task-desc { font-size: 11px; color: var(--neutral-500); }
+.task-due { font-size: 11px; font-weight: 500; margin-left: auto; padding-top: 2px; flex-shrink: 0; }
+
+/* Documents */
+.doc-card { padding: 20px 24px; }
+.doc-item { display: flex; align-items: center; gap: 12px; padding: 9px 8px; border-radius: 7px; transition: background 150ms; cursor: pointer; }
+.doc-item:hover { background: var(--neutral-50); }
+.doc-icon { width: 34px; height: 34px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.doc-name { font-size: 13px; font-weight: 500; color: var(--neutral-800); }
+.doc-meta { font-size: 11px; color: var(--neutral-500); }
+.doc-status { margin-left: auto; font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; padding: 2px 8px; border-radius: 9999px; }
+
+/* Progress ring */
+.progress-ring { width: 52px; height: 52px; transform: rotate(-90deg); }
+.ring-bg { fill: none; stroke: var(--neutral-100); stroke-width: 5; }
+.ring-fill { fill: none; stroke: var(--green-500); stroke-width: 5; stroke-linecap: round; stroke-dasharray: 126; transition: stroke-dashoffset 0.6s var(--ease-out); }
+
+/* Deadline chip */
+.deadline-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 9999px; font-size: 12px; font-weight: 500; }
+
+/* ── Page tabs ────────────────────────────────────────────── */
+.page-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--neutral-200); margin-bottom: 24px; }
+.tab { padding: 8px 16px; font-size: 13px; font-weight: 400; color: var(--neutral-500); cursor: pointer; border-bottom: 2px solid transparent; transition: all 150ms; margin-bottom: -1px; }
+.tab:hover { color: var(--neutral-800); }
+.tab.active { color: var(--green-700); font-weight: 500; border-bottom-color: var(--green-600); }
+
+/* ── Screen visibility ────────────────────────────────────── */
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* ── Utility ──────────────────────────────────────────────── */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+.flex-row { display: flex; gap: 14px; }
+.btn { display: inline-flex; align-items: center; gap: 6px; border-radius: 7px; font-family: var(--font-body); font-weight: 500; cursor: pointer; transition: all 150ms; border: none; font-size: 13px; padding: 7px 16px; }
+.btn-primary { background: var(--green-600); color: #fff; }
+.btn-primary:hover { background: var(--green-700); }
+.btn-secondary { background: var(--neutral-0); color: var(--neutral-700); border: 1.5px solid var(--neutral-300); }
+.btn-secondary:hover { border-color: var(--neutral-400); }
+.btn-ghost { background: transparent; color: var(--green-600); padding: 7px 12px; }
+.btn-ghost:hover { background: var(--green-50); }
+</style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="topbar">
+  <div class="topbar-logo">
+    <svg width="22" height="20" viewBox="0 0 64 56" fill="none">
+      <path d="M32 6 L6 24 L6 52 L58 52 L58 24 Z" stroke="#1E5241" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" fill="none"/>
+      <path d="M21 52 L21 40 Q21 33 32 33 Q43 33 43 40 L43 52" stroke="#1E5241" stroke-width="2" stroke-linecap="round" fill="none"/>
+      <line x1="10" y1="24" x2="54" y2="24" stroke="#C98928" stroke-width="2.5" stroke-linecap="round"/>
+    </svg>
+    <span class="wordmark">Haven</span>
+  </div>
+  <div style="flex:1"></div>
+  <div class="topbar-right">
+    <button class="notif-btn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <div class="notif-dot"></div>
+    </button>
+    <div class="avatar">PS</div>
+    <span class="topbar-name">Priya Sharma</span>
+  </div>
+</div>
+
+<div class="app-shell">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-section">My Case</div>
+    <div class="sidebar-item active" onclick="showScreen('dashboard')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Overview
+    </div>
+    <div class="sidebar-item" onclick="showScreen('timeline')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Timeline
+    </div>
+    <div class="sidebar-item" onclick="showScreen('documents')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Documents
+      <span class="sidebar-badge">2</span>
+    </div>
+    <div class="sidebar-item" onclick="showScreen('tasks')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      Tasks
+      <span class="sidebar-badge">3</span>
+    </div>
+    <div class="sidebar-item">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Deadlines
+    </div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">Support</div>
+    <div class="sidebar-item">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      Ask Haven
+    </div>
+    <div class="sidebar-item">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Help center
+    </div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-item">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Profile
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main">
+
+    <!-- Dashboard screen -->
+    <div class="screen active" id="screen-dashboard">
+      <div class="page-header">
+        <div class="page-title">Good morning, Priya.</div>
+        <div class="page-subtitle">Your H-1B is active · Green card in progress · 3 tasks need attention</div>
+      </div>
+
+      <!-- Stat cards -->
+      <div class="stats-row">
+        <div class="card stat-card">
+          <div class="stat-label">Visa status</div>
+          <div class="stat-value">H-1B</div>
+          <div class="stat-sub">Expires Dec 2026</div>
+          <span class="stat-badge" style="background:var(--success-light);color:var(--success-dark);margin-top:8px">● Active</span>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">Green card stage</div>
+          <div class="stat-value">I-140</div>
+          <div class="stat-sub">EB-2 · Filed Mar 2024</div>
+          <span class="stat-badge" style="background:var(--info-light);color:var(--info-dark);margin-top:8px">● Approved</span>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">Priority date</div>
+          <div class="stat-value" style="font-size:20px;margin-top:2px">Oct 2021</div>
+          <div class="stat-sub">Current: Aug 2021</div>
+          <span class="stat-badge" style="background:var(--warning-light);color:var(--warning-dark);margin-top:8px">2 mo. away</span>
+        </div>
+        <div class="card stat-card" style="background:var(--green-800);border-color:var(--green-700)">
+          <div class="stat-label" style="color:var(--green-300)">Overall progress</div>
+          <div style="display:flex;align-items:center;gap:12px;margin-top:4px">
+            <svg class="progress-ring" viewBox="0 0 44 44">
+              <circle class="ring-bg" cx="22" cy="22" r="18"/>
+              <circle class="ring-fill" cx="22" cy="22" r="18" style="stroke-dashoffset:48"/>
+            </svg>
+            <div>
+              <div style="font-family:var(--font-display);font-size:26px;font-weight:300;color:#fff;line-height:1">62%</div>
+              <div style="font-size:12px;color:var(--green-300)">to green card</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex-row">
+        <!-- Timeline snapshot -->
+        <div class="card timeline-card" style="flex:1.4">
+          <div class="card-header">
+            <span class="card-title">Case timeline</span>
+            <span class="card-action" onclick="showScreen('timeline')">View all →</span>
+          </div>
+          <div class="timeline">
+            <div class="tl-item">
+              <div class="tl-icon" style="background:var(--success-light)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2a7d52" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+              <div class="tl-content"><div class="tl-title">I-140 approved</div><div class="tl-meta">EB-2 petition · USCIS</div></div>
+              <div class="tl-date">Mar 2024</div>
+            </div>
+            <div class="tl-item">
+              <div class="tl-icon" style="background:var(--success-light)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2a7d52" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+              <div class="tl-content"><div class="tl-title">H-1B renewal approved</div><div class="tl-meta">3-year extension granted</div></div>
+              <div class="tl-date">Jan 2024</div>
+            </div>
+            <div class="tl-item">
+              <div class="tl-icon" style="background:var(--warning-light)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d97b2a" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+              <div class="tl-content"><div class="tl-title">Await priority date current</div><div class="tl-meta">Oct 2021 · ~2 months estimated</div></div>
+              <div class="tl-date">In progress</div>
+            </div>
+            <div class="tl-item">
+              <div class="tl-icon" style="background:var(--neutral-100)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9e968a" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/></svg></div>
+              <div class="tl-content"><div class="tl-title" style="color:var(--neutral-500)">File I-485 adjustment</div><div class="tl-meta">When priority date is current</div></div>
+              <div class="tl-date" style="color:var(--neutral-300)">Upcoming</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tasks -->
+        <div class="card task-card" style="flex:1">
+          <div class="card-header">
+            <span class="card-title">Tasks</span>
+            <span class="card-action" onclick="showScreen('tasks')">View all →</span>
+          </div>
+          <div class="timeline">
+            <div class="tl-item" style="cursor:pointer" onclick="toggleTask(this)">
+              <div class="tl-icon" style="background:var(--error-light)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c93a32" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+              <div class="tl-content"><div class="tl-title">Upload EAD renewal docs</div><div class="tl-meta">Due in 3 days</div></div>
+            </div>
+            <div class="tl-item" style="cursor:pointer" onclick="toggleTask(this)">
+              <div class="tl-icon" style="background:var(--warning-light)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d97b2a" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+              <div class="tl-content"><div class="tl-title">Sign I-140 authorization</div><div class="tl-meta">Due in 7 days</div></div>
+            </div>
+            <div class="tl-item" style="cursor:pointer" onclick="toggleTask(this)">
+              <div class="tl-icon" style="background:var(--info-light)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2a65b8" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+              <div class="tl-content"><div class="tl-title">Confirm employer details</div><div class="tl-meta">Due in 14 days</div></div>
+            </div>
+          </div>
+          <div style="margin-top:12px">
+            <button class="btn btn-primary" style="width:100%;justify-content:center">Upload documents</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Deadline banner -->
+      <div style="margin-top:14px;background:var(--amber-50);border:1px solid var(--amber-200);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:16px">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#c98928" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600;color:var(--amber-800)">EAD renewal deadline approaching</div>
+          <div style="font-size:12px;color:var(--amber-700)">Your Employment Authorization Document expires in 47 days. File Form I-765 now to avoid work authorization gap.</div>
+        </div>
+        <button class="btn btn-secondary" style="flex-shrink:0;font-size:12px">Learn more</button>
+      </div>
+    </div>
+
+    <!-- Timeline screen -->
+    <div class="screen" id="screen-timeline">
+      <div class="page-header">
+        <div class="page-title">Case Timeline</div>
+        <div class="page-subtitle">Full history of your immigration journey</div>
+      </div>
+      <div class="page-tabs">
+        <div class="tab active">All events</div>
+        <div class="tab">Milestones</div>
+        <div class="tab">Deadlines</div>
+        <div class="tab">Documents</div>
+      </div>
+      <div class="card" style="padding:24px">
+        <div style="display:flex;flex-direction:column;gap:0">
+          <div style="display:flex;gap:16px;padding:12px 0;border-bottom:1px solid var(--neutral-100)">
+            <div style="width:90px;font-size:11px;font-family:var(--font-mono);color:var(--neutral-400);padding-top:4px;flex-shrink:0">Mar 2024</div>
+            <div style="width:2px;background:var(--success);border-radius:2px;flex-shrink:0"></div>
+            <div style="flex:1;padding-bottom:4px">
+              <div style="font-size:13px;font-weight:600;color:var(--neutral-900);margin-bottom:2px">I-140 Immigrant Petition — Approved</div>
+              <div style="font-size:12px;color:var(--neutral-500)">USCIS approved your EB-2 I-140 petition. Your priority date is October 2021.</div>
+              <span style="font-size:10px;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;background:var(--success-light);color:var(--success-dark);padding:2px 8px;border-radius:9999px;display:inline-flex;margin-top:8px">Approved</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:16px;padding:12px 0;border-bottom:1px solid var(--neutral-100)">
+            <div style="width:90px;font-size:11px;font-family:var(--font-mono);color:var(--neutral-400);padding-top:4px;flex-shrink:0">Jan 2024</div>
+            <div style="width:2px;background:var(--success);border-radius:2px;flex-shrink:0"></div>
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:600;color:var(--neutral-900);margin-bottom:2px">H-1B Extension — Approved</div>
+              <div style="font-size:12px;color:var(--neutral-500)">3-year H-1B extension approved. Valid through December 15, 2026.</div>
+              <span style="font-size:10px;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;background:var(--success-light);color:var(--success-dark);padding:2px 8px;border-radius:9999px;display:inline-flex;margin-top:8px">Approved</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:16px;padding:12px 0;border-bottom:1px solid var(--neutral-100)">
+            <div style="width:90px;font-size:11px;font-family:var(--font-mono);color:var(--amber-600);padding-top:4px;flex-shrink:0;font-weight:600">Now</div>
+            <div style="width:2px;background:var(--warning);border-radius:2px;flex-shrink:0"></div>
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:600;color:var(--neutral-900);margin-bottom:2px">Awaiting Priority Date — October 2021</div>
+              <div style="font-size:12px;color:var(--neutral-500)">The USCIS monthly Visa Bulletin moves the priority date forward. Current date: August 2021. Estimated current: ~2 months.</div>
+              <span style="font-size:10px;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;background:var(--warning-light);color:var(--warning-dark);padding:2px 8px;border-radius:9999px;display:inline-flex;margin-top:8px">In Progress</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:16px;padding:12px 0;opacity:0.5">
+            <div style="width:90px;font-size:11px;font-family:var(--font-mono);color:var(--neutral-400);padding-top:4px;flex-shrink:0">Future</div>
+            <div style="width:2px;background:var(--neutral-200);border-radius:2px;flex-shrink:0"></div>
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:500;color:var(--neutral-600);margin-bottom:2px">File I-485 Adjustment of Status</div>
+              <div style="font-size:12px;color:var(--neutral-400)">Once your priority date is current, file Form I-485 to adjust to permanent resident status.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Documents screen -->
+    <div class="screen" id="screen-documents">
+      <div class="page-header" style="display:flex;align-items:flex-end;justify-content:space-between">
+        <div>
+          <div class="page-title">Documents</div>
+          <div class="page-subtitle">7 documents uploaded · 2 require action</div>
+        </div>
+        <button class="btn btn-primary">Upload document</button>
+      </div>
+      <div class="page-tabs">
+        <div class="tab active">All</div>
+        <div class="tab">Pending review</div>
+        <div class="tab">Approved</div>
+        <div class="tab">Expired</div>
+      </div>
+      <div class="card doc-card">
+        <div class="doc-item">
+          <div class="doc-icon" style="background:var(--error-light)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c93a32" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+          <div style="flex:1"><div class="doc-name">EAD Card (Form I-766)</div><div class="doc-meta">Expires Aug 15, 2024 · PDF · 1.2MB</div></div>
+          <span class="doc-status" style="background:var(--error-light);color:var(--error-dark)">Expiring</span>
+        </div>
+        <div style="height:1px;background:var(--neutral-100);margin:0 -8px"></div>
+        <div class="doc-item">
+          <div class="doc-icon" style="background:var(--warning-light)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97b2a" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+          <div style="flex:1"><div class="doc-name">I-140 Approval Notice</div><div class="doc-meta">Approved Mar 4, 2024 · PDF · 0.8MB</div></div>
+          <span class="doc-status" style="background:var(--warning-light);color:var(--warning-dark)">Review</span>
+        </div>
+        <div style="height:1px;background:var(--neutral-100);margin:0 -8px"></div>
+        <div class="doc-item">
+          <div class="doc-icon" style="background:var(--success-light)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2a7d52" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+          <div style="flex:1"><div class="doc-name">H-1B Approval Notice (I-797)</div><div class="doc-meta">Approved Jan 12, 2024 · PDF · 0.9MB</div></div>
+          <span class="doc-status" style="background:var(--success-light);color:var(--success-dark)">Verified</span>
+        </div>
+        <div style="height:1px;background:var(--neutral-100);margin:0 -8px"></div>
+        <div class="doc-item">
+          <div class="doc-icon" style="background:var(--success-light)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2a7d52" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+          <div style="flex:1"><div class="doc-name">Passport (Bio page)</div><div class="doc-meta">Expires 2028 · JPG · 0.4MB</div></div>
+          <span class="doc-status" style="background:var(--success-light);color:var(--success-dark)">Verified</span>
+        </div>
+        <div style="height:1px;background:var(--neutral-100);margin:0 -8px"></div>
+        <div class="doc-item">
+          <div class="doc-icon" style="background:var(--success-light)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2a7d52" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+          <div style="flex:1"><div class="doc-name">I-94 Arrival/Departure Record</div><div class="doc-meta">Last entry Jan 3, 2024 · PDF · 0.2MB</div></div>
+          <span class="doc-status" style="background:var(--success-light);color:var(--success-dark)">Verified</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tasks screen -->
+    <div class="screen" id="screen-tasks">
+      <div class="page-header">
+        <div class="page-title">Tasks</div>
+        <div class="page-subtitle">3 tasks require your attention</div>
+      </div>
+      <div class="card" style="padding:20px 24px">
+        <div style="font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--error-dark);margin-bottom:12px">Urgent</div>
+        <div class="task-item" onclick="toggleTask(this)">
+          <div class="task-check"></div>
+          <div style="flex:1">
+            <div class="task-title-text">Upload EAD renewal documents</div>
+            <div class="task-desc">Required to renew your Employment Authorization Document. Upload Form I-765 and supporting docs.</div>
+          </div>
+          <div class="task-due" style="color:var(--error)">3 days</div>
+        </div>
+        <div style="font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--warning-dark);margin-top:16px;margin-bottom:12px">This week</div>
+        <div class="task-item" onclick="toggleTask(this)">
+          <div class="task-check"></div>
+          <div style="flex:1">
+            <div class="task-title-text">Sign I-140 authorization form</div>
+            <div class="task-desc">DocuSign request from Haven Legal. Review and sign your authorization to file.</div>
+          </div>
+          <div class="task-due" style="color:var(--warning)">7 days</div>
+        </div>
+        <div style="font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--neutral-400);margin-top:16px;margin-bottom:12px">Upcoming</div>
+        <div class="task-item" onclick="toggleTask(this)">
+          <div class="task-check"></div>
+          <div style="flex:1">
+            <div class="task-title-text">Confirm employer details for I-485</div>
+            <div class="task-desc">Verify your current employer information before filing your adjustment of status application.</div>
+          </div>
+          <div class="task-due" style="color:var(--neutral-400)">14 days</div>
+        </div>
+        <div class="task-item" onclick="toggleTask(this)">
+          <div class="task-check done"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div style="flex:1">
+            <div class="task-title-text done">Review H-1B approval notice</div>
+            <div class="task-desc" style="color:var(--neutral-400)">Completed Jan 14, 2024</div>
+          </div>
+          <div class="task-due" style="color:var(--success)">Done</div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+  const items = document.querySelectorAll('.sidebar-item');
+  const labels = ['dashboard','timeline','documents','tasks'];
+  const map = {dashboard:0, timeline:1, documents:2, tasks:3};
+  if (map[name] !== undefined) items[map[name]+1].classList.add('active');
+}
+
+function toggleTask(el) {
+  const check = el.querySelector('.task-check');
+  const title = el.querySelector('.task-title-text');
+  if (check && title) {
+    check.classList.toggle('done');
+    title.classList.toggle('done');
+    if (check.classList.contains('done')) {
+      check.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>';
+    } else {
+      check.innerHTML = '';
+    }
+  }
+}
+
+// Persist tab
+const saved = localStorage.getItem('haven-app-screen');
+if (saved) showScreen(saved);
+
+document.querySelectorAll('.sidebar-item').forEach((item, i) => {
+  item.addEventListener('click', () => {
+    const screens = ['','dashboard','timeline','documents','tasks'];
+    if (screens[i]) localStorage.setItem('haven-app-screen', screens[i]);
+  });
+});
+</script>
+</body>
+</html>

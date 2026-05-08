@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Haven — Logo Exploration</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<style>
+  body { margin: 0; background: #f0ede8; font-family: 'DM Sans', sans-serif; }
+  .logo-bg-light { background: #faf9f7; }
+  .logo-bg-dark  { background: #0f2a21; }
+  .logo-bg-cream { background: #f5f3ef; }
+</style>
+</head>
+<body>
+<script type="text/babel">
+
+/* ── Color tokens ─────────────────────────────────── */
+const G   = '#1E5241'; // primary green
+const GD  = '#0f2a21'; // dark green
+const GL  = '#4d9077'; // light green
+const GLL = '#d9e8e0'; // very light green
+const A   = '#C98928'; // amber
+const N9  = '#18150F'; // near black
+const N0  = '#faf9f7'; // near white
+const CR  = "'Cormorant Garamond', Georgia, serif";
+const DS  = "'DM Sans', sans-serif";
+
+/* ── Shared wordmark ──────────────────────────────── */
+function Wordmark({ color = N9, size = 32, weight = 300 }) {
+  return (
+    <text
+      fontFamily={CR}
+      fontSize={size}
+      fontWeight={weight}
+      fill={color}
+      letterSpacing="-0.5"
+      dominantBaseline="middle"
+    >Haven</text>
+  );
+}
+
+/* ════════════════════════════════════════════════════
+   CONCEPT 01 — The Shelter
+   Classic gabled roofline, amber threshold line
+   ════════════════════════════════════════════════════ */
+function Logo01({ bg = 'light' }) {
+  const fg  = bg === 'dark' ? N0 : N9;
+  const ico = bg === 'dark' ? N0 : G;
+  return (
+    <svg width="220" height="64" viewBox="0 0 220 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Icon */}
+      <path d="M32 10 L10 28 L10 54 L54 54 L54 28 Z"
+        stroke={ico} strokeWidth="2.2" strokeLinejoin="round" fill="none"/>
+      <path d="M21 54 L21 41 Q21 36 26 36 L38 36 Q43 36 43 41 L43 54"
+        stroke={ico} strokeWidth="2" strokeLinejoin="round" fill="none"/>
+      {/* Amber threshold */}
+      <line x1="5" y1="28" x2="59" y2="28" stroke={A} strokeWidth="2" strokeLinecap="round"/>
+      {/* Wordmark */}
+      <text x="74" y="34" fontFamily={CR} fontSize="30" fontWeight="300" fill={fg} letterSpacing="-0.5" dominantBaseline="middle">Haven</text>
+    </svg>
+  );
+}
+
+/* ════════════════════════════════════════════════════
+   CONCEPT 02 — The Compass
+   Minimal directional compass; navigation metaphor
+   ════════════════════════════════════════════════════ */
+function Logo02({ bg = 'light' }) {
+  const fg  = bg === 'dark' ? N0 : N9;
+  const ico = bg === 'dark' ? N0 : G;
+  return (
+    <svg width="220" height="64" viewBox="0 0 220 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Circle */}
+      <circle cx="32" cy="32" r="22" stroke={ico} strokeWidth="2" fill="none"/>
+      {/* N arrow — amber */}
+      <path d="M32 14 L28 32 L32 29 L36 32 Z" fill={A}/>
+      {/* S arrow */}
+      <path d="M32 50 L28 32 L32 35 L36 32 Z" fill={ico} opacity="0.35"/>
+      {/* Cross ticks */}
+      <line x1="10" y1="32" x2="16" y2="32" stroke={ico} strokeWidth="1.5" strokeLinecap="round" opacity="0.4"/>
+      <line x1="48" y1="32" x2="54" y2="32" stroke={ico} strokeWidth="1.5" strokeLinecap="round" opacity="0.4"/>
+      {/* Wordmark */}
+      <text x="66" y="34" fontFamily={CR} fontSize="30" fontWeight="300" fill={fg} letterSpacing="-0.5" dominantBaseline="middle">Haven</text>
+    </svg>
+  );
+}
+
+/* ════════════════════════════════════════════════════
+   CONCEPT 03 — The Arc
+   Protective arc over a person dot; pure geometry
+   ════════════════════════════════════════════════════ */
+function Logo03({ bg = 'light' }) {
+  const fg  = bg === 'dark' ? N0 : N9;
+  const ico = bg === 'dark' ? N0 : G;
+  return (
+    <svg width="220" height="64" viewBox="0 0 220 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Protective arc */}
+      <path d="M10 40 Q10 12 32 12 Q54 12 54 40" stroke={ico} strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+      {/* Person dot */}
+      <circle cx="32" cy="50" r="5" fill={A}/>
+      {/* Ground line */}
+      <line x1="16" y1="56" x2="48" y2="56" stroke={ico} strokeWidth="1.5" strokeLinecap="round" opacity="0.25"/>
+      {/* Wordmark */}
+      <text x="68" y="34" fontFamily={CR} fontSize="30" fontWeight="300" fill={fg} letterSpacing="-0.5" dominantBaseline="middle">Haven</text>
+    </svg>
+  );
+}
+
+/* ════════════════════════════════════════════════════
+   CONCEPT 04 — The Gate
+   Open doorway/arch = entry, passage, welcome
+   ════════════════════════════════════════════════════ */
+function Logo04({ bg = 'light' }) {
+  const fg  = bg === 'dark' ? N0 : N9;
+  const ico = bg === 'dark' ? N0 : G;
+  return (
+    <svg width="220" height="64" viewBox="0 0 220 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Gate pillars */}
+      <line x1="14" y1="56" x2="14" y2="24" stroke={ico} strokeWidth="2.5" strokeLinecap="round"/>
+      <line x1="50" y1="56" x2="50" y2="24" stroke={ico} strokeWidth="2.5" strokeLinecap="round"/>
+      {/* Arch over gate */}
+      <path d="M14 24 Q14 8 32 8 Q50 8 50 24" stroke={ico} strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+      {/* Amber keystone */}
+      <circle cx="32" cy="9" r="4" fill={A}/>
+      {/* Ground */}
+      <line x1="8" y1="56" x2="56" y2="56" stroke={ico} strokeWidth="2" strokeLinecap="round" opacity="0.3"/>
+      {/* Wordmark */}
+      <text x="68" y="34" fontFamily={CR} fontSize="30" fontWeight="300" fill={fg} letterSpacing="-0.5" dominantBaseline="middle">Haven</text>
+    </svg>
+  );
+}
+
+/* ════════════════════════════════════════════════════
+   CONCEPT 05 — The Horizon
+   Line with rising sun/path; forward-looking journey
+   ════════════════════════════════════════════════════ */
+function Logo05({ bg = 'light' }) {
+  const fg  = bg === 'dark' ? N0 : N9;
+  const ico = bg === 'dark' ? N0 : G;
+  return (
+    <svg width="220" height="64" viewBox="0 0 220 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Sun / rising circle — amber */}
+      <circle cx="32" cy="30" r="10" stroke={A} strokeWidth="2" fill="none"/>
+      <circle cx="32" cy="30" r="3" fill={A}/>
+      {/* Rays */}
+      <line x1="32" y1="14" x2="32" y2="17" stroke={A} strokeWidth="1.5" strokeLinecap="round"/>
+      <line x1="32" y1="43" x2="32" y2="46" stroke={A} strokeWidth="1.5" strokeLinecap="round"/>
+      <line x1="16" y1="30" x2="19" y2="30" stroke={A} strokeWidth="1.5" strokeLinecap="round"/>
+      <line x1="45" y1="30" x2="48" y2="30" stroke={A} strokeWidth="1.5" strokeLinecap="round"/>
+      {/* Horizon line */}
+      <line x1="4" y1="50" x2="60" y2="50" stroke={ico} strokeWidth="2" strokeLinecap="round"/>
+      {/* Path */}
+      <path d="M20 50 Q26 48 32 46 Q38 48 44 50" stroke={ico} strokeWidth="1.5" fill="none" strokeLinecap="round" opacity="0.4"/>
+      {/* Wordmark */}
+      <text x="68" y="34" fontFamily={CR} fontSize="30" fontWeight="300" fill={fg} letterSpacing="-0.5" dominantBaseline="middle">Haven</text>
+    </svg>
+  );
+}
+
+/* ════════════════════════════════════════════════════
+   CONCEPT 06 — The H Mark
+   Typographic lettermark; the 'H' bridge = connection
+   ════════════════════════════════════════════════════ */
+function Logo06({ bg = 'light' }) {
+  const fg  = bg === 'dark' ? N0 : N9;
+  const ico = bg === 'dark' ? N0 : G;
+  return (
+    <svg width="220" height="64" viewBox="0 0 220 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* H letterform — custom drawn, 2 uprights + crossbar */}
+      <line x1="14" y1="12" x2="14" y2="52" stroke={ico} strokeWidth="3" strokeLinecap="round"/>
+      <line x1="50" y1="12" x2="50" y2="52" stroke={ico} strokeWidth="3" strokeLinecap="round"/>
+      {/* Crossbar — amber, slightly raised */}
+      <line x1="14" y1="30" x2="50" y2="30" stroke={A} strokeWidth="3" strokeLinecap="round"/>
+      {/* Subtle foot serifs */}
+      <line x1="10" y1="52" x2="18" y2="52" stroke={ico} strokeWidth="2" strokeLinecap="round" opacity="0.5"/>
+      <line x1="46" y1="52" x2="54" y2="52" stroke={ico} strokeWidth="2" strokeLinecap="round" opacity="0.5"/>
+      {/* Wordmark */}
+      <text x="68" y="34" fontFamily={CR} fontSize="30" fontWeight="300" fill={fg} letterSpacing="-0.5" dominantBaseline="middle">Haven</text>
+    </svg>
+  );
+}
+
+/* ── Icon-only grid helpers ───────────────────────── */
+function IconOnly({ Component, bg = 'light', size = 64 }) {
+  const bgColor = bg === 'dark' ? GD : bg === 'cream' ? '#f5f3ef' : N0;
+  return (
+    <div style={{
+      width: size, height: size,
+      background: bgColor,
+      borderRadius: 12,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      border: bg === 'light' ? '1px solid #ece9e2' : 'none',
+    }}>
+      <Component iconOnly />
+    </div>
+  );
+}
+
+/* ── Artboard wrapper ─────────────────────────────── */
+function LogoArtboard({ title, description, children }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 0, width: '100%', height: '100%' }}>
+      {children}
+    </div>
+  );
+}
+
+/* ── Light swatch ─────────────────────────────────── */
+function Swatch({ bg, children, label, minH = 80 }) {
+  const bgMap = { light: N0, dark: GD, cream: '#f5f3ef', forest: G };
+  return (
+    <div style={{
+      background: bgMap[bg] || bg,
+      borderRadius: bg === 'dark' || bg === 'forest' ? 10 : 10,
+      padding: '20px 24px',
+      display: 'flex', alignItems: 'center',
+      minHeight: minH,
+      border: bg === 'light' || bg === 'cream' ? '1px solid #ece9e2' : 'none',
+      marginBottom: 8,
+    }}>
+      {children}
+    </div>
+  );
+}
+
+/* ── Label chip ───────────────────────────────────── */
+function Chip({ children, color = G }) {
+  return (
+    <span style={{
+      fontFamily: DS, fontSize: 10, fontWeight: 600,
+      letterSpacing: '0.12em', textTransform: 'uppercase',
+      color: '#fff', background: color,
+      padding: '3px 9px', borderRadius: 9999,
+      display: 'inline-block', marginBottom: 8,
+    }}>{children}</span>
+  );
+}
+
+function Desc({ children }) {
+  return (
+    <p style={{ fontFamily: DS, fontSize: 12, color: '#7d7570', lineHeight: 1.55, margin: '4px 0 0', maxWidth: 300 }}>
+      {children}
+    </p>
+  );
+}
+
+/* ══════════════════════════════════════════════════
+   APP
+   ══════════════════════════════════════════════════ */
+function App() {
+  return (
+    <DesignCanvas title="Haven — Logo Exploration">
+
+      {/* ── 01 Shelter ───────────────────────────── */}
+      <DCSection id="s01" title="Concept 01 — The Shelter">
+        <DCArtboard id="a01a" label="Light" width={360} height={340}>
+          <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <Chip>Concept 01</Chip>
+            <div style={{ fontFamily: CR, fontSize: 22, fontWeight: 300, color: N9, marginBottom: 4 }}>The Shelter</div>
+            <Desc>A classic gabled roofline — Haven as a sanctuary. The amber threshold line grounds the mark and signals warmth + entry.</Desc>
+            <Swatch bg="light"><Logo01 bg="light"/></Swatch>
+            <Swatch bg="dark"><Logo01 bg="dark"/></Swatch>
+          </div>
+        </DCArtboard>
+        <DCArtboard id="a01b" label="Icon marks" width={260} height={340}>
+          <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <Chip>Icon-only</Chip>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 8 }}>
+              {[['light',64],['dark',64],['light',44],['dark',44],['light',32],['dark',32]].map(([bg, s], i) => (
+                <div key={i} style={{
+                  width: s, height: s,
+                  background: bg === 'dark' ? GD : N0,
+                  borderRadius: Math.round(s * 0.22),
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  border: bg === 'light' ? '1px solid #ece9e2' : 'none',
+                  flexShrink: 0,
+                }}>
+                  <svg width={s*0.72} height={s*0.72} viewBox="0 0 64 64" fill="none">
+                    <path d="M32 10 L10 28 L10 54 L54 54 L54 28 Z" stroke={bg==='dark'?N0:G} strokeWidth="3" strokeLinejoin="round" fill="none"/>
+                    <path d="M21 54 L21 41 Q21 36 26 36 L38 36 Q43 36 43 41 L43 54" stroke={bg==='dark'?N0:G} strokeWidth="2.5" strokeLinejoin="round" fill="none"/>
+                    <line x1="5" y1="28" x2="59" y2="28" stroke={A} strokeWidth="3" strokeLinecap="round"/>
+                  </svg>
+                </div>
+              ))}
+            </div>
+            <Desc>Scales well from 32px app icon to large display sizes.</Desc>
+          </div>
+        </DCArtboard>
+      </DCSection>
+
+      {/* ── 02 Compass ───────────────────────────── */}
+      <DCSection id="s02" title="Concept 02 — The Compass">
+        <DCArtboard id="a02a" label="Light + Dark" width={360} height={320}>
+          <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <Chip color="#a66e1e">Concept 02</Chip>
+            <div style={{ fontFamily: CR, fontSize: 22, fontWeight: 300, color: N9, marginBottom: 4 }}>The Compass</div>
+            <Desc>Navigation + direction. The amber north arrow points forward; the circle frames authority and precision.</Desc>
+            <Swatch bg="light"><Logo02 bg="light"/></Swatch>
+            <Swatch bg="dark"><Logo02 bg="dark"/></Swatch>
+          </div>
+        </DCArtboard>
+        <DCArtboard id="a02b" label="Icon marks" width={260} height={320}>
+          <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <Chip color="#a66e1e">Icon-only</Chip>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 8 }}>
+              {[['light',64],['dark',64],['light',44],['dark',44]].map(([bg, s], i) => (
+                <div key={i} style={{
+                  width: s, height: s,
+                  background: bg === 'dark' ? GD : N0,
+                  borderRadius: Math.round(s * 0.22),
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  border: bg === 'light' ? '1px solid #ece9e2' : 'none',
+                  flexShrink: 0,
+                }}>
+                  <svg width={s*0.72} height={s*0.72} viewBox="0 0 64 64" fill="none">
+                    <circle cx="32" cy="32" r="22" stroke={bg==='dark'?N0:G} strokeWidth="2.5" fill="none"/>
+                    <path d="M32 14 L28 32 L32 29 L36 32 Z" fill={A}/>
+                    <path d="M32 50 L28 32 L32 35 L36 32 Z" fill={bg==='dark'?N0:G} opacity="0.35"/>
+                    <line x1="10" y1="32" x2="16" y2="32" stroke={bg==='dark'?N0:G} strokeWidth="1.5" strokeLinecap="round" opacity="0.4"/>
+                    <line x1="48" y1="32" x2="54" y2="32" stroke={bg==='dark'?N0:G} strokeWidth="1.5" strokeLinecap="round" opacity="0.4"/>
+                  </svg>
+                </div>
+              ))}
+            </div>
+            <Desc>Circular mark works well at small sizes and as app icon.</Desc>
+          </div>
+        </DCArtboard>
+      </DCSection>
+
+      {/* ── 03 Arc ───────────────────────────────── */}
+      <DCSection id="s03" title="Concept 03 — The Arc">
+        <DCArtboard id="a03a" label="Light + Dark" width={360} height={320}>
+          <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <Chip color={GL}>Concept 03</Chip>
+            <div style={{ fontFamily: CR, fontSize: 22, fontWeight: 300, color: N9, marginBottom: 4 }}>The Arc</div>
+            <Desc>A protective arc shelters a single dot (the individual). The most minimal and modern of the concepts — abstract but evocative.</Desc>
+            <Swatch bg="light"><Logo03 bg="light"/></Swatch>
+            <Swatch bg="dark"><Logo03 bg="dark"/></Swatch>
+          </div>
+        </DCArtboard>
+        <DCArtboard id="a03b" label="Icon marks" width={260} height={320}>
+          <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <Chip color={GL}>Icon-only</Chip>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 8 }}>
+              {[['light',64],['dark',64],['light',44],['dark',44]].map(([bg, s], i) => (
+                <div key={i} style={{
+                  width: s, height: s,
+                  background: bg === 'dark' ? GD : N0,
+                  borderRadius: Math.round(s * 0.22),
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  border: bg === 'light' ? '1px solid #ece9e2' : 'none',
+                  flexShrink: 0,
+                }}>
+                  <svg width={s*0.72} height={s*0.72} viewBox="0 0 64 64" fill="none">
+                    <path d="M10 42 Q10 14 32 14 Q54 14 54 42" stroke={bg==='dark'?N0:G} strokeWidth="3" fill="none" strokeLinecap="round"/>
+                    <circle cx="32" cy="52" r="5" fill={A}/>
+                    <line x1="16" y1="58" x2="48" y2="58" stroke={bg==='dark'?N0:G} strokeWidth="2" strokeLinecap="round" opacity="0.25"/>
+                  </svg>
+                </div>
+              ))}
+            </div>
+            <Desc>Highly distinctive at icon sizes. Abstract, premium feel.</Desc>
+          </div>
+        </DCArtboard>
+      </DCSection>
+
+      {/* ── 04 Gate ──────────────────────────────── */}
+      <DCSection id="s04" title="Concept 04 — The Gate">
+        <DCArtboard id="a04a" label="Light + Dark" width={360} height={320}>
+          <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <Chip color="#7d5216">Concept 04</Chip>
+            <div style={{ fontFamily: CR, fontSize: 22, fontWeight: 300, color: N9, marginBottom: 4 }}>The Gate</div>
+            <Desc>An open archway — the entry point to a new chapter. The amber keystone at the apex marks the moment of passage.</Desc>
+            <Swatch bg="light"><Logo04 bg="light"/></Swatch>
+            <Swatch bg="dark"><Logo04 bg="dark"/></Swatch>
+          </div>
+        </DCArtboard>
+        <DCArtboard id="a04b" label="Icon marks" width={260} height={320}>
+          <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <Chip color="#7d5216">Icon-only</Chip>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 8 }}>
+              {[['light',64],['dark',64],['light',44],['dark',44]].map(([bg, s], i) => (
+                <div key={i} style={{
+                  width: s, height: s,
+                  background: bg === 'dark' ? GD : N0,
+                  borderRadius: Math.round(s * 0.22),
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  border: bg === 'light' ? '1px solid #ece9e2' : 'none',
+                  flexShrink: 0,
+                }}>
+                  <svg width={s*0.72} height={s*0.72} viewBox="0 0 64 64" fill="none">
+                    <line x1="14" y1="56" x2="14" y2="26" stroke={bg==='dark'?N0:G} strokeWidth="3" strokeLinecap="round"/>
+                    <line x1="50" y1="56" x2="50" y2="26" stroke={bg==='dark'?N0:G} strokeWidth="3" strokeLinecap="round"/>
+                    <path d="M14 26 Q14 8 32 8 Q50 8 50 26" stroke={bg==='dark'?N0:G} strokeWidth="3" fill="none" strokeLinecap="round"/>
+                    <circle cx="32" cy="9" r="4.5" fill={A}/>
+                    <line x1="8" y1="56" x2="56" y2="56" stroke={bg==='dark'?N0:G} strokeWidth="2.5" strokeLinecap="round" opacity="0.3"/>
+                  </svg>
+                </div>
+              ))}
+            </div>
+            <Desc>Strong architectural feel. Clear metaphor for U.S. entry.</Desc>
+          </div>
+        </DCArtboard>
+      </DCSection>
+
+      {/* ── 05 H Mark ────────────────────────────── */}
+      <DCSection id="s05" title="Concept 05 — The H Mark">
+        <DCArtboard id="a05a" label="Light + Dark" width={360} height={320}>
+          <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <Chip color="#163c30">Concept 05</Chip>
+            <div style={{ fontFamily: CR, fontSize: 22, fontWeight: 300, color: N9, marginBottom: 4 }}>The H Mark</div>
+            <Desc>A bold typographic lettermark. The amber crossbar is the bridge — connecting people to their destination. Clean, confident, corporate-friendly.</Desc>
+            <Swatch bg="light"><Logo06 bg="light"/></Swatch>
+            <Swatch bg="dark"><Logo06 bg="dark"/></Swatch>
+          </div>
+        </DCArtboard>
+        <DCArtboard id="a05b" label="Icon marks" width={260} height={320}>
+          <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <Chip color="#163c30">Icon-only</Chip>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 8 }}>
+              {[['light',64],['dark',64],['light',44],['dark',44]].map(([bg, s], i) => (
+                <div key={i} style={{
+                  width: s, height: s,
+                  background: bg === 'dark' ? GD : N0,
+                  borderRadius: Math.round(s * 0.22),
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  border: bg === 'light' ? '1px solid #ece9e2' : 'none',
+                  flexShrink: 0,
+                }}>
+                  <svg width={s*0.55} height={s*0.72} viewBox="0 0 40 56" fill="none">
+                    <line x1="4" y1="4" x2="4" y2="52" stroke={bg==='dark'?N0:G} strokeWidth="5" strokeLinecap="round"/>
+                    <line x1="36" y1="4" x2="36" y2="52" stroke={bg==='dark'?N0:G} strokeWidth="5" strokeLinecap="round"/>
+                    <line x1="4" y1="26" x2="36" y2="26" stroke={A} strokeWidth="5" strokeLinecap="round"/>
+                  </svg>
+                </div>
+              ))}
+            </div>
+            <Desc>Scales perfectly to any size. Strong employer-facing appeal.</Desc>
+          </div>
+        </DCArtboard>
+      </DCSection>
+
+      {/* ── Side-by-side at scale ─────────────────── */}
+      <DCSection id="s06" title="All concepts at a glance">
+        <DCArtboard id="a06a" label="Light backgrounds" width={520} height={380}>
+          <div style={{ padding: 28, display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {[Logo01, Logo02, Logo03, Logo04, Logo06].map((L, i) => (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', gap: 16,
+                padding: '10px 12px',
+                borderRadius: 8,
+                background: i % 2 === 0 ? '#faf9f7' : '#f5f3ef',
+                marginBottom: 4,
+                border: '1px solid #ece9e2',
+              }}>
+                <span style={{ fontFamily: DS, fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#9e968a', width: 24 }}>0{i+1}</span>
+                <L bg="light" />
+              </div>
+            ))}
+          </div>
+        </DCArtboard>
+        <DCArtboard id="a06b" label="Dark backgrounds" width={520} height={380}>
+          <div style={{ padding: 28, background: GD, height: '100%', borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {[Logo01, Logo02, Logo03, Logo04, Logo06].map((L, i) => (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', gap: 16,
+                padding: '10px 12px',
+                borderRadius: 8,
+                background: i % 2 === 0 ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.02)',
+                marginBottom: 4,
+              }}>
+                <span style={{ fontFamily: DS, fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#4d9077', width: 24 }}>0{i+1}</span>
+                <L bg="dark" />
+              </div>
+            ))}
+          </div>
+        </DCArtboard>
+      </DCSection>
+
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+<div id="root"></div>
+</body>
+</html>
