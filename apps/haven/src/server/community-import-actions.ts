@@ -779,7 +779,7 @@ async function runReviewCommunityImportAction({
     throw new Error("Import item id is required.");
   }
 
-  if (intent !== "approve" && intent !== "reject") {
+  if (intent !== "approve" && intent !== "reject" && intent !== "unpublish") {
     throw new Error("Unknown review action.");
   }
 
@@ -797,11 +797,38 @@ async function runReviewCommunityImportAction({
     throw new Error(itemError?.message ?? "Import item not found.");
   }
 
-  if (intent === "reject") {
-    if (item.published_post_id) {
-      throw new Error("This item is already published.");
+  if (intent === "unpublish") {
+    if (!item.published_post_id) {
+      throw new Error("This item is not currently published.");
     }
 
+    await admin.from("community_post_comments").delete().eq("post_id", item.published_post_id).eq("import_item_id", item.id);
+    await admin.from("community_posts").delete().eq("id", item.published_post_id);
+
+    const { error } = await admin
+      .from("community_import_items")
+      .update({
+        moderation_status: "pending",
+        published_post_id: null,
+        approved_at: null,
+        approved_by: null
+      })
+      .eq("id", item.id);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    revalidatePath("/admin/community-imports");
+    revalidatePath("/community");
+
+    return {
+      status: "success",
+      message: "Post unpublished and reset to pending."
+    };
+  }
+
+  if (intent === "reject") {
     const { error } = await admin
       .from("community_import_items")
       .update({

@@ -19,8 +19,8 @@ function SubmitButton({
   variant
 }: {
   children: ReactNode;
-  intent: "approve" | "reject";
-  variant?: "default" | "destructive";
+  intent: "approve" | "reject" | "unpublish";
+  variant?: "default" | "destructive" | "outline";
 }) {
   const { pending } = useFormStatus();
 
@@ -66,9 +66,15 @@ export function ReviewActionForm({
         <SubmitButton intent="approve">
           {publishedPostId ? "Republish update" : "Approve and publish"}
         </SubmitButton>
-        <SubmitButton intent="reject" variant="destructive">
-          Reject
-        </SubmitButton>
+        {publishedPostId ? (
+          <SubmitButton intent="unpublish" variant="outline">
+            Unpublish
+          </SubmitButton>
+        ) : (
+          <SubmitButton intent="reject" variant="destructive">
+            Reject
+          </SubmitButton>
+        )}
       </div>
     </form>
   );
