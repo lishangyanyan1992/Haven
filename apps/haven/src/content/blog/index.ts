@@ -33,6 +33,7 @@ import { trump100000H1BFeeExplainedPost } from "@/content/blog/posts/trump-10000
 import { uscisVaccineRequirementsAdultsPost } from "@/content/blog/posts/uscis-vaccine-requirements-adults";
 import { usImmigrationLegalFrameworkPost } from "@/content/blog/posts/us-immigration-legal-framework";
 import { welcomeToTheHavenBlogPost } from "@/content/blog/posts/welcome-to-the-haven-blog";
+import { dolH1bPermWageRule2026CommentPeriodPost } from "@/content/blog/posts/dol-h1b-perm-wage-rule-2026-comment-period";
 import { guides } from "@/content/guides";
 import type { Guide } from "@/content/guides/types";
 import type { BlogPost } from "@/content/blog/types";
@@ -70,6 +71,7 @@ const guideBlogPosts = guides.map(guideToBlogPost);
 
 // Add a new post import here and it will appear in the blog automatically.
 export const blogPosts = [
+  dolH1bPermWageRule2026CommentPeriodPost,
   n400InterviewTestOathAndCitizenshipRightsPost,
   whoCanFileN400NaturalizationEligibilityPost,
   howToBecomeAUsCitizenPost,
