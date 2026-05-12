@@ -1,0 +1,259 @@
+{
+  "source": "reddit",
+  "note": "Manual second 20-story import on 2026-05-11 using curated Reddit stories with clear outcomes and practical responses.",
+  "stories": [
+    {
+      "source_story_id": "1ror4se",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1ror4se/laid_off_advice_needed_grace_period_vs_h4/",
+      "author_name": "Reddit user",
+      "title": "Laid off - Advice needed - Grace Period vs H4 transition",
+      "body": "I was laid off recently, my approved I-140 is in place, and I am trying to decide between staying in the H1B grace period as long as possible or moving to H4 through my spouse and then switching back to H1B once I get another offer. My main concern is whether using H4 as the bridge creates delays or more risk compared with just staying in the 60-day grace period and pushing the job search. I already went through a layoff path once before, so I am trying to be more careful this time.",
+      "comments": [
+        "One response strongly suggested moving to H4 before the grace period runs out if the job search does not look likely to finish in time, while also warning that a later H4-to-H1B change of status can still attract an RFE.",
+        "Another commenter clarified that there is no premium processing for a standalone H4 change of status and that regular H4 timing is often many months, which matters when planning a return to work."
+      ]
+    },
+    {
+      "source_story_id": "1qeo4gq",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1qeo4gq/b2_cos_h1b_rfe/",
+      "author_name": "Reddit user",
+      "title": "B2 COS H1B RFE",
+      "body": "I went through the H1B to B2 route more than once and wanted to compare outcomes. In one earlier case, the B2 approval came through and the later H1B transfer was approved without any RFE. In a more recent case, the B2 was still pending when a premium-processing H1B transfer was filed, USCIS asked for B2 approval and maintenance-of-status evidence, and then the B2 approval came through the same day as the H1B RFE. The H1B was approved a few days later without a separate RFE response, which felt like an unusual but important data point.",
+      "comments": [
+        "The most useful follow-up in the thread was a breakdown of how the two different cycles played out, showing that the bridge strategy can succeed in more than one sequence.",
+        "Another comment pointed out that since late 2025 USCIS has been asking much more often for proof that the B2 bridge is clean and timely, especially around maintenance of status."
+      ]
+    },
+    {
+      "source_story_id": "1s4td0h",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1s4td0h/h1b_to_b2_to_h1b_b2_approval/",
+      "author_name": "Reddit user",
+      "title": "H-1B to B2 to H-1B: B2 approval",
+      "body": "I wanted to share a mixed but still useful update. I lost my job in late 2025, received a new offer before the grace period ended, filed B2 on the last day of the grace period, and then had the H1B filed right after that under premium processing. USCIS issued RFEs on both the B2 and H1B matters, and while I was waiting for answers the company eventually rescinded the offer. A few days later, though, the B2 was approved through early July. It was frustrating to lose the job, but the B2 approval itself was still a meaningful outcome because it confirmed the bridge filing was accepted.",
+      "comments": [
+        "One of the most useful replies explained the actual B2 RFE topics: intent, financial resources, and ties to the home country, along with examples of evidence like savings, property, utility bills, and tax records.",
+        "Another commenter asked what happened to the H1B petition after the employer withdrew the offer, which highlighted how job risk and immigration risk can split apart in these cases."
+      ]
+    },
+    {
+      "source_story_id": "1cg4iwz",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1cg4iwz/h1b_to_b2_approved_b2_to_h1b_rfe/",
+      "author_name": "Reddit user",
+      "title": "H1B to B2 approved, then B2 to H1B RFE",
+      "body": "After a layoff in late 2023, I filed a B2 change of status while job searching. I later found a role, the LCA was approved, and a premium-processing H1B change of status was submitted while the B2 matter was wrapping up. The B2 was approved first, and only a few days later USCIS stopped the premium-processing clock on the H1B and issued what looked like an RFE. I was trying to understand what kinds of issues usually come up at that point and how people handled them after the B2 approval had already arrived.",
+      "comments": [
+        "The thread focused on practical questions about what a post-B2 H1B RFE usually asks for and how long the issue takes to resolve once the premium clock stops.",
+        "Another useful element was the clear date sequence, since people often need examples showing how USCIS treated the B2 approval and H1B filing when they were very close together."
+      ]
+    },
+    {
+      "source_story_id": "1r1devw",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1r1devw/h1_b2_h1/",
+      "author_name": "Reddit user",
+      "title": "H1 - B2 - H1",
+      "body": "My B2 was approved, but the later H1B transfer still got an RFE. USCIS asked for maintenance-of-status proof and evidence of funds while I was on B2, and the response included bank records, tax filings, W-2s, and pay information. I was extremely anxious about whether that kind of RFE would turn into a second RFE or denial, but later updated the thread to say the H1B transfer was approved.",
+      "comments": [
+        "The most useful value in the thread was simply the final update that the transfer was approved after the maintenance-of-status RFE.",
+        "Several follow-up questions asked whether the B2 had been approved before the H1 filing and what the main reasons were for choosing the B2 bridge, which helped clarify the sequence."
+      ]
+    },
+    {
+      "source_story_id": "1rvj59n",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1rvj59n/need_urgent_help_b2_to_h1b_rfe/",
+      "author_name": "Reddit user",
+      "title": "Need urgent help - B2 to H1B RFE",
+      "body": "Before my grace period ended, I filed for a B2 job-search bridge and that part was approved. Later, while a B2 extension was pending, I ran into an H1B RFE that appeared to question whether I was eligible for H1B change of status while the extension was still unresolved. I was trying to figure out whether others had seen the same kind of bridge-status RFE and how they structured the response when USCIS wanted proof of the B2 extension and continuous status.",
+      "comments": [
+        "The strongest replies treated the issue as a bridge-status problem and said the response needed to prove a clean sequence from the end of H1B through the approved B2 period and then into the pending extension.",
+        "Another practical point was that a valid H1B visa stamp does not solve this kind of in-country status question, because USCIS is focused on current U.S. status rather than travel-document validity."
+      ]
+    },
+    {
+      "source_story_id": "1r9bpra",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1r9bpra/h1b_h4_pending_regular_processing_h1b_premium/",
+      "author_name": "Reddit user",
+      "title": "H1B -> H4 pending -> H1B with timeline and RFE",
+      "body": "I wanted to share a full positive path from job loss to recovery. After my H1B employment ended in September 2025, I filed H4 through regular processing in October, found a new employer in December, and had a premium-processing H1B change of status filed while the H4 was still pending. USCIS later issued an RFE asking either for H4 approval or proof I remained eligible and in status. The response went in early February 2026, the H4 was approved on February 12, and the H1B was approved later the same day. It was exhausting, but it did work.",
+      "comments": [
+        "One follow-up question asked what documents were used to prove maintenance of status while H4 was still pending, which is often the key anxiety point in this route.",
+        "Another comment noted that a similar issue can happen with B2-to-H1B filings too, which makes this H4-to-H1B example especially useful as a comparison."
+      ]
+    },
+    {
+      "source_story_id": "1qd2waj",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1qd2waj/signed_offer_days_before_h1b_grace_period_ended/",
+      "author_name": "Reddit user",
+      "title": "Signed offer days before grace period ended",
+      "body": "I was nearing the end of my H1B grace period when I signed a written offer to return to a former employer in a different role. The immigration counsel said the LCA timing would not allow an H1B filing before my grace period expired, and then asked what my plan was to remain in status. I told them I would probably file B2 as a bridge and was trying to understand whether employers usually accept that path, move forward later with change of status, or instead require consular processing or even rescind the offer.",
+      "comments": [
+        "One blunt but useful reply said company counsel is not the worker's personal attorney and may avoid explicitly directing someone toward B2 even if that ends up being the practical bridge.",
+        "The thread overall was helpful because it framed the real-world employer-policy question, not just the legal theory."
+      ]
+    },
+    {
+      "source_story_id": "1t7getr",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1t7getr/laid_off_on_h1b_confirming_grace_period_and/",
+      "author_name": "Reddit user",
+      "title": "Laid off on H1B - confirming grace period and looking for leads",
+      "body": "I was laid off recently, still have an approved H1B that can transfer without another lottery, and was trying to confirm exactly when my 60-day grace period ends. I also wanted to understand whether anything about the timeline could shorten or reset the clock. The thread turned into both a reality check on the deadline and a place to ask for leads while staying focused on maintaining status.",
+      "comments": [
+        "The most useful replies centered on confirming that the grace-period deadline runs from the layoff date unless the actual employment-end documents say something more protective.",
+        "Another value in the thread was simply that people used it to trade practical leads and job-search ideas rather than only repeating generic rules."
+      ]
+    },
+    {
+      "source_story_id": "1skpfhu",
+      "source_url": "https://www.reddit.com/r/h1b_layoffs/comments/1skpfhu/one_week_remaining_in_grace_period_and_h1b_visa/",
+      "author_name": "Reddit user",
+      "title": "One week remaining in grace period and H1B transfer not started",
+      "body": "I had only one week left in my grace period and my new employer had still not actually started the H1B transfer process. I was trying to understand whether there was any realistic path to stay on track if they missed the filing window, and what the consequences would be if I had to leave and later return through consular processing instead.",
+      "comments": [
+        "A practical reply said that if the worker leaves and later re-enters through consular processing, the newer 100k fee issue can become relevant, which raises the stakes of missing the in-country filing window.",
+        "The thread is useful because it captures the employer-delay problem that many people run into late in the grace period."
+      ]
+    },
+    {
+      "source_story_id": "1shzoxn",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1shzoxn/h1b_rfe/",
+      "author_name": "Reddit user",
+      "title": "H1B RFE",
+      "body": "I received an H1B transfer RFE in a physician case and wanted to know whether approval still seemed realistic. The replies emphasized that RFEs are not unusual in certain medical-employment transitions and that the substance of the employer documentation matters more than the stress of seeing the notice itself. I was looking for current approval experiences and realistic timelines after the RFE response.",
+      "comments": [
+        "One of the best replies said that physician transfer RFEs are common enough that the key issue is a thorough attorney response, not panic.",
+        "The same comment also noted that under premium processing a decision should usually come within the regular timeline once the response is accepted."
+      ]
+    },
+    {
+      "source_story_id": "1j4vnbi",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1j4vnbi/",
+      "author_name": "Reddit user",
+      "title": "Does the 60-day H-1B grace period reset after a second layoff?",
+      "body": "I was laid off, used part of my 60-day H1B grace period to find a new employer, and later got laid off again. My main question was whether the 60-day grace period resets after a second layoff or whether USCIS would treat the earlier use of grace-period time as carrying forward. I wanted practical interpretations because the answer changes how aggressively someone needs to pursue a bridge filing.",
+      "comments": [
+        "The value of this thread was in surfacing a question many people do not ask until they face a second disruption.",
+        "The replies centered on whether the grace period is discretionary and event-specific rather than something that automatically refreshes in every later layoff."
+      ]
+    },
+    {
+      "source_story_id": "1g511j2",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1g511j2/h1b60_day_grace_period_query/",
+      "author_name": "Reddit user",
+      "title": "H1B 60-day grace period query",
+      "body": "I was trying to understand how black-and-white the H1B 60-day grace period really is and how much depends on employer actions like notifying USCIS about the termination or revocation. The responses made it clear that even though people talk about 60 days as automatic, there is still discretion and document quality matters.",
+      "comments": [
+        "One recurring point was to ask the employer when it intends to notify USCIS and what exact termination language will show up in records.",
+        "Another practical takeaway was that people should not treat the grace period as risk-free just because many others use it successfully."
+      ]
+    },
+    {
+      "source_story_id": "1izxtss",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1izxtss/",
+      "author_name": "Reddit user",
+      "title": "H1B to H4",
+      "body": "I was laid off on H1B and was preparing to move to H4 if I did not land another role within the grace period. My main uncertainty was whether I could keep working until the H4 was actually approved and how the overlap between H1B, H4, and a possible H4 EAD would play out in practice.",
+      "comments": [
+        "One useful detail from the thread was that someone described their own H4 and H4 EAD later being approved, which helped frame the practical sequence.",
+        "The discussion also highlighted the gap between switching status for stability and preserving the ability to work continuously."
+      ]
+    },
+    {
+      "source_story_id": "1ivv43b",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1ivv43b/",
+      "author_name": "Reddit user",
+      "title": "Exploring options on grace period",
+      "body": "My spouse and I both had approved I-140s, but one of us lost a job and was already partway through the H1B grace period. We were trying to sort out whether to rely entirely on the remaining grace period, whether a dependent-status bridge made more sense, and how to sequence the options without creating unnecessary risk.",
+      "comments": [
+        "The thread was valuable because it centered on family-level planning rather than only a single worker's case.",
+        "It also showed how grace-period decisions become more strategic when both spouses are balancing their own employment and status timelines."
+      ]
+    },
+    {
+      "source_story_id": "1s9y4vw",
+      "source_url": "https://www.reddit.com/r/h1b_layoffs/comments/1s9y4vw/h1b_laid_off_folks_what_are_you_doing_after_grace/",
+      "author_name": "Reddit user",
+      "title": "What are you doing after grace period ends?",
+      "body": "I was laid off despite strong performance and started looking for examples of what people are actually doing when the H1B grace period is about to end. I had not yet filed B2 and was still focused on finding an employer who could transfer my H1B, but I wanted practical stories about fallback planning and how people were deciding between staying, switching status, or leaving.",
+      "comments": [
+        "One practical comment said workers should look at prior H1B filing history of target employers before negotiating or investing too much time, because sponsorship willingness varies more than people expect.",
+        "The broader value of the thread is that it gathered realistic post-grace-period strategies instead of just repeating that a job should be found quickly."
+      ]
+    },
+    {
+      "source_story_id": "1t5ht3r",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1t5ht3r/h1b_renewal/",
+      "author_name": "Reddit user",
+      "title": "H1B renewal with 240-day pressure",
+      "body": "My H1B renewal had been pending for a long time, my 240-day work-authorization window was close to expiring, and even after upgrading to premium processing there was still no decision after many weeks. I had already tried reaching out through USCIS and a congressional office but learned that both channels still depended heavily on the employer's attorneys. I wanted to know whether anyone else had recently seen a long-delayed premium case finally approved.",
+      "comments": [
+        "The thread was useful because it captured how powerless a worker can feel when only the company's attorneys can effectively escalate the case.",
+        "Another practical exchange focused on whether changing firms or pushing harder for attorney authorization can help before the 240-day limit runs out."
+      ]
+    },
+    {
+      "source_story_id": "1t8v0ac",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1t8v0ac/240_day_rule/",
+      "author_name": "Reddit user",
+      "title": "240 day rule",
+      "body": "I was trying to confirm whether the 240-day work-authorization extension runs from the H1B validity end date on the approval notice or from the later I-94 end date on the same notice. The replies were straightforward and useful because they focused on the controlling document rather than generic timing estimates.",
+      "comments": [
+        "Multiple replies agreed that the count runs from the I-94 expiration date rather than the label on the H1B validity period.",
+        "One commenter even calculated the likely final work date based on the dates in the post, which made the answer much more concrete."
+      ]
+    },
+    {
+      "source_story_id": "1rkbile",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1rkbile/urgent_guidance_240_day_grace_period_h1b/",
+      "author_name": "Reddit user",
+      "title": "Urgent guidance on 240-day work authorization",
+      "body": "My H1B extension had been filed before my I-94 expired, so I believed the 240-day rule would let me keep working for several more months while the case stayed pending. At the same time, I had an offer from another employer and a planned start date that would land very close to the end of that 240-day period. I was trying to figure out whether I should file premium processing immediately and whether people really have to stop working the moment the 240 days run out even if the case itself is still pending.",
+      "comments": [
+        "A useful legal update later pointed to AC21 portability and the importance of whether the new filing and start date land inside the relevant timing window.",
+        "Another reply clearly separated the right to remain in the U.S. while the petition is pending from the separate limit on continued work authorization after the 240th day."
+      ]
+    },
+    {
+      "source_story_id": "1sp9qpi",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1sp9qpi/h1b_extension_pending_240day_rule_ending_employer/",
+      "author_name": "Reddit user",
+      "title": "H1B extension pending and 240-day rule ending",
+      "body": "My H1B extension was still pending, the 240-day work-authorization period was ending, and my employer was considering pausing employment until USCIS finally made a decision. I was trying to understand whether I could stay legally in the U.S. during the pause and whether other people had gone through a similar forced break from work while still waiting for an H1B extension result.",
+      "comments": [
+        "The key value in the thread was the distinction between being allowed to remain in the U.S. while the petition is pending and being required to stop working once the 240-day authorization runs out.",
+        "The thread also captured how employer policy can become more restrictive than the immigration baseline once payroll risk enters the picture."
+      ]
+    },
+    {
+      "source_story_id": "1k28o42",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1k28o42/",
+      "author_name": "Reddit user",
+      "title": "Change of employer during the 240-day rule",
+      "body": "I wanted to understand whether a change of employer can proceed smoothly while a prior H1B extension is still pending and the worker is relying on the 240-day extension of work authorization. The issue felt especially confusing because portability rules, pending extensions, and I-94 timing all overlap in ways that are hard to read from USCIS guidance alone.",
+      "comments": [
+        "The value of the discussion was in forcing people to separate extension-based work authorization from portability-based work authorization after a new filing.",
+        "It also highlighted that employer change strategy often depends on exact filing dates rather than only on the original H1B end date."
+      ]
+    },
+    {
+      "source_story_id": "1r5hhgj",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1r5hhgj/h1b_extension_filed_and_waiting_on_extension/",
+      "author_name": "Reddit user",
+      "title": "H1B extension filed and waiting on extension",
+      "body": "My H1B extension had been filed and was still pending, and my main question was what happens once the 240-day limit passes if USCIS still has not decided the case. I was trying to understand whether lawful stay continues, whether employment must stop, and how people usually plan around that point when the case has already dragged on this long.",
+      "comments": [
+        "The most practical value in this thread was how it forced a clean distinction between staying lawfully and staying authorized to work.",
+        "People also used it to compare how different attorneys explain the same 240-day milestone."
+      ]
+    },
+    {
+      "source_story_id": "1syf746",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1syf746/about_to_hit_240day_limit_on_h1b_extension_can_i/",
+      "author_name": "Reddit user",
+      "title": "About to hit 240-day limit on H1B extension",
+      "body": "My H1B extension had still not been approved even though I was close to the extra 240-day work limit, and I was especially worried because I come from a country facing heightened screening. I wanted to know whether I would have to stop working immediately at the 240-day mark, whether an eventual approval would revive the situation, and how others were planning around a long delay under premium processing.",
+      "comments": [
+        "The main value here is the concrete fear around delayed approvals even after premium processing, which is becoming more common in some cases.",
+        "The replies also focused on whether there is any safe way to bridge the gap if the person must stop working before USCIS responds."
+      ]
+    }
+  ]
+}
