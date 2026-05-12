@@ -1,3 +1,4 @@
+import { uscisInvalidSignatureDenialRule2026Post } from "@/content/blog/posts/uscis-invalid-signature-denial-rule-2026";
 import { n400InterviewTestOathAndCitizenshipRightsPost } from "@/content/blog/posts/n400-interview-test-oath-and-citizenship-rights";
 import { whoCanFileN400NaturalizationEligibilityPost } from "@/content/blog/posts/who-can-file-n400-naturalization-eligibility";
 import { howToBecomeAUsCitizenPost } from "@/content/blog/posts/how-to-become-a-us-citizen";
@@ -71,6 +72,7 @@ const guideBlogPosts = guides.map(guideToBlogPost);
 
 // Add a new post import here and it will appear in the blog automatically.
 export const blogPosts = [
+  uscisInvalidSignatureDenialRule2026Post,
   dolH1bPermWageRule2026CommentPeriodPost,
   n400InterviewTestOathAndCitizenshipRightsPost,
   whoCanFileN400NaturalizationEligibilityPost,
