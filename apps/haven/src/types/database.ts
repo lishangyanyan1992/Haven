@@ -435,6 +435,7 @@ export type Database = {
       }
       community_posts: {
         Row: {
+          author_id: string | null
           author_label: string
           body: string
           created_at: string
@@ -446,6 +447,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          author_id?: string | null
           author_label: string
           body: string
           created_at?: string
@@ -457,6 +459,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          author_id?: string | null
           author_label?: string
           body?: string
           created_at?: string
@@ -468,6 +471,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "community_posts_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "community_authors"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "community_posts_import_item_id_fkey"
             columns: ["import_item_id"]
@@ -493,6 +503,7 @@ export type Database = {
       }
       community_post_comments: {
         Row: {
+          author_id: string | null
           author_label: string
           body: string
           created_at: string
@@ -503,6 +514,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          author_id?: string | null
           author_label: string
           body: string
           created_at?: string
@@ -513,6 +525,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          author_id?: string | null
           author_label?: string
           body?: string
           created_at?: string
@@ -523,6 +536,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "community_post_comments_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "community_authors"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "community_post_comments_import_item_id_fkey"
             columns: ["import_item_id"]
@@ -569,6 +589,44 @@ export type Database = {
           summary?: string
         }
         Relationships: []
+      }
+      community_authors: {
+        Row: {
+          author_label: string
+          created_at: string
+          external_author_key: string | null
+          id: string
+          linked_user_id: string | null
+          source: string | null
+          updated_at: string
+        }
+        Insert: {
+          author_label?: string
+          created_at?: string
+          external_author_key?: string | null
+          id?: string
+          linked_user_id?: string | null
+          source?: string | null
+          updated_at?: string
+        }
+        Update: {
+          author_label?: string
+          created_at?: string
+          external_author_key?: string | null
+          id?: string
+          linked_user_id?: string | null
+          source?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_authors_linked_user_id_fkey"
+            columns: ["linked_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       derived_signals: {
         Row: {

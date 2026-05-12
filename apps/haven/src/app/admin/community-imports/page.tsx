@@ -29,6 +29,7 @@ type ReviewItem = {
   rejectedAt: string | null;
   title: string;
   publicAuthorLabel: string;
+  publicAuthorKey: string;
 };
 
 function getAllowedReviewerEmails() {
@@ -45,7 +46,7 @@ function readObject(value: Json) {
 }
 
 function mapReviewItem(row: any): ReviewItem {
-  const draft = readPublishDraft(row.publish_draft, row.source_payload_private);
+  const draft = readPublishDraft(row.publish_draft, row.source_payload_private, row.source_story_id);
   return {
     id: row.id,
     source: row.source,
@@ -57,8 +58,13 @@ function mapReviewItem(row: any): ReviewItem {
     approvedAt: row.approved_at,
     rejectedAt: row.rejected_at,
     title: draft.title,
-    publicAuthorLabel: draft.publicAuthorLabel
+    publicAuthorLabel: draft.publicAuthorLabel,
+    publicAuthorKey: draft.publicAuthorKey
   };
+}
+
+function truncateIdentityKey(value: string, maxLength = 42) {
+  return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
 }
 
 function statusWeight(status: string) {
@@ -241,6 +247,9 @@ export default async function CommunityImportsAdminPage({
                         </p>
                         <p className="text-caption mt-0.5 text-[var(--haven-sky-ink)]">
                           {item.publicAuthorLabel}
+                        </p>
+                        <p className="text-caption mt-0.5 font-mono text-[var(--haven-sky-ink)]/80">
+                          {truncateIdentityKey(item.publicAuthorKey)}
                         </p>
                       </TD>
                       <TD>

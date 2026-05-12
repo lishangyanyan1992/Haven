@@ -180,6 +180,7 @@ export interface CommunityPost {
   comments: CommunityPostComment[];
   id: string;
   spaceType: CommunitySpaceType;
+  authorId: string | null;
   authorLabel: string;
   title: string;
   body: string;
@@ -189,6 +190,7 @@ export interface CommunityPost {
 
 export interface CommunityPostComment {
   id: string;
+  authorId: string | null;
   authorLabel: string;
   body: string;
   createdAt: string;

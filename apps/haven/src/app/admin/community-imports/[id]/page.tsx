@@ -49,6 +49,10 @@ function statusBadgeVariant(status: string): "pending" | "active" | "urgent" | "
   }
 }
 
+function truncateIdentityKey(value: string, maxLength = 72) {
+  return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
+}
+
 export default async function CommunityImportDetailPage({
   params
 }: {
@@ -82,8 +86,21 @@ export default async function CommunityImportDetailPage({
     notFound();
   }
 
-  const draft = readPublishDraft(row.publish_draft, row.source_payload_private);
+  const draft = readPublishDraft(row.publish_draft, row.source_payload_private, row.source_story_id);
   const privateSource = readObject(row.source_payload_private as Json);
+  const authorKeys = Array.from(new Set([draft.publicAuthorKey, ...draft.comments.map((comment) => comment.authorKey)]));
+  const { data: authorRows } = authorKeys.length
+    ? await admin
+        .from("community_authors")
+        .select("id, external_author_key, author_label")
+        .eq("source", row.source)
+        .in("external_author_key", authorKeys)
+    : { data: [] };
+  const authorByKey = new Map(
+    (authorRows ?? [])
+      .filter((author) => typeof author.external_author_key === "string")
+      .map((author) => [author.external_author_key as string, { id: author.id, authorLabel: author.author_label }])
+  );
 
   const item = {
     id: row.id,
@@ -98,10 +115,15 @@ export default async function CommunityImportDetailPage({
     language: row.language,
     publishDraft: {
       publicAuthorLabel: draft.publicAuthorLabel,
+      publicAuthorKey: draft.publicAuthorKey,
+      resolvedPublicAuthorId: authorByKey.get(draft.publicAuthorKey)?.id ?? null,
       title: draft.title,
       body: draft.body,
       tags: draft.tags,
-      comments: draft.comments,
+      comments: draft.comments.map((comment) => ({
+        ...comment,
+        resolvedAuthorId: authorByKey.get(comment.authorKey)?.id ?? null
+      })),
       publishReady: draft.publishReady,
       moderationFlags: draft.moderationFlags,
       privacyFlags: draft.privacyFlags
@@ -168,6 +190,19 @@ export default async function CommunityImportDetailPage({
           {/* Public draft */}
           <section className="space-y-4 rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-6">
             <p className="text-label">Public draft</p>
+            <div className="space-y-2 rounded-[var(--radius-lg)] bg-[var(--haven-sky-light)] p-4">
+              <p className="text-body-sm font-medium">Author identity</p>
+              <p className="text-body-sm">
+                <span className="font-medium">Label:</span> {item.publishDraft.publicAuthorLabel}
+              </p>
+              <p className="text-body-sm font-mono break-all">
+                <span className="font-sans font-medium">Key:</span> {truncateIdentityKey(item.publishDraft.publicAuthorKey)}
+              </p>
+              <p className="text-body-sm font-mono break-all">
+                <span className="font-sans font-medium">Resolved author id:</span>{" "}
+                {item.publishDraft.resolvedPublicAuthorId ?? "Will be created on publish"}
+              </p>
+            </div>
             <p className="text-body whitespace-pre-wrap">{item.publishDraft.body || "No body generated."}</p>
 
             {item.publishDraft.tags.length > 0 && (
@@ -187,6 +222,12 @@ export default async function CommunityImportDetailPage({
                     className="rounded-[var(--radius-md)] bg-[var(--haven-white)] p-3"
                   >
                     <p className="text-caption font-medium">{comment.authorLabel}</p>
+                    <p className="text-caption mt-1 font-mono break-all text-[var(--haven-sky-ink)]/80">
+                      Key: {truncateIdentityKey(comment.authorKey)}
+                    </p>
+                    <p className="text-caption mt-1 font-mono break-all text-[var(--haven-sky-ink)]/80">
+                      ID: {comment.resolvedAuthorId ?? "Will be created on publish"}
+                    </p>
                     <p className="text-body-sm mt-2 whitespace-pre-wrap">{comment.body}</p>
                   </div>
                 ))}

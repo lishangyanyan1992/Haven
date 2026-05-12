@@ -11,6 +11,7 @@ export const runtime = "nodejs";
 const publishDraftSchema = z.object({
   version: z.number().int(),
   public_author_label: z.string().min(1),
+  public_author_key: z.string().min(1).optional(),
   title: z.string().min(1),
   body: z.string().min(1),
   situation_summary: z.string().min(1),
@@ -27,6 +28,7 @@ const publishDraftSchema = z.object({
         z.string().min(1),
         z.object({
           author_label: z.string().min(1).optional(),
+          author_key: z.string().min(1).optional(),
           body: z.string().min(1)
         })
       ])

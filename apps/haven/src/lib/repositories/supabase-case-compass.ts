@@ -137,12 +137,14 @@ function mapCommunityPosts(rows: CommunityPostRow[], commentRows: CommunityPostC
       })
       .map((comment) => ({
         id: comment.id,
+        authorId: comment.author_id,
         authorLabel: comment.author_label,
         body: comment.body,
         createdAt: comment.created_at
       })),
     id: row.id,
     spaceType: "cohort",
+    authorId: row.author_id,
     authorLabel: row.author_label,
     title: row.title,
     body: row.body,

@@ -334,21 +334,24 @@ async function rewriteForumPostWithAI(params: {
 async function buildPublishedComments(params: {
   rawPublishDraft: unknown;
   rawSourcePayloadPrivate: unknown;
+  parsedDraft: ReturnType<typeof readPublishDraft>;
 }) {
   const providedCommentBodies = extractProvidedCommentBodies(params.rawPublishDraft);
 
   if (providedCommentBodies.length > 0) {
     return providedCommentBodies.map((body, index) => ({
-      authorLabel: buildAnonymousCommentAuthor(index),
+      authorLabel: params.parsedDraft.comments[index]?.authorLabel ?? buildAnonymousCommentAuthor(index),
+      authorKey: params.parsedDraft.comments[index]?.authorKey ?? `import:synthetic:comment-${index + 1}`,
       body
     }));
   }
 
-  const sourceCommentBodies = extractSourceCommentBodies(params.rawSourcePayloadPrivate);
+  const sourceCommentBodies = params.parsedDraft.comments.map((comment) => normalizeCommentBody(comment.body));
   const rewrittenSourceCommentBodies = await rewriteCommentBodiesWithAI(sourceCommentBodies);
 
   return rewrittenSourceCommentBodies.map((body, index) => ({
-    authorLabel: buildAnonymousCommentAuthor(index),
+    authorLabel: params.parsedDraft.comments[index]?.authorLabel ?? buildAnonymousCommentAuthor(index),
+    authorKey: params.parsedDraft.comments[index]?.authorKey ?? `import:synthetic:comment-${index + 1}`,
     body
   }));
 }
@@ -557,6 +560,107 @@ async function getDefaultCommunitySpaceId(admin: ReturnType<typeof createSupabas
   return createdSpace.id;
 }
 
+async function ensureCommunityAuthor(params: {
+  admin: ReturnType<typeof createSupabaseAdminClient>;
+  authorKey?: string;
+  authorLabel: string;
+  linkedUserId?: string | null;
+  source?: string;
+}) {
+  const { admin, authorKey, authorLabel, linkedUserId, source } = params;
+
+  if (linkedUserId) {
+    const { data: existingLinkedAuthor, error: linkedLookupError } = await admin
+      .from("community_authors")
+      .select("id, author_label")
+      .eq("linked_user_id", linkedUserId)
+      .maybeSingle();
+
+    if (linkedLookupError) {
+      throw new Error(linkedLookupError.message);
+    }
+
+    if (existingLinkedAuthor) {
+      if (existingLinkedAuthor.author_label !== authorLabel) {
+        const { error: updateLinkedError } = await admin
+          .from("community_authors")
+          .update({ author_label: authorLabel })
+          .eq("id", existingLinkedAuthor.id);
+
+        if (updateLinkedError) {
+          throw new Error(updateLinkedError.message);
+        }
+      }
+
+      return {
+        id: existingLinkedAuthor.id,
+        authorLabel
+      };
+    }
+
+    const { data: insertedLinkedAuthor, error: insertLinkedError } = await admin
+      .from("community_authors")
+      .insert({
+        linked_user_id: linkedUserId,
+        author_label: authorLabel
+      })
+      .select("id, author_label")
+      .single();
+
+    if (insertLinkedError || !insertedLinkedAuthor) {
+      throw new Error(insertLinkedError?.message ?? "Unable to create linked community author.");
+    }
+
+    return {
+      id: insertedLinkedAuthor.id,
+      authorLabel: insertedLinkedAuthor.author_label
+    };
+  }
+
+  if (!source || !authorKey) {
+    return {
+      id: null,
+      authorLabel
+    };
+  }
+
+  const { data: existingImportedAuthor, error: importedLookupError } = await admin
+    .from("community_authors")
+    .select("id, author_label")
+    .eq("source", source)
+    .eq("external_author_key", authorKey)
+    .maybeSingle();
+
+  if (importedLookupError) {
+    throw new Error(importedLookupError.message);
+  }
+
+  if (existingImportedAuthor) {
+    return {
+      id: existingImportedAuthor.id,
+      authorLabel: existingImportedAuthor.author_label
+    };
+  }
+
+  const { data: insertedImportedAuthor, error: insertImportedError } = await admin
+    .from("community_authors")
+    .insert({
+      source,
+      external_author_key: authorKey
+    })
+    .select("id, author_label")
+    .single();
+
+  if (insertImportedError || !insertedImportedAuthor) {
+    throw new Error(insertImportedError?.message ?? "Unable to create imported community author.");
+  }
+
+  return {
+    id: insertedImportedAuthor.id,
+    authorLabel: insertedImportedAuthor.author_label
+  };
+}
+
 export async function reviewCommunityImportAction(
   _previousState: ReviewCommunityImportActionState,
   formData: FormData
@@ -579,9 +683,10 @@ async function syncImportedComments(params: {
   admin: ReturnType<typeof createSupabaseAdminClient>;
   itemId: string;
   postId: string;
-  comments: Array<{ authorLabel: string; body: string }>;
+  comments: Array<{ authorKey: string; authorLabel: string; body: string }>;
+  source: string;
 }) {
-  const { admin, comments, itemId, postId } = params;
+  const { admin, comments, itemId, postId, source } = params;
 
   const { error: deleteCommentsError } = await admin
     .from("community_post_comments")
@@ -600,14 +705,30 @@ async function syncImportedComments(params: {
     return "";
   }
 
+  const authorCache = new Map<string, Awaited<ReturnType<typeof ensureCommunityAuthor>>>();
   const { error: insertCommentsError } = await admin.from("community_post_comments").insert(
-    comments.map((comment, index) => ({
-      post_id: postId,
-      import_item_id: itemId,
-      user_id: null,
-      author_label: comment.authorLabel,
-      body: comment.body,
-      sort_order: index
+    await Promise.all(comments.map(async (comment, index) => {
+      const cacheKey = `${source}:${comment.authorKey}`;
+      let author = authorCache.get(cacheKey);
+      if (!author) {
+        author = await ensureCommunityAuthor({
+          admin,
+          authorKey: comment.authorKey,
+          authorLabel: comment.authorLabel,
+          source
+        });
+        authorCache.set(cacheKey, author);
+      }
+
+      return {
+        post_id: postId,
+        import_item_id: itemId,
+        user_id: null,
+        author_id: author.id,
+        author_label: author.authorLabel,
+        body: comment.body,
+        sort_order: index
+      };
     }))
   );
 
@@ -627,9 +748,10 @@ async function publishCommunityImportItem(params: {
   item: {
     id: string;
     published_post_id: string | null;
+    source: string;
   };
   moderationNotes: string;
-  publishedComments: Array<{ authorLabel: string; body: string }>;
+  publishedComments: Array<{ authorKey: string; authorLabel: string; body: string }>;
   userId: string;
 }) {
   const { admin, draft, item, moderationNotes, publishedComments, userId } = params;
@@ -639,7 +761,8 @@ async function publishCommunityImportItem(params: {
     communitySpaceId,
     draft,
     importItemId: item.id,
-    publishedPostId: item.published_post_id
+    publishedPostId: item.published_post_id,
+    source: item.source
   });
 
   if (!publishedPostId) {
@@ -650,7 +773,8 @@ async function publishCommunityImportItem(params: {
     admin,
     comments: publishedComments,
     itemId: item.id,
-    postId: publishedPostId
+    postId: publishedPostId,
+    source: item.source
   });
 
   const { error } = await admin
@@ -678,14 +802,22 @@ async function resolvePublishedPostId(params: {
   draft: ReturnType<typeof readPublishDraft>;
   importItemId: string;
   publishedPostId: string | null;
+  source: string;
 }) {
-  const { admin, communitySpaceId, draft, importItemId, publishedPostId } = params;
+  const { admin, communitySpaceId, draft, importItemId, publishedPostId, source } = params;
+  const author = await ensureCommunityAuthor({
+    admin,
+    authorKey: draft.publicAuthorKey,
+    authorLabel: draft.publicAuthorLabel,
+    source
+  });
 
   if (publishedPostId) {
     const { error } = await admin
       .from("community_posts")
       .update({
-        author_label: draft.publicAuthorLabel,
+        author_id: author.id,
+        author_label: author.authorLabel,
         title: draft.title,
         body: draft.body,
         tags: draft.tags,
@@ -715,7 +847,8 @@ async function resolvePublishedPostId(params: {
     const { error } = await admin
       .from("community_posts")
       .update({
-        author_label: draft.publicAuthorLabel,
+        author_id: author.id,
+        author_label: author.authorLabel,
         title: draft.title,
         body: draft.body,
         tags: draft.tags,
@@ -733,7 +866,8 @@ async function resolvePublishedPostId(params: {
   const { data: insertedPost, error } = await admin
     .from("community_posts")
     .insert({
-      author_label: draft.publicAuthorLabel,
+      author_id: author.id,
+      author_label: author.authorLabel,
       title: draft.title,
       body: draft.body,
       tags: draft.tags,
@@ -852,7 +986,7 @@ async function runReviewCommunityImportAction({
       message: "Review marked as rejected."
     };
   } else {
-    const parsedDraft = readPublishDraft(item.publish_draft, item.source_payload_private);
+    const parsedDraft = readPublishDraft(item.publish_draft, item.source_payload_private, item.source_story_id);
     const draft = await buildPublishedPostDraft({
       rawPublishDraft: item.publish_draft,
       rawSourcePayloadPrivate: item.source_payload_private,
@@ -860,7 +994,8 @@ async function runReviewCommunityImportAction({
     });
     const publishedComments = await buildPublishedComments({
       rawPublishDraft: item.publish_draft,
-      rawSourcePayloadPrivate: item.source_payload_private
+      rawSourcePayloadPrivate: item.source_payload_private,
+      parsedDraft
     });
 
     if (!draft.title || !draft.body) {
@@ -915,7 +1050,7 @@ export async function autoReviewPendingCommunityImportsAction(
 
     for (const item of items) {
       try {
-        const parsedDraft = readPublishDraft(item.publish_draft, item.source_payload_private);
+        const parsedDraft = readPublishDraft(item.publish_draft, item.source_payload_private, item.source_story_id);
         const publishedDraft = await buildPublishedPostDraft({
           rawPublishDraft: item.publish_draft,
           rawSourcePayloadPrivate: item.source_payload_private,
@@ -923,7 +1058,8 @@ export async function autoReviewPendingCommunityImportsAction(
         });
         const publishedComments = await buildPublishedComments({
           rawPublishDraft: item.publish_draft,
-          rawSourcePayloadPrivate: item.source_payload_private
+          rawSourcePayloadPrivate: item.source_payload_private,
+          parsedDraft
         });
         const verdict = await evaluatePreparedCommunityImport({
           publishedComments,
