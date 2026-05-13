@@ -35,6 +35,7 @@ import { uscisVaccineRequirementsAdultsPost } from "@/content/blog/posts/uscis-v
 import { usImmigrationLegalFrameworkPost } from "@/content/blog/posts/us-immigration-legal-framework";
 import { welcomeToTheHavenBlogPost } from "@/content/blog/posts/welcome-to-the-haven-blog";
 import { dolH1bPermWageRule2026CommentPeriodPost } from "@/content/blog/posts/dol-h1b-perm-wage-rule-2026-comment-period";
+import { may2026EbVisaBulletinFinalActionDatesPost } from "@/content/blog/posts/may-2026-eb-visa-bulletin-final-action-dates";
 import { guides } from "@/content/guides";
 import type { Guide } from "@/content/guides/types";
 import type { BlogPost } from "@/content/blog/types";
@@ -72,6 +73,7 @@ const guideBlogPosts = guides.map(guideToBlogPost);
 
 // Add a new post import here and it will appear in the blog automatically.
 export const blogPosts = [
+  may2026EbVisaBulletinFinalActionDatesPost,
   uscisInvalidSignatureDenialRule2026Post,
   dolH1bPermWageRule2026CommentPeriodPost,
   n400InterviewTestOathAndCitizenshipRightsPost,
