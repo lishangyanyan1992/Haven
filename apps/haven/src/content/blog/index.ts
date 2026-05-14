@@ -1,3 +1,4 @@
+import { june2026EbVisaBulletinRetrogressionPost } from "@/content/blog/posts/june-2026-eb-visa-bulletin-retrogression";
 import { uscisInvalidSignatureDenialRule2026Post } from "@/content/blog/posts/uscis-invalid-signature-denial-rule-2026";
 import { n400InterviewTestOathAndCitizenshipRightsPost } from "@/content/blog/posts/n400-interview-test-oath-and-citizenship-rights";
 import { whoCanFileN400NaturalizationEligibilityPost } from "@/content/blog/posts/who-can-file-n400-naturalization-eligibility";
@@ -73,6 +74,7 @@ const guideBlogPosts = guides.map(guideToBlogPost);
 
 // Add a new post import here and it will appear in the blog automatically.
 export const blogPosts = [
+  june2026EbVisaBulletinRetrogressionPost,
   may2026EbVisaBulletinFinalActionDatesPost,
   uscisInvalidSignatureDenialRule2026Post,
   dolH1bPermWageRule2026CommentPeriodPost,
