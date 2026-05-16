@@ -1,3 +1,4 @@
+import { clouderaPermSuspensionDojLawsuit2026Post } from "@/content/blog/posts/cloudera-perm-suspension-doj-lawsuit-2026";
 import { june2026EbVisaBulletinRetrogressionPost } from "@/content/blog/posts/june-2026-eb-visa-bulletin-retrogression";
 import { uscisInvalidSignatureDenialRule2026Post } from "@/content/blog/posts/uscis-invalid-signature-denial-rule-2026";
 import { n400InterviewTestOathAndCitizenshipRightsPost } from "@/content/blog/posts/n400-interview-test-oath-and-citizenship-rights";
@@ -74,6 +75,7 @@ const guideBlogPosts = guides.map(guideToBlogPost);
 
 // Add a new post import here and it will appear in the blog automatically.
 export const blogPosts = [
+  clouderaPermSuspensionDojLawsuit2026Post,
   june2026EbVisaBulletinRetrogressionPost,
   may2026EbVisaBulletinFinalActionDatesPost,
   uscisInvalidSignatureDenialRule2026Post,
