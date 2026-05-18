@@ -14,5 +14,5 @@ export function generateStaticParams() {
 
 export default async function GuidePage({ params }: GuidePageProps) {
   const { slug } = await params;
-  permanentRedirect(`/blog/${slug}`);
+  permanentRedirect(`/resources/${slug}`);
 }

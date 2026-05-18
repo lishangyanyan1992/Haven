@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
 import type { BlogPost } from "@/content/blog";
-import { formatBlogDate } from "@/lib/blog";
+import { formatBlogDate, getPostHref } from "@/lib/blog";
 
 type BlogCardProps = {
   post: BlogPost;
@@ -11,7 +11,7 @@ type BlogCardProps = {
 export function BlogCard({ post }: BlogCardProps) {
   return (
     <Link
-      href={`/blog/${post.slug}`}
+      href={getPostHref(post)}
       className="group flex h-full flex-col rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-6 shadow-[0_8px_30px_-12px_rgba(44,54,48,0.12)] transition-transform duration-150 hover:-translate-y-0.5"
     >
       <div className="flex h-full flex-col">

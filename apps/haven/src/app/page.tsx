@@ -20,7 +20,7 @@ import { HowItWorksShowcase } from "@/components/app/how-it-works-showcase";
 import { PublicNavbar, getPublicImmigWizardUrl } from "@/components/app/public-navbar";
 import { WaitlistModalProvider, WaitlistTrigger } from "@/components/app/waitlist-modal";
 import { buttonVariants } from "@/components/ui/button";
-import { getAllBlogPosts, getRecentBlogPosts } from "@/lib/blog";
+import { getAllResourcePosts, getRecentBlogPosts } from "@/lib/blog";
 import { absoluteUrl } from "@/lib/seo";
 import { publicTools, type ToolSlug } from "@/lib/tools";
 import { cn } from "@/lib/utils";
@@ -123,7 +123,7 @@ export const metadata: Metadata = {
 
 export default function HomePage() {
   const recentPosts = getRecentBlogPosts(3);
-  const h1bPosts = getAllBlogPosts().filter((post) => post.category === "H1B").slice(0, 3);
+  const h1bPosts = getAllResourcePosts().filter((post) => post.category === "H1B").slice(0, 3);
   const immigWizardUrl = getPublicImmigWizardUrl();
   const pageSectionClass = "border-t border-[var(--color-border)]";
   const pageSectionInnerClass = "content-container-visual pt-16 pb-18 md:pt-20 md:pb-20 lg:pt-24 lg:pb-24 xl:pt-28 xl:pb-28";
@@ -367,14 +367,15 @@ export default function HomePage() {
           <ScrollReveal yOffset={30} duration={0.8} className={pageSectionInnerClass}>
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-[62ch]">
-              <p className="text-label">H-1B on the blog</p>
-              <h2 className="text-h1 mt-4">Plain-language articles for layoffs, grace periods, and transfers.</h2>
+              <p className="text-label">H-1B resources</p>
+              <h2 className="text-h1 mt-4">Plain-language resources for layoffs, grace periods, and transfers.</h2>
               <p className="text-body mt-4 max-w-[58ch]">
-                The former guide library now lives inside the blog’s H-1B section, so layoffs, transfers, and decision workflows sit alongside the rest of Haven’s editorial content.
+                The detailed H-1B library now lives in Resources, so layoffs, transfers, and decision workflows are
+                easier to browse without getting mixed into the editorial blog stream.
               </p>
             </div>
-            <Link className={buttonVariants({ variant: "outline" })} href="/blog?category=h1b">
-              Browse H-1B articles
+            <Link className={buttonVariants({ variant: "outline" })} href="/resources?category=h1b">
+              Browse H-1B resources
             </Link>
           </div>
 
@@ -434,8 +435,11 @@ export default function HomePage() {
               <Link className="text-caption text-[var(--haven-ink-mid)] transition-colors hover:text-[var(--haven-ink)]" href="/tools">
                 Free tools
               </Link>
-              <Link className="text-caption text-[var(--haven-ink-mid)] transition-colors hover:text-[var(--haven-ink)]" href="/blog?category=h1b">
-                H-1B articles
+              <Link className="text-caption text-[var(--haven-ink-mid)] transition-colors hover:text-[var(--haven-ink)]" href="/resources?category=h1b">
+                H-1B resources
+              </Link>
+              <Link className="text-caption text-[var(--haven-ink-mid)] transition-colors hover:text-[var(--haven-ink)]" href="/resources">
+                Resources
               </Link>
               <Link className="text-caption text-[var(--haven-ink-mid)] transition-colors hover:text-[var(--haven-ink)]" href="/blog">
                 Blog

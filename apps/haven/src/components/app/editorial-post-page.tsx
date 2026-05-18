@@ -1,0 +1,341 @@
+import type { Metadata } from "next";
+import Image from "next/image";
+import Link from "next/link";
+
+import type { BlogPost } from "@/content/blog";
+import { BlogCard } from "@/components/app/blog-card";
+import { InformationDisclaimer } from "@/components/app/information-disclaimer";
+import { PublicNavbar } from "@/components/app/public-navbar";
+import { buttonVariants } from "@/components/ui/button";
+import {
+  type EditorialSection,
+  formatBlogDate,
+  getBlogImage,
+  getBlogPostWordCount,
+  getPostHref,
+  getRelatedBlogPosts
+} from "@/lib/blog";
+import { absoluteUrl } from "@/lib/seo";
+import { buildBreadcrumbStructuredData, getAuthorProfile } from "@/lib/site";
+
+type EditorialPostPageProps = {
+  post: BlogPost;
+  section: EditorialSection;
+};
+
+function toSectionId(heading: string): string {
+  return heading
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+function getSectionLabel(section: EditorialSection): string {
+  return section === "resources" ? "Resources" : "Blog";
+}
+
+function getSectionPath(section: EditorialSection): string {
+  return section === "resources" ? "/resources" : "/blog";
+}
+
+export function buildEditorialPostMetadata(post: BlogPost, section: EditorialSection): Metadata {
+  const author = getAuthorProfile(post.author);
+  const image = getBlogImage(post);
+  const href = getPostHref(post);
+  const sectionLabel = getSectionLabel(section);
+
+  return {
+    title: post.seoTitle ?? post.title,
+    description: post.seoDescription ?? post.excerpt,
+    authors: [{ name: author.name, url: absoluteUrl(author.path).toString() }],
+    alternates: { canonical: href },
+    openGraph: {
+      type: "article",
+      url: absoluteUrl(href),
+      title: post.seoTitle ?? post.title,
+      description: post.seoDescription ?? post.excerpt,
+      publishedTime: new Date(post.publishedAt).toISOString(),
+      modifiedTime: post.updatedAt ? new Date(post.updatedAt).toISOString() : new Date(post.publishedAt).toISOString(),
+      authors: [post.author],
+      section: sectionLabel,
+      images: [{ url: absoluteUrl(image.src).toString(), width: image.width, height: image.height, alt: image.alt }]
+    },
+    twitter: {
+      title: post.seoTitle ?? post.title,
+      description: post.seoDescription ?? post.excerpt,
+      images: [absoluteUrl(image.src).toString()]
+    }
+  };
+}
+
+export function EditorialPostPage({ post, section }: EditorialPostPageProps) {
+  const sectionLabel = getSectionLabel(section);
+  const sectionPath = getSectionPath(section);
+  const author = getAuthorProfile(post.author);
+  const image = getBlogImage(post);
+  const relatedPosts = getRelatedBlogPosts(post);
+  const wordCount = getBlogPostWordCount(post);
+  const sectionsWithHeadings = post.sections.filter((s) => s.heading);
+  const showToC = sectionsWithHeadings.length >= 3;
+  const href = getPostHref(post);
+
+  const breadcrumbData = buildBreadcrumbStructuredData([
+    { name: "Home", path: "/" },
+    { name: sectionLabel, path: sectionPath },
+    { name: post.title, path: href }
+  ]);
+
+  const blogPostingData = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: post.title,
+    description: post.seoDescription ?? post.excerpt,
+    datePublished: new Date(post.publishedAt).toISOString(),
+    dateModified: post.updatedAt
+      ? new Date(post.updatedAt).toISOString()
+      : new Date(post.publishedAt).toISOString(),
+    articleSection: post.category,
+    wordCount,
+    keywords: [post.category, sectionLabel, "U.S. immigration", "Haven"],
+    author: {
+      "@type": "Person",
+      name: author.name,
+      description: author.description,
+      url: absoluteUrl(author.path).toString()
+    },
+    publisher: {
+      "@type": "Organization",
+      name: "Haven",
+      url: absoluteUrl("/").toString()
+    },
+    image: absoluteUrl(image.src).toString(),
+    mainEntityOfPage: absoluteUrl(href).toString(),
+    ...(post.keyTakeaways.length > 0 && {
+      abstract: post.keyTakeaways.join(" ")
+    })
+  };
+
+  const faqStructuredData = post.faqs?.length
+    ? {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: post.faqs.map((faq) => ({
+          "@type": "Question",
+          name: faq.question,
+          acceptedAnswer: { "@type": "Answer", text: faq.answer }
+        }))
+      }
+    : null;
+
+  return (
+    <div className="min-h-screen">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbData) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(blogPostingData) }} />
+      {faqStructuredData ? (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqStructuredData) }} />
+      ) : null}
+      <PublicNavbar currentPath={sectionPath} />
+
+      <main className="content-container-wide py-12 lg:py-20">
+        <div className="mx-auto max-w-[96rem]">
+          <div className="rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-7 shadow-[0_10px_40px_-12px_rgba(44,54,48,0.14)] md:p-10">
+            <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 text-[13px] text-[var(--haven-muted)]">
+              <Link className="underline-offset-2 hover:underline" href="/">Home</Link>
+              <span>/</span>
+              <Link className="underline-offset-2 hover:underline" href={sectionPath}>{sectionLabel}</Link>
+              <span>/</span>
+              <span className="text-[var(--haven-ink)]">{post.title}</span>
+            </nav>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <span className="tag tag-visa">{post.category}</span>
+              <span className="text-caption">{formatBlogDate(post.publishedAt)}</span>
+              {post.updatedAt ? (
+                <span className="text-caption text-[var(--haven-ink-mid)]">Updated {formatBlogDate(post.updatedAt)}</span>
+              ) : null}
+              <span className="text-caption">{post.readingTime}</span>
+              <span className="text-caption">By {author.name}</span>
+            </div>
+            <h1 className="text-display mt-5 max-w-[24ch]">{post.title}</h1>
+            <p className="text-body mt-6 max-w-[70ch]">{post.excerpt}</p>
+          </div>
+
+          <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px] xl:grid-cols-[minmax(0,1fr)_320px] 2xl:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
+            <article className="min-w-0 rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-7 md:p-10 xl:p-12">
+              <div className="max-w-[76ch]">
+                <InformationDisclaimer />
+
+                {showToC ? (
+                  <nav
+                    aria-label="Table of contents"
+                    className="mt-6 rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-sand)] p-5"
+                  >
+                    <p className="text-label">In this article</p>
+                    <ol className="mt-3 space-y-2">
+                      {sectionsWithHeadings.map((contentSection, index) => (
+                        <li key={contentSection.heading}>
+                          <a
+                            href={`#${toSectionId(contentSection.heading!)}`}
+                            className="text-body-sm text-[var(--haven-ink)] underline-offset-2 hover:underline"
+                          >
+                            {index + 1}. {contentSection.heading}
+                          </a>
+                        </li>
+                      ))}
+                    </ol>
+                  </nav>
+                ) : null}
+
+                {post.sections.map((contentSection, index) => (
+                  <section
+                    key={contentSection.heading ?? index}
+                    id={contentSection.heading ? toSectionId(contentSection.heading) : undefined}
+                    className="mt-10 first:mt-10"
+                  >
+                    {contentSection.heading ? <h2 className="text-h1">{contentSection.heading}</h2> : null}
+                    {contentSection.paragraphs?.map((paragraph) => (
+                      <p key={paragraph} className="text-body mt-4">{paragraph}</p>
+                    ))}
+                    {contentSection.image ? (
+                      <figure className="mt-6 overflow-hidden rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-cream)]">
+                        <Image
+                          src={contentSection.image.src}
+                          alt={contentSection.image.alt}
+                          width={contentSection.image.width}
+                          height={contentSection.image.height}
+                          className="h-auto w-full"
+                        />
+                        {contentSection.image.caption ? (
+                          <figcaption className="border-t border-[var(--color-border)] px-5 py-4 text-body-sm">
+                            {contentSection.image.caption}
+                          </figcaption>
+                        ) : null}
+                      </figure>
+                    ) : null}
+                    {contentSection.bullets?.length ? (
+                      <ul className="mt-4 space-y-3 pl-5">
+                        {contentSection.bullets.map((bullet) => (
+                          <li key={bullet} className="text-body list-disc">{bullet}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    {contentSection.note ? (
+                      <div className="mt-5 rounded-[var(--radius-xl)] bg-[var(--haven-sky-light)] px-4 py-4">
+                        <p className="text-body-sm text-[var(--haven-sky-ink)]">{contentSection.note}</p>
+                      </div>
+                    ) : null}
+                    {index === 1 ? (
+                      <div className="mt-8 rounded-[var(--radius-xl)] border border-[var(--haven-sage-mid,var(--color-border))] bg-[rgba(236,243,238,0.92)] p-5">
+                        <p className="text-h3">Haven can help you track this.</p>
+                        <p className="text-body-sm mt-2 max-w-[52ch]">
+                          Turn timelines, action windows, and next steps into a personal plan grounded in your actual
+                          visa status, not a generic checklist.
+                        </p>
+                        <div className="mt-4">
+                          <Link className={buttonVariants({ variant: "default", size: "sm" })} href="/register">
+                            Get started free
+                          </Link>
+                        </div>
+                      </div>
+                    ) : null}
+                  </section>
+                ))}
+
+                {post.sources?.length ? (
+                  <section className="mt-12 border-t border-[var(--color-border)] pt-10">
+                    <p className="text-label">Sources</p>
+                    <div className="mt-5 space-y-4">
+                      {post.sources.map((source) => (
+                        <div key={source.url} className="rounded-[var(--radius-xl)] bg-[var(--haven-sand)] p-5">
+                          <p className="text-h3">{source.title}</p>
+                          <p className="text-body-sm mt-2">{source.publisher}</p>
+                          <a
+                            className="mt-3 inline-flex text-[13px] font-medium text-[var(--haven-ink)] underline-offset-2 hover:underline"
+                            href={source.url}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Open source
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
+
+                {post.faqs?.length ? (
+                  <section className="mt-12 border-t border-[var(--color-border)] pt-10">
+                    <p className="text-label">Frequently asked</p>
+                    <div className="mt-5 space-y-5">
+                      {post.faqs.map((faq) => (
+                        <div key={faq.question} className="rounded-[var(--radius-xl)] bg-[var(--haven-sand)] p-5">
+                          <h3 className="text-h3">{faq.question}</h3>
+                          <p className="text-body-sm mt-2">{faq.answer}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
+              </div>
+            </article>
+
+            <aside className="lg:sticky lg:top-6 rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-sand)] p-6">
+              <p className="text-label">Key takeaways</p>
+              <div className="mt-4 space-y-3">
+                {post.keyTakeaways.map((takeaway) => (
+                  <p key={takeaway} className="text-body-sm">{takeaway}</p>
+                ))}
+              </div>
+              <div className="mt-8 border-t border-[var(--color-border)] pt-6">
+                <InformationDisclaimer compact />
+              </div>
+              <div className="mt-8 border-t border-[var(--color-border)] pt-6">
+                <p className="text-h3">{author.name}</p>
+                <p className="text-body-sm mt-2">{author.role}</p>
+                <p className="text-body-sm mt-2">{author.description}</p>
+                <Link
+                  className="mt-3 inline-flex text-[13px] font-medium text-[var(--haven-ink)] underline-offset-2 hover:underline"
+                  href={author.path}
+                >
+                  {author.name === "Haven founder" ? "Read the founder story" : "About the author"}
+                </Link>
+              </div>
+              <div className="mt-8 border-t border-[var(--color-border)] pt-6">
+                <p className="text-h3">Want tools, not just articles?</p>
+                <p className="text-body-sm mt-2">
+                  Haven turns timelines, action windows, and next steps into something you can actually use.
+                </p>
+                <div className="mt-4 flex flex-col gap-3">
+                  <Link className={buttonVariants({ variant: "default" })} href="/register">
+                    Create your profile
+                  </Link>
+                  <Link className={buttonVariants({ variant: "outline" })} href={sectionPath}>
+                    Back to {section === "resources" ? "resources" : "blog"}
+                  </Link>
+                </div>
+              </div>
+            </aside>
+          </div>
+
+          {relatedPosts.length ? (
+            <section className="mt-14">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div className="max-w-[56ch]">
+                  <p className="text-label">Related articles</p>
+                  <h2 className="text-h1 mt-3">Keep building the full picture.</h2>
+                </div>
+                <Link className={buttonVariants({ variant: "outline" })} href={sectionPath}>
+                  Browse all {section === "resources" ? "resources" : "articles"}
+                </Link>
+              </div>
+              <div className="mt-8 grid gap-5 lg:grid-cols-3">
+                {relatedPosts.map((relatedPost) => (
+                  <BlogCard key={relatedPost.slug} post={relatedPost} />
+                ))}
+              </div>
+            </section>
+          ) : null}
+        </div>
+      </main>
+    </div>
+  );
+}

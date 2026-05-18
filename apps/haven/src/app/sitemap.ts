@@ -1,12 +1,15 @@
 import type { MetadataRoute } from "next";
 
-import { getAllBlogPosts } from "@/lib/blog";
+import { getAllBlogPosts, getAllPublicPosts, getAllResourcePosts, getPostHref } from "@/lib/blog";
 import { absoluteUrl } from "@/lib/seo";
 import { publicTools } from "@/lib/tools";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const posts = getAllBlogPosts();
-  const latestBlogDate = posts[0]?.publishedAt ?? new Date().toISOString();
+  const blogPosts = getAllBlogPosts();
+  const resourcePosts = getAllResourcePosts();
+  const posts = getAllPublicPosts();
+  const latestBlogDate = blogPosts[0]?.publishedAt ?? new Date().toISOString();
+  const latestResourceDate = resourcePosts[0]?.publishedAt ?? latestBlogDate;
 
   return [
     {
@@ -20,6 +23,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: new Date(latestBlogDate),
       changeFrequency: "weekly",
       priority: 0.8
+    },
+    {
+      url: absoluteUrl("/resources").toString(),
+      lastModified: new Date(latestResourceDate),
+      changeFrequency: "weekly",
+      priority: 0.85
     },
     {
       url: absoluteUrl("/about").toString(),
@@ -40,7 +49,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8
     })),
     ...posts.map((post) => ({
-      url: absoluteUrl(`/blog/${post.slug}`).toString(),
+      url: absoluteUrl(getPostHref(post)).toString(),
       lastModified: new Date(post.publishedAt),
       changeFrequency: "monthly" as const,
       priority: 0.7

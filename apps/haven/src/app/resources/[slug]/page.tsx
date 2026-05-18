@@ -3,32 +3,32 @@ import { notFound, permanentRedirect } from "next/navigation";
 
 import { EditorialPostPage, buildEditorialPostMetadata } from "@/components/app/editorial-post-page";
 import {
-  getAllBlogPostsIncludingUnlisted,
+  getAllResourcePostsIncludingUnlisted,
   getEditorialSection,
   getPostBySlug,
   getPostHref
 } from "@/lib/blog";
 
-type BlogPostPageProps = {
+type ResourcePostPageProps = {
   params: Promise<{ slug: string }>;
 };
 
 export function generateStaticParams() {
-  return getAllBlogPostsIncludingUnlisted().map((post) => ({ slug: post.slug }));
+  return getAllResourcePostsIncludingUnlisted().map((post) => ({ slug: post.slug }));
 }
 
-export async function generateMetadata({ params }: BlogPostPageProps): Promise<Metadata> {
+export async function generateMetadata({ params }: ResourcePostPageProps): Promise<Metadata> {
   const { slug } = await params;
   const post = getPostBySlug(slug);
 
   if (!post) {
-    return { title: "Blog | Haven" };
+    return { title: "Resources | Haven" };
   }
 
   return buildEditorialPostMetadata(post, getEditorialSection(post));
 }
 
-export default async function BlogPostPage({ params }: BlogPostPageProps) {
+export default async function ResourcePostPage({ params }: ResourcePostPageProps) {
   const { slug } = await params;
   const post = getPostBySlug(slug);
 
@@ -36,9 +36,9 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     notFound();
   }
 
-  if (getEditorialSection(post) !== "blog") {
+  if (getEditorialSection(post) !== "resources") {
     permanentRedirect(getPostHref(post));
   }
 
-  return <EditorialPostPage post={post} section="blog" />;
+  return <EditorialPostPage post={post} section="resources" />;
 }

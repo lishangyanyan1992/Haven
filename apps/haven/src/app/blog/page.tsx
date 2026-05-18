@@ -3,35 +3,35 @@ import Link from "next/link";
 
 import { BlogCard } from "@/components/app/blog-card";
 import { PublicNavbar } from "@/components/app/public-navbar";
-import { getAllBlogPosts, fromBlogCategorySlug, getBlogPostsByCategory, getFeaturedBlogPosts } from "@/lib/blog";
+import { fromBlogCategorySlug, getAllBlogPosts, getBlogCategories, getFeaturedBlogPosts, toBlogCategorySlug } from "@/lib/blog";
 import { absoluteUrl } from "@/lib/seo";
 import { getOrganizationStructuredData } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "Blog — H-1B Layoffs, Visa Transfers & Immigration Planning",
+  title: "Blog — Immigration Updates, Policy Notes & Editorial",
   description:
-    "Practical immigration articles for H-1B holders, F-1/OPT graduates, and employment-based green card applicants. Covers layoffs, grace periods, transfers, USCIS policy, and priority date planning.",
+    "Haven's blog for immigration updates, policy notes, founder perspective, and selected analysis on what changed and why it matters.",
   alternates: {
     canonical: "/blog"
   },
   openGraph: {
     url: absoluteUrl("/blog"),
-    title: "Haven Blog — Immigration Planning for H-1B & Green Card Holders",
+    title: "Haven Blog — Immigration Updates & Editorial",
     description:
-      "Practical immigration articles for H-1B holders, F-1/OPT graduates, and employment-based green card applicants. Covers layoffs, grace periods, transfers, USCIS policy, and priority date planning.",
+      "Haven's blog for immigration updates, policy notes, founder perspective, and selected analysis on what changed and why it matters.",
     images: [
       {
         url: absoluteUrl("/blog/haven-blog-cover.svg").toString(),
         width: 1600,
         height: 900,
-        alt: "Haven blog — immigration planning guides"
+        alt: "Haven blog — immigration updates and editorial"
       }
     ]
   },
   twitter: {
-    title: "Haven Blog — Immigration Planning for H-1B & Green Card Holders",
+    title: "Haven Blog — Immigration Updates & Editorial",
     description:
-      "Practical immigration articles for H-1B holders, F-1/OPT graduates, and employment-based green card applicants. Covers layoffs, grace periods, transfers, USCIS policy, and priority date planning.",
+      "Haven's blog for immigration updates, policy notes, founder perspective, and selected analysis on what changed and why it matters.",
     images: [absoluteUrl("/blog/haven-blog-cover.svg").toString()]
   }
 };
@@ -39,7 +39,6 @@ export const metadata: Metadata = {
 type BlogIndexPageProps = {
   searchParams?: Promise<{
     category?: string | string[];
-    view?: string | string[];
   }>;
 };
 
@@ -48,10 +47,9 @@ function getSearchParamValue(value: string | string[] | undefined): string | und
   return value;
 }
 
-function getBlogIndexHref(options: { view?: "category" | "date"; categorySlug?: string }): string {
+function getBlogIndexHref(options: { categorySlug?: string }): string {
   const params = new URLSearchParams();
-  if (options.view === "date") params.set("view", "date");
-  if (options.view !== "date" && options.categorySlug) params.set("category", options.categorySlug);
+  if (options.categorySlug) params.set("category", options.categorySlug);
   const query = params.toString();
   return query ? `/blog?${query}` : "/blog";
 }
@@ -60,23 +58,18 @@ export default async function BlogIndexPage({ searchParams }: BlogIndexPageProps
   const resolvedSearchParams = (await searchParams) ?? {};
   const posts = getAllBlogPosts();
   const featuredPosts = getFeaturedBlogPosts();
-  const groupedPosts = getBlogPostsByCategory(posts);
-  const selectedView = getSearchParamValue(resolvedSearchParams.view);
-  const isDateView = selectedView === "date";
+  const blogCategories = getBlogCategories(posts);
   const selectedCategorySlug = getSearchParamValue(resolvedSearchParams.category);
-  const selectedCategory = !isDateView && selectedCategorySlug ? fromBlogCategorySlug(selectedCategorySlug) : undefined;
-  const visibleGroups = selectedCategory
-    ? groupedPosts.filter((group) => group.category === selectedCategory)
-    : groupedPosts;
-  const visiblePostCount = visibleGroups.reduce((count, group) => count + group.posts.length, 0);
+  const selectedCategory = selectedCategorySlug ? fromBlogCategorySlug(selectedCategorySlug, posts) : undefined;
+  const visiblePosts = selectedCategory ? posts.filter((post) => post.category === selectedCategory) : posts;
   const org = getOrganizationStructuredData();
 
   const collectionPageData = {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
-    name: "Haven Blog — Immigration Planning Guides",
+    name: "Haven Blog — Immigration Updates & Editorial",
     description:
-      "Practical immigration guides for H-1B holders, F-1/OPT graduates, and employment-based green card applicants navigating layoffs, transfers, grace periods, and USCIS policy.",
+      "Haven's blog for immigration updates, policy notes, founder perspective, and selected analysis on what changed and why it matters.",
     url: absoluteUrl("/blog").toString(),
     publisher: {
       "@type": "Organization",
@@ -109,19 +102,18 @@ export default async function BlogIndexPage({ searchParams }: BlogIndexPageProps
         <section className="content-container-visual py-16 lg:py-24 xl:py-28">
           <div className="max-w-[82ch]">
             <p className="text-label">Haven blog</p>
-            <h1 className="text-display mt-5 max-w-[28ch]">Guidance for the moments when immigration gets noisy.</h1>
+            <h1 className="text-display mt-5 max-w-[24ch]">Updates, analysis, and editorial context when the rules keep moving.</h1>
             <p className="text-body mt-6 max-w-[70ch]">
-              Practical, decision-oriented articles for H-1B holders, F-1/OPT graduates, and employment-based green
-              card applicants. We cover layoffs, grace periods, H-1B transfers, PERM delays, priority dates, and
-              USCIS policy changes — written by people who&apos;ve navigated the system firsthand.
+              This is the lighter editorial stream: policy updates, visa bulletin movement, founder perspective, and
+              selected commentary on the moments that change how people plan.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
-              {["H-1B layoffs", "Visa transfers", "Grace periods", "PERM & EB green card", "USCIS policy", "Citizenship"].map((topic) => (
+              {["Policy updates", "Visa bulletin", "Founder story", "Selected H-1B analysis"].map((topic) => (
                 <span key={topic} className="tag tag-visa">{topic}</span>
               ))}
             </div>
             <p className="text-caption mt-5">
-              {posts.length} articles across {groupedPosts.length} topics
+              {posts.length} articles across {blogCategories.length} topics
             </p>
           </div>
 
@@ -129,8 +121,8 @@ export default async function BlogIndexPage({ searchParams }: BlogIndexPageProps
           {featuredPosts.length > 0 && (
             <div className="mt-12">
               <div className="mb-5 flex items-center gap-3">
-                <p className="text-label">Start here</p>
-                <span className="text-caption text-[var(--haven-ink-mid)]">Most-read guides for H-1B holders</span>
+                <p className="text-label">Featured</p>
+                <span className="text-caption text-[var(--haven-ink-mid)]">Recent context from the editorial stream</span>
               </div>
               <div className="grid gap-5 md:grid-cols-3">
                 {featuredPosts.map((post) => (
@@ -144,102 +136,72 @@ export default async function BlogIndexPage({ searchParams }: BlogIndexPageProps
           <div className="mt-12 rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)]/80 p-6 shadow-[0_8px_30px_-12px_rgba(44,54,48,0.08)]">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <p className="text-label">{isDateView ? "Browse by date" : "Browse by category"}</p>
+                <p className="text-label">Browse by date</p>
                 <p className="text-body mt-2 max-w-[72ch]">
-                  {isDateView
-                    ? "See the full editorial library in reverse chronological order."
-                    : "Filter the blog by topic, or switch to a simple date-based view."}
+                  The blog defaults to newest-first. Use the topic filters to narrow the stream without changing the layout.
                 </p>
               </div>
               <p className="text-caption">
-                {isDateView
-                  ? `${posts.length} total articles`
-                  : selectedCategory
-                    ? `${visiblePostCount} article${visiblePostCount === 1 ? "" : "s"} in ${selectedCategory}`
-                    : `${posts.length} total articles`}
+                {selectedCategory
+                  ? `${visiblePosts.length} article${visiblePosts.length === 1 ? "" : "s"} in ${selectedCategory}`
+                  : `${posts.length} total articles`}
               </p>
             </div>
 
             <div className="mt-6 flex flex-wrap gap-3">
-              <Link
-                href={getBlogIndexHref({ view: "category", categorySlug: selectedCategorySlug })}
-                className={isDateView ? "tag tag-pending" : "tag tag-active"}
-              >
-                By category
+              <Link href={getBlogIndexHref({})} className={selectedCategory ? "tag tag-pending" : "tag tag-active"}>
+                All articles
               </Link>
-              <Link
-                href={getBlogIndexHref({ view: "date" })}
-                className={isDateView ? "tag tag-active" : "tag tag-pending"}
-              >
-                By date
-              </Link>
-            </div>
+              {blogCategories.map((category) => {
+                const isSelected = category === selectedCategory;
+                const categoryCount = posts.filter((post) => post.category === category).length;
 
-            {!isDateView ? (
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Link
-                  href={getBlogIndexHref({ view: "category" })}
-                  className={selectedCategory ? "tag tag-pending" : "tag tag-active"}
-                >
-                  All articles
-                </Link>
-                {groupedPosts.map((group) => {
-                  const isSelected = group.category === selectedCategory;
-                  return (
-                    <Link
-                      key={group.category}
-                      href={getBlogIndexHref({ view: "category", categorySlug: group.categorySlug })}
-                      className={isSelected ? "tag tag-active" : "tag tag-visa"}
-                    >
-                      {group.category} · {group.posts.length}
-                    </Link>
-                  );
-                })}
-              </div>
-            ) : null}
+                return (
+                  <Link
+                    key={category}
+                    href={getBlogIndexHref({ categorySlug: toBlogCategorySlug(category) })}
+                    className={isSelected ? "tag tag-active" : "tag tag-visa"}
+                  >
+                    {category} · {categoryCount}
+                  </Link>
+                );
+              })}
+            </div>
           </div>
 
-          {/* Articles */}
-          <div className="mt-12 space-y-12">
-            {isDateView ? (
-              <section className="space-y-6">
-                <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                  {posts.map((post) => (
-                    <BlogCard key={post.slug} post={post} />
-                  ))}
-                </div>
-              </section>
-            ) : (
-              visibleGroups.map((group) => (
-                <section key={group.category} id={group.categorySlug} className="space-y-6">
-                  <div className="flex flex-col gap-3 border-b border-[var(--color-border)] pb-5 lg:flex-row lg:items-end lg:justify-between">
-                    <div className="max-w-[76ch]">
-                      <p className="text-label">{group.category}</p>
-                      <h2 className="text-h1 mt-3">{group.category}</h2>
-                      <p className="text-body mt-3">{group.description}</p>
-                    </div>
-                    <p className="text-caption">{group.posts.length} article{group.posts.length === 1 ? "" : "s"}</p>
-                  </div>
-                  <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                    {group.posts.map((post) => (
-                      <BlogCard key={post.slug} post={post} />
-                    ))}
-                  </div>
-                </section>
-              ))
-            )}
+          <div className="mt-12 space-y-6">
+            <div className="flex flex-col gap-3 border-b border-[var(--color-border)] pb-5 lg:flex-row lg:items-end lg:justify-between">
+              <div className="max-w-[76ch]">
+                <p className="text-label">{selectedCategory ? selectedCategory : "Latest posts"}</p>
+                <h2 className="text-h1 mt-3">
+                  {selectedCategory ? `${selectedCategory} articles` : "Newest articles first"}
+                </h2>
+                <p className="text-body mt-3">
+                  {selectedCategory
+                    ? "Filtered by label, still sorted by publish date so the latest changes stay at the top."
+                    : "Every article in the blog stream, sorted by publish date with the newest posts first."}
+                </p>
+              </div>
+              <p className="text-caption">{visiblePosts.length} article{visiblePosts.length === 1 ? "" : "s"}</p>
+            </div>
 
-            {!isDateView && visibleGroups.length === 0 ? (
+            {visiblePosts.length > 0 ? (
+              <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                {visiblePosts.map((post) => (
+                  <BlogCard key={post.slug} post={post} />
+                ))}
+              </div>
+            ) : (
               <section className="rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-8">
                 <p className="text-h2">No articles match that category.</p>
                 <p className="text-body mt-3 max-w-[60ch]">Try another filter or return to the full blog index.</p>
                 <div className="mt-6">
-                  <Link href={getBlogIndexHref({ view: "category" })} className="tag tag-active">
+                  <Link href={getBlogIndexHref({})} className="tag tag-active">
                     View all articles
                   </Link>
                 </div>
               </section>
-            ) : null}
+            )}
           </div>
         </section>
       </main>
