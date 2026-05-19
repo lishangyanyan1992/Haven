@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CalendarDays, FolderOpen, Heart, ShieldCheck, Sparkles, Wrench } from "lucide-react";
+import { ArrowRight, CalendarDays, FolderOpen, Heart, ShieldCheck, Sparkles, Wrench } from "lucide-react";
 
 import { PublicNavbar } from "@/components/app/public-navbar";
 import { absoluteUrl } from "@/lib/seo";
 import { buildBreadcrumbStructuredData, getOrganizationStructuredData } from "@/lib/site";
 import { publicTools, type ToolSlug } from "@/lib/tools";
-import { ToolsWorkspace } from "@/app/tools/ToolsWorkspace";
 
 export const metadata: Metadata = {
   title: "Free Immigration Tools — H-1B Grace Period, Vaccine Finder & More",
@@ -35,32 +34,40 @@ const toolIcons: Record<ToolSlug, typeof ShieldCheck> = {
   "document-pack-builder": FolderOpen
 };
 
-const situationCards = [
+const toolCardMeta: Record<
+  ToolSlug,
   {
-    situation: "Just got laid off on H-1B",
-    detail: "Calculate your 60-day grace period deadline based on your last day on payroll.",
-    slug: "grace-period-calculator" as ToolSlug,
-    toolName: "Grace period calculator"
-  },
-  {
-    situation: "Preparing for a green card medical exam",
-    detail: "See which vaccines are age-appropriate for Form I-693 before your civil surgeon appointment.",
-    slug: "uscis-vaccine-finder" as ToolSlug,
-    toolName: "USCIS vaccine finder"
-  },
-  {
-    situation: "Waiting on a priority date",
-    detail: "Check whether your priority date is current against the latest Visa Bulletin cutoff.",
-    slug: "priority-date-checker" as ToolSlug,
-    toolName: "Priority date checker"
-  },
-  {
-    situation: "Changing employers or preparing to travel",
-    detail: "Generate the document checklist for a layoff, H-1B transfer, visa stamping, or adjustment filing.",
-    slug: "document-pack-builder" as ToolSlug,
-    toolName: "Document pack builder"
+    eyebrow: string;
+    bestFor: string;
+    surfaceClassName: string;
+    iconClassName: string;
   }
-];
+> = {
+  "uscis-vaccine-finder": {
+    eyebrow: "USCIS medical exam",
+    bestFor: "Green card medical exam prep before a civil surgeon visit.",
+    surfaceClassName: "bg-[linear-gradient(180deg,#F8FBF6_0%,#EEF5E8_100%)]",
+    iconClassName: "bg-[var(--haven-sage-light)] text-[var(--haven-ink)]"
+  },
+  "grace-period-calculator": {
+    eyebrow: "Free tool",
+    bestFor: "Layoffs, employer changes, and last-day-on-payroll planning.",
+    surfaceClassName: "bg-[linear-gradient(180deg,#FBFAF5_0%,#F3EDE2_100%)]",
+    iconClassName: "bg-[var(--haven-sand)] text-[var(--haven-ink)]"
+  },
+  "priority-date-checker": {
+    eyebrow: "Visa Bulletin helper",
+    bestFor: "Fast checks against a published cutoff date.",
+    surfaceClassName: "bg-[linear-gradient(180deg,#F4FAFD_0%,#E6F2F8_100%)]",
+    iconClassName: "bg-[var(--haven-sky-light)] text-[var(--haven-sky-ink)]"
+  },
+  "document-pack-builder": {
+    eyebrow: "Action prep",
+    bestFor: "Layoff, transfer, stamping, or adjustment document triage.",
+    surfaceClassName: "bg-[linear-gradient(180deg,#FBF6F4_0%,#F6E7E1_100%)]",
+    iconClassName: "bg-[var(--haven-blush-light)] text-[var(--haven-blush-ink)]"
+  }
+};
 
 export default function ToolsPage() {
   const org = getOrganizationStructuredData();
@@ -115,36 +122,57 @@ export default function ToolsPage() {
             </p>
           </div>
 
-          {/* Which tool fits your situation */}
           <div className="mt-12">
-            <p className="text-label">Which tool fits your situation?</p>
-            <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {situationCards.map((card) => {
-                const Icon = toolIcons[card.slug];
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-end">
+              <div>
+                <p className="text-label">Open each tool in its own workspace</p>
+                <h2 className="text-h1 mt-4 max-w-[20ch]">Browse the tool gallery, then click through to use the live version.</h2>
+              </div>
+              <p className="text-body-sm max-w-[56ch] text-[var(--haven-ink-mid)] lg:justify-self-end">
+                The `/tools` page is now a directory. Each card shows a small illustration of the tool layout so users can choose quickly, then open the dedicated page to interact with it.
+              </p>
+            </div>
+
+            <div className="mt-6 grid gap-5 lg:grid-cols-2">
+              {publicTools.map((tool) => {
+                const Icon = toolIcons[tool.slug];
+                const meta = toolCardMeta[tool.slug];
+
                 return (
                   <Link
-                    key={card.slug}
-                    href={`/tools/${card.slug}`}
-                    className="group flex flex-col rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-5 shadow-[0_2px_12px_-4px_rgba(44,54,48,0.08)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_-8px_rgba(44,54,48,0.14)]"
+                    key={tool.slug}
+                    href={`/tools/${tool.slug}`}
+                    className="group overflow-hidden rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] shadow-[0_8px_28px_-12px_rgba(44,54,48,0.14)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_14px_38px_-14px_rgba(44,54,48,0.2)]"
                   >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-lg)] bg-[var(--haven-sage-light)] text-[var(--haven-ink)]">
-                      <Icon className="h-4.5 w-4.5" />
+                    <div className={`border-b border-[var(--color-border)] p-5 ${meta.surfaceClassName}`}>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="inline-flex items-center rounded-full border border-[rgba(44,54,48,0.12)] bg-[rgba(255,255,255,0.72)] px-3 py-1 text-[11px] font-medium tracking-wide text-[var(--haven-ink-mid)]">
+                          {meta.eyebrow}
+                        </span>
+                        <div className={`flex h-10 w-10 items-center justify-center rounded-[var(--radius-lg)] ${meta.iconClassName}`}>
+                          <Icon className="h-4.5 w-4.5" />
+                        </div>
+                      </div>
+                      <div className="mt-5">
+                        <ToolPreviewIllustration slug={tool.slug} />
+                      </div>
                     </div>
-                    <p className="text-h3 mt-4 leading-snug">{card.situation}</p>
-                    <p className="text-body-sm mt-2 flex-1 text-[var(--haven-ink-mid)]">{card.detail}</p>
-                    <p className="mt-4 text-[13px] font-medium text-[var(--haven-ink)] underline-offset-2 group-hover:underline">
-                      {card.toolName} →
-                    </p>
+                    <div className="flex h-full flex-col p-5">
+                      <h3 className="text-h2">{tool.title}</h3>
+                      <p className="text-body-sm mt-3 flex-1 text-[var(--haven-ink-mid)]">{tool.teaser}</p>
+                      <p className="text-[13px] mt-4 text-[var(--haven-ink-mid)]">
+                        Best for: {meta.bestFor}
+                      </p>
+                      <span className="mt-5 inline-flex items-center gap-1 text-[13px] font-medium text-[var(--haven-ink)]">
+                        Open tool
+                        <ArrowRight className="h-3.5 w-3.5 transition-transform duration-150 group-hover:translate-x-0.5" />
+                      </span>
+                    </div>
                   </Link>
                 );
               })}
             </div>
           </div>
-        </section>
-
-        {/* All tools workspace */}
-        <section className="content-container-visual pb-16 lg:pb-24 xl:pb-28">
-          <ToolsWorkspace />
         </section>
 
         {/* Coming soon */}
@@ -202,6 +230,98 @@ export default function ToolsPage() {
           </div>
         </section>
       </main>
+    </div>
+  );
+}
+
+function ToolPreviewIllustration({ slug }: { slug: ToolSlug }) {
+  if (slug === "uscis-vaccine-finder") {
+    return (
+      <div className="rounded-[calc(var(--radius-2xl)-0.5rem)] border border-[rgba(44,54,48,0.1)] bg-[rgba(255,255,255,0.82)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]">
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_136px]">
+          <div className="space-y-2.5">
+            <div className="h-8 rounded-[14px] bg-[rgba(44,54,48,0.08)]" />
+            <div className="h-8 rounded-[14px] bg-[rgba(44,54,48,0.08)]" />
+            <div className="h-8 rounded-[14px] bg-[rgba(44,54,48,0.08)]" />
+          </div>
+          <div className="rounded-[18px] bg-[var(--haven-cream)] p-3">
+            <div className="h-2.5 w-16 rounded-full bg-[rgba(44,54,48,0.16)]" />
+            <div className="mt-3 h-7 rounded-[12px] bg-[var(--haven-white)]" />
+            <div className="mt-2 h-2 w-20 rounded-full bg-[rgba(44,54,48,0.14)]" />
+            <div className="mt-4 flex gap-2">
+              <div className="h-6 flex-1 rounded-full bg-[var(--haven-sage-mid)]/70" />
+              <div className="h-6 w-8 rounded-full bg-[rgba(44,54,48,0.08)]" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (slug === "grace-period-calculator") {
+    return (
+      <div className="rounded-[calc(var(--radius-2xl)-0.5rem)] border border-[rgba(44,54,48,0.1)] bg-[rgba(255,255,255,0.82)] p-4">
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_148px]">
+          <div className="space-y-2.5">
+            <div className="h-8 rounded-[14px] bg-[rgba(44,54,48,0.08)]" />
+            <div className="h-8 rounded-[14px] bg-[rgba(44,54,48,0.08)]" />
+            <div className="flex items-center gap-2 pt-1">
+              <div className="h-2 w-2 rounded-full bg-[var(--haven-ink)]/45" />
+              <div className="h-1.5 flex-1 rounded-full bg-[rgba(44,54,48,0.08)]" />
+              <div className="h-2 w-2 rounded-full bg-[var(--haven-ink)]/45" />
+            </div>
+          </div>
+          <div className="rounded-[18px] bg-[var(--haven-white)] p-3 shadow-[inset_0_0_0_1px_rgba(44,54,48,0.08)]">
+            <div className="h-2.5 w-14 rounded-full bg-[rgba(44,54,48,0.16)]" />
+            <div className="mt-3 h-10 rounded-[12px] bg-[var(--haven-sand)]" />
+            <div className="mt-3 h-8 rounded-[12px] bg-[var(--haven-sage-light)]" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (slug === "priority-date-checker") {
+    return (
+      <div className="rounded-[calc(var(--radius-2xl)-0.5rem)] border border-[rgba(44,54,48,0.1)] bg-[rgba(255,255,255,0.82)] p-4">
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_148px]">
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="h-8 rounded-[14px] bg-[rgba(44,54,48,0.08)]" />
+            <div className="h-8 rounded-[14px] bg-[rgba(44,54,48,0.08)]" />
+            <div className="h-8 rounded-[14px] bg-[rgba(44,54,48,0.08)]" />
+            <div className="h-8 rounded-[14px] bg-[rgba(44,54,48,0.08)]" />
+            <div className="col-span-2 h-8 rounded-[14px] bg-[rgba(44,54,48,0.08)]" />
+          </div>
+          <div className="rounded-[18px] bg-[var(--haven-white)] p-3 shadow-[inset_0_0_0_1px_rgba(44,54,48,0.08)]">
+            <div className="h-2.5 w-12 rounded-full bg-[rgba(44,54,48,0.16)]" />
+            <div className="mt-3 h-6 rounded-full bg-[var(--haven-sky-mid)]/70" />
+            <div className="mt-3 h-2 w-24 rounded-full bg-[rgba(44,54,48,0.14)]" />
+            <div className="mt-2 h-2 w-20 rounded-full bg-[rgba(44,54,48,0.1)]" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-[calc(var(--radius-2xl)-0.5rem)] border border-[rgba(44,54,48,0.1)] bg-[rgba(255,255,255,0.82)] p-4">
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_148px]">
+        <div className="grid grid-cols-2 gap-2.5">
+          <div className="col-span-2 h-8 rounded-[14px] bg-[rgba(44,54,48,0.08)]" />
+          <div className="h-8 rounded-[14px] bg-[rgba(44,54,48,0.08)]" />
+          <div className="h-8 rounded-[14px] bg-[rgba(44,54,48,0.08)]" />
+          <div className="col-span-2 h-12 rounded-[18px] bg-[var(--haven-white)] shadow-[inset_0_0_0_1px_rgba(44,54,48,0.08)]" />
+        </div>
+        <div className="rounded-[18px] bg-[var(--haven-white)] p-3 shadow-[inset_0_0_0_1px_rgba(44,54,48,0.08)]">
+          <div className="h-2.5 w-14 rounded-full bg-[rgba(44,54,48,0.16)]" />
+          <div className="mt-3 space-y-2">
+            <div className="h-2 rounded-full bg-[rgba(44,54,48,0.12)]" />
+            <div className="h-2 rounded-full bg-[rgba(44,54,48,0.12)]" />
+            <div className="h-2 w-4/5 rounded-full bg-[rgba(44,54,48,0.12)]" />
+          </div>
+          <div className="mt-4 h-8 rounded-[12px] bg-[var(--haven-blush-light)]" />
+        </div>
+      </div>
     </div>
   );
 }
