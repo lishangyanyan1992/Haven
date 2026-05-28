@@ -1,3 +1,4 @@
+import { eb2IndiaPerCountryLimitExhaustedFy2026Post } from "@/content/blog/posts/eb2-india-per-country-limit-exhausted-fy2026";
 import { uscisPm6020199AosExtraordinaryRelief2026Post } from "@/content/blog/posts/uscis-pm-602-0199-aos-extraordinary-relief-2026";
 import { uscisLiftsPhysicianAdjudicationHold2026Post } from "@/content/blog/posts/uscis-lifts-physician-adjudication-hold-2026";
 import { clouderaPermSuspensionDojLawsuit2026Post } from "@/content/blog/posts/cloudera-perm-suspension-doj-lawsuit-2026";
@@ -77,6 +78,7 @@ const guideBlogPosts = guides.map(guideToBlogPost);
 
 // Add a new post import here and it will appear in the blog automatically.
 export const blogPosts = [
+  eb2IndiaPerCountryLimitExhaustedFy2026Post,
   uscisPm6020199AosExtraordinaryRelief2026Post,
   uscisLiftsPhysicianAdjudicationHold2026Post,
   clouderaPermSuspensionDojLawsuit2026Post,
