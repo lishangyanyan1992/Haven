@@ -100,7 +100,7 @@ export default async function OnboardingPage({
           <p className="text-body-sm hidden md:block">Step by step. Value at every step.</p>
         </div>
       </header>
-      {userId ? <MixpanelAuthTracker destination="/onboarding" email={userEmail} userId={userId} /> : null}
+      {userId ? <MixpanelAuthTracker userId={userId} email={userEmail} /> : null}
       <OnboardingFlow initialStep={initialStep} saveStepAction={saveStepAction} userEmail={userEmail} />
     </div>
   );

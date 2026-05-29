@@ -53,10 +53,23 @@ export function identifyUser(userId: string, properties?: Record<string, unknown
   if (!getToken()) return;
 
   mixpanel.identify(userId);
+
+  // Set Mixpanel People profile — these appear in the People tab and enable cohorts.
   mixpanel.people.set({
-    $email: typeof properties?.email === "string" ? properties.email : undefined
+    $email: typeof properties?.email === "string" ? properties.email : undefined,
+    $name: typeof properties?.$name === "string" ? properties.$name : undefined,
+    visa_type: properties?.visa_type,
+    country_of_birth: properties?.country_of_birth,
+    employment_status: properties?.employment_status,
+    primary_goal: properties?.primary_goal,
   });
-  mixpanel.register({ user_id: userId, ...properties });
+
+  // Register super properties — attached to every future event automatically.
+  mixpanel.register({
+    user_id: userId,
+    visa_type: properties?.visa_type,
+    country_of_birth: properties?.country_of_birth,
+  });
 }
 
 export function resetMixpanel() {
