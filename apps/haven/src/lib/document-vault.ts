@@ -112,6 +112,29 @@ export function inferDocumentMetadata(fileName: string, mimeType?: string | null
   };
 }
 
+/**
+ * MIME types accepted for document uploads.
+ * We allow common document and image formats only — no executables or scripts.
+ */
+export const ALLOWED_MIME_TYPES = new Set([
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+  "text/plain",
+]);
+
+export function isAllowedMimeType(mimeType: string): boolean {
+  // Normalise: strip parameters (e.g. "application/pdf; charset=utf-8")
+  const base = mimeType.split(";")[0].trim().toLowerCase();
+  return ALLOWED_MIME_TYPES.has(base);
+}
+
 export function sanitizeFilename(fileName: string) {
   return fileName.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-");
 }

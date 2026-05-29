@@ -9,6 +9,7 @@ import {
   HAVEN_VAULT_BUCKET,
   MAX_DOCUMENT_BYTES,
   inferDocumentMetadata,
+  isAllowedMimeType,
   sanitizeFilename
 } from "@/lib/document-vault";
 
@@ -155,8 +156,15 @@ export async function POST(request: Request) {
       );
     }
 
-    const inferred = inferDocumentMetadata(file.name, file.type, customLabel);
     const contentType = file.type || "application/octet-stream";
+    if (!isAllowedMimeType(contentType)) {
+      return NextResponse.json(
+        { error: "File type not supported. Please upload a PDF, Word document, or image." },
+        { status: 415 }
+      );
+    }
+
+    const inferred = inferDocumentMetadata(file.name, file.type, customLabel);
     const extensionSafeName = sanitizeFilename(file.name || "document");
     const storagePath = `${user.id}/${new Date().toISOString().slice(0, 7)}/${randomUUID()}-${extensionSafeName}`;
     const admin = await ensureUserProfile(user);
