@@ -11,12 +11,18 @@ jobs:
     name: Type check & lint
     runs-on: ubuntu-latest
 
+    env:
+      # Stub Supabase vars so env validation doesn't throw at import time.
+      # No real secrets are needed for type checking or linting.
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
+
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
           cache: "npm"
 
       - name: Install dependencies
@@ -24,20 +30,12 @@ jobs:
 
       - name: Type check (haven)
         run: npm run typecheck:haven
-        env:
-          # Provide stub env vars so the type checker can resolve modules
-          # that reference process.env — no real secrets needed here.
-          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
 
       - name: Type check (immig-wizard)
         run: npm run typecheck:wizard
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
 
       - name: Lint (haven)
-        run: npm run --workspace @haven/app lint
+        run: npm run lint --workspace @haven/app
 
       - name: Audit dependencies
         run: npm audit --audit-level=critical
