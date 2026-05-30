@@ -132,19 +132,13 @@ export async function signInAction(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   const redirectTo = normalizeRedirectPath(String(formData.get("redirectTo") ?? "/dashboard"), "/dashboard");
-  const admin = createSupabaseAdminClient() as any;
 
   const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    // Use getUserByEmail instead of listUsers() — listUsers() only returns
-    // the first page (50 users) and would falsely report "no account" for
-    // any user beyond that page.
-    const { data: adminUserData } = await admin.auth.admin.getUserByEmail(email);
-    const authUserExists = Boolean(adminUserData?.user);
-    if (!authUserExists) {
-      redirect(`/register?email=${encodeURIComponent(email)}&message=no_account`);
-    }
+    // Always redirect to invalid_credentials — do not distinguish "wrong
+    // password" from "no account". Telling a user whether an email is
+    // registered is a user-enumeration vulnerability.
     redirect(`/login?email=${encodeURIComponent(email)}&message=invalid_credentials`);
   }
 
