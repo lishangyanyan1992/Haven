@@ -2,7 +2,7 @@ import OpenAI from "openai";
 import { z } from "zod";
 
 import { env } from "@/lib/env";
-import { getLangfuseClient } from "@/lib/langfuse";
+import { flushLangfuse, getLangfuseClient } from "@/lib/langfuse";
 import type { EmailSourceType } from "@/types/domain";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -195,6 +195,7 @@ export async function extractEmailFields(input: {
         usage: { totalTokens: (response as any).usage?.total_tokens },
       });
       trace?.update({ output: { sourceType: parsed.data.source_type } });
+      await flushLangfuse();
       return {
         sourceType: parsed.data.source_type as EmailSourceType,
         fields: parsed.data.fields,
@@ -207,5 +208,6 @@ export async function extractEmailFields(input: {
     // fall through to fallback
   }
 
+  await flushLangfuse();
   return buildFallback(input.subject);
 }

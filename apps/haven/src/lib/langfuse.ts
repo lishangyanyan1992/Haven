@@ -1,24 +1,20 @@
 /**
  * Langfuse LLM observability client.
  *
- * All AI calls (advisor answers, embeddings, moderation, email extraction)
- * are traced through this singleton so token usage, latency, and prompt
- * quality are visible in the Langfuse dashboard.
- *
- * The client is a no-op when LANGFUSE_SECRET_KEY is not set (local dev,
- * CI) — no errors, no data sent, no behaviour change.
- *
- * Types are intentionally loose (any) so the file compiles before
- * `npm install` runs and the langfuse package is present on disk.
+ * IMPORTANT — serverless flush:
+ * Vercel freezes the function immediately after the response is sent.
+ * Langfuse's background flush interval never fires in this environment.
+ * Always call `await flushLangfuse()` before returning from a route handler
+ * or server action that makes AI calls.
  */
+import { Langfuse } from "langfuse";
+
 import { env } from "@/lib/env";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _client: any = null;
+let _client: Langfuse | null = null;
 let _attempted = false;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function getLangfuseClient(): any {
+export function getLangfuseClient(): Langfuse | null {
   if (_attempted) return _client;
   _attempted = true;
 
@@ -27,19 +23,29 @@ export function getLangfuseClient(): any {
   }
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { Langfuse } = require("langfuse");
     _client = new Langfuse({
       secretKey: env.LANGFUSE_SECRET_KEY,
       publicKey: env.LANGFUSE_PUBLIC_KEY,
       baseUrl: env.LANGFUSE_BASE_URL ?? "https://cloud.langfuse.com",
-      flushAt: 10,
-      flushInterval: 5000,
+      // Low batch size so a single trace always triggers a flush
+      flushAt: 1,
+      flushInterval: 0,
     });
   } catch {
-    // SDK not installed or initialisation failed — degrade silently.
     _client = null;
   }
 
   return _client;
+}
+
+/**
+ * Call this before returning from any serverless route/action that uses
+ * Langfuse. Waits for all buffered traces to be sent to the API.
+ */
+export async function flushLangfuse(): Promise<void> {
+  try {
+    await _client?.flushAsync();
+  } catch {
+    // Never let an observability flush block or crash the response.
+  }
 }

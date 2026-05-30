@@ -2,7 +2,7 @@ import { cache } from "react";
 import OpenAI from "openai";
 
 import { env, hasSupabaseEnv } from "@/lib/env";
-import { getLangfuseClient } from "@/lib/langfuse";
+import { flushLangfuse, getLangfuseClient } from "@/lib/langfuse";
 import { getSnapshot } from "@/lib/repositories/case-compass";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -408,8 +408,7 @@ async function embedQuery(query: string, traceId?: string) {
   const embedding = response.data[0]?.embedding ?? null;
 
   span?.end({
-    output: { dimensions: embedding?.length ?? 0 },
-    usage: { totalTokens: response.usage?.total_tokens },
+    output: { dimensions: embedding?.length ?? 0, tokens: response.usage?.total_tokens },
   });
 
   return embedding;
@@ -825,6 +824,10 @@ export async function respondToAdvisorMessage(rawInput: {
     traceId,
   });
   const assistantMessage = createAssistantMessage(threadId, answer);
+
+  // Flush Langfuse before returning — serverless functions are frozen
+  // immediately after the response is sent so the async flush never fires.
+  await flushLangfuse();
 
   return {
     userMessage,
