@@ -23,7 +23,10 @@ const envSchema = z.object({
   EMAIL_INGEST_DOMAIN: z.string().optional(),
   SENTRY_DSN: z.string().optional(),
   INDEXNOW_KEY: z.string().optional(),
-  INDEXNOW_SECRET: z.string().optional()
+  INDEXNOW_SECRET: z.string().optional(),
+  LANGFUSE_SECRET_KEY: z.string().optional(),
+  LANGFUSE_PUBLIC_KEY: z.string().optional(),
+  LANGFUSE_HOST: z.string().optional()
 });
 
 export const env = envSchema.parse({
@@ -49,7 +52,10 @@ export const env = envSchema.parse({
   EMAIL_INGEST_DOMAIN: process.env.EMAIL_INGEST_DOMAIN,
   SENTRY_DSN: process.env.SENTRY_DSN,
   INDEXNOW_KEY: process.env.INDEXNOW_KEY,
-  INDEXNOW_SECRET: process.env.INDEXNOW_SECRET
+  INDEXNOW_SECRET: process.env.INDEXNOW_SECRET,
+  LANGFUSE_SECRET_KEY: process.env.LANGFUSE_SECRET_KEY,
+  LANGFUSE_PUBLIC_KEY: process.env.LANGFUSE_PUBLIC_KEY,
+  LANGFUSE_HOST: process.env.LANGFUSE_HOST
 });
 
 export const hasSupabaseEnv = Boolean(env.NEXT_PUBLIC_SUPABASE_URL && env.NEXT_PUBLIC_SUPABASE_ANON_KEY);

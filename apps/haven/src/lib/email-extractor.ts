@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import { z } from "zod";
 
 import { env } from "@/lib/env";
+import { getLangfuseClient } from "@/lib/langfuse";
 import type { EmailSourceType } from "@/types/domain";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -144,6 +145,7 @@ export async function extractEmailFields(input: {
   const client = getOpenAIClient();
   if (!client) return buildFallback(input.subject);
 
+  const model = getChatModel();
   const userMessage = [
     `From: ${input.sender}`,
     `Subject: ${input.subject}`,
@@ -151,9 +153,20 @@ export async function extractEmailFields(input: {
     input.body.slice(0, 8000).trim(), // cap to avoid token blowout
   ].join("\n");
 
+  const lf = getLangfuseClient();
+  const trace = lf?.trace({ name: "email-extraction", input: { subject: input.subject, sender: input.sender } });
+  const generation = trace?.generation({
+    name: "openai-email-extraction",
+    model,
+    input: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: userMessage },
+    ],
+  });
+
   try {
     const response = await (client.responses.create as Function)({
-      model: getChatModel(),
+      model,
       input: [
         {
           role: "system",
@@ -177,12 +190,20 @@ export async function extractEmailFields(input: {
     );
 
     if (parsed.success) {
+      generation?.end({
+        output: { sourceType: parsed.data.source_type, fieldCount: parsed.data.fields.length },
+        usage: { totalTokens: (response as any).usage?.total_tokens },
+      });
+      trace?.update({ output: { sourceType: parsed.data.source_type } });
       return {
         sourceType: parsed.data.source_type as EmailSourceType,
         fields: parsed.data.fields,
       };
     }
-  } catch {
+
+    generation?.end({ output: { parsed: false, fallback: true } });
+  } catch (err) {
+    generation?.end({ output: { error: String(err), fallback: true }, level: "ERROR" });
     // fall through to fallback
   }
 

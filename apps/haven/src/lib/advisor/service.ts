@@ -2,6 +2,7 @@ import { cache } from "react";
 import OpenAI from "openai";
 
 import { env, hasSupabaseEnv } from "@/lib/env";
+import { getLangfuseClient } from "@/lib/langfuse";
 import { getSnapshot } from "@/lib/repositories/case-compass";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -365,7 +366,7 @@ function buildContextBlock(label: string, lines: string[]) {
   return `${label}:\n${lines.length > 0 ? lines.map((line) => `- ${line}`).join("\n") : "- None"}`;
 }
 
-async function moderateMessage(content: string) {
+async function moderateMessage(content: string, traceId?: string) {
   const client = getOpenAIClient();
 
   if (!client) {
@@ -373,32 +374,45 @@ async function moderateMessage(content: string) {
   }
 
   try {
+    const lf = getLangfuseClient();
+    const span = lf?.trace({ id: traceId, name: "advisor-moderation" })
+      .span({ name: "openai-moderation", input: { content } });
+
     const moderation = await client.moderations.create({
       model: "omni-moderation-latest",
       input: content
     });
 
-    return {
-      flagged: moderation.results?.[0]?.flagged ?? false
-    };
+    const flagged = moderation.results?.[0]?.flagged ?? false;
+    span?.end({ output: { flagged } });
+
+    return { flagged };
   } catch {
     return { flagged: false };
   }
 }
 
-async function embedQuery(query: string) {
+async function embedQuery(query: string, traceId?: string) {
   const client = getOpenAIClient();
 
   if (!client) {
     return null;
   }
 
-  const response = await client.embeddings.create({
-    model: getEmbeddingModel(),
-    input: query
+  const lf = getLangfuseClient();
+  const model = getEmbeddingModel();
+  const span = lf?.trace({ id: traceId, name: "advisor-embed" })
+    .span({ name: "openai-embedding", input: { query, model } });
+
+  const response = await client.embeddings.create({ model, input: query });
+  const embedding = response.data[0]?.embedding ?? null;
+
+  span?.end({
+    output: { dimensions: embedding?.length ?? 0 },
+    usage: { totalTokens: response.usage?.total_tokens },
   });
 
-  return response.data[0]?.embedding ?? null;
+  return embedding;
 }
 
 function buildFallbackKnowledgeChunks(): RetrievedKnowledgeChunk[] {
@@ -610,6 +624,7 @@ async function generateAdvisorAnswer(input: {
   community: RetrievedCommunitySummary[];
   history: AdvisorMessage[];
   topics: TopicBucket[];
+  traceId?: string;
 }): Promise<AdvisorAnswerPayload> {
   const client = getOpenAIClient();
 
@@ -654,9 +669,32 @@ async function generateAdvisorAnswer(input: {
     )
   ].join("\n");
 
+  const lf = getLangfuseClient();
+  const model = getChatModel();
+  const trace = lf?.trace({
+    id: input.traceId,
+    name: "advisor-respond",
+    input: { question: input.question, topics: input.topics },
+    metadata: {
+      visaType: input.userContext.profileSummary?.[0] ?? null,
+      knowledgeChunks: input.knowledge.length,
+      communityChunks: input.community.length,
+      historyLength: input.history.length,
+    },
+  });
+
+  const generation = trace?.generation({
+    name: "openai-advisor-answer",
+    model,
+    input: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: prompt },
+    ],
+  });
+
   try {
     const response = await client.responses.create({
-      model: getChatModel(),
+      model,
       input: [
         {
           role: "system",
@@ -675,14 +713,27 @@ async function generateAdvisorAnswer(input: {
       }
     } as never);
 
-    const parsed = advisorAnswerPayloadSchema.safeParse(JSON.parse(response.output_text ?? "{}"));
+    const parsed = advisorAnswerPayloadSchema.safeParse(JSON.parse((response as any).output_text ?? "{}"));
     if (parsed.success && parsed.data.external_citations.length > 0) {
+      generation?.end({
+        output: { citations: parsed.data.external_citations.length },
+        usage: {
+          promptTokens: (response as any).usage?.input_tokens,
+          completionTokens: (response as any).usage?.output_tokens,
+          totalTokens: (response as any).usage?.total_tokens,
+        },
+      });
+      trace?.update({ output: { cited: true, citations: parsed.data.external_citations.length } });
       return parsed.data;
     }
-  } catch {
+
+    generation?.end({ output: { cited: false, fallback: true } });
+  } catch (err) {
+    generation?.end({ output: { error: String(err), fallback: true }, level: "ERROR" });
     // Fall back to deterministic answer below.
   }
 
+  trace?.update({ output: { cited: false, fallback: true } });
   return fallbackAnswer(input.question, input.userContext, input.knowledge, input.community, input.topics);
 }
 
@@ -709,7 +760,12 @@ export async function respondToAdvisorMessage(rawInput: {
 
   const { content, history: rawHistory, conversationId } = parsed.data;
 
-  const moderation = await moderateMessage(content);
+  // Create a top-level Langfuse trace that spans the entire request.
+  const lf = getLangfuseClient();
+  const traceId = conversationId ?? crypto.randomUUID();
+  lf?.trace({ id: traceId, name: "advisor-session", input: { question: content } });
+
+  const moderation = await moderateMessage(content, traceId);
   const snapshot = await getSnapshot();
 
   if (moderation.flagged) {
@@ -765,7 +821,8 @@ export async function respondToAdvisorMessage(rawInput: {
     knowledge,
     community,
     history,
-    topics
+    topics,
+    traceId,
   });
   const assistantMessage = createAssistantMessage(threadId, answer);
 
