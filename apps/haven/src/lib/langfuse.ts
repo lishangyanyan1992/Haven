@@ -32,7 +32,7 @@ export function getLangfuseClient(): any {
     _client = new Langfuse({
       secretKey: env.LANGFUSE_SECRET_KEY,
       publicKey: env.LANGFUSE_PUBLIC_KEY,
-      baseUrl: env.LANGFUSE_HOST ?? "https://cloud.langfuse.com",
+      baseUrl: env.LANGFUSE_BASE_URL ?? "https://cloud.langfuse.com",
       flushAt: 10,
       flushInterval: 5000,
     });
