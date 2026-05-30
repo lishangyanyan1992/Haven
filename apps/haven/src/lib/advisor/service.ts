@@ -2,7 +2,7 @@ import { cache } from "react";
 import OpenAI from "openai";
 
 import { env, hasSupabaseEnv } from "@/lib/env";
-import { flushLangfuse, getLangfuseClient } from "@/lib/langfuse";
+import { flushLangfuse, getLangfuseClient, getPrompt } from "@/lib/langfuse";
 import { getSnapshot } from "@/lib/repositories/case-compass";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -631,7 +631,7 @@ async function generateAdvisorAnswer(input: {
     return fallbackAnswer(input.question, input.userContext, input.knowledge, input.community, input.topics);
   }
 
-  const systemPrompt = [
+  const ADVISOR_SYSTEM_FALLBACK = [
     "You are Haven Advisor, an immigration information assistant for employment-based visas and green cards.",
     "You must prioritize official sources over Haven context, and Haven context over community anecdotes.",
     "Never present community anecdotes as legal authority.",
@@ -640,6 +640,8 @@ async function generateAdvisorAnswer(input: {
     "Every substantive answer must include official citations in external_citations.",
     "Only answer work visa, green card, or Haven product questions. Refuse unrelated topics."
   ].join(" ");
+
+  const systemPrompt = await getPrompt("haven-advisor-system", ADVISOR_SYSTEM_FALLBACK);
 
   const prompt = [
     `User question:\n${input.question}`,
