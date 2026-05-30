@@ -137,10 +137,11 @@ export async function signInAction(formData: FormData) {
   const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    const { data: adminUserList } = await admin.auth.admin.listUsers();
-    const authUserExists = (adminUserList?.users ?? []).some(
-      (u: { email?: string }) => u.email?.toLowerCase() === email
-    );
+    // Use getUserByEmail instead of listUsers() — listUsers() only returns
+    // the first page (50 users) and would falsely report "no account" for
+    // any user beyond that page.
+    const { data: adminUserData } = await admin.auth.admin.getUserByEmail(email);
+    const authUserExists = Boolean(adminUserData?.user);
     if (!authUserExists) {
       redirect(`/register?email=${encodeURIComponent(email)}&message=no_account`);
     }
