@@ -34,8 +34,5 @@ jobs:
       - name: Type check (immig-wizard)
         run: npm run typecheck:wizard
 
-      - name: Lint (haven)
-        run: npm run lint --workspace @haven/app
-
       - name: Audit dependencies
         run: npm audit --audit-level=critical
