@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
-import { Bot, ExternalLink, RotateCcw, SendHorizonal, User2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { Bot, ExternalLink, RotateCcw, SendHorizonal, ThumbsDown, ThumbsUp, User2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -167,6 +167,7 @@ export function AdvisorWorkspace({ advisorUsage, suggestedPrompts, welcomeMessag
               <AdvisorAnswerCard
                 animate={false}
                 isPending={false}
+                traceId={null}
                 message={{
                   id: "welcome",
                   threadId: "session",
@@ -184,6 +185,7 @@ export function AdvisorWorkspace({ advisorUsage, suggestedPrompts, welcomeMessag
                     animate={streamingMessageId === message.id}
                     isPending={isPending && streamingMessageId === message.id}
                     message={message}
+                    traceId={conversationId}
                     onAnimationComplete={() => {
                       setStreamingMessageId((current) => (current === message.id ? null : current));
                     }}
@@ -242,14 +244,33 @@ function AdvisorAnswerCard({
   message,
   animate,
   isPending,
+  traceId,
   onAnimationComplete
 }: {
   message: AdvisorMessage;
   animate: boolean;
   isPending: boolean;
+  traceId: string | null;
   onAnimationComplete?: () => void;
 }) {
   const [displayText, setDisplayText] = useState(message.answerPayload?.answer_markdown ?? message.content);
+  const [feedback, setFeedback] = useState<"up" | "down" | null>(null);
+  const [feedbackSent, setFeedbackSent] = useState(false);
+
+  const submitFeedback = useCallback(async (score: "up" | "down") => {
+    if (feedbackSent || !traceId || isPending) return;
+    setFeedback(score);
+    setFeedbackSent(true);
+    try {
+      await fetch("/api/advisor/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ traceId, score }),
+      });
+    } catch {
+      // Fire and forget — never surface observability errors to the user.
+    }
+  }, [feedbackSent, traceId, isPending]);
   const answerText = message.answerPayload?.answer_markdown ?? message.content;
 
   useEffect(() => {
@@ -372,6 +393,31 @@ function AdvisorAnswerCard({
             )}
 
             <p className="text-caption">{message.answerPayload.disclaimer}</p>
+
+            {!isPending && traceId && (
+              <div className="flex items-center gap-3 pt-1">
+                <p className="text-caption text-[var(--color-text-secondary)]">Was this helpful?</p>
+                <button
+                  aria-label="Helpful"
+                  className={`rounded-full p-1.5 transition-colors ${feedback === "up" ? "bg-[var(--haven-sage-light)] text-[var(--haven-ink)]" : "text-[var(--color-text-secondary)] hover:text-[var(--haven-ink)]"}`}
+                  disabled={feedbackSent}
+                  onClick={() => submitFeedback("up")}
+                >
+                  <ThumbsUp className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  aria-label="Not helpful"
+                  className={`rounded-full p-1.5 transition-colors ${feedback === "down" ? "bg-red-50 text-red-500" : "text-[var(--color-text-secondary)] hover:text-red-400"}`}
+                  disabled={feedbackSent}
+                  onClick={() => submitFeedback("down")}
+                >
+                  <ThumbsDown className="h-3.5 w-3.5" />
+                </button>
+                {feedbackSent && (
+                  <p className="text-caption text-[var(--color-text-secondary)]">Thanks for the feedback.</p>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
