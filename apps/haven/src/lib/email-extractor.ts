@@ -2,7 +2,7 @@ import OpenAI from "openai";
 import { z } from "zod";
 
 import { env } from "@/lib/env";
-import { flushLangfuse, getLangfuseClient, getPrompt } from "@/lib/langfuse";
+import { flushLangfuse, getEmailLangfuseClient, getPrompt } from "@/lib/langfuse";
 import type { EmailSourceType } from "@/types/domain";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -146,7 +146,8 @@ export async function extractEmailFields(input: {
   if (!client) return buildFallback(input.subject);
 
   const model = getChatModel();
-  const systemPrompt = await getPrompt("haven-email-extraction", SYSTEM_PROMPT);
+  const lf = getEmailLangfuseClient();
+  const systemPrompt = await getPrompt(lf, "haven-email-extraction", SYSTEM_PROMPT);
   const userMessage = [
     `From: ${input.sender}`,
     `Subject: ${input.subject}`,
@@ -154,7 +155,6 @@ export async function extractEmailFields(input: {
     input.body.slice(0, 8000).trim(), // cap to avoid token blowout
   ].join("\n");
 
-  const lf = getLangfuseClient();
   const trace = lf?.trace({ name: "email-extraction", input: { subject: input.subject, sender: input.sender } });
   const generation = trace?.generation({
     name: "openai-email-extraction",

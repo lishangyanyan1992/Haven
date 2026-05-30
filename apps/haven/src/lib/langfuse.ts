@@ -1,37 +1,35 @@
 /**
- * Langfuse LLM observability client + prompt management.
+ * Langfuse LLM observability — two separate projects:
+ *
+ *   haven-advisor        → LANGFUSE_SECRET_KEY / LANGFUSE_PUBLIC_KEY
+ *   haven-email-extraction → LANGFUSE_EMAIL_SECRET_KEY / LANGFUSE_EMAIL_PUBLIC_KEY
  *
  * IMPORTANT — serverless flush:
  * Vercel freezes the function immediately after the response is sent.
- * Langfuse's background flush interval never fires in this environment.
- * Always call `await flushLangfuse()` before returning from a route handler
- * or server action that makes AI calls.
+ * Always call `await flushLangfuse()` before returning from any route
+ * handler or server action that makes AI calls.
  *
  * PROMPT MANAGEMENT:
- * Prompts are fetched from Langfuse at runtime so you can edit them in
- * the Langfuse dashboard without redeploying. Falls back to the hardcoded
- * string if Langfuse is unavailable or the key isn't set.
- *
- * To update a prompt: go to Langfuse → Prompts → edit → publish a new version.
- * The next request will pick it up automatically (cached for 60s).
+ * Prompts are fetched from Langfuse at runtime (cached 60s) so you can
+ * edit them in the dashboard without redeploying.
  */
 import { Langfuse } from "langfuse";
 
 import { env } from "@/lib/env";
 
-let _client: Langfuse | null = null;
-let _attempted = false;
+// ── Advisor client ────────────────────────────────────────────────────────────
+
+let _advisor: Langfuse | null = null;
+let _advisorAttempted = false;
 
 export function getLangfuseClient(): Langfuse | null {
-  if (_attempted) return _client;
-  _attempted = true;
+  if (_advisorAttempted) return _advisor;
+  _advisorAttempted = true;
 
-  if (!env.LANGFUSE_SECRET_KEY || !env.LANGFUSE_PUBLIC_KEY) {
-    return null;
-  }
+  if (!env.LANGFUSE_SECRET_KEY || !env.LANGFUSE_PUBLIC_KEY) return null;
 
   try {
-    _client = new Langfuse({
+    _advisor = new Langfuse({
       secretKey: env.LANGFUSE_SECRET_KEY,
       publicKey: env.LANGFUSE_PUBLIC_KEY,
       baseUrl: env.LANGFUSE_BASE_URL ?? "https://cloud.langfuse.com",
@@ -39,23 +37,54 @@ export function getLangfuseClient(): Langfuse | null {
       flushInterval: 0,
     });
   } catch {
-    _client = null;
+    _advisor = null;
   }
 
-  return _client;
+  return _advisor;
 }
 
-/**
- * Fetch a prompt from Langfuse by name (label: "production").
- * Returns the prompt text, or the fallback string if unavailable.
- * Results are cached in-process for ~60 seconds by the Langfuse SDK.
- */
-export async function getPrompt(name: string, fallback: string): Promise<string> {
-  const lf = getLangfuseClient();
-  if (!lf) return fallback;
+// ── Email extraction client ───────────────────────────────────────────────────
+
+let _email: Langfuse | null = null;
+let _emailAttempted = false;
+
+export function getEmailLangfuseClient(): Langfuse | null {
+  if (_emailAttempted) return _email;
+  _emailAttempted = true;
+
+  if (!env.LANGFUSE_EMAIL_SECRET_KEY || !env.LANGFUSE_EMAIL_PUBLIC_KEY) return null;
 
   try {
-    const prompt = await lf.getPrompt(name, undefined, { label: "production", cacheTtlSeconds: 60 });
+    _email = new Langfuse({
+      secretKey: env.LANGFUSE_EMAIL_SECRET_KEY,
+      publicKey: env.LANGFUSE_EMAIL_PUBLIC_KEY,
+      baseUrl: env.LANGFUSE_BASE_URL ?? "https://cloud.langfuse.com",
+      flushAt: 1,
+      flushInterval: 0,
+    });
+  } catch {
+    _email = null;
+  }
+
+  return _email;
+}
+
+// ── Prompt management ─────────────────────────────────────────────────────────
+
+/**
+ * Fetch a prompt from a Langfuse project by name (label: "production").
+ * Falls back to the hardcoded string if Langfuse is unavailable.
+ * Cached for 60s — edits in the dashboard take effect within 1 minute.
+ */
+export async function getPrompt(
+  client: Langfuse | null,
+  name: string,
+  fallback: string
+): Promise<string> {
+  if (!client) return fallback;
+
+  try {
+    const prompt = await client.getPrompt(name, undefined, { label: "production", cacheTtlSeconds: 60 });
     const compiled = prompt.compile();
     return typeof compiled === "string" ? compiled : fallback;
   } catch {
@@ -63,14 +92,18 @@ export async function getPrompt(name: string, fallback: string): Promise<string>
   }
 }
 
+// ── Flush ─────────────────────────────────────────────────────────────────────
+
 /**
- * Call this before returning from any serverless route/action that uses
- * Langfuse. Waits for all buffered traces to be sent to the API.
+ * Flush all pending traces for both clients before the serverless function exits.
  */
 export async function flushLangfuse(): Promise<void> {
   try {
-    await _client?.flushAsync();
+    await Promise.all([
+      _advisor?.flushAsync(),
+      _email?.flushAsync(),
+    ]);
   } catch {
-    // Never let an observability flush block or crash the response.
+    // Never let observability block or crash the response.
   }
 }

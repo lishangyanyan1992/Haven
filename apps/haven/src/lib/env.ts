@@ -28,7 +28,9 @@ const envSchema = z.object({
   INDEXNOW_SECRET: z.string().optional(),
   LANGFUSE_SECRET_KEY: z.string().optional(),
   LANGFUSE_PUBLIC_KEY: z.string().optional(),
-  LANGFUSE_BASE_URL: z.string().optional()
+  LANGFUSE_BASE_URL: z.string().optional(),
+  LANGFUSE_EMAIL_SECRET_KEY: z.string().optional(),
+  LANGFUSE_EMAIL_PUBLIC_KEY: z.string().optional()
 });
 
 export const env = envSchema.parse({
@@ -59,7 +61,9 @@ export const env = envSchema.parse({
   INDEXNOW_SECRET: process.env.INDEXNOW_SECRET,
   LANGFUSE_SECRET_KEY: process.env.LANGFUSE_SECRET_KEY,
   LANGFUSE_PUBLIC_KEY: process.env.LANGFUSE_PUBLIC_KEY,
-  LANGFUSE_BASE_URL: process.env.LANGFUSE_BASE_URL
+  LANGFUSE_BASE_URL: process.env.LANGFUSE_BASE_URL,
+  LANGFUSE_EMAIL_SECRET_KEY: process.env.LANGFUSE_EMAIL_SECRET_KEY,
+  LANGFUSE_EMAIL_PUBLIC_KEY: process.env.LANGFUSE_EMAIL_PUBLIC_KEY
 });
 
 export const hasSupabaseEnv = Boolean(env.NEXT_PUBLIC_SUPABASE_URL && env.NEXT_PUBLIC_SUPABASE_ANON_KEY);

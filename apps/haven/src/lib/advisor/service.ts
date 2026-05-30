@@ -641,7 +641,7 @@ async function generateAdvisorAnswer(input: {
     "Only answer work visa, green card, or Haven product questions. Refuse unrelated topics."
   ].join(" ");
 
-  const systemPrompt = await getPrompt("haven-advisor-system", ADVISOR_SYSTEM_FALLBACK);
+  const systemPrompt = await getPrompt(getLangfuseClient(), "haven-advisor-system", ADVISOR_SYSTEM_FALLBACK);
 
   const prompt = [
     `User question:\n${input.question}`,
