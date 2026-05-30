@@ -764,7 +764,7 @@ export async function respondToAdvisorMessage(rawInput: {
   // Create a top-level Langfuse trace that spans the entire request.
   const lf = getLangfuseClient();
   const traceId = conversationId ?? crypto.randomUUID();
-  lf?.trace({ id: traceId, name: "advisor-session", input: { question: content } });
+  lf?.trace({ id: traceId, name: "advisor-session", input: { question: content }, userId: identity.isMock ? undefined : identity.id });
 
   const moderation = await moderateMessage(content, traceId);
   const snapshot = await getSnapshot();
