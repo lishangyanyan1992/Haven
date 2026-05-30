@@ -25,6 +25,8 @@ export const advisorAnswerJsonSchema = {
   schema: {
     type: "object",
     additionalProperties: false,
+    // strict mode: every property must be in required.
+    // Optional fields use ["string", "null"] so the model can return null.
     required: [
       "answer_markdown",
       "confidence",
@@ -32,7 +34,8 @@ export const advisorAnswerJsonSchema = {
       "external_citations",
       "haven_context_used",
       "community_context_used",
-      "follow_up_questions"
+      "follow_up_questions",
+      "refusal_or_escalation_reason"
     ],
     properties: {
       answer_markdown: { type: "string" },
@@ -43,12 +46,12 @@ export const advisorAnswerJsonSchema = {
         items: {
           type: "object",
           additionalProperties: false,
-          required: ["kind", "label", "citationIndex"],
+          required: ["kind", "label", "url", "quote", "citationIndex"],
           properties: {
             kind: { type: "string", enum: ["external", "haven", "community"] },
             label: { type: "string" },
-            url: { type: "string" },
-            quote: { type: "string" },
+            url: { type: ["string", "null"] },
+            quote: { type: ["string", "null"] },
             citationIndex: { type: "integer", minimum: 0 }
           }
         }
@@ -65,7 +68,7 @@ export const advisorAnswerJsonSchema = {
         type: "array",
         items: { type: "string" }
       },
-      refusal_or_escalation_reason: { type: "string" }
+      refusal_or_escalation_reason: { type: ["string", "null"] }
     }
   }
 } as const;
