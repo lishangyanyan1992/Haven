@@ -556,6 +556,11 @@ function getAllowedReviewerEmails() {
   );
 }
 
+function hasReviewerAccess(email: string) {
+  const allowedEmails = getAllowedReviewerEmails();
+  return allowedEmails.size > 0 && allowedEmails.has(email);
+}
+
 async function requireReviewer() {
   const supabase = await createSupabaseServerClient();
   const {
@@ -566,10 +571,9 @@ async function requireReviewer() {
     throw new Error("Authentication required.");
   }
 
-  const allowedEmails = getAllowedReviewerEmails();
   const email = user.email?.toLowerCase() ?? "";
 
-  if (allowedEmails.size > 0 && !allowedEmails.has(email)) {
+  if (!hasReviewerAccess(email)) {
     throw new Error("Reviewer access required.");
   }
 

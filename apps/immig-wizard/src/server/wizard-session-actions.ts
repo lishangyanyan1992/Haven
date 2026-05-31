@@ -2,6 +2,7 @@
 
 import { createSupabaseServerClient } from "@haven/auth/server";
 
+import { stripSensitiveSupplements } from "@/lib/storage";
 import type { FormSupplementAnswers, WizardState } from "@/types/wizard";
 
 const DEFAULT_FILING_SLUG = "marriage-green-card-adjustment-of-status";
@@ -33,7 +34,15 @@ export async function getWizardSessionAction(filingSlug = DEFAULT_FILING_SLUG) {
     throw new Error(error.message);
   }
 
-  return { authenticated: true as const, session: data };
+  return {
+    authenticated: true as const,
+    session: data
+      ? {
+          ...data,
+          supplements: stripSensitiveSupplements((data.supplements ?? {}) as FormSupplementAnswers)
+        }
+      : data
+  };
 }
 
 export async function upsertWizardSessionAction(payload: WizardSessionPayload) {
@@ -48,7 +57,7 @@ export async function upsertWizardSessionAction(payload: WizardSessionPayload) {
 
   const filingSlug = payload.filingSlug ?? DEFAULT_FILING_SLUG;
   const wizardState = payload.wizardState;
-  const supplements = payload.supplements;
+  const supplements = stripSensitiveSupplements(payload.supplements);
 
   const { error } = await supabase.from("wizard_sessions").upsert(
     {

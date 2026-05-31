@@ -11,8 +11,10 @@ export const runtime = "nodejs";
 // Limits abuse from a single IP within a warm Vercel function instance.
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_REQUESTS = 20;
+const MAILGUN_SIGNATURE_WINDOW_MS = 15 * 60_000;
 interface RateEntry { count: number; windowStart: number }
 const rateLimitStore = new Map<string, RateEntry>();
+const usedMailgunTokens = new Map<string, number>();
 
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
@@ -30,6 +32,42 @@ function checkRateLimit(ip: string): boolean {
   return entry.count <= RATE_LIMIT_MAX_REQUESTS;
 }
 
+function pruneUsedMailgunTokens(now: number) {
+  if (usedMailgunTokens.size < 500) return;
+  for (const [token, seenAt] of usedMailgunTokens) {
+    if (now - seenAt > MAILGUN_SIGNATURE_WINDOW_MS) {
+      usedMailgunTokens.delete(token);
+    }
+  }
+}
+
+function markMailgunTokenUsed(token: string, now: number) {
+  pruneUsedMailgunTokens(now);
+  usedMailgunTokens.set(token, now);
+}
+
+function isMailgunTokenReplayed(token: string, now: number) {
+  pruneUsedMailgunTokens(now);
+  const seenAt = usedMailgunTokens.get(token);
+  if (seenAt == null) return false;
+  return now - seenAt <= MAILGUN_SIGNATURE_WINDOW_MS;
+}
+
+function safeCompareHex(left: string, right: string) {
+  if (!/^[a-f0-9]+$/i.test(left) || !/^[a-f0-9]+$/i.test(right)) {
+    return false;
+  }
+
+  const leftBuffer = Buffer.from(left, "hex");
+  const rightBuffer = Buffer.from(right, "hex");
+
+  if (leftBuffer.length === 0 || leftBuffer.length !== rightBuffer.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(leftBuffer, rightBuffer);
+}
+
 function verifyMailgunSignature(
   signingKey: string,
   timestamp: string,
@@ -40,7 +78,19 @@ function verifyMailgunSignature(
     .createHmac("sha256", signingKey)
     .update(timestamp + token)
     .digest("hex");
-  return expected === signature;
+  return safeCompareHex(expected, signature);
+}
+
+function isFreshMailgunTimestamp(timestamp: string, now: number) {
+  const parsedSeconds = Number(timestamp);
+  if (!Number.isFinite(parsedSeconds)) return false;
+
+  const ageMs = Math.abs(now - parsedSeconds * 1000);
+  return ageMs <= MAILGUN_SIGNATURE_WINDOW_MS;
+}
+
+function redactForLogs(value: string) {
+  return crypto.createHash("sha256").update(value).digest("hex").slice(0, 12);
 }
 
 /** Parse "Display Name <email@example.com>" or plain "email@example.com" */
@@ -84,6 +134,7 @@ export async function POST(request: NextRequest) {
   const timestamp = String(formData.get("timestamp") ?? "");
   const token = String(formData.get("token") ?? "");
   const signature = String(formData.get("signature") ?? "");
+  const nowMs = Date.now();
 
   // Verify HMAC signature — 503 tells Mailgun to retry (misconfiguration); 406 = permanent reject
   if (!signingKey) {
@@ -94,10 +145,19 @@ export async function POST(request: NextRequest) {
     console.error("[email-ingest] missing signature fields");
     return NextResponse.json({ error: "missing_signature_fields" }, { status: 406 });
   }
+  if (!isFreshMailgunTimestamp(timestamp, nowMs)) {
+    console.error("[email-ingest] stale signature timestamp");
+    return NextResponse.json({ error: "stale_signature" }, { status: 406 });
+  }
+  if (isMailgunTokenReplayed(token, nowMs)) {
+    console.error("[email-ingest] replayed token rejected");
+    return NextResponse.json({ error: "replayed_signature" }, { status: 406 });
+  }
   if (!verifyMailgunSignature(signingKey, timestamp, token, signature)) {
     console.error("[email-ingest] invalid signature — check MAILGUN_WEBHOOK_SIGNING_KEY");
     return NextResponse.json({ error: "invalid_signature" }, { status: 406 });
   }
+  markMailgunTokenUsed(token, nowMs);
 
   const recipient = String(formData.get("recipient") ?? "").toLowerCase().trim();
   const rawSender = String(formData.get("sender") ?? formData.get("from") ?? "");
@@ -109,7 +169,7 @@ export async function POST(request: NextRequest) {
 
   const { email: senderEmail, name: senderName } = parseSender(rawSender);
 
-  console.log(`[email-ingest] received — recipient: ${recipient}, subject: ${subject}, sender: ${senderEmail}`);
+  const recipientLogId = recipient ? redactForLogs(recipient) : "missing";
 
   if (!recipient) {
     console.error("[email-ingest] no recipient in payload");
@@ -136,11 +196,10 @@ export async function POST(request: NextRequest) {
   }
 
   if (!aliasRow) {
-    console.warn(`[email-ingest] unknown alias: "${recipient}" — no matching row in email_aliases`);
+    console.warn(`[email-ingest] unknown alias recipient=${recipientLogId}`);
     return NextResponse.json({ status: "unknown_alias" }, { status: 200 });
   }
 
-  console.log(`[email-ingest] alias matched user_id: ${aliasRow.user_id}`);
   const userId: string = aliasRow.user_id;
   const now = new Date().toISOString();
 
@@ -223,7 +282,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ status: "ok" }, { status: 200 });
   }
 
-  console.log(`[email-ingest] record saved — id: ${record.id}, thread: ${threadId}, contact: ${contactId}`);
+  console.log(`[email-ingest] record saved id=${record.id} recipient=${recipientLogId}`);
 
   // Insert extracted fields
   if (extraction.fields.length > 0) {

@@ -25,6 +25,11 @@ function getAllowedReviewerEmails() {
   );
 }
 
+function hasReviewerAccess(email: string) {
+  const allowedEmails = getAllowedReviewerEmails();
+  return allowedEmails.size > 0 && allowedEmails.has(email);
+}
+
 function readObject(value: Json) {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
 }
@@ -67,10 +72,9 @@ export default async function CommunityImportDetailPage({
     redirect(`/login?redirectTo=/admin/community-imports/${id}`);
   }
 
-  const allowedEmails = getAllowedReviewerEmails();
   const email = user.email?.toLowerCase() ?? "";
 
-  if (allowedEmails.size > 0 && !allowedEmails.has(email)) {
+  if (!hasReviewerAccess(email)) {
     redirect("/dashboard");
   }
 

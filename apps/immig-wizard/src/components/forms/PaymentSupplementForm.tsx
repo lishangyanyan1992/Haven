@@ -39,7 +39,7 @@ export function PaymentSupplementForm({ value, onChange }: PaymentSupplementForm
           <h3 className="text-sm font-semibold text-foreground">Form G-1450 payment details</h3>
           <p className="text-xs leading-6 text-muted-foreground">
             These credit card fields are required because you selected payment by credit card. They stay only in this
-            page state and are not saved to local storage.
+            browser session and are cleared on refresh or reload.
           </p>
         </div>
       </div>
