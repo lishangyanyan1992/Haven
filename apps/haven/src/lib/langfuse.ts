@@ -107,6 +107,13 @@ export type ResolvedPrompt = {
   prompt?: LangfusePromptClient;
 };
 
+type PromptSeed = {
+  fallback: string;
+  name: string;
+};
+
+const SEEDED_PROMPTS = new WeakMap<Langfuse, Set<string>>();
+
 /**
  * Fetch a prompt from a Langfuse project by name (label: "production").
  * Falls back to the hardcoded string if Langfuse is unavailable.
@@ -130,6 +137,57 @@ export async function getPrompt(
   } catch {
     return { text: fallback };
   }
+}
+
+/**
+ * Ensure a text prompt exists in Langfuse and return it.
+ * If the prompt is missing in the project, seed a production-labeled version
+ * from the fallback text so prompt management becomes visible immediately.
+ */
+export async function getOrCreatePrompt(
+  client: Langfuse | null,
+  name: string,
+  fallback: string
+): Promise<ResolvedPrompt> {
+  if (!client) return { text: fallback };
+
+  const cache = SEEDED_PROMPTS.get(client) ?? new Set<string>();
+  if (!SEEDED_PROMPTS.has(client)) {
+    SEEDED_PROMPTS.set(client, cache);
+  }
+
+  const resolved = await getPrompt(client, name, fallback);
+  if (resolved.prompt || cache.has(name)) {
+    return resolved;
+  }
+
+  try {
+    const created = await client.createPrompt({
+      labels: ["production"],
+      name,
+      prompt: fallback,
+      type: "text"
+    });
+
+    cache.add(name);
+    const compiled = created.compile();
+    return { text: typeof compiled === "string" ? compiled : fallback, prompt: created };
+  } catch {
+    return resolved;
+  }
+}
+
+export async function ensurePrompts(
+  client: Langfuse | null,
+  prompts: PromptSeed[]
+): Promise<void> {
+  if (!client || prompts.length === 0) return;
+
+  await Promise.all(
+    prompts.map(async ({ name, fallback }) => {
+      await getOrCreatePrompt(client, name, fallback);
+    })
+  );
 }
 
 // ── Flush ─────────────────────────────────────────────────────────────────────

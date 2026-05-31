@@ -7,6 +7,9 @@ import OpenAI from "openai";
 
 const SOURCE = "reddit";
 const LEGAL_CAVEAT = "Community experience only, not legal advice.";
+const STORY_DRAFT_GENERATION_PROMPT = "haven-story-draft-generation";
+const STORY_DRAFT_GENERATION_FALLBACK =
+  "You transform immigration forum stories into anonymized review drafts for a public community forum.";
 
 function readObject(value) {
   return typeof value === "object" && value !== null ? value : {};
@@ -39,6 +42,34 @@ function getStoryLangfuseClient() {
     flushAt: 1,
     flushInterval: 0
   });
+}
+
+async function getLangfusePrompt(langfuse, name, fallback) {
+  if (!langfuse) {
+    return { prompt: undefined, text: fallback };
+  }
+
+  try {
+    const prompt = await langfuse.getPrompt(name, undefined, {
+      label: "production",
+      cacheTtlSeconds: 60
+    });
+    const compiled = prompt.compile();
+    return { prompt, text: typeof compiled === "string" ? compiled : fallback };
+  } catch {
+    try {
+      const prompt = await langfuse.createPrompt({
+        labels: ["production"],
+        name,
+        prompt: fallback,
+        type: "text"
+      });
+      const compiled = prompt.compile();
+      return { prompt, text: typeof compiled === "string" ? compiled : fallback };
+    } catch {
+      return { prompt: undefined, text: fallback };
+    }
+  }
 }
 
 function summarizeStorySource(story) {
@@ -123,6 +154,11 @@ function buildPublicAuthorLabel(index) {
 }
 
 async function generateDraft(openai, model, story, index, observability = {}) {
+  const promptResult = await getLangfusePrompt(
+    observability.langfuse,
+    STORY_DRAFT_GENERATION_PROMPT,
+    STORY_DRAFT_GENERATION_FALLBACK
+  );
   const prompt = [
     "Create a safe public forum draft from this immigration community story.",
     "Requirements:",
@@ -152,7 +188,8 @@ async function generateDraft(openai, model, story, index, observability = {}) {
   const generation = trace?.generation({
     input: summarizeStorySource(story),
     model,
-    name: "openai-draft-generation"
+    name: "openai-draft-generation",
+    prompt: promptResult.prompt
   });
 
   const response = await openai.responses.create({
@@ -160,7 +197,7 @@ async function generateDraft(openai, model, story, index, observability = {}) {
     input: [
       {
         role: "system",
-        content: [{ type: "input_text", text: "You transform immigration forum stories into anonymized review drafts for a public community forum." }]
+        content: [{ type: "input_text", text: promptResult.text }]
       },
       {
         role: "user",

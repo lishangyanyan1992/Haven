@@ -5,7 +5,7 @@ import OpenAI from "openai";
 
 import { buildAnonymousCommentAuthor, readPublishDraft } from "@/lib/community-imports";
 import { env } from "@/lib/env";
-import { flushLangfuse, getPrompt, getStoryLangfuseClient } from "@/lib/langfuse";
+import { flushLangfuse, getOrCreatePrompt, getStoryLangfuseClient } from "@/lib/langfuse";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
@@ -124,6 +124,9 @@ function getChatModel() {
 const COMMUNITY_COMMENT_REWRITE_FALLBACK = "You rewrite forum comments into concise paraphrases.";
 const COMMUNITY_POST_REWRITE_FALLBACK = "You rewrite forum posts into less identifiable public summaries while preserving the same meaning.";
 const COMMUNITY_AUTO_REVIEW_FALLBACK = "You are a strict QA reviewer for anonymized forum rewrites.";
+const STORY_COMMENT_REWRITE_PROMPT = "haven-story-comment-rewrite";
+const STORY_POST_REWRITE_PROMPT = "haven-story-post-rewrite";
+const STORY_AUTO_REVIEW_PROMPT = "haven-story-auto-review";
 
 function summarizeList(items: string[]) {
   return items.filter(Boolean).join(" | ");
@@ -146,7 +149,7 @@ async function rewriteCommentBodiesWithAI(
 
   const lf = getStoryLangfuseClient();
   const model = getChatModel();
-  const { text: systemPrompt, prompt: lfPrompt } = await getPrompt(lf, "haven-community-comment-rewrite", COMMUNITY_COMMENT_REWRITE_FALLBACK);
+  const { text: systemPrompt, prompt: lfPrompt } = await getOrCreatePrompt(lf, STORY_COMMENT_REWRITE_PROMPT, COMMUNITY_COMMENT_REWRITE_FALLBACK);
 
   const prompt = [
     "Rewrite each community comment so it keeps the same meaning and practical advice but does not copy the original wording.",
@@ -324,7 +327,7 @@ async function rewriteForumPostWithAI(params: {
 
   const lf = getStoryLangfuseClient();
   const model = getChatModel();
-  const { text: systemPrompt, prompt: lfPrompt } = await getPrompt(lf, "haven-community-post-rewrite", COMMUNITY_POST_REWRITE_FALLBACK);
+  const { text: systemPrompt, prompt: lfPrompt } = await getOrCreatePrompt(lf, STORY_POST_REWRITE_PROMPT, COMMUNITY_POST_REWRITE_FALLBACK);
 
   const prompt = [
     "Rewrite this forum post so it is meaningfully less identifiable than the original source while preserving the same first-person situation and the main questions.",
@@ -515,7 +518,7 @@ async function evaluatePreparedCommunityImport(params: {
 
   const lf = getStoryLangfuseClient();
   const model = getChatModel();
-  const { text: systemPrompt, prompt: lfPrompt } = await getPrompt(lf, "haven-community-auto-review", COMMUNITY_AUTO_REVIEW_FALLBACK);
+  const { text: systemPrompt, prompt: lfPrompt } = await getOrCreatePrompt(lf, STORY_AUTO_REVIEW_PROMPT, COMMUNITY_AUTO_REVIEW_FALLBACK);
 
   const prompt = [
     "Review whether this rewritten community post and its rewritten comments are safe to auto-publish.",
