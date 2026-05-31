@@ -5,6 +5,7 @@ import OpenAI from "openai";
 
 import { buildAnonymousCommentAuthor, readPublishDraft } from "@/lib/community-imports";
 import { env } from "@/lib/env";
+import { flushLangfuse, getLangfuseClient, getPrompt } from "@/lib/langfuse";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -112,6 +113,10 @@ function getChatModel() {
   return env.OPENAI_CHAT_MODEL ?? "gpt-4o-mini";
 }
 
+const COMMUNITY_COMMENT_REWRITE_FALLBACK = "You rewrite forum comments into concise paraphrases.";
+const COMMUNITY_POST_REWRITE_FALLBACK = "You rewrite forum posts into less identifiable public summaries while preserving the same meaning.";
+const COMMUNITY_AUTO_REVIEW_FALLBACK = "You are a strict QA reviewer for anonymized forum rewrites.";
+
 function summarizeList(items: string[]) {
   return items.filter(Boolean).join(" | ");
 }
@@ -122,6 +127,10 @@ async function rewriteCommentBodiesWithAI(commentBodies: string[]) {
   if (!client || commentBodies.length === 0) {
     return commentBodies;
   }
+
+  const lf = getLangfuseClient();
+  const model = getChatModel();
+  const { text: systemPrompt, prompt: lfPrompt } = await getPrompt(lf, "haven-community-comment-rewrite", COMMUNITY_COMMENT_REWRITE_FALLBACK);
 
   const prompt = [
     "Rewrite each community comment so it keeps the same meaning and practical advice but does not copy the original wording.",
@@ -136,13 +145,21 @@ async function rewriteCommentBodiesWithAI(commentBodies: string[]) {
     JSON.stringify({ comments: commentBodies })
   ].join("\n");
 
+  const trace = lf?.trace({ name: "community-comment-rewrite", input: { count: commentBodies.length } });
+  const generation = trace?.generation({
+    name: "openai-comment-rewrite",
+    model,
+    prompt: lfPrompt,
+    input: [{ role: "system", content: systemPrompt }, { role: "user", content: prompt }],
+  });
+
   try {
     const response = await (client.responses.create as Function)({
-      model: getChatModel(),
+      model,
       input: [
         {
           role: "system",
-          content: [{ type: "input_text", text: "You rewrite forum comments into concise paraphrases." }]
+          content: [{ type: "input_text", text: systemPrompt }]
         },
         {
           role: "user",
@@ -185,12 +202,16 @@ async function rewriteCommentBodiesWithAI(commentBodies: string[]) {
       : [];
 
     if (rewritten.length === commentBodies.length) {
+      generation?.end({ output: { count: rewritten.length } });
+      await flushLangfuse();
       return rewritten;
     }
-  } catch {
-    // Fall back to normalized comments below.
+    generation?.end({ output: { fallback: true, reason: "count mismatch" } });
+  } catch (err) {
+    generation?.end({ output: { error: String(err) }, level: "ERROR" });
   }
 
+  await flushLangfuse();
   return commentBodies;
 }
 
@@ -263,6 +284,10 @@ async function rewriteForumPostWithAI(params: {
     return fallback;
   }
 
+  const lf = getLangfuseClient();
+  const model = getChatModel();
+  const { text: systemPrompt, prompt: lfPrompt } = await getPrompt(lf, "haven-community-post-rewrite", COMMUNITY_POST_REWRITE_FALLBACK);
+
   const prompt = [
     "Rewrite this forum post so it is meaningfully less identifiable than the original source while preserving the same first-person situation and the main questions.",
     "Requirements:",
@@ -282,13 +307,21 @@ async function rewriteForumPostWithAI(params: {
     })
   ].join("\n");
 
+  const trace = lf?.trace({ name: "community-post-rewrite", input: { sourceTitle: params.sourceTitle } });
+  const generation = trace?.generation({
+    name: "openai-post-rewrite",
+    model,
+    prompt: lfPrompt,
+    input: [{ role: "system", content: systemPrompt }, { role: "user", content: prompt }],
+  });
+
   try {
     const response = await (client.responses.create as Function)({
-      model: getChatModel(),
+      model,
       input: [
         {
           role: "system",
-          content: [{ type: "input_text", text: "You rewrite forum posts into less identifiable public summaries while preserving the same meaning." }]
+          content: [{ type: "input_text", text: systemPrompt }]
         },
         {
           role: "user",
@@ -322,12 +355,16 @@ async function rewriteForumPostWithAI(params: {
     const body = normalizePostBody(readString(parsed.body));
 
     if (title && body) {
+      generation?.end({ output: { title: title.slice(0, 80) } });
+      await flushLangfuse();
       return { title, body };
     }
-  } catch {
-    // Fall back to deterministic rewrite below.
+    generation?.end({ output: { fallback: true, reason: "empty title or body" } });
+  } catch (err) {
+    generation?.end({ output: { error: String(err) }, level: "ERROR" });
   }
 
+  await flushLangfuse();
   return fallback;
 }
 
@@ -400,6 +437,10 @@ async function evaluatePreparedCommunityImport(params: {
     });
   }
 
+  const lf = getLangfuseClient();
+  const model = getChatModel();
+  const { text: systemPrompt, prompt: lfPrompt } = await getPrompt(lf, "haven-community-auto-review", COMMUNITY_AUTO_REVIEW_FALLBACK);
+
   const prompt = [
     "Review whether this rewritten community post and its rewritten comments are safe to auto-publish.",
     "Approve only if:",
@@ -419,13 +460,21 @@ async function evaluatePreparedCommunityImport(params: {
     })
   ].join("\n");
 
+  const trace = lf?.trace({ name: "community-auto-review" });
+  const generation = trace?.generation({
+    name: "openai-auto-review",
+    model,
+    prompt: lfPrompt,
+    input: [{ role: "system", content: systemPrompt }, { role: "user", content: prompt }],
+  });
+
   try {
     const response = await (client.responses.create as Function)({
-      model: getChatModel(),
+      model,
       input: [
         {
           role: "system",
-          content: [{ type: "input_text", text: "You are a strict QA reviewer for anonymized forum rewrites." }]
+          content: [{ type: "input_text", text: systemPrompt }]
         },
         {
           role: "user",
@@ -471,15 +520,20 @@ async function evaluatePreparedCommunityImport(params: {
     const parsed = JSON.parse((response as { output_text?: string }).output_text ?? "{}") as AutoReviewVerdict;
 
     if (typeof parsed.approve === "boolean" && typeof parsed.summary === "string") {
-      return {
+      const result = {
         ...parsed,
         issues: Array.isArray(parsed.issues) ? parsed.issues.filter((issue) => typeof issue === "string" && issue.trim().length > 0) : []
       };
+      generation?.end({ output: { approve: result.approve, confidence: result.confidence } });
+      await flushLangfuse();
+      return result;
     }
-  } catch {
-    // Fall back to deterministic review below.
+    generation?.end({ output: { fallback: true, reason: "invalid response shape" } });
+  } catch (err) {
+    generation?.end({ output: { error: String(err) }, level: "ERROR" });
   }
 
+  await flushLangfuse();
   return fallbackAutoReviewVerdict({
     publishedBody: params.publishedDraft.body,
     publishedComments,
