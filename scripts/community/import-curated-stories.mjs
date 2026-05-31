@@ -1,6 +1,8 @@
 import fs from "node:fs/promises";
+import crypto from "node:crypto";
 
 import { createClient } from "@supabase/supabase-js";
+import { Langfuse } from "langfuse";
 import OpenAI from "openai";
 
 const SOURCE = "reddit";
@@ -12,6 +14,86 @@ function readObject(value) {
 
 function readString(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function stableHash(value) {
+  return value ? crypto.createHash("sha256").update(value).digest("hex") : null;
+}
+
+function createTraceId() {
+  return crypto.randomUUID();
+}
+
+function getStoryLangfuseClient() {
+  const secretKey = process.env.LANGFUSE_STORY_SECRET_KEY;
+  const publicKey = process.env.LANGFUSE_STORY_PUBLIC_KEY;
+
+  if (!secretKey || !publicKey) {
+    return null;
+  }
+
+  return new Langfuse({
+    secretKey,
+    publicKey,
+    baseUrl: process.env.LANGFUSE_BASE_URL ?? "https://cloud.langfuse.com",
+    flushAt: 1,
+    flushInterval: 0
+  });
+}
+
+function summarizeStorySource(story) {
+  const sourceUrl = readString(story.source_url);
+  const comments = Array.isArray(story.comments) ? story.comments.map(readString).filter(Boolean) : [];
+  let sourceDomain = null;
+
+  try {
+    sourceDomain = sourceUrl ? new URL(sourceUrl).hostname : null;
+  } catch {
+    sourceDomain = null;
+  }
+
+  return {
+    body_hash: stableHash(readString(story.body)),
+    body_length: readString(story.body).length,
+    comment_count: comments.length,
+    comment_hashes: comments.map(stableHash).filter(Boolean),
+    comment_lengths: comments.map((comment) => comment.length),
+    source_domain: sourceDomain,
+    source_url: sourceUrl || null,
+    title_hash: stableHash(readString(story.title)),
+    title_length: readString(story.title).length
+  };
+}
+
+function trackStoryEvent(langfuse, params) {
+  if (!langfuse || !params.traceId) return;
+
+  try {
+    const trace = langfuse.trace({
+      id: params.traceId,
+      input: params.input,
+      metadata: params.metadata,
+      name: "story-pipeline",
+      sessionId: params.runId,
+      tags: ["story-pipeline", params.source ?? "unknown-source"]
+    });
+
+    const event = trace?.event;
+    if (typeof event === "function") {
+      event.call(trace, {
+        input: params.input,
+        metadata: params.metadata,
+        name: params.name,
+        output: params.output
+      });
+      return;
+    }
+
+    const span = trace?.span({ input: params.input, metadata: params.metadata, name: params.name });
+    span?.end({ output: params.output });
+  } catch {
+    // Observability must never break imports.
+  }
 }
 
 function normalizeCommentBody(body) {
@@ -40,7 +122,7 @@ function buildPublicAuthorLabel(index) {
   return `Haven_User_${String(500 + index).padStart(3, "0")}`;
 }
 
-async function generateDraft(openai, model, story, index) {
+async function generateDraft(openai, model, story, index, observability = {}) {
   const prompt = [
     "Create a safe public forum draft from this immigration community story.",
     "Requirements:",
@@ -56,6 +138,22 @@ async function generateDraft(openai, model, story, index) {
     "",
     JSON.stringify(story)
   ].join("\n");
+
+  const trace = observability.langfuse?.trace({
+    id: observability.traceId,
+    input: summarizeStorySource(story),
+    metadata: {
+      source: observability.source,
+      source_story_id: story.source_story_id
+    },
+    name: "community-draft-generation",
+    tags: ["story-pipeline", observability.source ?? SOURCE]
+  });
+  const generation = trace?.generation({
+    input: summarizeStorySource(story),
+    model,
+    name: "openai-draft-generation"
+  });
 
   const response = await openai.responses.create({
     model,
@@ -134,7 +232,7 @@ async function generateDraft(openai, model, story, index) {
         .filter(Boolean)
     : [];
 
-  return {
+  const publishDraft = {
     version: 1,
     public_author_label: buildPublicAuthorLabel(index + 1),
     title: readString(parsed.title),
@@ -154,6 +252,19 @@ async function generateDraft(openai, model, story, index) {
     moderation_flags: Array.isArray(parsed.moderation_flags) ? parsed.moderation_flags.map(readString).filter(Boolean) : [],
     publish_ready: Boolean(parsed.publish_ready)
   };
+
+  generation?.end({
+    output: {
+      comment_count: comments.length,
+      moderation_flag_count: publishDraft.moderation_flags.length,
+      privacy_flag_count: publishDraft.privacy_flags.length,
+      publish_ready: publishDraft.publish_ready,
+      quality_score: publishDraft.quality_score,
+      tag_count: publishDraft.tags.length
+    }
+  });
+
+  return publishDraft;
 }
 
 async function getDefaultCommunitySpaceId(supabase) {
@@ -345,12 +456,33 @@ async function main() {
   const model = process.env.OPENAI_CHAT_MODEL ?? "gpt-4o-mini";
   const source = readString(batch.source) || SOURCE;
   const note = readString(batch.note);
+  const langfuse = getStoryLangfuseClient();
+  const runTraceId = createTraceId();
+
+  trackStoryEvent(langfuse, {
+    input: {
+      batch_path: batchPath,
+      story_count: batch.stories.length
+    },
+    name: "curated-import.started",
+    output: {
+      source
+    },
+    source,
+    traceId: runTraceId
+  });
 
   const generated = [];
   for (let index = 0; index < batch.stories.length; index += 1) {
     const story = batch.stories[index];
-    const publishDraft = await generateDraft(openai, model, story, index);
+    const traceId = createTraceId();
+    const publishDraft = await generateDraft(openai, model, story, index, {
+      langfuse,
+      source,
+      traceId
+    });
     generated.push({
+      langfuse_trace_id: traceId,
       source_story_id: story.source_story_id,
       source_payload_private: {
         title: story.title,
@@ -367,13 +499,25 @@ async function main() {
         source_url: story.source_url,
         author_name: story.author_name ?? "Reddit user"
       },
-      publish_draft: publishDraft
+      publish_draft: publishDraft,
+      observability_metadata: {
+        source,
+        source_story_id: story.source_story_id,
+        source_summary: summarizeStorySource(story),
+        trace_id: traceId
+      }
     });
   }
 
   const { data: runRow, error: runInsertError } = await supabase
     .from("community_import_runs")
     .insert({
+      langfuse_trace_id: runTraceId,
+      observability_metadata: {
+        source,
+        trace_id: runTraceId,
+        transport: "curated_script"
+      },
       source,
       status: "received",
       item_count: generated.length,
@@ -389,6 +533,11 @@ async function main() {
 
   const rowsToUpsert = generated.map((item) => ({
     run_id: runRow.id,
+    langfuse_trace_id: item.langfuse_trace_id,
+    observability_metadata: {
+      ...item.observability_metadata,
+      run_id: runRow.id
+    },
     source,
     source_story_id: item.source_story_id,
     language: "en",
@@ -489,6 +638,20 @@ async function main() {
   if (runUpdateError) {
     throw new Error(runUpdateError.message);
   }
+
+  trackStoryEvent(langfuse, {
+    name: "curated-import.completed",
+    output: {
+      auto_approved: published.length,
+      imported: generated.length,
+      left_in_review: queued.length,
+      run_id: runRow.id
+    },
+    runId: runRow.id,
+    source,
+    traceId: runTraceId
+  });
+  await langfuse?.flushAsync();
 
   console.log(JSON.stringify({
     runId: runRow.id,

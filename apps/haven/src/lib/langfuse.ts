@@ -3,6 +3,7 @@
  *
  *   haven-advisor        → LANGFUSE_SECRET_KEY / LANGFUSE_PUBLIC_KEY
  *   haven-email-extraction → LANGFUSE_EMAIL_SECRET_KEY / LANGFUSE_EMAIL_PUBLIC_KEY
+ *   haven-story-ingestion → LANGFUSE_STORY_SECRET_KEY / LANGFUSE_STORY_PUBLIC_KEY
  *
  * IMPORTANT — serverless flush:
  * Vercel freezes the function immediately after the response is sent.
@@ -69,6 +70,32 @@ export function getEmailLangfuseClient(): Langfuse | null {
   return _email;
 }
 
+// ── Story ingestion client ───────────────────────────────────────────────────
+
+let _story: Langfuse | null = null;
+let _storyAttempted = false;
+
+export function getStoryLangfuseClient(): Langfuse | null {
+  if (_storyAttempted) return _story;
+  _storyAttempted = true;
+
+  if (!env.LANGFUSE_STORY_SECRET_KEY || !env.LANGFUSE_STORY_PUBLIC_KEY) return null;
+
+  try {
+    _story = new Langfuse({
+      secretKey: env.LANGFUSE_STORY_SECRET_KEY,
+      publicKey: env.LANGFUSE_STORY_PUBLIC_KEY,
+      baseUrl: env.LANGFUSE_BASE_URL ?? "https://cloud.langfuse.com",
+      flushAt: 1,
+      flushInterval: 0,
+    });
+  } catch {
+    _story = null;
+  }
+
+  return _story;
+}
+
 // ── Prompt management ─────────────────────────────────────────────────────────
 
 /**
@@ -115,6 +142,7 @@ export async function flushLangfuse(): Promise<void> {
     await Promise.all([
       _advisor?.flushAsync(),
       _email?.flushAsync(),
+      _story?.flushAsync(),
     ]);
   } catch {
     // Never let observability block or crash the response.

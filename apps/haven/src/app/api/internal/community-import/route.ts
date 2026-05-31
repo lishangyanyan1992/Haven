@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { env } from "@/lib/env";
+import {
+  buildStoryObservabilityMetadata,
+  createStoryTraceId,
+  trackStoryEvent
+} from "@/lib/story-observability";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Database, Json } from "@/types/database";
 
@@ -74,6 +79,14 @@ export async function POST(request: Request) {
   try {
     parsedBody = importRequestSchema.parse(await request.json());
   } catch (error) {
+    trackStoryEvent({
+      name: "community-import-api.validation-error",
+      output: {
+        error: error instanceof Error ? error.message : "Request body did not match the expected schema."
+      },
+      source: "unknown",
+      traceId: createStoryTraceId()
+    });
     return NextResponse.json(
       {
         error: "invalid_payload",
@@ -86,6 +99,21 @@ export async function POST(request: Request) {
   const admin = createSupabaseAdminClient();
   const { source } = parsedBody;
   const now = new Date().toISOString();
+  const runTraceId = createStoryTraceId();
+
+  trackStoryEvent({
+    input: {
+      item_count: parsedBody.items.length,
+      source
+    },
+    name: "community-import-api.received",
+    output: {
+      received: parsedBody.items.length
+    },
+    runId: null,
+    source,
+    traceId: runTraceId
+  });
 
   const dedupedItems = new Map<string, z.infer<typeof importItemSchema>>();
   let duplicateCount = 0;
@@ -105,6 +133,12 @@ export async function POST(request: Request) {
     const { data: runRow, error: runInsertError } = await admin
       .from("community_import_runs")
       .insert({
+        langfuse_trace_id: runTraceId,
+        observability_metadata: {
+          source,
+          trace_id: runTraceId,
+          transport: "internal_api"
+        },
         source,
         status: "received",
         item_count: parsedBody.items.length,
@@ -132,7 +166,21 @@ export async function POST(request: Request) {
     const insertedCount = uniqueItems.filter((item) => !existingIds.has(item.source_story_id)).length;
     const updatedCount = uniqueItems.length - insertedCount;
 
-    const rowsToUpsert: CommunityImportInsert[] = uniqueItems.map((item) => ({
+    const rowsToUpsert: CommunityImportInsert[] = uniqueItems.map((item) => {
+      const itemTraceId = createStoryTraceId();
+
+      return {
+        langfuse_trace_id: itemTraceId,
+        observability_metadata: buildStoryObservabilityMetadata({
+          language: item.language ?? null,
+          moderationStatus: item.publish_draft.publish_ready ? "pending" : "needs_revision",
+          publishReady: item.publish_draft.publish_ready,
+          runId: runRow.id,
+          source,
+          sourcePayloadPrivate: item.source_payload_private as Json,
+          sourceStoryId: item.source_story_id,
+          traceId: itemTraceId
+        }) as Json,
         run_id: runRow.id,
         source,
         source_story_id: item.source_story_id,
@@ -140,7 +188,8 @@ export async function POST(request: Request) {
         source_payload_private: item.source_payload_private as Json,
         publish_draft: item.publish_draft as Json,
         moderation_status: item.publish_draft.publish_ready ? "pending" : "needs_revision"
-      }));
+      };
+    });
 
     const { error: upsertError } = await admin.from("community_import_items").upsert(rowsToUpsert, {
       onConflict: "source,source_story_id"
@@ -149,6 +198,21 @@ export async function POST(request: Request) {
     if (upsertError) {
       throw new Error(upsertError.message);
     }
+
+    trackStoryEvent({
+      input: {
+        duplicate_count: duplicateCount,
+        unique_count: uniqueItems.length
+      },
+      name: "community-import-api.upserted",
+      output: {
+        inserted: insertedCount,
+        updated: updatedCount
+      },
+      runId: runRow.id,
+      source,
+      traceId: runTraceId
+    });
 
     const { error: runUpdateError } = await admin
       .from("community_import_runs")
@@ -174,6 +238,14 @@ export async function POST(request: Request) {
       runId: runRow.id
     });
   } catch (error) {
+    trackStoryEvent({
+      name: "community-import-api.error",
+      output: {
+        error: error instanceof Error ? error.message : "Unable to import community items."
+      },
+      source,
+      traceId: runTraceId
+    });
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to import community items." },
       { status: 500 }

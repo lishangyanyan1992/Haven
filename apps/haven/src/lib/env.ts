@@ -30,7 +30,9 @@ const envSchema = z.object({
   LANGFUSE_PUBLIC_KEY: z.string().optional(),
   LANGFUSE_BASE_URL: z.string().optional(),
   LANGFUSE_EMAIL_SECRET_KEY: z.string().optional(),
-  LANGFUSE_EMAIL_PUBLIC_KEY: z.string().optional()
+  LANGFUSE_EMAIL_PUBLIC_KEY: z.string().optional(),
+  LANGFUSE_STORY_SECRET_KEY: z.string().optional(),
+  LANGFUSE_STORY_PUBLIC_KEY: z.string().optional()
 });
 
 export const env = envSchema.parse({
@@ -63,7 +65,9 @@ export const env = envSchema.parse({
   LANGFUSE_PUBLIC_KEY: process.env.LANGFUSE_PUBLIC_KEY,
   LANGFUSE_BASE_URL: process.env.LANGFUSE_BASE_URL,
   LANGFUSE_EMAIL_SECRET_KEY: process.env.LANGFUSE_EMAIL_SECRET_KEY,
-  LANGFUSE_EMAIL_PUBLIC_KEY: process.env.LANGFUSE_EMAIL_PUBLIC_KEY
+  LANGFUSE_EMAIL_PUBLIC_KEY: process.env.LANGFUSE_EMAIL_PUBLIC_KEY,
+  LANGFUSE_STORY_SECRET_KEY: process.env.LANGFUSE_STORY_SECRET_KEY,
+  LANGFUSE_STORY_PUBLIC_KEY: process.env.LANGFUSE_STORY_PUBLIC_KEY
 });
 
 export const hasSupabaseEnv = Boolean(env.NEXT_PUBLIC_SUPABASE_URL && env.NEXT_PUBLIC_SUPABASE_ANON_KEY);

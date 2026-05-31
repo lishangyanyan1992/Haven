@@ -8,6 +8,7 @@ import { env } from "@/lib/env";
 import { getCrisisState } from "@/lib/get-crisis-state";
 import { getCommunityPageData } from "@/lib/repositories/case-compass";
 import { noIndexMetadata } from "@/lib/seo";
+import { getStoryTraceUrl } from "@/lib/story-observability";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Json } from "@/types/database";
@@ -113,6 +114,8 @@ export default async function CommunityImportDetailPage({
     moderationStatus: row.moderation_status,
     moderationNotes: row.moderation_notes,
     publishedPostId: row.published_post_id,
+    traceUrl: getStoryTraceUrl(row.langfuse_trace_id),
+    traceId: row.langfuse_trace_id,
     createdAt: row.created_at,
     approvedAt: row.approved_at,
     rejectedAt: row.rejected_at,
@@ -171,6 +174,7 @@ export default async function CommunityImportDetailPage({
                   <Badge variant="urgent">publish blocked</Badge>
                 )}
                 {item.publishedPostId && <Badge variant="active">live</Badge>}
+                {item.traceUrl && <Badge variant="community">traced</Badge>}
                 <Badge variant="community">{item.publishDraft.publicAuthorLabel}</Badge>
               </div>
               <div>
@@ -184,6 +188,14 @@ export default async function CommunityImportDetailPage({
                   {item.rejectedAt ? ` · rejected ${formatDate(item.rejectedAt)}` : ""}
                   {item.language ? ` · ${item.language}` : ""}
                 </p>
+                {item.traceUrl ? (
+                  <p className="text-caption mt-2">
+                    <Link className="text-[var(--haven-sky-ink)] hover:underline" href={item.traceUrl} target="_blank">
+                      Open Langfuse trace
+                    </Link>
+                    {item.traceId ? <span className="ml-2 font-mono">{truncateIdentityKey(item.traceId)}</span> : null}
+                  </p>
+                ) : null}
               </div>
             </div>
           </div>

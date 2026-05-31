@@ -280,8 +280,10 @@ export type Database = {
           created_at: string
           id: string
           language: string | null
+          langfuse_trace_id: string | null
           moderation_notes: string | null
           moderation_status: string
+          observability_metadata: Json
           published_post_id: string | null
           publish_draft: Json
           rejected_at: string | null
@@ -297,8 +299,10 @@ export type Database = {
           created_at?: string
           id?: string
           language?: string | null
+          langfuse_trace_id?: string | null
           moderation_notes?: string | null
           moderation_status?: string
+          observability_metadata?: Json
           published_post_id?: string | null
           publish_draft?: Json
           rejected_at?: string | null
@@ -314,8 +318,10 @@ export type Database = {
           created_at?: string
           id?: string
           language?: string | null
+          langfuse_trace_id?: string | null
           moderation_notes?: string | null
           moderation_status?: string
+          observability_metadata?: Json
           published_post_id?: string | null
           publish_draft?: Json
           rejected_at?: string | null
@@ -356,7 +362,9 @@ export type Database = {
           id: string
           inserted_count: number
           item_count: number
+          langfuse_trace_id: string | null
           notes: string | null
+          observability_metadata: Json
           source: string
           started_at: string
           status: string
@@ -368,7 +376,9 @@ export type Database = {
           id?: string
           inserted_count?: number
           item_count?: number
+          langfuse_trace_id?: string | null
           notes?: string | null
+          observability_metadata?: Json
           source: string
           started_at?: string
           status?: string
@@ -380,7 +390,9 @@ export type Database = {
           id?: string
           inserted_count?: number
           item_count?: number
+          langfuse_trace_id?: string | null
           notes?: string | null
+          observability_metadata?: Json
           source?: string
           started_at?: string
           status?: string

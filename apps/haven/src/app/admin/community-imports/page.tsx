@@ -10,6 +10,7 @@ import { env } from "@/lib/env";
 import { getCrisisState } from "@/lib/get-crisis-state";
 import { getCommunityPageData } from "@/lib/repositories/case-compass";
 import { noIndexMetadata } from "@/lib/seo";
+import { getStoryTraceUrl } from "@/lib/story-observability";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Json } from "@/types/database";
@@ -24,6 +25,7 @@ type ReviewItem = {
   moderationStatus: string;
   moderationNotes: string | null;
   publishedPostId: string | null;
+  traceUrl: string | null;
   createdAt: string;
   approvedAt: string | null;
   rejectedAt: string | null;
@@ -59,6 +61,7 @@ function mapReviewItem(row: any): ReviewItem {
     moderationStatus: row.moderation_status,
     moderationNotes: row.moderation_notes,
     publishedPostId: row.published_post_id,
+    traceUrl: getStoryTraceUrl(row.langfuse_trace_id),
     createdAt: row.created_at,
     approvedAt: row.approved_at,
     rejectedAt: row.rejected_at,
@@ -262,6 +265,7 @@ export default async function CommunityImportsAdminPage({
                             {item.moderationStatus.replace("_", " ")}
                           </Badge>
                           {item.publishedPostId && <Badge variant="active">live</Badge>}
+                          {item.traceUrl && <Badge variant="community">traced</Badge>}
                           {isAutoApproved(item) && (
                             <span className="text-caption text-[var(--haven-sage-strong)]">AI</span>
                           )}

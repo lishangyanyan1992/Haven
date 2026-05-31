@@ -5,9 +5,17 @@ import OpenAI from "openai";
 
 import { buildAnonymousCommentAuthor, readPublishDraft } from "@/lib/community-imports";
 import { env } from "@/lib/env";
-import { flushLangfuse, getLangfuseClient, getPrompt } from "@/lib/langfuse";
+import { flushLangfuse, getPrompt, getStoryLangfuseClient } from "@/lib/langfuse";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  buildStoryObservabilityMetadata,
+  hashReviewerId,
+  scoreAutoReview,
+  scoreStoryTrace,
+  trackStoryEvent
+} from "@/lib/story-observability";
+import type { Json } from "@/types/database";
 
 export type ReviewCommunityImportActionState = {
   message: string;
@@ -121,14 +129,22 @@ function summarizeList(items: string[]) {
   return items.filter(Boolean).join(" | ");
 }
 
-async function rewriteCommentBodiesWithAI(commentBodies: string[]) {
+async function rewriteCommentBodiesWithAI(
+  commentBodies: string[],
+  traceContext?: {
+    importItemId?: string | null;
+    source?: string | null;
+    sourceStoryId?: string | null;
+    traceId?: string | null;
+  }
+) {
   const client = getOpenAIClient();
 
   if (!client || commentBodies.length === 0) {
     return commentBodies;
   }
 
-  const lf = getLangfuseClient();
+  const lf = getStoryLangfuseClient();
   const model = getChatModel();
   const { text: systemPrompt, prompt: lfPrompt } = await getPrompt(lf, "haven-community-comment-rewrite", COMMUNITY_COMMENT_REWRITE_FALLBACK);
 
@@ -145,12 +161,28 @@ async function rewriteCommentBodiesWithAI(commentBodies: string[]) {
     JSON.stringify({ comments: commentBodies })
   ].join("\n");
 
-  const trace = lf?.trace({ name: "community-comment-rewrite", input: { count: commentBodies.length } });
+  const trace = lf?.trace({
+    id: traceContext?.traceId ?? undefined,
+    input: {
+      comment_count: commentBodies.length,
+      comment_lengths: commentBodies.map((body) => body.length)
+    },
+    metadata: {
+      importItemId: traceContext?.importItemId ?? undefined,
+      source: traceContext?.source ?? undefined,
+      sourceStoryId: traceContext?.sourceStoryId ?? undefined
+    },
+    name: "community-comment-rewrite",
+    tags: ["story-pipeline", traceContext?.source ?? "unknown-source"]
+  });
   const generation = trace?.generation({
     name: "openai-comment-rewrite",
     model,
     prompt: lfPrompt,
-    input: [{ role: "system", content: systemPrompt }, { role: "user", content: prompt }],
+    input: {
+      comment_count: commentBodies.length,
+      comment_lengths: commentBodies.map((body) => body.length)
+    },
   });
 
   try {
@@ -273,6 +305,12 @@ async function rewriteForumPostWithAI(params: {
   sourceTitle: string;
   draftBody: string;
   draftTitle: string;
+  traceContext?: {
+    importItemId?: string | null;
+    source?: string | null;
+    sourceStoryId?: string | null;
+    traceId?: string | null;
+  };
 }) {
   const client = getOpenAIClient();
   const fallback = {
@@ -284,7 +322,7 @@ async function rewriteForumPostWithAI(params: {
     return fallback;
   }
 
-  const lf = getLangfuseClient();
+  const lf = getStoryLangfuseClient();
   const model = getChatModel();
   const { text: systemPrompt, prompt: lfPrompt } = await getPrompt(lf, "haven-community-post-rewrite", COMMUNITY_POST_REWRITE_FALLBACK);
 
@@ -307,12 +345,31 @@ async function rewriteForumPostWithAI(params: {
     })
   ].join("\n");
 
-  const trace = lf?.trace({ name: "community-post-rewrite", input: { sourceTitle: params.sourceTitle } });
+  const trace = lf?.trace({
+    id: params.traceContext?.traceId ?? undefined,
+    input: {
+      draft_body_length: params.draftBody.length,
+      source_body_length: params.sourceBody.length,
+      source_title_hash_available: Boolean(params.sourceTitle)
+    },
+    metadata: {
+      importItemId: params.traceContext?.importItemId ?? undefined,
+      source: params.traceContext?.source ?? undefined,
+      sourceStoryId: params.traceContext?.sourceStoryId ?? undefined
+    },
+    name: "community-post-rewrite",
+    tags: ["story-pipeline", params.traceContext?.source ?? "unknown-source"]
+  });
   const generation = trace?.generation({
     name: "openai-post-rewrite",
     model,
     prompt: lfPrompt,
-    input: [{ role: "system", content: systemPrompt }, { role: "user", content: prompt }],
+    input: {
+      current_forum_body_length: params.draftBody.length,
+      current_forum_title_length: params.draftTitle.length,
+      source_body_length: params.sourceBody.length,
+      source_title_length: params.sourceTitle.length
+    },
   });
 
   try {
@@ -372,6 +429,12 @@ async function buildPublishedComments(params: {
   rawPublishDraft: unknown;
   rawSourcePayloadPrivate: unknown;
   parsedDraft: ReturnType<typeof readPublishDraft>;
+  traceContext?: {
+    importItemId?: string | null;
+    source?: string | null;
+    sourceStoryId?: string | null;
+    traceId?: string | null;
+  };
 }) {
   const providedCommentBodies = extractProvidedCommentBodies(params.rawPublishDraft);
 
@@ -384,7 +447,7 @@ async function buildPublishedComments(params: {
   }
 
   const sourceCommentBodies = params.parsedDraft.comments.map((comment) => normalizeCommentBody(comment.body));
-  const rewrittenSourceCommentBodies = await rewriteCommentBodiesWithAI(sourceCommentBodies);
+  const rewrittenSourceCommentBodies = await rewriteCommentBodiesWithAI(sourceCommentBodies, params.traceContext);
 
   return rewrittenSourceCommentBodies.map((body, index) => ({
     authorLabel: params.parsedDraft.comments[index]?.authorLabel ?? buildAnonymousCommentAuthor(index),
@@ -397,6 +460,12 @@ async function buildPublishedPostDraft(params: {
   rawPublishDraft: unknown;
   rawSourcePayloadPrivate: unknown;
   parsedDraft: ReturnType<typeof readPublishDraft>;
+  traceContext?: {
+    importItemId?: string | null;
+    source?: string | null;
+    sourceStoryId?: string | null;
+    traceId?: string | null;
+  };
 }) {
   const source = readObject(params.rawSourcePayloadPrivate);
   const sourceTitle = readString(source.title);
@@ -406,7 +475,8 @@ async function buildPublishedPostDraft(params: {
     sourceBody,
     sourceTitle,
     draftBody: params.parsedDraft.body,
-    draftTitle: params.parsedDraft.title
+    draftTitle: params.parsedDraft.title,
+    traceContext: params.traceContext
   });
 
   return {
@@ -420,6 +490,12 @@ async function evaluatePreparedCommunityImport(params: {
   publishedComments: Array<{ authorLabel: string; body: string }>;
   publishedDraft: Awaited<ReturnType<typeof buildPublishedPostDraft>>;
   rawSourcePayloadPrivate: unknown;
+  traceContext?: {
+    importItemId?: string | null;
+    source?: string | null;
+    sourceStoryId?: string | null;
+    traceId?: string | null;
+  };
 }) {
   const source = readObject(params.rawSourcePayloadPrivate);
   const sourceTitle = readString(source.title);
@@ -437,7 +513,7 @@ async function evaluatePreparedCommunityImport(params: {
     });
   }
 
-  const lf = getLangfuseClient();
+  const lf = getStoryLangfuseClient();
   const model = getChatModel();
   const { text: systemPrompt, prompt: lfPrompt } = await getPrompt(lf, "haven-community-auto-review", COMMUNITY_AUTO_REVIEW_FALLBACK);
 
@@ -460,12 +536,32 @@ async function evaluatePreparedCommunityImport(params: {
     })
   ].join("\n");
 
-  const trace = lf?.trace({ name: "community-auto-review" });
+  const trace = lf?.trace({
+    id: params.traceContext?.traceId ?? undefined,
+    input: {
+      candidate_body_length: params.publishedDraft.body.length,
+      candidate_comment_count: publishedComments.length,
+      source_body_length: sourceBody.length,
+      source_comment_count: sourceComments.length
+    },
+    metadata: {
+      importItemId: params.traceContext?.importItemId ?? undefined,
+      source: params.traceContext?.source ?? undefined,
+      sourceStoryId: params.traceContext?.sourceStoryId ?? undefined
+    },
+    name: "community-auto-review",
+    tags: ["story-pipeline", params.traceContext?.source ?? "unknown-source"]
+  });
   const generation = trace?.generation({
     name: "openai-auto-review",
     model,
     prompt: lfPrompt,
-    input: [{ role: "system", content: systemPrompt }, { role: "user", content: prompt }],
+    input: {
+      candidate_body_length: params.publishedDraft.body.length,
+      candidate_comment_count: publishedComments.length,
+      source_body_length: sourceBody.length,
+      source_comment_count: sourceComments.length
+    },
   });
 
   try {
@@ -525,6 +621,13 @@ async function evaluatePreparedCommunityImport(params: {
         issues: Array.isArray(parsed.issues) ? parsed.issues.filter((issue) => typeof issue === "string" && issue.trim().length > 0) : []
       };
       generation?.end({ output: { approve: result.approve, confidence: result.confidence } });
+      scoreAutoReview({
+        importItemId: params.traceContext?.importItemId,
+        source: params.traceContext?.source,
+        sourceStoryId: params.traceContext?.sourceStoryId,
+        traceId: params.traceContext?.traceId,
+        verdict: result
+      });
       await flushLangfuse();
       return result;
     }
@@ -534,12 +637,20 @@ async function evaluatePreparedCommunityImport(params: {
   }
 
   await flushLangfuse();
-  return fallbackAutoReviewVerdict({
+  const fallback = fallbackAutoReviewVerdict({
     publishedBody: params.publishedDraft.body,
     publishedComments,
     sourceBody,
     sourceComments
   });
+  scoreAutoReview({
+    importItemId: params.traceContext?.importItemId,
+    source: params.traceContext?.source,
+    sourceStoryId: params.traceContext?.sourceStoryId,
+    traceId: params.traceContext?.traceId,
+    verdict: fallback
+  });
+  return fallback;
 }
 
 function formatAutoReviewNotes(result: AutoReviewVerdict, prefix: string) {
@@ -805,8 +916,11 @@ async function publishCommunityImportItem(params: {
   draft: Awaited<ReturnType<typeof buildPublishedPostDraft>>;
   item: {
     id: string;
+    langfuse_trace_id: string | null;
     published_post_id: string | null;
     source: string;
+    source_payload_private: unknown;
+    source_story_id: string;
   };
   moderationNotes: string;
   publishedComments: Array<{ authorKey: string; authorLabel: string; body: string }>;
@@ -840,6 +954,16 @@ async function publishCommunityImportItem(params: {
     .update({
       moderation_status: "approved",
       moderation_notes: moderationNotes || null,
+      observability_metadata: buildStoryObservabilityMetadata({
+        importItemId: item.id,
+        moderationStatus: "approved",
+        publishedPostId,
+        runId: null,
+        source: item.source,
+        sourcePayloadPrivate: item.source_payload_private as Json,
+        sourceStoryId: item.source_story_id,
+        traceId: item.langfuse_trace_id
+      }),
       approved_at: new Date().toISOString(),
       approved_by: userId,
       rejected_at: null,
@@ -850,6 +974,19 @@ async function publishCommunityImportItem(params: {
   if (error) {
     throw new Error(error.message);
   }
+
+  trackStoryEvent({
+    importItemId: item.id,
+    name: "community-import.publish",
+    output: {
+      comment_count: publishedComments.length,
+      published_post_id: publishedPostId,
+      status: "approved"
+    },
+    source: item.source,
+    sourceStoryId: item.source_story_id,
+    traceId: item.langfuse_trace_id
+  });
 
   return commentWarning || (item.published_post_id ? "Post updated." : "Post published.");
 }
@@ -1001,6 +1138,15 @@ async function runReviewCommunityImportAction({
       .from("community_import_items")
       .update({
         moderation_status: "pending",
+        observability_metadata: buildStoryObservabilityMetadata({
+          importItemId: item.id,
+          moderationStatus: "pending",
+          publishedPostId: null,
+          source: item.source,
+          sourcePayloadPrivate: item.source_payload_private as Json,
+          sourceStoryId: item.source_story_id,
+          traceId: item.langfuse_trace_id
+        }),
         published_post_id: null,
         approved_at: null,
         approved_by: null
@@ -1014,6 +1160,32 @@ async function runReviewCommunityImportAction({
     revalidatePath("/admin/community-imports");
     revalidatePath("/community");
 
+    trackStoryEvent({
+      importItemId: item.id,
+      metadata: {
+        reviewer_hash: hashReviewerId(user.id)
+      },
+      name: "community-import.human-review",
+      output: {
+        intent,
+        moderation_notes_length: moderationNotes.length,
+        published_post_id: null
+      },
+      source: item.source,
+      sourceStoryId: item.source_story_id,
+      traceId: item.langfuse_trace_id
+    });
+    scoreStoryTrace({
+      comment: moderationNotes || undefined,
+      dataType: "BOOLEAN",
+      importItemId: item.id,
+      name: "human_review_approved",
+      source: item.source,
+      sourceStoryId: item.source_story_id,
+      traceId: item.langfuse_trace_id,
+      value: 0
+    });
+
     return {
       status: "success",
       message: "Post unpublished and reset to pending."
@@ -1026,6 +1198,15 @@ async function runReviewCommunityImportAction({
       .update({
         moderation_status: "rejected",
         moderation_notes: moderationNotes || null,
+        observability_metadata: buildStoryObservabilityMetadata({
+          importItemId: item.id,
+          moderationStatus: "rejected",
+          publishedPostId: item.published_post_id,
+          source: item.source,
+          sourcePayloadPrivate: item.source_payload_private as Json,
+          sourceStoryId: item.source_story_id,
+          traceId: item.langfuse_trace_id
+        }),
         rejected_at: now,
         approved_at: null,
         approved_by: null
@@ -1039,21 +1220,55 @@ async function runReviewCommunityImportAction({
     revalidatePath("/admin/community-imports");
     revalidatePath("/community");
 
+    trackStoryEvent({
+      importItemId: item.id,
+      metadata: {
+        reviewer_hash: hashReviewerId(user.id)
+      },
+      name: "community-import.human-review",
+      output: {
+        intent,
+        moderation_notes_length: moderationNotes.length,
+        published_post_id: item.published_post_id
+      },
+      source: item.source,
+      sourceStoryId: item.source_story_id,
+      traceId: item.langfuse_trace_id
+    });
+    scoreStoryTrace({
+      comment: moderationNotes || undefined,
+      dataType: "BOOLEAN",
+      importItemId: item.id,
+      name: "human_review_approved",
+      source: item.source,
+      sourceStoryId: item.source_story_id,
+      traceId: item.langfuse_trace_id,
+      value: 0
+    });
+
     return {
       status: "success",
       message: "Review marked as rejected."
     };
   } else {
     const parsedDraft = readPublishDraft(item.publish_draft, item.source_payload_private, item.source_story_id);
+    const traceContext = {
+      importItemId: item.id,
+      source: item.source,
+      sourceStoryId: item.source_story_id,
+      traceId: item.langfuse_trace_id
+    };
     const draft = await buildPublishedPostDraft({
       rawPublishDraft: item.publish_draft,
       rawSourcePayloadPrivate: item.source_payload_private,
-      parsedDraft
+      parsedDraft,
+      traceContext
     });
     const publishedComments = await buildPublishedComments({
       rawPublishDraft: item.publish_draft,
       rawSourcePayloadPrivate: item.source_payload_private,
-      parsedDraft
+      parsedDraft,
+      traceContext
     });
 
     if (!draft.title || !draft.body) {
@@ -1066,6 +1281,32 @@ async function runReviewCommunityImportAction({
       moderationNotes,
       publishedComments,
       userId: user.id
+    });
+
+    trackStoryEvent({
+      importItemId: item.id,
+      metadata: {
+        reviewer_hash: hashReviewerId(user.id)
+      },
+      name: "community-import.human-review",
+      output: {
+        intent,
+        moderation_notes_length: moderationNotes.length,
+        published_post_id: item.published_post_id ?? null
+      },
+      source: item.source,
+      sourceStoryId: item.source_story_id,
+      traceId: item.langfuse_trace_id
+    });
+    scoreStoryTrace({
+      comment: moderationNotes || undefined,
+      dataType: "BOOLEAN",
+      importItemId: item.id,
+      name: "human_review_approved",
+      source: item.source,
+      sourceStoryId: item.source_story_id,
+      traceId: item.langfuse_trace_id,
+      value: 1
     });
 
     revalidatePath("/admin/community-imports");
@@ -1109,20 +1350,29 @@ export async function autoReviewPendingCommunityImportsAction(
     for (const item of items) {
       try {
         const parsedDraft = readPublishDraft(item.publish_draft, item.source_payload_private, item.source_story_id);
+        const traceContext = {
+          importItemId: item.id,
+          source: item.source,
+          sourceStoryId: item.source_story_id,
+          traceId: item.langfuse_trace_id
+        };
         const publishedDraft = await buildPublishedPostDraft({
           rawPublishDraft: item.publish_draft,
           rawSourcePayloadPrivate: item.source_payload_private,
-          parsedDraft
+          parsedDraft,
+          traceContext
         });
         const publishedComments = await buildPublishedComments({
           rawPublishDraft: item.publish_draft,
           rawSourcePayloadPrivate: item.source_payload_private,
-          parsedDraft
+          parsedDraft,
+          traceContext
         });
         const verdict = await evaluatePreparedCommunityImport({
           publishedComments,
           publishedDraft,
-          rawSourcePayloadPrivate: item.source_payload_private
+          rawSourcePayloadPrivate: item.source_payload_private,
+          traceContext
         });
 
         if (verdict.approve) {
@@ -1142,7 +1392,16 @@ export async function autoReviewPendingCommunityImportsAction(
           .from("community_import_items")
           .update({
             moderation_status: "needs_revision",
-            moderation_notes: formatAutoReviewNotes(verdict, "Auto-review flagged for revision.")
+            moderation_notes: formatAutoReviewNotes(verdict, "Auto-review flagged for revision."),
+            observability_metadata: buildStoryObservabilityMetadata({
+              importItemId: item.id,
+              moderationStatus: "needs_revision",
+              publishedPostId: item.published_post_id,
+              source: item.source,
+              sourcePayloadPrivate: item.source_payload_private as Json,
+              sourceStoryId: item.source_story_id,
+              traceId: item.langfuse_trace_id
+            })
           })
           .eq("id", item.id);
 
