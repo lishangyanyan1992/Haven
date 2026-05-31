@@ -3,6 +3,7 @@ import OpenAI from "openai";
 
 import { env, hasSupabaseEnv } from "@/lib/env";
 import { flushLangfuse, getLangfuseClient, getPrompt } from "@/lib/langfuse";
+import type { LangfuseSpanClient, LangfuseTraceClient } from "langfuse";
 import { getSnapshot } from "@/lib/repositories/case-compass";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -28,6 +29,10 @@ import {
 
 type RetrievedKnowledgeChunk = KnowledgeChunk & { documentId?: string };
 type RetrievedCommunitySummary = CommunityAdviceSummary;
+
+// A Langfuse parent observation — either the trace itself or a span — that
+// child spans/generations can be nested under for true agent-to-agent lineage.
+type LangfuseParent = LangfuseTraceClient | LangfuseSpanClient;
 
 type AdvisorIdentity = {
   id: string;
@@ -395,7 +400,7 @@ function buildContextBlock(label: string, lines: string[]) {
   return `${label}:\n${lines.length > 0 ? lines.map((line) => `- ${line}`).join("\n") : "- None"}`;
 }
 
-async function moderateMessage(content: string, traceId?: string) {
+async function moderateMessage(content: string, parent?: LangfuseParent) {
   const client = getOpenAIClient();
 
   if (!client) {
@@ -403,9 +408,7 @@ async function moderateMessage(content: string, traceId?: string) {
   }
 
   try {
-    const lf = getLangfuseClient();
-    const span = lf?.trace({ id: traceId })
-      .span({ name: "openai-moderation", input: { content } });
+    const span = parent?.span({ name: "openai-moderation", input: { content } });
 
     const moderation = await client.moderations.create({
       model: "omni-moderation-latest",
@@ -421,17 +424,15 @@ async function moderateMessage(content: string, traceId?: string) {
   }
 }
 
-async function embedQuery(query: string, traceId?: string) {
+async function embedQuery(query: string, parent?: LangfuseParent) {
   const client = getOpenAIClient();
 
   if (!client) {
     return null;
   }
 
-  const lf = getLangfuseClient();
   const model = getEmbeddingModel();
-  const span = lf?.trace({ id: traceId })
-    .span({ name: "openai-embedding", input: { query, model } });
+  const span = parent?.span({ name: "openai-embedding", input: { query, model } });
 
   const response = await client.embeddings.create({ model, input: query });
   const embedding = response.data[0]?.embedding ?? null;
@@ -463,7 +464,8 @@ function buildFallbackKnowledgeChunks(): RetrievedKnowledgeChunk[] {
   });
 }
 
-async function retrieveKnowledge(query: string, topics: TopicBucket[]) {
+async function retrieveKnowledge(query: string, topics: TopicBucket[], parent?: LangfuseParent) {
+  const span = parent?.span({ name: "official-sources-agent", input: { query, topics } });
   const chunks = buildFallbackKnowledgeChunks();
 
   const filtered = chunks.filter((chunk) => {
@@ -471,33 +473,40 @@ async function retrieveKnowledge(query: string, topics: TopicBucket[]) {
     return topics.includes(chunk.topic as TopicBucket) || topics.some((topic) => chunk.content.toLowerCase().includes(topic));
   });
 
-  return (filtered.length > 0 ? filtered : chunks)
+  const ranked = (filtered.length > 0 ? filtered : chunks)
     .map((chunk) => ({
       ...chunk,
       similarity: scoreOverlap(query, `${chunk.title} ${chunk.content} ${chunk.topic}`)
     }))
     .sort((left, right) => (right.similarity ?? 0) - (left.similarity ?? 0))
     .slice(0, 6);
+
+  span?.end({
+    output: {
+      count: ranked.length,
+      sources: ranked.map((chunk) => ({ agency: chunk.agency, title: chunk.title, url: chunk.url, similarity: chunk.similarity }))
+    }
+  });
+
+  return ranked;
 }
 
 async function retrieveCommunity(
   query: string,
   topics: TopicBucket[],
   snapshot: Awaited<ReturnType<typeof getSnapshot>>,
-  traceId?: string
+  parent?: LangfuseParent
 ) {
   if (!isExperientialQuestion(query)) {
     return [] as RetrievedCommunitySummary[];
   }
 
   const profile = snapshot.profile;
-  const lf = getLangfuseClient();
-  const span = lf?.trace({ id: traceId })
-    .span({ name: "community-story-agent", input: { query, topics, experiential: true } });
+  const span = parent?.span({ name: "community-story-agent", input: { query, topics, experiential: true } });
 
   // Vector search path
   if (hasSupabaseEnv) {
-    const embedding = await embedQuery(query, traceId);
+    const embedding = await embedQuery(query, span);
 
     if (embedding) {
       try {
@@ -526,7 +535,13 @@ async function retrieveCommunity(
             };
           }).sort((a, b) => (b.similarity ?? 0) - (a.similarity ?? 0)).slice(0, 3);
 
-          span?.end({ output: { source: "vector", count: ranked.length } });
+          span?.end({
+            output: {
+              source: "vector",
+              count: ranked.length,
+              stories: ranked.map((s) => ({ title: s.title, topic: s.topic, summary: s.summary, similarity: s.similarity }))
+            }
+          });
           return ranked as RetrievedCommunitySummary[];
         }
       } catch {
@@ -545,7 +560,13 @@ async function retrieveCommunity(
     .sort((left, right) => (right.similarity ?? 0) - (left.similarity ?? 0))
     .slice(0, 3);
 
-  span?.end({ output: { source: "fallback", count: fallback.length } });
+  span?.end({
+    output: {
+      source: "fallback",
+      count: fallback.length,
+      stories: fallback.map((s) => ({ title: s.title, topic: s.topic, summary: s.summary, similarity: s.similarity }))
+    }
+  });
   return fallback;
 }
 
@@ -744,10 +765,18 @@ export async function* streamAdvisorResponse(rawInput: {
   const { content, history: rawHistory, conversationId } = parsed.data;
 
   const lf = getLangfuseClient();
-  const traceId = conversationId ?? crypto.randomUUID();
-  lf?.trace({ id: traceId, name: "advisor-session", input: { question: content }, userId: identity.isMock ? undefined : identity.id });
+  // One trace per message; group a multi-turn conversation via sessionId so
+  // each question gets its own clean observation tree instead of piling up.
+  const traceId = crypto.randomUUID();
+  const trace = lf?.trace({
+    id: traceId,
+    name: "advisor-session",
+    sessionId: conversationId,
+    input: { question: content },
+    userId: identity.isMock ? undefined : identity.id,
+  });
 
-  const moderation = await moderateMessage(content, traceId);
+  const moderation = await moderateMessage(content, trace);
   const snapshot = await getSnapshot();
 
   if (moderation.flagged) {
@@ -781,11 +810,16 @@ export async function* streamAdvisorResponse(rawInput: {
   }));
 
   const topics = classifyTopics(content);
-  lf?.trace({ id: traceId }).update({ metadata: { topics, experiential: isExperientialQuestion(content) } });
+  trace?.update({ metadata: { topics, experiential: isExperientialQuestion(content) } });
 
   const userContext = buildAdvisorContext(snapshot);
-  const knowledge = await retrieveKnowledge(content, topics);
-  const community = await retrieveCommunity(content, topics, snapshot, traceId);
+
+  // Retrieval agents run under a shared parent span so the official-source and
+  // community-story handoffs are visible as a nested tree under the trace.
+  const retrievalSpan = trace?.span({ name: "retrieval", input: { topics } });
+  const knowledge = await retrieveKnowledge(content, topics, retrievalSpan);
+  const community = await retrieveCommunity(content, topics, snapshot, retrievalSpan);
+  retrievalSpan?.end({ output: { knowledgeCount: knowledge.length, communityCount: community.length } });
 
   const citations = buildCitationSet(knowledge);
   const communityUsed = community.slice(0, 2).map((item) => `${item.title}: ${item.summary}`);
@@ -822,7 +856,6 @@ export async function* streamAdvisorResponse(rawInput: {
 
   const client = getOpenAIClient();
   const model = getChatModel();
-  const trace = lf?.trace({ id: traceId });
   const generation = trace?.generation({
     name: "openai-advisor-stream",
     model,
@@ -854,17 +887,19 @@ export async function* streamAdvisorResponse(rawInput: {
         }
       }
 
-      generation?.end({ output: { length: fullText.length, citations: citations.length } });
-      trace?.update({ output: { cited: citations.length > 0 } });
+      generation?.end({ output: { answer: fullText, length: fullText.length, citations: citations.length } });
+      trace?.update({ output: { answer: fullText, cited: citations.length > 0, citationCount: citations.length } });
     } catch (err) {
       generation?.end({ output: { error: String(err) }, level: "ERROR" });
       const fallback = fallbackAnswer(content, userContext, knowledge, community, topics);
       fullText = fallback.answer_markdown;
+      trace?.update({ output: { answer: fullText, fallback: true, reason: "stream error" } });
       yield { type: "delta", text: fullText };
     }
   } else {
     const fallback = fallbackAnswer(content, userContext, knowledge, community, topics);
     fullText = fallback.answer_markdown;
+    trace?.update({ output: { answer: fullText, fallback: true, reason: "no openai client" } });
     yield { type: "delta", text: fullText };
   }
 
