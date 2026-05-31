@@ -15,3 +15,4 @@ apps/*/*.tsbuildinfo
 .claude/settings.local.json
 supabase/.temp
 .vercel
+.env*.local

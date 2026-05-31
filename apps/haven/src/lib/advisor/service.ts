@@ -282,15 +282,15 @@ function buildSuggestedPrompts(snapshot: AdvisorSeedSnapshot) {
   ];
 }
 
-function createWelcomePayload(snapshot: AdvisorSeedSnapshot): AdvisorAnswerPayload {
+function createWelcomePayload(_snapshot: AdvisorSeedSnapshot): AdvisorAnswerPayload {
   return {
-    answer_markdown: `I can help with work visa and green card questions using official immigration sources plus your Haven profile.\n\nStart with one of these:\n- ${buildSuggestedPrompts(snapshot).join("\n- ")}`,
+    answer_markdown: "Ask me about work visa and green card questions.",
     confidence: "medium",
     disclaimer: "Haven provides information, not legal advice. Check a qualified immigration attorney before making decisions.",
     external_citations: [],
-    haven_context_used: ["Signed-in Haven profile available"],
+    haven_context_used: [],
     community_context_used: [],
-    follow_up_questions: buildSuggestedPrompts(snapshot)
+    follow_up_questions: []
   };
 }
 
@@ -715,7 +715,7 @@ async function generateAdvisorAnswer(input: {
     } as never);
 
     const parsed = advisorAnswerPayloadSchema.safeParse(JSON.parse((response as any).output_text ?? "{}"));
-    if (parsed.success && parsed.data.external_citations.length > 0) {
+    if (parsed.success) {
       generation?.end({
         output: { citations: parsed.data.external_citations.length },
         usage: {
@@ -840,6 +840,169 @@ export async function respondToAdvisorMessage(rawInput: {
 
 export function isAdvisorRateLimitError(error: unknown) {
   return error instanceof AdvisorRateLimitError;
+}
+
+export type AdvisorStreamEvent =
+  | { type: "delta"; text: string }
+  | { type: "done"; assistantMessage: AdvisorMessage; conversationId: string }
+  | { type: "error"; message: string; isRateLimit: boolean };
+
+const STREAMING_SYSTEM_PROMPT = [
+  "You are Haven Advisor, an immigration information assistant for employment-based visas and green cards.",
+  "Answer in clear, well-structured markdown. Use the official source chunks and Haven profile context provided.",
+  "Prioritize official sources. Never invent eligibility rules, filing windows, dates, or conclusions.",
+  "If the question is too case-specific or risky, provide general guidance and recommend attorney review.",
+  "Only answer work visa, green card, or Haven product questions. Politely refuse unrelated topics.",
+].join(" ");
+
+export async function* streamAdvisorResponse(rawInput: {
+  content: string;
+  history?: Array<{ role: "user" | "assistant"; content: string }>;
+  conversationId?: string;
+}): AsyncGenerator<AdvisorStreamEvent> {
+  const identity = await getAdvisorIdentity();
+  const parsed = advisorRespondSchema.safeParse(rawInput);
+
+  if (!parsed.success) {
+    yield { type: "error", message: "Message content is required.", isRateLimit: false };
+    return;
+  }
+
+  const { content, history: rawHistory, conversationId } = parsed.data;
+
+  const lf = getLangfuseClient();
+  const traceId = conversationId ?? crypto.randomUUID();
+  lf?.trace({ id: traceId, name: "advisor-session", input: { question: content }, userId: identity.isMock ? undefined : identity.id });
+
+  const moderation = await moderateMessage(content, traceId);
+  const snapshot = await getSnapshot();
+
+  if (moderation.flagged) {
+    const threadId = conversationId ?? "session";
+    const flaggedPayload: AdvisorAnswerPayload = {
+      answer_markdown:
+        "I can help with work visa and green card questions, but I can't continue with this message as written. Rephrase it as a factual immigration or Haven-product question and I'll answer from official sources.",
+      confidence: "low",
+      disclaimer: "Haven provides information, not legal advice. Check a qualified immigration attorney before making decisions.",
+      external_citations: [],
+      haven_context_used: [],
+      community_context_used: [],
+      follow_up_questions: [],
+      refusal_or_escalation_reason: "Message flagged by moderation.",
+    };
+    await flushLangfuse();
+    yield { type: "done", assistantMessage: createAssistantMessage(threadId, flaggedPayload), conversationId: threadId };
+    return;
+  }
+
+  const threadId = identity.isMock
+    ? conversationId ?? "session"
+    : await reserveAdvisorConversation(identity.id, content, conversationId);
+
+  const history: AdvisorMessage[] = rawHistory.map((m, i) => ({
+    id: `history-${i}`,
+    threadId,
+    role: m.role,
+    content: m.content,
+    createdAt: new Date(Date.now() - (rawHistory.length - i) * 1000).toISOString(),
+  }));
+
+  const topics = classifyTopics(content);
+  const userContext = buildAdvisorContext(snapshot);
+  const knowledge = await retrieveKnowledge(content, topics);
+  const community = await retrieveCommunity(content, topics, snapshot);
+
+  const citations = buildCitationSet(knowledge);
+  const communityUsed = community.slice(0, 2).map((item) => `${item.title}: ${item.summary}`);
+  const havenContextUsed = userContext.profileSummary.slice(0, 4).filter(Boolean);
+
+  const userPrompt = [
+    `User question:\n${content}`,
+    "",
+    buildContextBlock("Haven profile summary", userContext.profileSummary),
+    "",
+    buildContextBlock("Haven timeline summary", userContext.timelineSummary),
+    "",
+    buildContextBlock("Haven derived signals", userContext.derivedSignalsSummary),
+    "",
+    buildContextBlock("Haven email evidence", userContext.emailEvidenceSummary),
+    "",
+    buildContextBlock(
+      "Official source chunks",
+      knowledge.map((item) => `${item.agency} | ${item.title} | ${item.url} | ${item.content}`)
+    ),
+    "",
+    buildContextBlock(
+      "Community summaries",
+      community.map((item) => `${item.title} | ${item.summary} | Caveat: ${item.legalCaveat}`)
+    ),
+    "",
+    buildContextBlock(
+      "Recent conversation",
+      history.slice(-6).map((m) => `${m.role.toUpperCase()} @ ${formatTimestamp(m.createdAt)}: ${m.content}`)
+    ),
+  ].join("\n");
+
+  const client = getOpenAIClient();
+  const model = getChatModel();
+  const trace = lf?.trace({ id: traceId, name: "advisor-respond", input: { question: content, topics } });
+  const generation = trace?.generation({
+    name: "openai-advisor-stream",
+    model,
+    input: [
+      { role: "system", content: STREAMING_SYSTEM_PROMPT },
+      { role: "user", content: userPrompt },
+    ],
+  });
+
+  let fullText = "";
+
+  if (client) {
+    try {
+      const stream = await client.chat.completions.create({
+        model,
+        messages: [
+          { role: "system", content: STREAMING_SYSTEM_PROMPT },
+          { role: "user", content: userPrompt },
+        ],
+        stream: true,
+      });
+
+      for await (const chunk of stream) {
+        const delta = chunk.choices[0]?.delta?.content ?? "";
+        if (delta) {
+          fullText += delta;
+          yield { type: "delta", text: delta };
+        }
+      }
+
+      generation?.end({ output: { length: fullText.length, citations: citations.length } });
+      trace?.update({ output: { cited: citations.length > 0 } });
+    } catch (err) {
+      generation?.end({ output: { error: String(err) }, level: "ERROR" });
+      const fallback = fallbackAnswer(content, userContext, knowledge, community, topics);
+      fullText = fallback.answer_markdown;
+      yield { type: "delta", text: fullText };
+    }
+  } else {
+    const fallback = fallbackAnswer(content, userContext, knowledge, community, topics);
+    fullText = fallback.answer_markdown;
+    yield { type: "delta", text: fullText };
+  }
+
+  const answerPayload: AdvisorAnswerPayload = {
+    answer_markdown: fullText,
+    confidence: citations.length >= 2 ? "high" : citations.length === 1 ? "medium" : "low",
+    disclaimer: "Haven provides information, not legal advice. Check a qualified immigration attorney before making decisions.",
+    external_citations: citations,
+    haven_context_used: havenContextUsed,
+    community_context_used: communityUsed,
+    follow_up_questions: [],
+  };
+
+  await flushLangfuse();
+
+  yield { type: "done", assistantMessage: createAssistantMessage(threadId, answerPayload), conversationId: threadId };
 }
 
 export async function syncTrustedSources() {
