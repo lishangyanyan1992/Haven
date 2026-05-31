@@ -17,11 +17,7 @@ import type {
   HavenWorkspaceSnapshot,
   KnowledgeChunk
 } from "@/types/domain";
-import {
-  advisorAnswerJsonSchema,
-  advisorAnswerPayloadSchema,
-  advisorRespondSchema
-} from "@/lib/advisor/schema";
+import { advisorRespondSchema } from "@/lib/advisor/schema";
 import {
   buildFallbackCommunitySummaries,
   estimateTokenCount,
@@ -700,225 +696,12 @@ function fallbackAnswer(
   };
 }
 
-async function generateAdvisorAnswer(input: {
-  question: string;
-  userContext: AdvisorUserContext;
-  knowledge: RetrievedKnowledgeChunk[];
-  community: RetrievedCommunitySummary[];
-  history: AdvisorMessage[];
-  topics: TopicBucket[];
-  traceId?: string;
-}): Promise<AdvisorAnswerPayload> {
-  const client = getOpenAIClient();
-
-  if (!client) {
-    return fallbackAnswer(input.question, input.userContext, input.knowledge, input.community, input.topics);
-  }
-
-  const ADVISOR_SYSTEM_FALLBACK = [
-    "You are Haven Advisor, an immigration information assistant for employment-based visas and green cards.",
-    "You must prioritize official sources over Haven context, and Haven context over community anecdotes.",
-    "Never present community anecdotes as legal authority.",
-    "Never invent eligibility, filing windows, dates, or conclusions.",
-    "If the question is risky, uncertain, or too case-specific, answer with general guidance and recommend attorney review.",
-    "Every substantive answer must include official citations in external_citations.",
-    "Only answer work visa, green card, or Haven product questions. Refuse unrelated topics."
-  ].join(" ");
-
-  const systemPrompt = await getPrompt(getLangfuseClient(), "haven-advisor-system", ADVISOR_SYSTEM_FALLBACK);
-
-  const prompt = [
-    `User question:\n${input.question}`,
-    "",
-    buildContextBlock("Haven profile summary", input.userContext.profileSummary),
-    "",
-    buildContextBlock("Haven timeline summary", input.userContext.timelineSummary),
-    "",
-    buildContextBlock("Haven derived signals", input.userContext.derivedSignalsSummary),
-    "",
-    buildContextBlock("Haven email evidence", input.userContext.emailEvidenceSummary),
-    "",
-    buildContextBlock(
-      "Official source chunks",
-      input.knowledge.map((item) => `${item.agency} | ${item.title} | ${item.url} | ${item.content}`)
-    ),
-    "",
-    buildContextBlock(
-      "Community summaries",
-      input.community.map((item) => `${item.title} | ${item.summary} | Caveat: ${item.legalCaveat}`)
-    ),
-    "",
-    buildContextBlock(
-      "Recent conversation",
-      input.history.slice(-6).map((message) => `${message.role.toUpperCase()} @ ${formatTimestamp(message.createdAt)}: ${message.content}`)
-    )
-  ].join("\n");
-
-  const lf = getLangfuseClient();
-  const model = getChatModel();
-  const trace = lf?.trace({
-    id: input.traceId,
-    name: "advisor-respond",
-    input: { question: input.question, topics: input.topics },
-    metadata: {
-      visaType: input.userContext.profileSummary?.[0] ?? null,
-      knowledgeChunks: input.knowledge.length,
-      communityChunks: input.community.length,
-      historyLength: input.history.length,
-    },
-  });
-
-  const generation = trace?.generation({
-    name: "openai-advisor-answer",
-    model,
-    input: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: prompt },
-    ],
-  });
-
-  try {
-    const response = await client.responses.create({
-      model,
-      input: [
-        {
-          role: "system",
-          content: [{ type: "input_text", text: systemPrompt }]
-        },
-        {
-          role: "user",
-          content: [{ type: "input_text", text: prompt }]
-        }
-      ],
-      text: {
-        format: {
-          type: "json_schema",
-          ...advisorAnswerJsonSchema
-        }
-      }
-    } as never);
-
-    const parsed = advisorAnswerPayloadSchema.safeParse(JSON.parse((response as any).output_text ?? "{}"));
-    if (parsed.success) {
-      generation?.end({
-        output: { citations: parsed.data.external_citations.length },
-        usage: {
-          promptTokens: (response as any).usage?.input_tokens,
-          completionTokens: (response as any).usage?.output_tokens,
-          totalTokens: (response as any).usage?.total_tokens,
-        },
-      });
-      trace?.update({ output: { cited: true, citations: parsed.data.external_citations.length } });
-      return parsed.data;
-    }
-
-    generation?.end({ output: { cited: false, fallback: true } });
-  } catch (err) {
-    generation?.end({ output: { error: String(err), fallback: true }, level: "ERROR" });
-    // Fall back to deterministic answer below.
-  }
-
-  trace?.update({ output: { cited: false, fallback: true } });
-  return fallbackAnswer(input.question, input.userContext, input.knowledge, input.community, input.topics);
-}
-
 export async function getAdvisorWorkspaceSeed(snapshotArg?: AdvisorSeedSnapshot) {
   const snapshot = snapshotArg ?? await getSnapshot();
 
   return {
     suggestedPrompts: buildSuggestedPrompts(snapshot),
     welcomeMessage: createWelcomePayload(snapshot)
-  };
-}
-
-export async function respondToAdvisorMessage(rawInput: {
-  content: string;
-  history?: Array<{ role: "user" | "assistant"; content: string }>;
-  conversationId?: string;
-}) {
-  const identity = await getAdvisorIdentity();
-  const parsed = advisorRespondSchema.safeParse(rawInput);
-
-  if (!parsed.success) {
-    throw new Error("Message content is required.");
-  }
-
-  const { content, history: rawHistory, conversationId } = parsed.data;
-
-  // Create a top-level Langfuse trace that spans the entire request.
-  const lf = getLangfuseClient();
-  const traceId = conversationId ?? crypto.randomUUID();
-  lf?.trace({ id: traceId, name: "advisor-session", input: { question: content }, userId: identity.isMock ? undefined : identity.id });
-
-  const moderation = await moderateMessage(content, traceId);
-  const snapshot = await getSnapshot();
-
-  if (moderation.flagged) {
-    const threadId = conversationId ?? "session";
-    const flaggedAnswer: AdvisorAnswerPayload = {
-      answer_markdown:
-        "I can help with work visa and green card questions, but I can’t continue with this message as written. Rephrase it as a factual immigration or Haven-product question and I’ll answer from official sources.",
-      confidence: "low",
-      disclaimer: "Haven provides information, not legal advice. Check a qualified immigration attorney before making decisions.",
-      external_citations: [],
-      haven_context_used: [],
-      community_context_used: [],
-      follow_up_questions: [
-        "Do you want to ask about H-1B, PERM, I-140, I-485, or the visa bulletin instead?",
-        "Do you want me to use your Haven profile to focus the answer?"
-      ],
-      refusal_or_escalation_reason: "Message flagged by moderation."
-    };
-
-    return {
-      userMessage: null,
-      assistantMessage: createAssistantMessage(threadId, flaggedAnswer),
-      conversationId: threadId
-    };
-  }
-
-  const threadId = identity.isMock
-    ? conversationId ?? "session"
-    : await reserveAdvisorConversation(identity.id, content, conversationId);
-
-  const userMessage: AdvisorMessage = {
-    id: `user-${Date.now()}`,
-    threadId,
-    role: "user",
-    content,
-    createdAt: new Date().toISOString()
-  };
-  const history: AdvisorMessage[] = rawHistory.map((message, index) => ({
-    id: `history-${index}`,
-    threadId,
-    role: message.role,
-    content: message.content,
-    createdAt: new Date(Date.now() - (rawHistory.length - index) * 1000).toISOString()
-  }));
-
-  const topics = classifyTopics(content);
-  const userContext = buildAdvisorContext(snapshot);
-  const knowledge = await retrieveKnowledge(content, topics);
-  const community = await retrieveCommunity(content, topics, snapshot, traceId);
-  const answer = await generateAdvisorAnswer({
-    question: content,
-    userContext,
-    knowledge,
-    community,
-    history,
-    topics,
-    traceId,
-  });
-  const assistantMessage = createAssistantMessage(threadId, answer);
-
-  // Flush Langfuse before returning — serverless functions are frozen
-  // immediately after the response is sent so the async flush never fires.
-  await flushLangfuse();
-
-  return {
-    userMessage,
-    assistantMessage,
-    conversationId: threadId
   };
 }
 
@@ -1008,7 +791,7 @@ export async function* streamAdvisorResponse(rawInput: {
   const communityUsed = community.slice(0, 2).map((item) => `${item.title}: ${item.summary}`);
   const havenContextUsed = userContext.profileSummary.slice(0, 4).filter(Boolean);
 
-  const systemPrompt = await getPrompt(lf, "haven-advisor-system", STREAMING_SYSTEM_PROMPT);
+  const { text: systemPrompt, prompt: advisorPrompt } = await getPrompt(lf, "haven-advisor-system", STREAMING_SYSTEM_PROMPT);
 
   const userPrompt = [
     `User question:\n${content}`,
@@ -1043,6 +826,7 @@ export async function* streamAdvisorResponse(rawInput: {
   const generation = trace?.generation({
     name: "openai-advisor-stream",
     model,
+    prompt: advisorPrompt,
     input: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },

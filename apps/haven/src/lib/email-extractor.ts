@@ -147,7 +147,7 @@ export async function extractEmailFields(input: {
 
   const model = getChatModel();
   const lf = getEmailLangfuseClient();
-  const systemPrompt = await getPrompt(lf, "haven-email-extraction", SYSTEM_PROMPT);
+  const { text: systemPrompt, prompt: extractionPrompt } = await getPrompt(lf, "haven-email-extraction", SYSTEM_PROMPT);
   const userMessage = [
     `From: ${input.sender}`,
     `Subject: ${input.subject}`,
@@ -159,6 +159,7 @@ export async function extractEmailFields(input: {
   const generation = trace?.generation({
     name: "openai-email-extraction",
     model,
+    prompt: extractionPrompt,
     input: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userMessage },

@@ -13,7 +13,7 @@
  * Prompts are fetched from Langfuse at runtime (cached 60s) so you can
  * edit them in the dashboard without redeploying.
  */
-import { Langfuse } from "langfuse";
+import { Langfuse, type LangfusePromptClient } from "langfuse";
 
 import { env } from "@/lib/env";
 
@@ -72,23 +72,36 @@ export function getEmailLangfuseClient(): Langfuse | null {
 // ── Prompt management ─────────────────────────────────────────────────────────
 
 /**
+ * Resolved prompt: the compiled text plus the Langfuse prompt object (when
+ * available) so generations can be linked to a prompt version for analytics.
+ */
+export type ResolvedPrompt = {
+  text: string;
+  prompt?: LangfusePromptClient;
+};
+
+/**
  * Fetch a prompt from a Langfuse project by name (label: "production").
  * Falls back to the hardcoded string if Langfuse is unavailable.
  * Cached for 60s — edits in the dashboard take effect within 1 minute.
+ *
+ * Returns both the compiled text and the prompt object. Pass `prompt` into
+ * `.generation({ prompt })` so Langfuse links the call to its prompt version
+ * (enables per-version cost/latency/score comparison in the dashboard).
  */
 export async function getPrompt(
   client: Langfuse | null,
   name: string,
   fallback: string
-): Promise<string> {
-  if (!client) return fallback;
+): Promise<ResolvedPrompt> {
+  if (!client) return { text: fallback };
 
   try {
     const prompt = await client.getPrompt(name, undefined, { label: "production", cacheTtlSeconds: 60 });
     const compiled = prompt.compile();
-    return typeof compiled === "string" ? compiled : fallback;
+    return { text: typeof compiled === "string" ? compiled : fallback, prompt };
   } catch {
-    return fallback;
+    return { text: fallback };
   }
 }
 
