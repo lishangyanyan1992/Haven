@@ -143,6 +143,35 @@ function classifyTopics(input: string): TopicBucket[] {
   return topics.size > 0 ? Array.from(topics) : ["h1b", "adjustment-of-status"];
 }
 
+function isExperientialQuestion(query: string): boolean {
+  const normalized = query.toLowerCase();
+  if (/(how long|processing time|still waiting|how much time|took|delay|stuck|pending|timeline|how fast|when will|when did|how soon|months|weeks|days to)/.test(normalized)) return true;
+  if (/(did anyone|has anyone|what happened|rfe|denied|rejected|approved|case status|anyone else|my experience|in my case|success story|real.?world|in practice|actually)/.test(normalized)) return true;
+  if (/(people like me|others in|similar case|same situation|community|others have|heard from|typical|average|usually take|normally)/.test(normalized)) return true;
+  return false;
+}
+
+function scoreProfileMatch(tags: string[], profile: { visaType: string; preferenceCategory: string; countryOfBirth: string; topConcerns: string[] }): number {
+  const normalized = tags.map(t => t.toLowerCase().replace(/[-_\s]/g, ""));
+  let score = 0;
+
+  const visaTag = profile.visaType.toLowerCase().replace(/[-_\s]/g, "");
+  if (normalized.some(t => t.includes(visaTag) || visaTag.includes(t))) score += 2;
+
+  const catTag = profile.preferenceCategory.toLowerCase().replace(/[-_\s]/g, "");
+  if (normalized.some(t => t.includes(catTag) || catTag.includes(t))) score += 2;
+
+  const countryTag = profile.countryOfBirth.toLowerCase().replace(/[-_\s]/g, "");
+  if (normalized.some(t => t.includes(countryTag) || countryTag.includes(t))) score += 1;
+
+  for (const concern of profile.topConcerns) {
+    const concernTag = concern.toLowerCase().replace(/[-_\s]/g, "");
+    if (normalized.some(t => t.includes(concernTag) || concernTag.includes(t))) score += 1;
+  }
+
+  return score;
+}
+
 function concernToPrompt(concern: Concern, fallbackPrompt: string) {
   switch (concern) {
     case "gc_timeline":
@@ -248,9 +277,13 @@ function buildAdvisorContext(snapshot: Awaited<ReturnType<typeof getSnapshot>>):
       profile.priorityDate ? `Priority date: ${profile.priorityDate}` : "Priority date: not on file",
       `Preference category: ${profile.preferenceCategory}`,
       `I-140 approved: ${profile.i140Approved ? "yes" : "no"}`,
+      `I-485 filed: ${profile.i485Filed ? "yes" : "no"}`,
+      `PERM stage: ${profile.permStage}`,
+      `Employment status: ${profile.employmentStatus}`,
       `Spouse visa status: ${profile.spouseVisaStatus}`,
-      profile.currentVisaExpiryDate ? `Current visa expiry date: ${profile.currentVisaExpiryDate}` : "Current visa expiry date: not on file"
-    ],
+      profile.currentVisaExpiryDate ? `Current visa expiry date: ${profile.currentVisaExpiryDate}` : "Current visa expiry date: not on file",
+      profile.topConcerns.length > 0 ? `Top concerns: ${profile.topConcerns.join(", ")}` : null
+    ].filter(Boolean) as string[],
     timelineSummary: timelineEvents.slice(0, 4).map((event) => `${event.title}: ${event.dateLabel}. Next action: ${event.nextAction}`),
     derivedSignalsSummary: [
       dashboard.signals.h1bCapDate ? `Estimated H-1B 6-year cap date: ${dashboard.signals.h1bCapDate}` : "H-1B cap date unavailable",
@@ -454,19 +487,70 @@ async function retrieveKnowledge(query: string, topics: TopicBucket[]) {
 async function retrieveCommunity(
   query: string,
   topics: TopicBucket[],
-  snapshot: Awaited<ReturnType<typeof getSnapshot>>
+  snapshot: Awaited<ReturnType<typeof getSnapshot>>,
+  traceId?: string
 ) {
-  if (!topics.some((topic) => topic === "layoffs" || topic === "job-change")) {
+  if (!isExperientialQuestion(query)) {
     return [] as RetrievedCommunitySummary[];
   }
 
-  return [...buildSnapshotCommunitySummaries(snapshot), ...buildFallbackCommunitySummaries()]
+  const profile = snapshot.profile;
+  const lf = getLangfuseClient();
+  const span = lf?.trace({ id: traceId, name: "advisor-session" })
+    .span({ name: "community-story-agent", input: { query, topics, experiential: true } });
+
+  // Vector search path
+  if (hasSupabaseEnv) {
+    const embedding = await embedQuery(query, traceId);
+
+    if (embedding) {
+      try {
+        const admin = createSupabaseAdminClient() as any;
+        const filterTopics = topics.filter(t => t !== "haven-product");
+
+        const { data, error } = await admin.rpc("match_community_advice_summaries", {
+          query_embedding: asPgVector(embedding),
+          match_count: 8,
+          filter_topics: filterTopics.length > 0 ? filterTopics : null
+        });
+
+        if (!error && Array.isArray(data) && data.length > 0) {
+          const ranked = (data as Array<{
+            id: string; title: string; topic: string; summary: string;
+            legal_caveat: string; tags: string[]; similarity: number;
+          }>).map(item => {
+            const profileScore = scoreProfileMatch(item.tags ?? [], profile);
+            return {
+              title: item.title,
+              topic: item.topic ?? "community",
+              summary: item.summary,
+              legalCaveat: item.legal_caveat ?? "Community experiences are anecdotal and may not match your facts.",
+              tags: item.tags ?? [],
+              similarity: (item.similarity ?? 0) + profileScore * 0.05
+            };
+          }).sort((a, b) => (b.similarity ?? 0) - (a.similarity ?? 0)).slice(0, 3);
+
+          span?.end({ output: { source: "vector", count: ranked.length } });
+          return ranked as RetrievedCommunitySummary[];
+        }
+      } catch {
+        // fall through to text overlap fallback
+      }
+    }
+  }
+
+  // Fallback: text overlap on snapshot + corpus
+  const fallback = [...buildSnapshotCommunitySummaries(snapshot), ...buildFallbackCommunitySummaries()]
     .map((item) => ({
       ...item,
-      similarity: scoreOverlap(query, `${item.title} ${item.summary} ${item.topic}`)
+      similarity: scoreOverlap(query, `${item.title} ${item.summary} ${item.topic}`) +
+        scoreProfileMatch(item.tags ?? [], profile) * 0.05
     }))
     .sort((left, right) => (right.similarity ?? 0) - (left.similarity ?? 0))
     .slice(0, 3);
+
+  span?.end({ output: { source: "fallback", count: fallback.length } });
+  return fallback;
 }
 
 function buildSnapshotCommunitySummaries(snapshot: Awaited<ReturnType<typeof getSnapshot>>) {
@@ -815,7 +899,7 @@ export async function respondToAdvisorMessage(rawInput: {
   const topics = classifyTopics(content);
   const userContext = buildAdvisorContext(snapshot);
   const knowledge = await retrieveKnowledge(content, topics);
-  const community = await retrieveCommunity(content, topics, snapshot);
+  const community = await retrieveCommunity(content, topics, snapshot, traceId);
   const answer = await generateAdvisorAnswer({
     question: content,
     userContext,
@@ -853,6 +937,12 @@ const STREAMING_SYSTEM_PROMPT = [
   "Prioritize official sources. Never invent eligibility rules, filing windows, dates, or conclusions.",
   "If the question is too case-specific or risky, provide general guidance and recommend attorney review.",
   "Only answer work visa, green card, or Haven product questions. Politely refuse unrelated topics.",
+  "Use the user's Haven profile to personalize your answer only where relevant to their question.",
+  "For example: reference their priority date only if the question is about visa bulletin or GC timeline; reference their PERM stage only if the question involves PERM or job change. Do not inject profile facts unrelated to what they asked.",
+  "For timeline or processing-time questions, lead with official data (USCIS/DOL processing times, visa bulletin). Use community stories only as supplementary real-world anecdote after the official answer, clearly framed as individual experiences — never as the authoritative answer.",
+  "Be concise. Answer the question directly in as few words as it takes to be accurate and complete — no preamble, no restating the question, no filler.",
+  "Default to a short answer (2–4 sentences or a tight bulleted list). Only go longer when the question genuinely requires multiple steps, dates, or conditions.",
+  "Lead with the direct answer, then add only the context, caveats, or numbers that materially change what the user should do.",
 ].join(" ");
 
 export async function* streamAdvisorResponse(rawInput: {
@@ -910,7 +1000,7 @@ export async function* streamAdvisorResponse(rawInput: {
   const topics = classifyTopics(content);
   const userContext = buildAdvisorContext(snapshot);
   const knowledge = await retrieveKnowledge(content, topics);
-  const community = await retrieveCommunity(content, topics, snapshot);
+  const community = await retrieveCommunity(content, topics, snapshot, traceId);
 
   const citations = buildCitationSet(knowledge);
   const communityUsed = community.slice(0, 2).map((item) => `${item.title}: ${item.summary}`);
