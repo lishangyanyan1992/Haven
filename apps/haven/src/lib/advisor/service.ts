@@ -408,7 +408,7 @@ async function moderateMessage(content: string, traceId?: string) {
 
   try {
     const lf = getLangfuseClient();
-    const span = lf?.trace({ id: traceId, name: "advisor-moderation" })
+    const span = lf?.trace({ id: traceId })
       .span({ name: "openai-moderation", input: { content } });
 
     const moderation = await client.moderations.create({
@@ -434,7 +434,7 @@ async function embedQuery(query: string, traceId?: string) {
 
   const lf = getLangfuseClient();
   const model = getEmbeddingModel();
-  const span = lf?.trace({ id: traceId, name: "advisor-embed" })
+  const span = lf?.trace({ id: traceId })
     .span({ name: "openai-embedding", input: { query, model } });
 
   const response = await client.embeddings.create({ model, input: query });
@@ -496,7 +496,7 @@ async function retrieveCommunity(
 
   const profile = snapshot.profile;
   const lf = getLangfuseClient();
-  const span = lf?.trace({ id: traceId, name: "advisor-session" })
+  const span = lf?.trace({ id: traceId })
     .span({ name: "community-story-agent", input: { query, topics, experiential: true } });
 
   // Vector search path
@@ -998,6 +998,8 @@ export async function* streamAdvisorResponse(rawInput: {
   }));
 
   const topics = classifyTopics(content);
+  lf?.trace({ id: traceId }).update({ metadata: { topics, experiential: isExperientialQuestion(content) } });
+
   const userContext = buildAdvisorContext(snapshot);
   const knowledge = await retrieveKnowledge(content, topics);
   const community = await retrieveCommunity(content, topics, snapshot, traceId);
@@ -1005,6 +1007,8 @@ export async function* streamAdvisorResponse(rawInput: {
   const citations = buildCitationSet(knowledge);
   const communityUsed = community.slice(0, 2).map((item) => `${item.title}: ${item.summary}`);
   const havenContextUsed = userContext.profileSummary.slice(0, 4).filter(Boolean);
+
+  const systemPrompt = await getPrompt(lf, "haven-advisor-system", STREAMING_SYSTEM_PROMPT);
 
   const userPrompt = [
     `User question:\n${content}`,
@@ -1035,12 +1039,12 @@ export async function* streamAdvisorResponse(rawInput: {
 
   const client = getOpenAIClient();
   const model = getChatModel();
-  const trace = lf?.trace({ id: traceId, name: "advisor-respond", input: { question: content, topics } });
+  const trace = lf?.trace({ id: traceId });
   const generation = trace?.generation({
     name: "openai-advisor-stream",
     model,
     input: [
-      { role: "system", content: STREAMING_SYSTEM_PROMPT },
+      { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
     ],
   });
@@ -1052,7 +1056,7 @@ export async function* streamAdvisorResponse(rawInput: {
       const stream = await client.chat.completions.create({
         model,
         messages: [
-          { role: "system", content: STREAMING_SYSTEM_PROMPT },
+          { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
         stream: true,
