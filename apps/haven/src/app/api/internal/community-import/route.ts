@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { canGenerateCommunityDraft, generateCommunityDraft } from "@/lib/community-draft-generation";
 import { env } from "@/lib/env";
+import { flushLangfuse } from "@/lib/langfuse";
 import {
   buildStoryObservabilityMetadata,
   createStoryTraceId,
@@ -50,7 +52,7 @@ const importItemSchema = z.object({
   source_story_id: z.string().min(1),
   language: z.string().min(1).optional(),
   source_payload_private: z.record(z.string(), z.unknown()),
-  publish_draft: publishDraftSchema
+  publish_draft: publishDraftSchema.optional()
 });
 
 const importRequestSchema = z.object({
@@ -87,6 +89,7 @@ export async function POST(request: Request) {
       source: "unknown",
       traceId: createStoryTraceId()
     });
+    await flushLangfuse();
     return NextResponse.json(
       {
         error: "invalid_payload",
@@ -100,6 +103,30 @@ export async function POST(request: Request) {
   const { source } = parsedBody;
   const now = new Date().toISOString();
   const runTraceId = createStoryTraceId();
+  const needsDraftGeneration = parsedBody.items.some((item) => !item.publish_draft);
+
+  if (needsDraftGeneration && !canGenerateCommunityDraft()) {
+    trackStoryEvent({
+      input: {
+        item_count: parsedBody.items.length,
+        source
+      },
+      name: "community-import-api.generation-unavailable",
+      output: {
+        error: "OPENAI_API_KEY is required for source-only imports."
+      },
+      source,
+      traceId: runTraceId
+    });
+    await flushLangfuse();
+    return NextResponse.json(
+      {
+        error: "endpoint_not_configured_for_generation",
+        message: "OPENAI_API_KEY is required for source-only community imports."
+      },
+      { status: 503 }
+    );
+  }
 
   trackStoryEvent({
     input: {
@@ -166,15 +193,35 @@ export async function POST(request: Request) {
     const insertedCount = uniqueItems.filter((item) => !existingIds.has(item.source_story_id)).length;
     const updatedCount = uniqueItems.length - insertedCount;
 
-    const rowsToUpsert: CommunityImportInsert[] = uniqueItems.map((item) => {
-      const itemTraceId = createStoryTraceId();
+    const preparedItems = await Promise.all(
+      uniqueItems.map(async (item) => {
+        const itemTraceId = createStoryTraceId();
+        const publishDraft = item.publish_draft ?? (await generateCommunityDraft({
+          language: item.language ?? null,
+          runId: runRow.id,
+          source,
+          sourcePayloadPrivate: item.source_payload_private as Json,
+          sourceStoryId: item.source_story_id,
+          traceId: itemTraceId
+        }));
 
+        const parsedPublishDraft = publishDraftSchema.parse(publishDraft);
+
+        return {
+          item,
+          itemTraceId,
+          publishDraft: parsedPublishDraft
+        };
+      })
+    );
+
+    const rowsToUpsert: CommunityImportInsert[] = preparedItems.map(({ item, itemTraceId, publishDraft }) => {
       return {
         langfuse_trace_id: itemTraceId,
         observability_metadata: buildStoryObservabilityMetadata({
           language: item.language ?? null,
-          moderationStatus: item.publish_draft.publish_ready ? "pending" : "needs_revision",
-          publishReady: item.publish_draft.publish_ready,
+          moderationStatus: publishDraft.publish_ready ? "pending" : "needs_revision",
+          publishReady: publishDraft.publish_ready,
           runId: runRow.id,
           source,
           sourcePayloadPrivate: item.source_payload_private as Json,
@@ -186,8 +233,8 @@ export async function POST(request: Request) {
         source_story_id: item.source_story_id,
         language: item.language ?? null,
         source_payload_private: item.source_payload_private as Json,
-        publish_draft: item.publish_draft as Json,
-        moderation_status: item.publish_draft.publish_ready ? "pending" : "needs_revision"
+        publish_draft: publishDraft as Json,
+        moderation_status: publishDraft.publish_ready ? "pending" : "needs_revision"
       };
     });
 
@@ -198,6 +245,19 @@ export async function POST(request: Request) {
     if (upsertError) {
       throw new Error(upsertError.message);
     }
+
+    trackStoryEvent({
+      input: {
+        unique_count: uniqueItems.length
+      },
+      name: "community-import-api.items-staged",
+      output: {
+        staged: rowsToUpsert.length
+      },
+      runId: runRow.id,
+      source,
+      traceId: runTraceId
+    });
 
     trackStoryEvent({
       input: {
@@ -229,6 +289,7 @@ export async function POST(request: Request) {
       throw new Error(runUpdateError.message);
     }
 
+    await flushLangfuse();
     return NextResponse.json({
       source,
       received: parsedBody.items.length,
@@ -246,6 +307,7 @@ export async function POST(request: Request) {
       source,
       traceId: runTraceId
     });
+    await flushLangfuse();
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to import community items." },
       { status: 500 }
