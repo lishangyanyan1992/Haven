@@ -1,3 +1,4 @@
+import { federalCourtVacates100000H1bFee2026Post } from "@/content/blog/posts/federal-court-vacates-100000-h1b-fee-2026";
 import { h1bBillEndGreenCardPathway2026Post } from "@/content/blog/posts/h1b-bill-end-green-card-pathway-2026";
 import { courtVacatesUscisBenefitsHold39CountriesPost } from "@/content/blog/posts/court-vacates-uscis-benefits-hold-39-countries";
 import { fy2026EbSpillover46000ExtraGreenCardsPost } from "@/content/blog/posts/fy2026-eb-spillover-46000-extra-green-cards";
@@ -84,6 +85,7 @@ const guideBlogPosts = guides.map(guideToBlogPost);
 
 // Add a new post import here and it will appear in the blog automatically.
 export const blogPosts = [
+  federalCourtVacates100000H1bFee2026Post,
   h1bBillEndGreenCardPathway2026Post,
   courtVacatesUscisBenefitsHold39CountriesPost,
   fy2026EbSpillover46000ExtraGreenCardsPost,
