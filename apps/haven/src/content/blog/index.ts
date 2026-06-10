@@ -34,6 +34,7 @@ import { familyAndSelfSponsorshipPermanentResidencyPost } from "@/content/blog/p
 import { immigrantVsNonimmigrantVisaPost } from "@/content/blog/posts/immigrant-vs-nonimmigrant-visa";
 import { shortTermVisaGuidePassportVisaVwpI539Post } from "@/content/blog/posts/short-term-visa-guide-passport-visa-vwp-i539";
 import { humanitarianVisasSTUVPost } from "@/content/blog/posts/humanitarian-visas-s-t-u-v";
+import { h1bLayoffH1bToF1CostTimelinePost } from "@/content/blog/posts/h1b-layoff-h1b-to-f1-cost-timeline";
 import { beforeYouAcceptH1bTransferPost } from "@/content/blog/posts/before-you-accept-h1b-transfer";
 import { h1bGracePeriodChecklistPost } from "@/content/blog/posts/h1b-grace-period-checklist";
 import { visaJourneyReviewPost } from "@/content/blog/posts/visajourney-review";
@@ -129,6 +130,7 @@ export const blogPosts = [
   shortTermUsVisasB1B2K1Post,
   uscisVaccineRequirementsAdultsPost,
   trump100000H1BFeeExplainedPost,
+  h1bLayoffH1bToF1CostTimelinePost,
   visaJourneyReviewPost,
   whyH1bHelpStillFeelsFragmentedPost,
   h1bGracePeriodChecklistPost,
