@@ -7,6 +7,7 @@ import {
   getSupabaseDashboardPageData,
   getSupabaseInboxPageData,
   getSupabasePlannerPageData,
+  getSupabasePublicCommunityPageData,
   getSupabaseShellSnapshot,
   getSupabaseTimelinePageData,
   getSupabaseWarRoomPageData,
@@ -19,6 +20,7 @@ export type DashboardPageData = AppShellSnapshot & { priorityDateIntelligence: P
 export type TimelinePageData = AppShellSnapshot & Pick<HavenWorkspaceSnapshot, "timelineEvents">;
 export type PlannerPageData = AppShellSnapshot & Pick<HavenWorkspaceSnapshot, "planner">;
 export type CommunityPageData = AppShellSnapshot & Pick<HavenWorkspaceSnapshot, "cohorts">;
+export type PublicCommunityPageData = Pick<HavenWorkspaceSnapshot, "cohorts" | "warRoom">;
 export type WarRoomPageData = AppShellSnapshot & Pick<HavenWorkspaceSnapshot, "warRoom">;
 export type InboxPageData = AppShellSnapshot &
   Pick<HavenWorkspaceSnapshot, "documents" | "emailAlias" | "emailInbox" | "emailThreads" | "emailContacts">;
@@ -123,6 +125,31 @@ export const getCommunityPageData = cache(async (): Promise<CommunityPageData> =
   return {
     ...shellFromMock(),
     cohorts: havenSnapshot.cohorts
+  };
+});
+
+export const getPublicCommunityPageData = cache(async (): Promise<PublicCommunityPageData> => {
+  if (hasSupabaseEnv) {
+    try {
+      return await getSupabasePublicCommunityPageData();
+    } catch {
+      return {
+        cohorts: [],
+        warRoom: {
+          id: "war-room-empty",
+          type: "war_room",
+          name: "Layoff War Room",
+          summary: "Dedicated high-urgency space for users navigating a layoff or grace-period timeline.",
+          members: [],
+          posts: []
+        }
+      };
+    }
+  }
+
+  return {
+    cohorts: havenSnapshot.cohorts,
+    warRoom: havenSnapshot.warRoom
   };
 });
 
