@@ -26,6 +26,12 @@ type CommunitySpaceRow = Database["public"]["Tables"]["community_spaces"]["Row"]
 type CommunityMembershipRow = Database["public"]["Tables"]["community_memberships"]["Row"];
 type CommunityPostRow = Database["public"]["Tables"]["community_posts"]["Row"];
 type CommunityPostCommentRow = Database["public"]["Tables"]["community_post_comments"]["Row"];
+type PublicCommunitySpaceRow = Pick<CommunitySpaceRow, "id" | "space_type" | "name" | "summary">;
+type PublicCommunityPostRow = Pick<CommunityPostRow, "id" | "space_id" | "author_label" | "title" | "body" | "created_at" | "tags">;
+type PublicCommunityPostCommentRow = Pick<
+  CommunityPostCommentRow,
+  "id" | "post_id" | "author_label" | "body" | "sort_order" | "created_at"
+>;
 type EmailAliasRow = Database["public"]["Tables"]["email_aliases"]["Row"];
 type EmailRecordRow = Database["public"]["Tables"]["email_ingest_records"]["Row"];
 type EmailFieldRow = Database["public"]["Tables"]["email_extracted_fields"]["Row"];
@@ -137,14 +143,14 @@ function mapCommunityPosts(rows: CommunityPostRow[], commentRows: CommunityPostC
       })
       .map((comment) => ({
         id: comment.id,
-        authorId: comment.author_id,
+        authorId: null,
         authorLabel: comment.author_label,
         body: comment.body,
         createdAt: comment.created_at
       })),
     id: row.id,
     spaceType: "cohort",
-    authorId: row.author_id,
+    authorId: null,
     authorLabel: row.author_label,
     title: row.title,
     body: row.body,
@@ -170,6 +176,70 @@ function buildCommunitySpaces(
       profile
     ),
     posts: mapCommunityPosts(
+      posts.filter((post) => post.space_id === space.id),
+      comments
+    ).map((post) => ({
+      ...post,
+      spaceType: space.space_type as CommunityPost["spaceType"]
+    }))
+  }));
+
+  const cohorts = communitySpaces.filter((space) => space.type === "cohort");
+  const warRoom =
+    communitySpaces.find((space) => space.type === "war_room") ??
+    {
+      id: "war-room-empty",
+      type: "war_room" as const,
+      name: "Layoff War Room",
+      summary: "Dedicated high-urgency space for users navigating a layoff or grace-period timeline.",
+      members: [],
+      posts: []
+    };
+
+  return { cohorts, warRoom };
+}
+
+function mapPublicCommunityPosts(rows: PublicCommunityPostRow[], commentRows: PublicCommunityPostCommentRow[]): CommunityPost[] {
+  return rows.map((row) => ({
+    comments: commentRows
+      .filter((comment) => comment.post_id === row.id)
+      .sort((left, right) => {
+        const orderDelta = left.sort_order - right.sort_order;
+        if (orderDelta !== 0) {
+          return orderDelta;
+        }
+        return new Date(left.created_at).getTime() - new Date(right.created_at).getTime();
+      })
+      .map((comment) => ({
+        id: comment.id,
+        authorId: null,
+        authorLabel: comment.author_label,
+        body: comment.body,
+        createdAt: comment.created_at
+    })),
+    id: row.id,
+    spaceType: "cohort",
+    authorId: null,
+    authorLabel: row.author_label,
+    title: row.title,
+    body: row.body,
+    createdAt: row.created_at,
+    tags: row.tags
+  }));
+}
+
+function buildPublicCommunitySpaces(
+  spaces: PublicCommunitySpaceRow[],
+  posts: PublicCommunityPostRow[],
+  comments: PublicCommunityPostCommentRow[]
+) {
+  const communitySpaces: CommunitySpace[] = spaces.map((space) => ({
+    id: space.id,
+    type: space.space_type as CommunitySpace["type"],
+    name: space.name,
+    summary: space.summary,
+    members: [],
+    posts: mapPublicCommunityPosts(
       posts.filter((post) => post.space_id === space.id),
       comments
     ).map((post) => ({
@@ -494,6 +564,37 @@ export async function getSupabaseCommunityPageData() {
     ...buildShellSnapshot(context.snapshot),
     cohorts: community.cohorts
   };
+}
+
+export async function getSupabasePublicCommunityPageData(): Promise<Pick<HavenWorkspaceSnapshot, "cohorts" | "warRoom">> {
+  const supabase = await createSupabaseServerClient();
+  const [
+    { data: communitySpaceRows, error: communitySpaceRowsError },
+    { data: postRows, error: postRowsError },
+    { data: commentRows, error: commentRowsError }
+  ] = await Promise.all([
+    supabase.from("community_spaces").select("id, space_type, name, summary"),
+    supabase.from("community_posts").select("id, space_id, author_label, title, body, created_at, tags"),
+    supabase.from("community_post_comments").select("id, post_id, author_label, body, sort_order, created_at")
+  ]);
+
+  const safeCommentRows = isMissingCommunityPostCommentsTable(commentRowsError) ? [] : commentRows;
+
+  if (communitySpaceRowsError || postRowsError || (commentRowsError && !isMissingCommunityPostCommentsTable(commentRowsError))) {
+    return {
+      cohorts: [],
+      warRoom: {
+        id: "war-room-empty",
+        type: "war_room",
+        name: "Layoff War Room",
+        summary: "Dedicated high-urgency space for users navigating a layoff or grace-period timeline.",
+        members: [],
+        posts: []
+      }
+    };
+  }
+
+  return buildPublicCommunitySpaces(communitySpaceRows ?? [], postRows ?? [], safeCommentRows ?? []);
 }
 
 export async function getSupabaseWarRoomPageData() {
