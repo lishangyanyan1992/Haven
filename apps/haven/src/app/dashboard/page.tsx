@@ -284,7 +284,7 @@ export default async function DashboardPage({
                           </div>
                           <p className="text-body-sm mt-3">{event.nextAction}</p>
                           {event.communityLinkLabel && (
-                            <Link className="mt-3 inline-flex items-center gap-2 text-body-sm text-[var(--haven-ink)] underline-offset-4 hover:underline" href="/community">
+                            <Link className="mt-3 inline-flex items-center gap-2 text-body-sm text-[var(--haven-ink)] underline-offset-4 hover:underline" href="/profile/community">
                               <MessageCircle className="h-4 w-4" />
                               {event.communityLinkLabel}
                             </Link>

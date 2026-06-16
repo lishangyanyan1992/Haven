@@ -1162,6 +1162,7 @@ async function runReviewCommunityImportAction({
 
     revalidatePath("/admin/community-imports");
     revalidatePath("/community");
+    revalidatePath("/profile/community");
 
     trackStoryEvent({
       importItemId: item.id,
@@ -1222,6 +1223,7 @@ async function runReviewCommunityImportAction({
 
     revalidatePath("/admin/community-imports");
     revalidatePath("/community");
+    revalidatePath("/profile/community");
 
     trackStoryEvent({
       importItemId: item.id,
@@ -1314,6 +1316,7 @@ async function runReviewCommunityImportAction({
 
     revalidatePath("/admin/community-imports");
     revalidatePath("/community");
+    revalidatePath("/profile/community");
 
     return {
       status: "success",
@@ -1426,6 +1429,7 @@ export async function autoReviewPendingCommunityImportsAction(
 
     revalidatePath("/admin/community-imports");
     revalidatePath("/community");
+    revalidatePath("/profile/community");
 
     return {
       status: "success",
