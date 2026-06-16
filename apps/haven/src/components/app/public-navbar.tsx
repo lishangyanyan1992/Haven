@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
 import { HavenBrand } from "@/components/app/haven-brand";
+import { MobilePublicNav } from "@/components/app/mobile-public-nav";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -87,13 +88,14 @@ export function PublicNavbar({ currentPath }: { currentPath: string }) {
             </a>
           ) : null}
         </nav>
-        <div className="flex items-center gap-3">
-          <Link className="text-body-sm hover:text-[var(--haven-ink)]" href="/login">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Link className="hidden text-body-sm hover:text-[var(--haven-ink)] sm:inline" href="/login">
             Sign in
           </Link>
-          <Link className={buttonVariants({ variant: "default" })} href="/register">
+          <Link className={cn(buttonVariants({ variant: "default" }), "hidden sm:inline-flex")} href="/register">
             Get Started
           </Link>
+          <MobilePublicNav currentPath={currentPath} immigWizardUrl={immigWizardUrl} navItems={navItems} />
         </div>
       </div>
     </header>

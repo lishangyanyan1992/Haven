@@ -1,0 +1,105 @@
+"use client";
+
+import Link from "next/link";
+import { ArrowRight, Menu, X } from "lucide-react";
+import { useState } from "react";
+
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+type PublicNavItem = {
+  href: string;
+  label: string;
+};
+
+function isNavItemActive(currentPath: string, href: string) {
+  if (href === "/") {
+    return currentPath === "/";
+  }
+
+  return currentPath === href || currentPath.startsWith(`${href}/`);
+}
+
+export function MobilePublicNav({
+  currentPath,
+  immigWizardUrl,
+  navItems
+}: {
+  currentPath: string;
+  immigWizardUrl: string | null;
+  navItems: PublicNavItem[];
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <>
+      <button
+        aria-controls="mobile-public-nav"
+        aria-expanded={isOpen}
+        aria-label={isOpen ? "Close navigation menu" : "Open navigation menu"}
+        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--haven-white)] text-[var(--haven-ink)] md:hidden"
+        onClick={() => setIsOpen((open) => !open)}
+        type="button"
+      >
+        {isOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+      </button>
+
+      {isOpen ? (
+        <div className="fixed inset-x-0 top-16 z-40 border-b border-[var(--color-border)] bg-[var(--haven-cream)] shadow-[0_16px_40px_-24px_rgba(44,54,48,0.35)] md:hidden">
+          <div className="content-container-visual py-3" id="mobile-public-nav">
+            <nav className="grid gap-1">
+              {navItems.map((item) => {
+                const isActive = isNavItemActive(currentPath, item.href);
+
+                return (
+                  <Link
+                    key={item.href}
+                    className={cn(
+                      "flex min-h-11 items-center rounded-[var(--radius-md)] px-3 text-body-sm transition-colors",
+                      isActive
+                        ? "bg-[var(--haven-sage-light)] font-medium text-[var(--haven-ink)]"
+                        : "text-[var(--color-text-secondary)] hover:bg-[var(--haven-sage-light)] hover:text-[var(--haven-ink)]"
+                    )}
+                    href={item.href}
+                    onClick={() => setIsOpen(false)}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
+              {immigWizardUrl ? (
+                <a
+                  className="flex min-h-11 items-center gap-2 rounded-[var(--radius-md)] px-3 text-body-sm font-medium text-[var(--haven-ink)] hover:bg-[var(--haven-sage-light)]"
+                  href={immigWizardUrl}
+                  onClick={() => setIsOpen(false)}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  Green Card Forms
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </a>
+              ) : null}
+            </nav>
+
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <Link
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+                href="/login"
+                onClick={() => setIsOpen(false)}
+              >
+                Sign in
+              </Link>
+              <Link
+                className={buttonVariants({ variant: "default", size: "sm" })}
+                href="/register"
+                onClick={() => setIsOpen(false)}
+              >
+                Get Started
+              </Link>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+}
