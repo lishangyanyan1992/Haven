@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/inbox", label: "Document Vault", icon: FileText },
-  { href: "/community", label: "Community", icon: Users },
+  { href: "/profile/community", label: "Community", icon: Users },
   { href: "/advisor", label: "Advisor", icon: MessageSquareQuote },
   { href: "/planner", label: "Layoff Planner", icon: ShieldAlert },
   { href: "/settings", label: "Settings", icon: Settings }
@@ -102,7 +102,7 @@ export function AppShellNav({
             {!isPending && item.href === "/dashboard" && crisisDayNumber ? (
               <Badge variant="urgent">Day {crisisDayNumber} / 60</Badge>
             ) : null}
-            {!isPending && !isAdvisor && item.href === "/community" ? <Badge variant="count">3</Badge> : null}
+            {!isPending && !isAdvisor && item.href === "/profile/community" ? <Badge variant="count">3</Badge> : null}
           </Link>
         );
       })}

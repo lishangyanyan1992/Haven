@@ -5,7 +5,7 @@ import { createServerClient } from "@supabase/ssr";
 import { applySharedCookieOptions } from "@haven/auth/cookie-options";
 import { authEnv, hasSupabaseEnv } from "@haven/auth/env";
 
-const protectedPrefixes = ["/dashboard", "/onboarding", "/timeline", "/planner", "/advisor", "/inbox", "/settings"];
+const protectedPrefixes = ["/dashboard", "/onboarding", "/profile", "/timeline", "/planner", "/advisor", "/inbox", "/settings"];
 
 export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
@@ -43,5 +43,14 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/onboarding/:path*", "/timeline/:path*", "/planner/:path*", "/advisor/:path*", "/inbox/:path*", "/settings/:path*"]
+  matcher: [
+    "/dashboard/:path*",
+    "/onboarding/:path*",
+    "/profile/:path*",
+    "/timeline/:path*",
+    "/planner/:path*",
+    "/advisor/:path*",
+    "/inbox/:path*",
+    "/settings/:path*"
+  ]
 };

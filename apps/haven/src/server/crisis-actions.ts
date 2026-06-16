@@ -39,6 +39,7 @@ function revalidateCrisisSurfaces() {
   revalidatePath("/planner");
   revalidatePath("/timeline");
   revalidatePath("/community");
+  revalidatePath("/profile/community");
   revalidatePath("/inbox");
   revalidatePath("/settings");
   revalidatePath("/advisor");

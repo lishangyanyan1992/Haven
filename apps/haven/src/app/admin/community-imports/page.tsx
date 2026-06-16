@@ -181,7 +181,7 @@ export default async function CommunityImportsAdminPage({
   const visibleItems = applyFilter(allItems, filter);
 
   return (
-    <AppShell activePath="/community" crisisState={crisisState} snapshot={snapshot}>
+    <AppShell activePath="/profile/community" crisisState={crisisState} snapshot={snapshot}>
       <div className="space-y-6">
         {/* Header */}
         <section className="rounded-[var(--radius-2xl)] border border-[var(--haven-sky-mid)] bg-[var(--haven-sky-light)] p-6 md:p-8">

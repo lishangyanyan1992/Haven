@@ -452,6 +452,7 @@ export async function saveOnboardingStepFourAction(formData: FormData) {
   revalidatePath("/onboarding");
   revalidatePath("/planner");
   revalidatePath("/community");
+  revalidatePath("/profile/community");
   revalidatePath("/dashboard");
 }
 

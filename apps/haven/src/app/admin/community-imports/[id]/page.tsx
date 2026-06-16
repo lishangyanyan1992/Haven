@@ -152,7 +152,7 @@ export default async function CommunityImportDetailPage({
   };
 
   return (
-    <AppShell activePath="/community" crisisState={crisisState} snapshot={snapshot}>
+    <AppShell activePath="/profile/community" crisisState={crisisState} snapshot={snapshot}>
       <div className="space-y-6">
         {/* Back nav */}
         <Link
