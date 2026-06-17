@@ -219,6 +219,7 @@ async function generateDraft(openai, model, story, index, observability = {}) {
     "- Make it less identifiable than the source. Do not copy source phrasing.",
     "- Keep it concise and useful.",
     "- Rewrite comments so they preserve practical advice but do not read exactly like the originals.",
+    "- If the source story has no comments, return an empty comments array.",
     "- Use calm, practical forum language.",
     "- Set publish_ready to false only if privacy risk or lack of clarity is too high for public posting.",
     "- Use only tags that are directly supported by the source.",
@@ -312,7 +313,8 @@ async function generateDraft(openai, model, story, index, observability = {}) {
   });
 
   const parsed = JSON.parse(response.output_text ?? "{}");
-  const comments = Array.isArray(parsed.comments)
+  const sourceComments = Array.isArray(story.comments) ? story.comments.map(readString).filter(Boolean) : [];
+  const draftComments = sourceComments.length > 0 && Array.isArray(parsed.comments)
     ? parsed.comments
         .map((comment, commentIndex) => {
           const body = normalizeCommentBody(readString(readObject(comment).body));
@@ -325,6 +327,11 @@ async function generateDraft(openai, model, story, index, observability = {}) {
         })
         .filter(Boolean)
     : [];
+  const fallbackComments = sourceComments.map((body, commentIndex) => ({
+    author_label: buildAnonymousCommentAuthor(commentIndex, `${story.source_story_id}:comment:${commentIndex + 1}`),
+    body: normalizeCommentBody(body)
+  }));
+  const comments = draftComments.length > 0 ? draftComments : fallbackComments;
 
   const publishDraft = {
     version: 1,
