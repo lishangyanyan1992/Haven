@@ -1,0 +1,226 @@
+{
+  "source": "reddit",
+  "note": "Manual third 20-story import on 2026-06-16 using reviewed Reddit collector stories with comments.",
+  "stories": [
+    {
+      "source_story_id": "1t4zuu6",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1t4zuu6/h1b_transfer_during_grace_period_multiple/",
+      "author_name": "Reddit user",
+      "title": "H1B transfer filings from multiple employers during grace period",
+      "body": "I was laid off while on H1B and had about half of my 60-day grace period left. One employer was ready to file an H1B transfer with premium processing, but I was still interviewing elsewhere and wanted to know whether a second employer could also file while the first case was pending. My main worry was whether I would need to actually start work with the first company, collect paystubs, and only then move to another employer.",
+      "comments": [
+        "One commenter explained that multiple H1B petitions can exist at the same time, but payroll evidence becomes important once the worker starts with an employer.",
+        "Another practical warning was that joining a company briefly and leaving before pay records exist can create maintenance-of-status problems in the next filing."
+      ]
+    },
+    {
+      "source_story_id": "1t3v44s",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1t3v44s/seeking_advice_b2_h1b_a_new_type_of_rfe/",
+      "author_name": "Reddit user",
+      "title": "B2 to H1B change of status delayed by B2 approval RFE",
+      "body": "After a late 2025 layoff, I filed B2 before the H1B grace period ended and later found a new job. The new employer filed H1B change of status with premium processing, but USCIS issued an RFE saying the B2 needed to be approved before the H1B change of status could be decided. I was worried the offer would not survive several more months of B2 processing and was unsure whether asking for concurrent adjudication would risk consular processing or the $100k fee issue.",
+      "comments": [
+        "One response said similar bridge cases were increasingly receiving B2 RFEs or NOIDs and that the H1B outcome could depend on what happened to the B2.",
+        "Another commenter shared a very similar timeline with a pending B2, a March 2026 premium H1B filing, and a later B2 NOID, showing this was not an isolated concern."
+      ]
+    },
+    {
+      "source_story_id": "1t398ts",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1t398ts/laid_off_post2025_h1b_lottery_switched_to_b2/",
+      "author_name": "Reddit user",
+      "title": "Post-lottery H1B layoff with pending B2 and possible F1 fallback",
+      "body": "A friend was selected in the 2025 H1B lottery but was laid off and could not find a job within the 60-day grace period. She filed H1B to B2 in December 2025, the B2 was still pending, and the job market was not moving quickly. The question was whether a second master's program with Day 1 CPT or a B2-to-F1 change of status was still realistic in 2026.",
+      "comments": [
+        "One commenter warned that many recent B2 bridge filings in similar situations were being denied or challenged.",
+        "The thread was useful because it framed the F1 route as a fallback that still carries status-hopping and timing risk, not a simple escape hatch."
+      ]
+    },
+    {
+      "source_story_id": "1t25drd",
+      "source_url": "https://www.reddit.com/r/immigration/comments/1t25drd/canada_visitor_visa_while_h1b_to_f1_cos_is_pending/",
+      "author_name": "Reddit user",
+      "title": "Canada visitor visa while H1B to F1 change of status is pending",
+      "body": "After an H1B layoff, I filed a timely H1B-to-F1 change of status before the 60-day grace period ended. While the I-539 was pending, I wanted to apply for a Canadian visitor visa and was unsure how to describe my current U.S. status. The practical question was whether to list a pending change of status and what supporting documents would make sense.",
+      "comments": [
+        "One reply suggested waiting until the U.S. status issue was settled because Canadian officers can see U.S. immigration history and may view the profile as risky.",
+        "The broader takeaway was that third-country visitor visa planning gets harder when the applicant is between U.S. statuses."
+      ]
+    },
+    {
+      "source_story_id": "1svfl71",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1svfl71/urgent_laid_off_on_h1b_with_40_days_left_seeking/",
+      "author_name": "Reddit user",
+      "title": "H1B worker with 40 days left looking for data science referrals",
+      "body": "I was laid off from a healthcare company and had about 40 days left in my H1B grace period. I was looking urgently for data science, machine learning, healthcare analytics, data analyst, or AI roles and was open to remote, hybrid, or onsite work. The post was mostly a referral request from someone trying to move fast enough for an H1B transfer.",
+      "comments": [
+        "One supportive response noted that healthcare analytics is a specialized area where sponsorship may still be possible if the right employer is found.",
+        "The thread captured the practical reality that referral speed and employer sponsorship willingness can matter as much as qualifications late in the grace period."
+      ]
+    },
+    {
+      "source_story_id": "1sthp0a",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1sthp0a/h1b_couple_with_one_being_laid_off_options/",
+      "author_name": "Reddit user",
+      "title": "H1B couple planning H4 after one spouse is laid off",
+      "body": "I was still working on H1B, but my partner was being let go while also on H1B and near a renewal year. We did not yet have an approved I-140 and wanted to know whether my partner could move to H4, whether my employer's lawyers should be involved, and whether my partner could switch back to H1B after finding another job. We were also trying to confirm that the 60-day grace period still applied.",
+      "comments": [
+        "A strong reply recommended paying for an independent immigration lawyer because company counsel may not be focused on the worker family's interests.",
+        "Another response laid out H4 as the clean dependent-status route, contrasted it with B1/B2 scrutiny, and noted that a later H1B transfer or extension may still be possible."
+      ]
+    },
+    {
+      "source_story_id": "1sq0w95",
+      "source_url": "https://www.reddit.com/r/immigration/comments/1sq0w95/capexempt_h1b_switched_to_b2_left_us_does_the/",
+      "author_name": "Reddit user",
+      "title": "Cap-counted H1B worker outside the U.S. worried about the $100k fee",
+      "body": "I was selected in the FY2025 H1B lottery, changed status to H1B in October 2024, got laid off in April 2025, moved to B2, and later left the U.S. for India. I had already been counted against the cap, but I no longer had a valid in-country H1B status or current employer. I wanted to know whether a future cap-exempt H1B petition from abroad would trigger the $100k fee and whether any legitimate route could avoid it.",
+      "comments": [
+        "One commenter said cap-counted status helps skip the lottery but does not by itself solve the fee or reentry problem from abroad.",
+        "Another reply suggested that L1 or O1 might be more realistic alternatives if the goal is avoiding the fee, while warning against using B2 entry as a preplanned change-of-status strategy."
+      ]
+    },
+    {
+      "source_story_id": "1slz4a7",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1slz4a7/laid_off_on_h1b_and_about_15_years_remaining_with/",
+      "author_name": "Reddit user",
+      "title": "New offer after H1B layoff with limited time left and no PERM",
+      "body": "I was laid off on H1B, found a new employer, and signed an offer, but I had no approved I-140 and only about a year and a half of H1B time left plus some recapture time. The company knew I needed sponsorship and was willing to start the green card process after I joined, but I worried the lawyers might flag the short runway. I wanted to know whether the offer could be rescinded and whether a future one-year extension under the 365-day PERM rule was realistic.",
+      "comments": [
+        "One commenter shared that a prior offer was rescinded after the employer learned about a similar H1B timeline, making the fear concrete.",
+        "Other replies were more optimistic, suggesting quick PERM initiation, recapturing all available time, and considering EB2 NIW as a possible independent backup."
+      ]
+    },
+    {
+      "source_story_id": "1sityed",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1sityed/h1b_layoff_b2_new_job_cos_h1b_rfe_b2_noid_what/",
+      "author_name": "Reddit user",
+      "title": "H1B layoff followed by B2 NOID and H1B RFE",
+      "body": "I was laid off in early 2026, filed B2 near the end of the grace period, and later received a job offer with an H1B change-of-status filing. USCIS then issued an H1B RFE asking how I maintained status and whether the B2 had been approved, while the B2 case also received a NOID requesting extensive proof. I suspected the agency was questioning both my intent and finances because I had mentioned interviewing while on B2.",
+      "comments": [
+        "Several replies treated the situation as very high risk and said the B2 denial could undermine the in-country H1B change of status.",
+        "The useful practical theme was urgency: people pushed the poster to involve an immigration attorney quickly rather than relying on general forum answers."
+      ]
+    },
+    {
+      "source_story_id": "1shpcnm",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1shpcnm/h1b_layoff/",
+      "author_name": "Reddit user",
+      "title": "H1B layoff with approved I-140 and grace-period start question",
+      "body": "I was laid off with an H1B approval valid until 2029, an I-94 beyond 60 days, and an approved I-140. My layoff notice date and final payroll date were different, so I wanted to know when the 60-day grace period started. I was also considering a consulting-company stopgap or switching to F1, and I wanted to know whether returning to H1B later would require the lottery again.",
+      "comments": [
+        "Multiple replies said the grace period should be measured from the last day of employment or payroll, not the notification date.",
+        "Another practical warning was that F1 after an approved I-140 can draw immigrant-intent scrutiny, and consulting companies may not help without a real project."
+      ]
+    },
+    {
+      "source_story_id": "1sgvlcx",
+      "source_url": "https://www.reddit.com/r/immigration/comments/1sgvlcx/h1b_laid_off_advise_needed/",
+      "author_name": "Reddit user",
+      "title": "Laid-off H1B consultant weighing India travel and transfer approval",
+      "body": "I was working as a consultant on H1B, had been laid off, and still had a visa stamp and H1B validity into 2027. I was considering either returning to India and searching from there or securing a new employer and waiting for the H1B transfer approval before travel. An attorney had warned that some paths could trigger major costs or change-of-status complications, so I wanted to understand which route was actually viable.",
+      "comments": [
+        "One reply said a visa stamp alone is not enough to reenter on H1B if the worker is no longer employed by the petitioning employer.",
+        "Another response suggested avoiding travel before transfer approval, then using an existing stamp with the new approval if the facts support it."
+      ]
+    },
+    {
+      "source_story_id": "1sgyou1",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1sgyou1/laid_off_on_h1b_b2_filed_within_grace_period_now/",
+      "author_name": "Reddit user",
+      "title": "B2 filed during grace period before a possible new H1B offer",
+      "body": "I was laid off on H1B in late February 2026, filed a B2 change of status before the grace period ended, and then expected a job offer soon after receiving the B2 receipt. I wanted to know if the new employer could file an H1B transfer with change of status while the B2 was still pending. I was also unsure whether to withdraw B2 or leave it pending and how risky the bridge filing would be.",
+      "comments": [
+        "One reply said the employer could file H1B while B2 was pending and recommended premium processing for speed.",
+        "Another commenter warned that a change of status from a pending B2 can still be risky because the underlying B2 status may not yet exist."
+      ]
+    },
+    {
+      "source_story_id": "1sffjv0",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1sffjv0/b2_cos_rfe/",
+      "author_name": "Reddit user",
+      "title": "B2 change-of-status RFE after requested end date was near",
+      "body": "A friend was laid off on H1B in August 2025, filed H1B-to-B2 on the last day of the grace period, and requested B2 only until late April 2026. The B2 RFE arrived in April with a May response deadline, creating uncertainty because the requested B2 end date was already close. The questions were whether to request a new end date, whether domestic travel evidence mattered, and whether a return flight after the original end date would hurt.",
+      "comments": [
+        "One commenter had received similar language about B status not being a catch-all category and was waiting to see how counsel would respond.",
+        "The thread's value was in showing how delayed I-539 adjudication can make the requested B2 end date stale before the applicant even responds to the RFE."
+      ]
+    },
+    {
+      "source_story_id": "1sf41sr",
+      "source_url": "https://www.reddit.com/r/immigration/comments/1sf41sr/advice_h1b_maxout_in_oct_2028_reclaimed_to_jan/",
+      "author_name": "Reddit user",
+      "title": "H1B max-out planning with PERM timing and marriage derivative option",
+      "body": "I had just joined a company with a day-one PERM policy and was trying to map my H1B max-out timeline through late 2028 or early 2029 with recapture. The plan depended on PERM being filed early enough to use the 365-day rule for one-year H1B extensions, but DOL backlogs and layoff risk made the timeline feel fragile. I also had a long-term partner with a stronger employment-based green card track and was considering becoming a dependent on that case instead.",
+      "comments": [
+        "One reply recommended running both the dependent filing and the employer PERM process in parallel for peace of mind.",
+        "Another commenter said layoff risk was the real weak point because a job loss before I-140 approval could reset the whole employer-sponsored path with little time left."
+      ]
+    },
+    {
+      "source_story_id": "1se8ti5",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1se8ti5/just_got_laid_off/",
+      "author_name": "Reddit user",
+      "title": "New H1B worker laid off and considering Canada PR or India",
+      "body": "I was on my initial H1B term after being selected in 2025, had validity into 2027, and was laid off after the company was acquired. I had already been searching for months without success and was trying to decide whether to stay in the U.S. during the grace period or return to India. I had also started exploring Canadian permanent residence but was not sure whether that was realistic.",
+      "comments": [
+        "Several commenters were skeptical that Canada PR would be a fast fallback without French ability, Canadian work experience, or a strong CRS position.",
+        "The thread emphasized that the immediate U.S. status deadline still matters even when a longer-term Canada plan is being explored."
+      ]
+    },
+    {
+      "source_story_id": "1sebva6",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1sebva6/100k_fee_rfe_even_for_change_of_employers/",
+      "author_name": "Reddit user",
+      "title": "$100k fee RFE on H1B change of employer filed during grace period",
+      "body": "I was laid off at the end of January, found a new job within the 60-day grace period, and had the H1B change-of-employer receipt around day 45. After premium processing, USCIS issued an RFE asking about a missing $100k fee and how I maintained status between the job ending and the filing date. I was still in the U.S. the whole time and was confused because I thought the grace period protected the transfer filing.",
+      "comments": [
+        "One response suggested USCIS may be issuing fee-related RFEs broadly and said the answer should document status maintenance, the visa stamp, and related records.",
+        "Another reply noted that recent cases were treating the 60-day grace period as discretionary, which could push some filings toward consular-processing and fee questions."
+      ]
+    },
+    {
+      "source_story_id": "1saumib",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1saumib/h1b_f1_i539_after_layoff_risky/",
+      "author_name": "Reddit user",
+      "title": "H1B to F1 change of status after layoff and prior CPT history",
+      "body": "I was laid off on H1B and was still inside the 60-day grace period. Before H1B, I had been on F1 with CPT at two schools, and I was considering returning to one school that would support an in-country I-539 change to F1. My concern was whether moving from F1 to H1B and then back to F1 would look like status hopping under stricter 2026 scrutiny.",
+      "comments": [
+        "One commenter said H1B-to-F1 could be risky and might not have high approval odds, but asked what other realistic options existed.",
+        "Another response argued that F1 change of status might be safer than B2 in the current climate because B2 bridge cases were drawing RFEs and NOIDs."
+      ]
+    },
+    {
+      "source_story_id": "1sa45rq",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1sa45rq/h1b_60day_grace_period_does_it_start_after_the/",
+      "author_name": "Reddit user",
+      "title": "Grace-period start date after notice period or garden leave",
+      "body": "My wife was laid off from an H1B role and her termination documents placed her on a notice period. We needed to know whether the 60-day grace period started from the last day of active work or after the notice or garden-leave period ended. The distinction mattered because we were trying to plan the next status move accurately.",
+      "comments": [
+        "One reply said the clock starts from the last day of active work, while another used the last paystub date as the practical reference point.",
+        "A third comment suggested asking HR when the company planned to withdraw the H1B petition and clarifying whether payroll was salary, severance, or noncompete-related pay."
+      ]
+    },
+    {
+      "source_story_id": "1s401sk",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1s401sk/h1b_to_f1_change_of_status_after_lay_off/",
+      "author_name": "Reddit user",
+      "title": "Same-day H1B grace-period end and F1 program start",
+      "body": "I was laid off on February 6, 2026, and my 60-day H1B grace period ended on April 6, the same date as my new I-20 program start. I planned to file an I-539 from H1B to F1 by paper because the online option was confusing, and I was deciding whether premium processing was needed. I also needed to understand receipt timing, tracking, and whether the DSO could defer the start date if approval did not arrive in time.",
+      "comments": [
+        "The replies mainly came from others facing the same tight H1B-to-F1 timing and asking for updates on whether premium processing was used.",
+        "The thread highlights how same-day grace-period and program-start timing creates operational questions beyond the legal eligibility question."
+      ]
+    },
+    {
+      "source_story_id": "1s1ln0i",
+      "source_url": "https://www.reddit.com/r/h1b/comments/1s1ln0i/100k_required_for_h1b_transfer_with_cos/",
+      "author_name": "Reddit user",
+      "title": "H1B layoff, B2 bridge denial, and $100k transfer demand",
+      "body": "I had moved from F1 to H1B in October 2025, was laid off after only about a month, and filed B2 near the end of my grace period while interviewing. After receiving job offers, one employer filed H1B change of status, but the B2 received a NOID and was later denied, while the H1B path was pushed toward either B2 approval or paying the $100k fee and leaving for stamping. I ultimately expected to leave the U.S. and wanted others to understand how risky the B2 bridge had become.",
+      "comments": [
+        "The highest-value responses treated B2 as a much less reliable H1B bridge under current adjudication patterns, even though some people had succeeded in the past.",
+        "Other comments focused on the emotional and career cost of fighting a system that may no longer support the old layoff-to-B2-to-H1B strategy."
+      ]
+    }
+  ]
+}
