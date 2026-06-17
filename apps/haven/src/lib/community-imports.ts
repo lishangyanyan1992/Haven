@@ -19,8 +19,31 @@ export type PublishDraft = {
   privacyFlags: string[];
 };
 
-export function buildAnonymousCommentAuthor(index: number) {
-  return `Haven_User_${String(index + 1).padStart(3, "0")}`;
+function stableNumber(seed: string, min: number, max: number) {
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
+  }
+
+  return min + (hash % (max - min + 1));
+}
+
+export function buildAnonymousCommentAuthor(index: number, seed = "") {
+  const personas = [
+    "Community member",
+    "Fellow applicant",
+    "Forum member",
+    "Case sharer",
+    "Timeline reader",
+    "Status tracker",
+    "Visa peer",
+    "Immigration peer"
+  ];
+  const stableSeed = seed || `comment:${index + 1}`;
+  const persona = personas[stableNumber(`${stableSeed}:persona`, 0, personas.length - 1)] ?? "Community member";
+  const suffix = stableNumber(`${stableSeed}:suffix`, 100, 999);
+
+  return `${persona} ${suffix}`;
 }
 
 function normalizeImportedAuthorName(value: string) {
@@ -62,6 +85,38 @@ function readObject(value: Json | undefined) {
 
 function readString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeSourceTimestamp(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    const milliseconds = value > 100000000000 ? value : value * 1000;
+    const date = new Date(milliseconds);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  }
+
+  const raw = readString(value);
+  if (!raw) {
+    return null;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    return `${raw}T12:00:00.000Z`;
+  }
+
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+export function readSourcePublishedAt(sourcePayloadPrivate?: Json) {
+  const source = readObject(sourcePayloadPrivate);
+  return (
+    normalizeSourceTimestamp(source.source_created_at) ??
+    normalizeSourceTimestamp(source.posted_at) ??
+    normalizeSourceTimestamp(source.published_at) ??
+    normalizeSourceTimestamp(source.created_at) ??
+    normalizeSourceTimestamp(source.created_utc) ??
+    normalizeSourceTimestamp(source.date)
+  );
 }
 
 function readStringArray(value: unknown) {
@@ -132,15 +187,17 @@ function readPublishedComments(value: unknown, sourcePayloadPrivate?: Json, sour
   return value
     .map((comment, index) => {
       const sourceComment = sourceComments[index] as Json | undefined;
+      const sourceCommentId = readString(readObject(sourceComment).id) || String(index + 1);
+      const fallbackSeed = `${sourceStoryId || "unknown-story"}:comment:${sourceCommentId}`;
 
       if (typeof comment === "string") {
         const body = comment.trim();
         return body
           ? {
-              authorLabel: `Community member ${index + 1}`,
+              authorLabel: buildAnonymousCommentAuthor(index, fallbackSeed),
               authorKey: buildImportedAuthorKey({
                 authorName: readObject(sourceComment).author,
-                fallbackSeed: `${sourceStoryId || "unknown-story"}:comment:${readString(readObject(sourceComment).id) || index + 1}`
+                fallbackSeed
               }),
               body
             }
@@ -153,18 +210,22 @@ function readPublishedComments(value: unknown, sourcePayloadPrivate?: Json, sour
 
       const record = comment as Record<string, unknown>;
       const body = readString(record.body);
+      const explicitAuthorLabel = readString(record.author_label);
 
       if (!body) {
         return null;
       }
 
       return {
-        authorLabel: buildAnonymousCommentAuthor(index),
+        authorLabel:
+          explicitAuthorLabel && !isOpaqueImportedAuthorName(explicitAuthorLabel)
+            ? explicitAuthorLabel
+            : buildAnonymousCommentAuthor(index, fallbackSeed),
         authorKey:
           readString(record.author_key) ||
           buildImportedAuthorKey({
             authorName: readObject(sourceComment).author ?? record.author_label,
-            fallbackSeed: `${sourceStoryId || "unknown-story"}:comment:${readString(readObject(sourceComment).id) || index + 1}`
+            fallbackSeed
           }),
         body
       };
@@ -192,7 +253,10 @@ function readSourceComments(value: Json | undefined, sourceStoryId?: string) {
       }
 
       return {
-        authorLabel: buildAnonymousCommentAuthor(index),
+        authorLabel: buildAnonymousCommentAuthor(
+          index,
+          `${sourceStoryId || "unknown-story"}:comment:${readString(record.id) || index + 1}`
+        ),
         authorKey: buildImportedAuthorKey({
           authorName: record.author,
           fallbackSeed: `${sourceStoryId || "unknown-story"}:comment:${readString(record.id) || index + 1}`
