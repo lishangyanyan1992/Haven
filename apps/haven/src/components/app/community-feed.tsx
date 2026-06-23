@@ -7,10 +7,25 @@ import type { CommunityPost, HavenWorkspaceSnapshot } from "@/types/domain";
 
 export type CommunityData = Pick<HavenWorkspaceSnapshot, "cohorts" | "warRoom">;
 
+function hashLabelToNumber(label: string) {
+  return label.split("").reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) % 1000, 0);
+}
+
+function formatCommunityAuthorLabel(label: string, fallbackSeed: string) {
+  const explicitNumber = label.match(/\d+/)?.[0];
+  const numeric = explicitNumber ? Number(explicitNumber) % 1000 : hashLabelToNumber(label || fallbackSeed);
+  return `Haven_User_${String(numeric).padStart(3, "0")}`;
+}
+
 function getCommunityPosts(data: CommunityData) {
   return [...data.cohorts.flatMap((cohort) => cohort.posts), ...data.warRoom.posts]
     .map((post) => ({
       ...post,
+      authorLabel: formatCommunityAuthorLabel(post.authorLabel, post.id),
+      comments: post.comments.map((comment) => ({
+        ...comment,
+        authorLabel: formatCommunityAuthorLabel(comment.authorLabel, comment.id)
+      })),
       confirmedLabels: getConfirmedCommunityLabels(post)
     }))
     .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
@@ -24,8 +39,7 @@ export function CommunityIntro() {
           <p className="text-label text-[var(--haven-sky-ink)]">Community</p>
           <h1 className="text-h1 mt-4">A single forum, organized by confirmed case details.</h1>
           <p className="text-body mt-4">
-            Browse moderated immigration stories and replies before you create an account. Sign in when you want to
-            participate or ask Haven&apos;s AI expert about your own case context.
+            Sign in when you want to participate or ask Haven&apos;s AI expert about your own case context.
           </p>
         </div>
       </div>
