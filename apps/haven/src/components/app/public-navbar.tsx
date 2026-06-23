@@ -6,8 +6,8 @@ import { MobilePublicNav } from "@/components/app/mobile-public-nav";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const KNOWN_BROKEN_IMMIG_WIZARD_HOST = "immig.haven-h1b.com";
 const HAVEN_HOME_URL = "https://haven-h1b.com/";
+const IMMIG_WIZARD_URL = "https://immig.haven-h1b.com/";
 
 const navItems = [
   { href: "/", label: "Home" },
@@ -19,23 +19,7 @@ const navItems = [
 ];
 
 function getImmigWizardUrl() {
-  const configuredUrl = process.env.NEXT_PUBLIC_IMMIG_WIZARD_URL?.trim();
-
-  if (!configuredUrl) {
-    return null;
-  }
-
-  try {
-    const parsedUrl = new URL(configuredUrl);
-
-    if (parsedUrl.hostname === KNOWN_BROKEN_IMMIG_WIZARD_HOST) {
-      return null;
-    }
-
-    return parsedUrl.toString();
-  } catch {
-    return null;
-  }
+  return IMMIG_WIZARD_URL;
 }
 
 export function getPublicImmigWizardUrl() {

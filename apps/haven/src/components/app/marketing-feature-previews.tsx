@@ -6,25 +6,10 @@ import { ArrowRight, CalendarCheck, FileText, FolderOpen, Heart, MessageCircle, 
 import { WaitlistTrigger } from "@/components/app/waitlist-modal";
 import { cn } from "@/lib/utils";
 
-const KNOWN_BROKEN_IMMIG_WIZARD_HOST = "immig.haven-h1b.com";
-const LOCAL_IMMIG_WIZARD_URL = "http://localhost:3001";
-const PRODUCTION_IMMIG_WIZARD_URL = "https://wizard.haven.com";
+const IMMIG_WIZARD_URL = "https://immig.haven-h1b.com/";
 
 function getImmigWizardUrl() {
-  const fallbackUrl = process.env.NODE_ENV === "production" ? PRODUCTION_IMMIG_WIZARD_URL : LOCAL_IMMIG_WIZARD_URL;
-  const configuredUrl = process.env.NEXT_PUBLIC_IMMIG_WIZARD_URL?.trim() || fallbackUrl;
-
-  try {
-    const parsedUrl = new URL(configuredUrl);
-
-    if (parsedUrl.hostname === KNOWN_BROKEN_IMMIG_WIZARD_HOST) {
-      return fallbackUrl;
-    }
-
-    return parsedUrl.toString();
-  } catch {
-    return fallbackUrl;
-  }
+  return IMMIG_WIZARD_URL;
 }
 
 export function TimelineFeaturePreview() {
