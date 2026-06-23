@@ -1,10 +1,31 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { CalendarCheck, FileText, FolderOpen, Heart, MessageCircle, Search, Sparkles } from "lucide-react";
+import { ArrowRight, CalendarCheck, FileText, FolderOpen, Heart, MessageCircle, Search, Sparkles } from "lucide-react";
 
 import { WaitlistTrigger } from "@/components/app/waitlist-modal";
 import { cn } from "@/lib/utils";
+
+const KNOWN_BROKEN_IMMIG_WIZARD_HOST = "immig.haven-h1b.com";
+const LOCAL_IMMIG_WIZARD_URL = "http://localhost:3001";
+const PRODUCTION_IMMIG_WIZARD_URL = "https://wizard.haven.com";
+
+function getImmigWizardUrl() {
+  const fallbackUrl = process.env.NODE_ENV === "production" ? PRODUCTION_IMMIG_WIZARD_URL : LOCAL_IMMIG_WIZARD_URL;
+  const configuredUrl = process.env.NEXT_PUBLIC_IMMIG_WIZARD_URL?.trim() || fallbackUrl;
+
+  try {
+    const parsedUrl = new URL(configuredUrl);
+
+    if (parsedUrl.hostname === KNOWN_BROKEN_IMMIG_WIZARD_HOST) {
+      return fallbackUrl;
+    }
+
+    return parsedUrl.toString();
+  } catch {
+    return fallbackUrl;
+  }
+}
 
 export function TimelineFeaturePreview() {
   return (
@@ -216,17 +237,19 @@ export function DocumentVaultFeaturePreview() {
 }
 
 export function WaitlistFeaturePreview() {
+  const immigWizardUrl = getImmigWizardUrl();
+
   return (
     <div className="mt-8 rounded-[1.5rem] border border-[rgba(186,123,114,0.18)] bg-[rgba(255,255,255,0.9)] p-4 shadow-[0_12px_30px_-18px_rgba(100,56,48,0.2)]">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(186,123,114,0.24)] bg-[rgba(255,245,242,0.9)] px-3 py-1">
             <Heart className="h-3.5 w-3.5 text-[var(--haven-blush-ink)]" />
-            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--haven-blush-ink)]">Coming soon</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--haven-blush-ink)]">Available now</p>
           </div>
           <p className="mt-3 text-[15px] font-semibold text-[var(--haven-ink)]">10+ forms. One packet. Zero guesswork.</p>
           <p className="mt-2 max-w-[60ch] text-[13px] leading-snug text-[var(--haven-ink-mid)]">
-            We're building a guided green card packet builder so you can keep forms, evidence, and communications in one place.
+            Start a guided green card packet builder so you can keep forms, evidence, and communications in one place.
           </p>
         </div>
         <div className="rounded-[1rem] border border-[rgba(186,123,114,0.18)] bg-[rgba(255,248,246,0.92)] px-3 py-2">
@@ -235,15 +258,17 @@ export function WaitlistFeaturePreview() {
         </div>
       </div>
 
-      <WaitlistTrigger
-        className="mt-5 w-full justify-center opacity-90 transition-opacity hover:opacity-100"
-        interestKey="green-card-packet-builder"
-        interestLabel="Green card packet builder"
+      <a
+        className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-[var(--radius-lg)] bg-[var(--haven-ink)] px-4 py-2.5 text-[14px] font-semibold text-[var(--haven-cream)] opacity-90 transition-opacity hover:opacity-100"
+        href={immigWizardUrl}
+        rel="noopener noreferrer"
+        target="_blank"
       >
-        Join the waitlist
-      </WaitlistTrigger>
+        Start now
+        <ArrowRight className="h-4 w-4" />
+      </a>
 
-      <p className="mt-3 text-[12px] text-[var(--haven-ink-mid)]">Enter your name and email to save your spot and hear when this opens.</p>
+      <p className="mt-3 text-[12px] text-[var(--haven-ink-mid)]">Opens the guided marriage green card packet wizard.</p>
     </div>
   );
 }
