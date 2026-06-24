@@ -19,6 +19,7 @@ import type {
   KnowledgeChunk
 } from "@/types/domain";
 import { advisorRespondSchema } from "@/lib/advisor/schema";
+import { getCaseOutcomeStats, renderStatsForPrompt, type CaseSegmentFilters } from "@/lib/advisor/case-stats";
 import {
   buildFallbackCommunitySummaries,
   estimateTokenCount,
@@ -150,6 +151,51 @@ function isExperientialQuestion(query: string): boolean {
   if (/(did anyone|has anyone|what happened|rfe|denied|rejected|approved|case status|anyone else|my experience|in my case|success story|real.?world|in practice|actually)/.test(normalized)) return true;
   if (/(people like me|others in|similar case|same situation|community|others have|heard from|typical|average|usually take|normally)/.test(normalized)) return true;
   return false;
+}
+
+// Map the user's Haven profile into the coarse, bucketed segment filters the case-stats RPC expects.
+function mapVisa(visaType: string): "h1b" | "f1_opt" | "l1" | "other" {
+  const v = visaType.toLowerCase().replace(/[\s_]/g, "");
+  if (/h-?1b/.test(v)) return "h1b";
+  if (/f-?1|opt/.test(v)) return "f1_opt";
+  if (/l-?1/.test(v)) return "l1";
+  return "other";
+}
+
+function bucketNation(country: string): "india" | "china" | "row" | null {
+  const c = country.trim().toLowerCase();
+  if (!c) return null;
+  if (c.includes("india")) return "india";
+  if (c.includes("china")) return "china";
+  return "row";
+}
+
+function mapCategory(preference: string): "eb1" | "eb2" | "eb3" | null {
+  const p = preference.toLowerCase().replace(/[\s-]/g, "");
+  if (p.includes("eb1")) return "eb1";
+  if (p.includes("eb2")) return "eb2";
+  if (p.includes("eb3")) return "eb3";
+  return null;
+}
+
+function buildCaseSegmentFilters(profile: HavenWorkspaceSnapshot["profile"]): CaseSegmentFilters {
+  return {
+    currentStatus: mapVisa(profile.visaType),
+    i140Status: profile.i140Approved ? "approved" : null,
+    nationalityBucket: bucketNation(profile.countryOfBirth),
+    category: mapCategory(profile.preferenceCategory),
+    trigger: "laid_off"
+  };
+}
+
+// Fire the crowdsourced "what did people like me do?" data path only for layoff / options questions.
+function wantsCaseOutcomeStats(query: string, topics: TopicBucket[]): boolean {
+  if (!topics.includes("layoffs")) return false;
+  const normalized = query.toLowerCase();
+  return (
+    isExperientialQuestion(query) ||
+    /(what (should|can|do|are)|my options|options after|what now|next step|now what)/.test(normalized)
+  );
 }
 
 function scoreProfileMatch(tags: string[], profile: { visaType: string; preferenceCategory: string; countryOfBirth: string; topConcerns: string[] }): number {
@@ -744,6 +790,7 @@ const STREAMING_SYSTEM_PROMPT = [
   "Use the user's Haven profile to personalize your answer only where relevant to their question.",
   "For example: reference their priority date only if the question is about visa bulletin or GC timeline; reference their PERM stage only if the question involves PERM or job change. Do not inject profile facts unrelated to what they asked.",
   "For timeline or processing-time questions, lead with official data (USCIS/DOL processing times, visa bulletin). Use community stories only as supplementary real-world anecdote after the official answer, clearly framed as individual experiences — never as the authoritative answer.",
+  "When a 'Community outcome data' block is provided, it contains statistics pre-computed from Haven users in a similar situation. State those figures VERBATIM; never compute, estimate, round, or extrapolate your own percentages or counts. If the block says NO_STATS, tell the user there isn't enough data for their exact profile yet and give general orientation only. Always frame these as what others did (not a recommendation) and end by suggesting they confirm their options with an immigration attorney.",
   "Be concise. Answer the question directly in as few words as it takes to be accurate and complete — no preamble, no restating the question, no filler.",
   "Default to a short answer (2–4 sentences or a tight bulleted list). Only go longer when the question genuinely requires multiple steps, dates, or conditions.",
   "Lead with the direct answer, then add only the context, caveats, or numbers that materially change what the user should do.",
@@ -819,7 +866,16 @@ export async function* streamAdvisorResponse(rawInput: {
   const retrievalSpan = trace?.span({ name: "retrieval", input: { topics } });
   const knowledge = await retrieveKnowledge(content, topics, retrievalSpan);
   const community = await retrieveCommunity(content, topics, snapshot, retrievalSpan);
-  retrievalSpan?.end({ output: { knowledgeCount: knowledge.length, communityCount: community.length } });
+  const caseStats = wantsCaseOutcomeStats(content, topics)
+    ? await getCaseOutcomeStats(buildCaseSegmentFilters(snapshot.profile), retrievalSpan)
+    : null;
+  retrievalSpan?.end({
+    output: {
+      knowledgeCount: knowledge.length,
+      communityCount: community.length,
+      caseStatsTier: caseStats?.tier ?? "none"
+    }
+  });
 
   const citations = buildCitationSet(knowledge);
   const communityUsed = community.slice(0, 2).map((item) => `${item.title}: ${item.summary}`);
@@ -847,6 +903,9 @@ export async function* streamAdvisorResponse(rawInput: {
       "Community summaries",
       community.map((item) => `${item.title} | ${item.summary} | Caveat: ${item.legalCaveat}`)
     ),
+    ...(caseStats
+      ? ["", buildContextBlock("Community outcome data (state verbatim; never compute your own numbers)", [renderStatsForPrompt(caseStats)])]
+      : []),
     "",
     buildContextBlock(
       "Recent conversation",
