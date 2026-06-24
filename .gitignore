@@ -13,6 +13,7 @@ apps/*/*.tsbuildinfo
 .DS_Store
 .claude/launch.json
 .claude/settings.local.json
+.claude/worktrees
 supabase/.temp
 .vercel
 .env*.local
