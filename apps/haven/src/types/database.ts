@@ -1280,6 +1280,45 @@ export type Database = {
         }
         Relationships: []
       }
+      sponsor_directory_feedback: {
+        Row: {
+          comment: string
+          company_id: string | null
+          company_name: string
+          created_at: string
+          feedback_kind: string
+          id: string
+          moderation_status: string
+          relationship: string
+          submitter_email: string | null
+          updated_at: string
+        }
+        Insert: {
+          comment: string
+          company_id?: string | null
+          company_name: string
+          created_at?: string
+          feedback_kind: string
+          id?: string
+          moderation_status?: string
+          relationship?: string
+          submitter_email?: string | null
+          updated_at?: string
+        }
+        Update: {
+          comment?: string
+          company_id?: string | null
+          company_name?: string
+          created_at?: string
+          feedback_kind?: string
+          id?: string
+          moderation_status?: string
+          relationship?: string
+          submitter_email?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       timeline_events: {
         Row: {
           community_link_label: string | null

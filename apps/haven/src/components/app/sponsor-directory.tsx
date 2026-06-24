@@ -1,10 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ArrowUpDown, BriefcaseBusiness, Building2, MapPin, Search } from "lucide-react";
+import { useActionState, useMemo, useState, type ReactNode } from "react";
+import { ArrowUpDown, BriefcaseBusiness, Building2, MapPin, MessageSquareText, PlusCircle, Search } from "lucide-react";
 
+import { submitSponsorFeedback, type SponsorFeedbackActionState } from "@/server/sponsor-directory-actions";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 type SponsorRole = {
   count: number;
@@ -47,6 +50,11 @@ const sortOptions = [
   { label: "USCIS approvals", value: "uscis" },
   { label: "Median wage", value: "wage" }
 ] as const;
+
+const initialFeedbackState: SponsorFeedbackActionState = {
+  message: "",
+  status: "idle"
+};
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US").format(value);
@@ -171,6 +179,23 @@ export function SponsorDirectory({ companies }: SponsorDirectoryProps) {
         </div>
       </div>
 
+      <details className="rounded-[var(--radius-xl)] border border-[var(--haven-sky-mid)] bg-[var(--haven-sky-light)] p-5">
+        <summary className="flex cursor-pointer list-none items-center gap-3 [&::-webkit-details-marker]:hidden">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius-lg)] bg-[var(--haven-white)] text-[var(--haven-sky-ink)]">
+            <PlusCircle className="h-4.5 w-4.5" />
+          </span>
+          <span>
+            <span className="block text-h3">Do not see a company?</span>
+            <span className="mt-1 block text-body-sm text-[var(--color-text-secondary)]">
+              Suggest a sponsor to review for this directory.
+            </span>
+          </span>
+        </summary>
+        <div className="mt-5 max-w-3xl">
+          <SponsorFeedbackForm kind="new_company" />
+        </div>
+      </details>
+
       <div className="grid gap-4 xl:grid-cols-2">
         {visibleCompanies.map((company) => (
           <article
@@ -214,6 +239,16 @@ export function SponsorDirectory({ companies }: SponsorDirectoryProps) {
                 label="Top worksites"
               />
             </div>
+
+            <details className="mt-5 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--haven-cream)] p-4">
+              <summary className="flex cursor-pointer list-none items-center gap-2 text-body-sm font-medium text-[var(--haven-ink)] [&::-webkit-details-marker]:hidden">
+                <MessageSquareText className="h-4 w-4" />
+                Leave a sponsorship note
+              </summary>
+              <div className="mt-4">
+                <SponsorFeedbackForm company={company} kind="company_comment" />
+              </div>
+            </details>
           </article>
         ))}
       </div>
@@ -225,6 +260,93 @@ export function SponsorDirectory({ companies }: SponsorDirectoryProps) {
         </div>
       ) : null}
     </section>
+  );
+}
+
+function Field({ children, hint, label }: { children: ReactNode; hint?: string; label: string }) {
+  return (
+    <label className="block space-y-1.5">
+      <span className="text-body-sm font-medium text-[var(--haven-ink)]">{label}</span>
+      {children}
+      {hint ? <span className="block text-caption">{hint}</span> : null}
+    </label>
+  );
+}
+
+function SponsorFeedbackForm({
+  company,
+  kind
+}: {
+  company?: Pick<SponsorCompany, "companyName" | "id">;
+  kind: "company_comment" | "new_company";
+}) {
+  const [state, formAction, pending] = useActionState(submitSponsorFeedback, initialFeedbackState);
+  const isNewCompany = kind === "new_company";
+
+  if (state.status === "success") {
+    return (
+      <div className="rounded-[var(--radius-md)] border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] p-4">
+        <p className="text-body-sm font-medium text-[var(--haven-ink)]">{state.message}</p>
+      </div>
+    );
+  }
+
+  return (
+    <form action={formAction} className="space-y-4">
+      <input name="feedback_kind" type="hidden" value={kind} />
+      {company ? (
+        <>
+          <input name="company_id" type="hidden" value={company.id} />
+          <input name="company_name" type="hidden" value={company.companyName} />
+        </>
+      ) : null}
+
+      {isNewCompany ? (
+        <Field label="Company name">
+          <Input name="company_name" placeholder="Company or employer name" required />
+        </Field>
+      ) : null}
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Your connection">
+          <Select name="relationship" defaultValue="candidate">
+            <option value="candidate">Candidate / applicant</option>
+            <option value="employee">Current employee</option>
+            <option value="former_employee">Former employee</option>
+            <option value="recruiter">Recruiter</option>
+            <option value="immigration_team">Immigration or HR team</option>
+            <option value="other">Other</option>
+          </Select>
+        </Field>
+        <Field label="Email (optional)" hint="Only used if we need to verify the note.">
+          <Input name="submitter_email" placeholder="you@example.com" type="email" />
+        </Field>
+      </div>
+
+      <Field
+        label={isNewCompany ? "Why should this company be added?" : "What should others know?"}
+        hint="Do not include private names, case numbers, or confidential employer documents."
+      >
+        <Textarea
+          name="comment"
+          placeholder={
+            isNewCompany
+              ? "Share the role, location, sponsorship signal, or official source we should review."
+              : "Share sponsorship policy, recruiter signal, transfer friendliness, timing, or caveats."
+          }
+          required
+          rows={3}
+        />
+      </Field>
+
+      {state.status === "error" ? (
+        <p className="text-body-sm text-[var(--haven-blush-ink)]">{state.message}</p>
+      ) : null}
+
+      <Button disabled={pending} type="submit" variant={isNewCompany ? "accent" : "outline"}>
+        {pending ? "Sending..." : isNewCompany ? "Suggest company" : "Submit note"}
+      </Button>
+    </form>
   );
 }
 
