@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { env } from "@/lib/env";
 import { extractEmailFields } from "@/lib/email-extractor";
+import { upsertFirstPartyCase } from "@/lib/case-auto-capture";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -301,6 +302,16 @@ export async function POST(request: NextRequest) {
     }
   } else {
     console.log("[email-ingest] no fields extracted (OpenAI may not be configured)");
+  }
+
+  // Auto-capture / refresh this user's first-party case data point (best-effort; never blocks ingest).
+  try {
+    const result = await upsertFirstPartyCase(admin, userId);
+    if (!result.ok) {
+      console.log(`[email-ingest] case auto-capture skipped: ${result.reason}`);
+    }
+  } catch (e) {
+    console.error("[email-ingest] case auto-capture failed:", e);
   }
 
   return NextResponse.json({ status: "ok" }, { status: 200 });
