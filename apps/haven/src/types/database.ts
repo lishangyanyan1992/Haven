@@ -273,68 +273,220 @@ export type Database = {
           },
         ]
       }
+      community_authors: {
+        Row: {
+          author_label: string
+          created_at: string
+          external_author_key: string | null
+          id: string
+          linked_user_id: string | null
+          source: string | null
+          updated_at: string
+        }
+        Insert: {
+          author_label?: string
+          created_at?: string
+          external_author_key?: string | null
+          id?: string
+          linked_user_id?: string | null
+          source?: string | null
+          updated_at?: string
+        }
+        Update: {
+          author_label?: string
+          created_at?: string
+          external_author_key?: string | null
+          id?: string
+          linked_user_id?: string | null
+          source?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_authors_linked_user_id_fkey"
+            columns: ["linked_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      community_case_data_points: {
+        Row: {
+          case_date: string | null
+          category: string | null
+          consented_at: string | null
+          contributor_user_id: string | null
+          created_at: string
+          current_status: string
+          days_in_grace_bucket: string | null
+          got_noid: boolean | null
+          got_rfe: boolean | null
+          green_card_stage: string | null
+          i140_status: string | null
+          id: string
+          moderation_status: string
+          nationality_bucket: string | null
+          notes: string | null
+          notes_embedding: string | null
+          outcome: string | null
+          path_taken: string
+          premium_processing: boolean | null
+          priority_date: string | null
+          priority_date_position: string | null
+          source: string
+          time_to_decision_days: number | null
+          time_to_file_days: number | null
+          trigger: string | null
+          updated_at: string
+          verification: string
+        }
+        Insert: {
+          case_date?: string | null
+          category?: string | null
+          consented_at?: string | null
+          contributor_user_id?: string | null
+          created_at?: string
+          current_status: string
+          days_in_grace_bucket?: string | null
+          got_noid?: boolean | null
+          got_rfe?: boolean | null
+          green_card_stage?: string | null
+          i140_status?: string | null
+          id?: string
+          moderation_status?: string
+          nationality_bucket?: string | null
+          notes?: string | null
+          notes_embedding?: string | null
+          outcome?: string | null
+          path_taken: string
+          premium_processing?: boolean | null
+          priority_date?: string | null
+          priority_date_position?: string | null
+          source?: string
+          time_to_decision_days?: number | null
+          time_to_file_days?: number | null
+          trigger?: string | null
+          updated_at?: string
+          verification?: string
+        }
+        Update: {
+          case_date?: string | null
+          category?: string | null
+          consented_at?: string | null
+          contributor_user_id?: string | null
+          created_at?: string
+          current_status?: string
+          days_in_grace_bucket?: string | null
+          got_noid?: boolean | null
+          got_rfe?: boolean | null
+          green_card_stage?: string | null
+          i140_status?: string | null
+          id?: string
+          moderation_status?: string
+          nationality_bucket?: string | null
+          notes?: string | null
+          notes_embedding?: string | null
+          outcome?: string | null
+          path_taken?: string
+          premium_processing?: boolean | null
+          priority_date?: string | null
+          priority_date_position?: string | null
+          source?: string
+          time_to_decision_days?: number | null
+          time_to_file_days?: number | null
+          trigger?: string | null
+          updated_at?: string
+          verification?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_case_data_points_contributor_user_id_fkey"
+            columns: ["contributor_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       community_import_items: {
         Row: {
           approved_at: string | null
           approved_by: string | null
+          consent_at: string | null
+          contributor_user_id: string | null
           created_at: string
           id: string
-          language: string | null
           langfuse_trace_id: string | null
+          language: string | null
           moderation_notes: string | null
           moderation_status: string
           observability_metadata: Json
-          published_post_id: string | null
           publish_draft: Json
+          published_post_id: string | null
           rejected_at: string | null
           run_id: string | null
           source: string
           source_payload_private: Json
           source_story_id: string
+          source_type: string
           updated_at: string
         }
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
+          consent_at?: string | null
+          contributor_user_id?: string | null
           created_at?: string
           id?: string
-          language?: string | null
           langfuse_trace_id?: string | null
+          language?: string | null
           moderation_notes?: string | null
           moderation_status?: string
           observability_metadata?: Json
-          published_post_id?: string | null
           publish_draft?: Json
+          published_post_id?: string | null
           rejected_at?: string | null
           run_id?: string | null
           source: string
           source_payload_private?: Json
           source_story_id: string
+          source_type?: string
           updated_at?: string
         }
         Update: {
           approved_at?: string | null
           approved_by?: string | null
+          consent_at?: string | null
+          contributor_user_id?: string | null
           created_at?: string
           id?: string
-          language?: string | null
           langfuse_trace_id?: string | null
+          language?: string | null
           moderation_notes?: string | null
           moderation_status?: string
           observability_metadata?: Json
-          published_post_id?: string | null
           publish_draft?: Json
+          published_post_id?: string | null
           rejected_at?: string | null
           run_id?: string | null
           source?: string
           source_payload_private?: Json
           source_story_id?: string
+          source_type?: string
           updated_at?: string
         }
         Relationships: [
           {
             foreignKeyName: "community_import_items_approved_by_fkey"
             columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_import_items_contributor_user_id_fkey"
+            columns: ["contributor_user_id"]
             isOneToOne: false
             referencedRelation: "user_profiles"
             referencedColumns: ["id"]
@@ -445,6 +597,71 @@ export type Database = {
           },
         ]
       }
+      community_post_comments: {
+        Row: {
+          author_id: string | null
+          author_label: string
+          body: string
+          created_at: string
+          id: string
+          import_item_id: string | null
+          post_id: string
+          sort_order: number
+          user_id: string | null
+        }
+        Insert: {
+          author_id?: string | null
+          author_label: string
+          body: string
+          created_at?: string
+          id?: string
+          import_item_id?: string | null
+          post_id: string
+          sort_order?: number
+          user_id?: string | null
+        }
+        Update: {
+          author_id?: string | null
+          author_label?: string
+          body?: string
+          created_at?: string
+          id?: string
+          import_item_id?: string | null
+          post_id?: string
+          sort_order?: number
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_post_comments_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "community_authors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_post_comments_import_item_id_fkey"
+            columns: ["import_item_id"]
+            isOneToOne: false
+            referencedRelation: "community_import_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_post_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "community_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_post_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       community_posts: {
         Row: {
           author_id: string | null
@@ -513,71 +730,6 @@ export type Database = {
           },
         ]
       }
-      community_post_comments: {
-        Row: {
-          author_id: string | null
-          author_label: string
-          body: string
-          created_at: string
-          id: string
-          import_item_id: string | null
-          post_id: string
-          sort_order: number
-          user_id: string | null
-        }
-        Insert: {
-          author_id?: string | null
-          author_label: string
-          body: string
-          created_at?: string
-          id?: string
-          import_item_id?: string | null
-          post_id: string
-          sort_order?: number
-          user_id?: string | null
-        }
-        Update: {
-          author_id?: string | null
-          author_label?: string
-          body?: string
-          created_at?: string
-          id?: string
-          import_item_id?: string | null
-          post_id?: string
-          sort_order?: number
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "community_post_comments_author_id_fkey"
-            columns: ["author_id"]
-            isOneToOne: false
-            referencedRelation: "community_authors"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "community_post_comments_import_item_id_fkey"
-            columns: ["import_item_id"]
-            isOneToOne: false
-            referencedRelation: "community_import_items"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "community_post_comments_post_id_fkey"
-            columns: ["post_id"]
-            isOneToOne: false
-            referencedRelation: "community_posts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "community_post_comments_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "user_profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       community_spaces: {
         Row: {
           created_at: string
@@ -601,44 +753,6 @@ export type Database = {
           summary?: string
         }
         Relationships: []
-      }
-      community_authors: {
-        Row: {
-          author_label: string
-          created_at: string
-          external_author_key: string | null
-          id: string
-          linked_user_id: string | null
-          source: string | null
-          updated_at: string
-        }
-        Insert: {
-          author_label?: string
-          created_at?: string
-          external_author_key?: string | null
-          id?: string
-          linked_user_id?: string | null
-          source?: string | null
-          updated_at?: string
-        }
-        Update: {
-          author_label?: string
-          created_at?: string
-          external_author_key?: string | null
-          id?: string
-          linked_user_id?: string | null
-          source?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "community_authors_linked_user_id_fkey"
-            columns: ["linked_user_id"]
-            isOneToOne: false
-            referencedRelation: "user_profiles"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       derived_signals: {
         Row: {
@@ -849,6 +963,41 @@ export type Database = {
           },
           {
             foreignKeyName: "email_ingest_records_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_notification_deliveries: {
+        Row: {
+          created_at: string
+          dedupe_key: string
+          id: string
+          metadata: Json | null
+          notification_kind: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          dedupe_key: string
+          id?: string
+          metadata?: Json | null
+          notification_kind: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          dedupe_key?: string
+          id?: string
+          metadata?: Json | null
+          notification_kind?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_notification_deliveries_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "user_profiles"
@@ -1257,8 +1406,8 @@ export type Database = {
           preference_category: Database["public"]["Enums"]["preference_category"]
           primary_goal: Database["public"]["Enums"]["primary_goal"]
           priority_date: string | null
-          status_update_email_notifications: boolean
           spouse_visa_status: Database["public"]["Enums"]["spouse_visa_status"]
+          status_update_email_notifications: boolean
           top_concerns: Database["public"]["Enums"]["concern"][]
           updated_at: string
           visa_type: Database["public"]["Enums"]["visa_type"]
@@ -1285,8 +1434,8 @@ export type Database = {
           preference_category?: Database["public"]["Enums"]["preference_category"]
           primary_goal?: Database["public"]["Enums"]["primary_goal"]
           priority_date?: string | null
-          status_update_email_notifications?: boolean
           spouse_visa_status?: Database["public"]["Enums"]["spouse_visa_status"]
+          status_update_email_notifications?: boolean
           top_concerns?: Database["public"]["Enums"]["concern"][]
           updated_at?: string
           visa_type: Database["public"]["Enums"]["visa_type"]
@@ -1313,8 +1462,8 @@ export type Database = {
           preference_category?: Database["public"]["Enums"]["preference_category"]
           primary_goal?: Database["public"]["Enums"]["primary_goal"]
           priority_date?: string | null
-          status_update_email_notifications?: boolean
           spouse_visa_status?: Database["public"]["Enums"]["spouse_visa_status"]
+          status_update_email_notifications?: boolean
           top_concerns?: Database["public"]["Enums"]["concern"][]
           updated_at?: string
           visa_type?: Database["public"]["Enums"]["visa_type"]
@@ -1396,11 +1545,84 @@ export type Database = {
         }
         Relationships: []
       }
+      wizard_sessions: {
+        Row: {
+          created_at: string
+          current_step: number
+          filing_slug: string
+          id: string
+          last_updated_at: string
+          started_at: string
+          supplements: Json
+          updated_at: string
+          user_id: string
+          wizard_state: Json
+        }
+        Insert: {
+          created_at?: string
+          current_step?: number
+          filing_slug: string
+          id?: string
+          last_updated_at?: string
+          started_at?: string
+          supplements?: Json
+          updated_at?: string
+          user_id: string
+          wizard_state?: Json
+        }
+        Update: {
+          created_at?: string
+          current_step?: number
+          filing_slug?: string
+          id?: string
+          last_updated_at?: string
+          started_at?: string
+          supplements?: Json
+          updated_at?: string
+          user_id?: string
+          wizard_state?: Json
+        }
+        Relationships: []
+      }
+      zz_import_probe: {
+        Row: {
+          id: number | null
+        }
+        Insert: {
+          id?: number | null
+        }
+        Update: {
+          id?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      aggregate_case_outcomes: {
+        Args: {
+          p_category?: string
+          p_current_status?: string
+          p_i140_status?: string
+          p_min_cell?: number
+          p_nationality_bucket?: string
+          p_recency_months?: number
+          p_trigger?: string
+        }
+        Returns: {
+          approved_pct: number
+          median_days_to_decision: number
+          median_days_to_file: number
+          n: number
+          path_taken: string
+          pct: number
+          resolved_n: number
+          rfe_pct: number
+          total_n: number
+        }[]
+      }
       match_community_advice_summaries: {
         Args: {
           filter_topics?: string[]
