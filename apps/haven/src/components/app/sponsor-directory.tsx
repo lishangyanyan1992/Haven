@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useMemo, useState, type ReactNode } from "react";
-import { ArrowUpDown, BriefcaseBusiness, Building2, MapPin, MessageSquareText, PlusCircle, Search } from "lucide-react";
+import { ArrowUpDown, BriefcaseBusiness, Building2, Globe, MapPin, MessageSquareText, PlusCircle, Search } from "lucide-react";
 
 import { submitSponsorFeedback, type SponsorFeedbackActionState } from "@/server/sponsor-directory-actions";
 import { Button } from "@/components/ui/button";
@@ -78,6 +78,18 @@ function formatDate(value: string | null) {
     day: "numeric",
     year: "numeric"
   });
+}
+
+function ensureHttp(url: string) {
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+}
+
+function formatWebsiteHost(url: string) {
+  try {
+    return new URL(ensureHttp(url)).hostname.replace(/^www\./, "");
+  } catch {
+    return url.replace(/^https?:\/\//i, "").replace(/^www\./, "").replace(/\/.*$/, "");
+  }
 }
 
 function companySearchText(company: SponsorCompany) {
@@ -214,6 +226,17 @@ export function SponsorDirectory({ companies }: SponsorDirectoryProps) {
                   <div className="min-w-0">
                     <h2 className="text-h2 truncate">{company.companyName}</h2>
                     <p className="text-caption mt-1">Latest LCA decision: {formatDate(company.latestDecisionDate)}</p>
+                    {company.website ? (
+                      <a
+                        className="mt-1 inline-flex max-w-full items-center gap-1 text-body-sm font-medium text-[var(--haven-sky-ink)] underline-offset-4 hover:underline"
+                        href={ensureHttp(company.website)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <Globe className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{formatWebsiteHost(company.website)}</span>
+                      </a>
+                    ) : null}
                   </div>
                 </div>
               </div>
