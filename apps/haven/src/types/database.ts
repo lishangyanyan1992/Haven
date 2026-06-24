@@ -1283,8 +1283,10 @@ export type Database = {
       sponsor_directory_feedback: {
         Row: {
           comment: string
+          company_domain: string | null
           company_id: string | null
           company_name: string
+          company_website: string | null
           created_at: string
           feedback_kind: string
           id: string
@@ -1295,8 +1297,10 @@ export type Database = {
         }
         Insert: {
           comment: string
+          company_domain?: string | null
           company_id?: string | null
           company_name: string
+          company_website?: string | null
           created_at?: string
           feedback_kind: string
           id?: string
@@ -1307,8 +1311,10 @@ export type Database = {
         }
         Update: {
           comment?: string
+          company_domain?: string | null
           company_id?: string | null
           company_name?: string
+          company_website?: string | null
           created_at?: string
           feedback_kind?: string
           id?: string

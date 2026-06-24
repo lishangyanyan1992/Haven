@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useMemo, useState, type ReactNode } from "react";
 import { ArrowUpDown, BriefcaseBusiness, Building2, MapPin, MessageSquareText, PlusCircle, Search } from "lucide-react";
 
@@ -37,6 +38,7 @@ export type SponsorCompany = {
   uscisContinuingApprovalsFy2023: number;
   uscisDenialsFy2023: number;
   uscisInitialApprovalsFy2023: number;
+  website: string;
 };
 
 type SponsorDirectoryProps = {
@@ -199,7 +201,8 @@ export function SponsorDirectory({ companies }: SponsorDirectoryProps) {
       <div className="grid gap-4 xl:grid-cols-2">
         {visibleCompanies.map((company) => (
           <article
-            className="rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-5 shadow-[0_8px_28px_-16px_rgba(44,54,48,0.16)]"
+            className="rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-5 shadow-[0_8px_28px_-16px_rgba(44,54,48,0.16)] scroll-mt-28"
+            id={`company-${company.id}`}
             key={company.id}
           >
             <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -302,9 +305,17 @@ function SponsorFeedbackForm({
       ) : null}
 
       {isNewCompany ? (
-        <Field label="Company name">
-          <Input name="company_name" placeholder="Company or employer name" required />
-        </Field>
+        <>
+          <Field label="Company name">
+            <Input name="company_name" placeholder="Company or employer name" required />
+          </Field>
+          <Field
+            label="Company website"
+            hint="Use the careers or company homepage. We match on the website's root domain to avoid duplicates."
+          >
+            <Input name="company_website" placeholder="https://example.com" required type="url" />
+          </Field>
+        </>
       ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -340,7 +351,17 @@ function SponsorFeedbackForm({
       </Field>
 
       {state.status === "error" ? (
-        <p className="text-body-sm text-[var(--haven-blush-ink)]">{state.message}</p>
+        <div className="space-y-2">
+          <p className="text-body-sm text-[var(--haven-blush-ink)]">{state.message}</p>
+          {state.existingCompany ? (
+            <Link
+              className="text-body-sm font-medium text-[var(--haven-sky-ink)] underline underline-offset-4"
+              href={`/jobs#company-${state.existingCompany.id}`}
+            >
+              Open {state.existingCompany.name}&rsquo;s record &rarr;
+            </Link>
+          ) : null}
+        </div>
       ) : null}
 
       <Button disabled={pending} type="submit" variant={isNewCompany ? "accent" : "outline"}>
