@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { LockKeyhole, MessageSquareQuote, Users } from "lucide-react";
 
+import { CommunityContributionCta } from "@/components/app/community-contribution-cta";
 import { CommunityFeed, CommunityIntro } from "@/components/app/community-feed";
 import { PublicNavbar } from "@/components/app/public-navbar";
 import { buttonVariants } from "@/components/ui/button";
@@ -74,6 +75,7 @@ export default async function CommunityPage({ searchParams }: CommunityPageProps
       <main className="content-container-visual py-8 md:py-10 lg:py-12">
         <div className="space-y-6">
           <CommunityIntro />
+          <CommunityContributionCta />
           <PublicParticipationCta />
           <CommunityFeed data={publicCommunity} selectedLabel={selectedLabel} />
         </div>

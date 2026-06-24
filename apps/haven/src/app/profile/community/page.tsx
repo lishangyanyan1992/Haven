@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { CommunityComposer } from "@/app/community/CommunityComposer";
 import { AppShell } from "@/components/app/app-shell";
+import { CommunityContributionCta } from "@/components/app/community-contribution-cta";
 import { CommunityFeed, CommunityIntro } from "@/components/app/community-feed";
 import { getCrisisState } from "@/lib/get-crisis-state";
 import { getSnapshot } from "@/lib/repositories/case-compass";
@@ -28,6 +29,7 @@ export default async function ProfileCommunityPage({ searchParams }: ProfileComm
     <AppShell activePath="/profile/community" crisisState={crisisState} snapshot={snapshot}>
       <div className="space-y-6">
         <CommunityIntro />
+        <CommunityContributionCta />
 
         <CommunityComposer
           profile={{

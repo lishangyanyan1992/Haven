@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ChevronDown } from "lucide-react";
 
 import { HavenBrand } from "@/components/app/haven-brand";
 import { MobilePublicNav } from "@/components/app/mobile-public-nav";
@@ -11,8 +11,12 @@ const IMMIG_WIZARD_URL = "https://immig.haven-h1b.com/";
 
 const navItems = [
   { href: "/", label: "Home" },
+  { href: "/jobs", label: "Jobs" },
+  { href: "/community", label: "Community" }
+];
+
+const resourceNavItems = [
   { href: "/tools", label: "Tools" },
-  { href: "/community", label: "Community" },
   { href: "/resources", label: "Resources" },
   { href: "/blog", label: "Blog" },
   { href: "/about", label: "About" }
@@ -36,6 +40,7 @@ function isNavItemActive(currentPath: string, href: string) {
 
 export function PublicNavbar({ currentPath }: { currentPath: string }) {
   const immigWizardUrl = getPublicImmigWizardUrl();
+  const isResourcesActive = resourceNavItems.some((item) => isNavItemActive(currentPath, item.href));
 
   return (
     <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[rgba(253,250,246,0.92)] backdrop-blur-md">
@@ -60,15 +65,47 @@ export function PublicNavbar({ currentPath }: { currentPath: string }) {
               </Link>
             );
           })}
+          <details className="group relative">
+            <summary
+              className={cn(
+                "flex cursor-pointer list-none items-center gap-1 text-body-sm transition-colors hover:text-[var(--haven-ink)] [&::-webkit-details-marker]:hidden",
+                isResourcesActive ? "font-medium text-[var(--haven-ink)]" : "text-[var(--color-text-secondary)]"
+              )}
+            >
+              Resources
+              <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="absolute left-1/2 top-8 z-50 min-w-44 -translate-x-1/2 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--haven-white)] p-2 shadow-[0_18px_40px_-24px_rgba(44,54,48,0.45)]">
+              {resourceNavItems.map((item) => {
+                const isActive = isNavItemActive(currentPath, item.href);
+
+                return (
+                  <Link
+                    key={item.href}
+                    className={cn(
+                      "block rounded-[var(--radius-md)] px-3 py-2 text-body-sm transition-colors",
+                      isActive
+                        ? "bg-[var(--haven-sage-light)] font-medium text-[var(--haven-ink)]"
+                        : "text-[var(--color-text-secondary)] hover:bg-[var(--haven-sage-light)] hover:text-[var(--haven-ink)]"
+                    )}
+                    href={item.href}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+          </details>
           {immigWizardUrl ? (
             <a
-              className="inline-flex items-center gap-1 text-body-sm font-medium text-[var(--haven-sage-ink,var(--haven-ink))] transition-colors hover:text-[var(--haven-ink)]"
+              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-body-sm font-medium text-[var(--haven-sage-ink,var(--haven-ink))] transition-colors hover:text-[var(--haven-ink)]"
               href={immigWizardUrl}
               target="_blank"
               rel="noopener noreferrer"
             >
-              Green Card Forms
-              <ArrowRight className="h-3 w-3" />
+              <span className="xl:hidden">Application Forms</span>
+              <span className="hidden xl:inline">Visa & Green Card Forms</span>
+              <ArrowRight className="h-3 w-3 shrink-0" />
             </a>
           ) : null}
         </nav>
@@ -79,7 +116,12 @@ export function PublicNavbar({ currentPath }: { currentPath: string }) {
           <Link className={cn(buttonVariants({ variant: "default" }), "hidden sm:inline-flex")} href="/register">
             Get Started
           </Link>
-          <MobilePublicNav currentPath={currentPath} immigWizardUrl={immigWizardUrl} navItems={navItems} />
+          <MobilePublicNav
+            currentPath={currentPath}
+            immigWizardUrl={immigWizardUrl}
+            navItems={navItems}
+            resourceNavItems={resourceNavItems}
+          />
         </div>
       </div>
     </header>
