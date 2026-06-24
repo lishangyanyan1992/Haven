@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
+  BriefcaseBusiness,
   FileText,
   LayoutDashboard,
   LoaderCircle,
@@ -20,6 +21,7 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/inbox", label: "Document Vault", icon: FileText },
+  { href: "/jobs", label: "Sponsor Jobs", icon: BriefcaseBusiness },
   { href: "/profile/community", label: "Community", icon: Users },
   { href: "/advisor", label: "Advisor", icon: MessageSquareQuote },
   { href: "/planner", label: "Layoff Planner", icon: ShieldAlert },
