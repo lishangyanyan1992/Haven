@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Menu, X } from "lucide-react";
+import { ArrowRight, ChevronDown, Menu, X } from "lucide-react";
 import { useState } from "react";
 
 import { buttonVariants } from "@/components/ui/button";
@@ -23,13 +23,19 @@ function isNavItemActive(currentPath: string, href: string) {
 export function MobilePublicNav({
   currentPath,
   immigWizardUrl,
-  navItems
+  navItems,
+  resourceNavItems
 }: {
   currentPath: string;
   immigWizardUrl: string | null;
   navItems: PublicNavItem[];
+  resourceNavItems: PublicNavItem[];
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isResourcesOpen, setIsResourcesOpen] = useState(() =>
+    resourceNavItems.some((item) => isNavItemActive(currentPath, item.href))
+  );
+  const isResourcesActive = resourceNavItems.some((item) => isNavItemActive(currentPath, item.href));
 
   return (
     <>
@@ -67,6 +73,45 @@ export function MobilePublicNav({
                   </Link>
                 );
               })}
+              <div>
+                <button
+                  aria-expanded={isResourcesOpen}
+                  className={cn(
+                    "flex min-h-11 w-full items-center justify-between rounded-[var(--radius-md)] px-3 text-left text-body-sm transition-colors",
+                    isResourcesActive
+                      ? "bg-[var(--haven-sage-light)] font-medium text-[var(--haven-ink)]"
+                      : "text-[var(--color-text-secondary)] hover:bg-[var(--haven-sage-light)] hover:text-[var(--haven-ink)]"
+                  )}
+                  onClick={() => setIsResourcesOpen((open) => !open)}
+                  type="button"
+                >
+                  Resources
+                  <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isResourcesOpen && "rotate-180")} />
+                </button>
+                {isResourcesOpen ? (
+                  <div className="mt-1 grid gap-1 pl-3">
+                    {resourceNavItems.map((item) => {
+                      const isActive = isNavItemActive(currentPath, item.href);
+
+                      return (
+                        <Link
+                          key={item.href}
+                          className={cn(
+                            "flex min-h-10 items-center rounded-[var(--radius-md)] px-3 text-body-sm transition-colors",
+                            isActive
+                              ? "bg-[var(--haven-sage-light)] font-medium text-[var(--haven-ink)]"
+                              : "text-[var(--color-text-secondary)] hover:bg-[var(--haven-sage-light)] hover:text-[var(--haven-ink)]"
+                          )}
+                          href={item.href}
+                          onClick={() => setIsOpen(false)}
+                        >
+                          {item.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
               {immigWizardUrl ? (
                 <a
                   className="flex min-h-11 items-center gap-2 rounded-[var(--radius-md)] px-3 text-body-sm font-medium text-[var(--haven-ink)] hover:bg-[var(--haven-sage-light)]"
@@ -75,7 +120,7 @@ export function MobilePublicNav({
                   rel="noopener noreferrer"
                   target="_blank"
                 >
-                  Green Card Forms
+                  Visa & Green Card Forms
                   <ArrowRight className="h-3.5 w-3.5" />
                 </a>
               ) : null}
