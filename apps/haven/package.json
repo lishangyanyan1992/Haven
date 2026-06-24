@@ -39,6 +39,7 @@
     "react-hook-form": "latest",
     "recharts": "^3.8.1",
     "tailwind-merge": "latest",
+    "tldts": "^7.0.28",
     "zod": "latest"
   },
   "devDependencies": {
