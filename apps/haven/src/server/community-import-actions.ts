@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import OpenAI from "openai";
 
-import { buildAnonymousCommentAuthor, readPublishDraft } from "@/lib/community-imports";
+import { buildAnonymousCommentAuthor, readPublishDraft, readSourcePublishedAt } from "@/lib/community-imports";
 import { env } from "@/lib/env";
 import { flushLangfuse, getOrCreatePrompt, getStoryLangfuseClient } from "@/lib/langfuse";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -443,7 +443,9 @@ async function buildPublishedComments(params: {
 
   if (providedCommentBodies.length > 0) {
     return providedCommentBodies.map((body, index) => ({
-      authorLabel: params.parsedDraft.comments[index]?.authorLabel ?? buildAnonymousCommentAuthor(index),
+      authorLabel:
+        params.parsedDraft.comments[index]?.authorLabel ??
+        buildAnonymousCommentAuthor(index, `${params.traceContext?.sourceStoryId ?? "unknown-story"}:comment:${index + 1}`),
       authorKey: params.parsedDraft.comments[index]?.authorKey ?? `import:synthetic:comment-${index + 1}`,
       body
     }));
@@ -453,7 +455,9 @@ async function buildPublishedComments(params: {
   const rewrittenSourceCommentBodies = await rewriteCommentBodiesWithAI(sourceCommentBodies, params.traceContext);
 
   return rewrittenSourceCommentBodies.map((body, index) => ({
-    authorLabel: params.parsedDraft.comments[index]?.authorLabel ?? buildAnonymousCommentAuthor(index),
+    authorLabel:
+      params.parsedDraft.comments[index]?.authorLabel ??
+      buildAnonymousCommentAuthor(index, `${params.traceContext?.sourceStoryId ?? "unknown-story"}:comment:${index + 1}`),
     authorKey: params.parsedDraft.comments[index]?.authorKey ?? `import:synthetic:comment-${index + 1}`,
     body
   }));
@@ -931,13 +935,15 @@ async function publishCommunityImportItem(params: {
 }) {
   const { admin, draft, item, moderationNotes, publishedComments, userId } = params;
   const communitySpaceId = await getDefaultCommunitySpaceId(admin);
+  const sourcePublishedAt = readSourcePublishedAt(item.source_payload_private as Json);
   const publishedPostId = await resolvePublishedPostId({
     admin,
     communitySpaceId,
     draft,
     importItemId: item.id,
     publishedPostId: item.published_post_id,
-    source: item.source
+    source: item.source,
+    sourcePublishedAt
   });
 
   if (!publishedPostId) {
@@ -1001,14 +1007,16 @@ async function resolvePublishedPostId(params: {
   importItemId: string;
   publishedPostId: string | null;
   source: string;
+  sourcePublishedAt: string | null;
 }) {
-  const { admin, communitySpaceId, draft, importItemId, publishedPostId, source } = params;
+  const { admin, communitySpaceId, draft, importItemId, publishedPostId, source, sourcePublishedAt } = params;
   const author = await ensureCommunityAuthor({
     admin,
     authorKey: draft.publicAuthorKey,
     authorLabel: draft.publicAuthorLabel,
     source
   });
+  const sourceDateUpdate = sourcePublishedAt ? { created_at: sourcePublishedAt } : {};
 
   if (publishedPostId) {
     const { error } = await admin
@@ -1020,7 +1028,8 @@ async function resolvePublishedPostId(params: {
         body: draft.body,
         tags: draft.tags,
         space_id: communitySpaceId,
-        import_item_id: importItemId
+        import_item_id: importItemId,
+        ...sourceDateUpdate
       })
       .eq("id", publishedPostId);
 
@@ -1050,7 +1059,8 @@ async function resolvePublishedPostId(params: {
         title: draft.title,
         body: draft.body,
         tags: draft.tags,
-        space_id: communitySpaceId
+        space_id: communitySpaceId,
+        ...sourceDateUpdate
       })
       .eq("id", existingPost.id);
 
@@ -1071,7 +1081,8 @@ async function resolvePublishedPostId(params: {
       tags: draft.tags,
       space_id: communitySpaceId,
       import_item_id: importItemId,
-      user_id: null
+      user_id: null,
+      ...sourceDateUpdate
     })
     .select("id")
     .single();

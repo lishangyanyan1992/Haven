@@ -145,12 +145,64 @@ function normalizePostBody(body) {
     .trim();
 }
 
-function buildAnonymousCommentAuthor(index) {
-  return `Haven_User_${String(index + 1).padStart(3, "0")}`;
+function stableNumber(seed, min, max) {
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
+  }
+
+  return min + (hash % (max - min + 1));
+}
+
+function buildAnonymousCommentAuthor(index, seed = "") {
+  const personas = [
+    "Community member",
+    "Fellow applicant",
+    "Forum member",
+    "Case sharer",
+    "Timeline reader",
+    "Status tracker",
+    "Visa peer",
+    "Immigration peer"
+  ];
+  const stableSeed = seed || `comment:${index + 1}`;
+  const persona = personas[stableNumber(`${stableSeed}:persona`, 0, personas.length - 1)] ?? "Community member";
+  const suffix = stableNumber(`${stableSeed}:suffix`, 100, 999);
+
+  return `${persona} ${suffix}`;
 }
 
 function buildPublicAuthorLabel(index) {
   return `Haven_User_${String(500 + index).padStart(3, "0")}`;
+}
+
+function normalizeSourceTimestamp(value) {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    const milliseconds = value > 100000000000 ? value : value * 1000;
+    const date = new Date(milliseconds);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  }
+
+  const raw = readString(value);
+  if (!raw) return null;
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    return `${raw}T12:00:00.000Z`;
+  }
+
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function getStorySourcePublishedAt(story) {
+  return (
+    normalizeSourceTimestamp(story.source_created_at) ??
+    normalizeSourceTimestamp(story.posted_at) ??
+    normalizeSourceTimestamp(story.published_at) ??
+    normalizeSourceTimestamp(story.created_at) ??
+    normalizeSourceTimestamp(story.created_utc) ??
+    normalizeSourceTimestamp(story.date)
+  );
 }
 
 async function generateDraft(openai, model, story, index, observability = {}) {
@@ -167,6 +219,7 @@ async function generateDraft(openai, model, story, index, observability = {}) {
     "- Make it less identifiable than the source. Do not copy source phrasing.",
     "- Keep it concise and useful.",
     "- Rewrite comments so they preserve practical advice but do not read exactly like the originals.",
+    "- If the source story has no comments, return an empty comments array.",
     "- Use calm, practical forum language.",
     "- Set publish_ready to false only if privacy risk or lack of clarity is too high for public posting.",
     "- Use only tags that are directly supported by the source.",
@@ -260,14 +313,25 @@ async function generateDraft(openai, model, story, index, observability = {}) {
   });
 
   const parsed = JSON.parse(response.output_text ?? "{}");
-  const comments = Array.isArray(parsed.comments)
+  const sourceComments = Array.isArray(story.comments) ? story.comments.map(readString).filter(Boolean) : [];
+  const draftComments = sourceComments.length > 0 && Array.isArray(parsed.comments)
     ? parsed.comments
         .map((comment, commentIndex) => {
           const body = normalizeCommentBody(readString(readObject(comment).body));
-          return body ? { author_label: buildAnonymousCommentAuthor(commentIndex), body } : null;
+          return body
+            ? {
+                author_label: buildAnonymousCommentAuthor(commentIndex, `${story.source_story_id}:comment:${commentIndex + 1}`),
+                body
+              }
+            : null;
         })
         .filter(Boolean)
     : [];
+  const fallbackComments = sourceComments.map((body, commentIndex) => ({
+    author_label: buildAnonymousCommentAuthor(commentIndex, `${story.source_story_id}:comment:${commentIndex + 1}`),
+    body: normalizeCommentBody(body)
+  }));
+  const comments = draftComments.length > 0 ? draftComments : fallbackComments;
 
   const publishDraft = {
     version: 1,
@@ -343,7 +407,8 @@ async function getDefaultCommunitySpaceId(supabase) {
 }
 
 async function resolvePublishedPostId(supabase, params) {
-  const { communitySpaceId, draft, importItemId, publishedPostId } = params;
+  const { communitySpaceId, draft, importItemId, publishedPostId, sourcePublishedAt } = params;
+  const sourceDateUpdate = sourcePublishedAt ? { created_at: sourcePublishedAt } : {};
 
   if (publishedPostId) {
     const { error } = await supabase
@@ -354,7 +419,8 @@ async function resolvePublishedPostId(supabase, params) {
         body: draft.body,
         tags: draft.tags,
         space_id: communitySpaceId,
-        import_item_id: importItemId
+        import_item_id: importItemId,
+        ...sourceDateUpdate
       })
       .eq("id", publishedPostId);
 
@@ -383,7 +449,8 @@ async function resolvePublishedPostId(supabase, params) {
         title: draft.title,
         body: draft.body,
         tags: draft.tags,
-        space_id: communitySpaceId
+        space_id: communitySpaceId,
+        ...sourceDateUpdate
       })
       .eq("id", existingPost.id);
 
@@ -403,7 +470,8 @@ async function resolvePublishedPostId(supabase, params) {
       tags: draft.tags,
       space_id: communitySpaceId,
       import_item_id: importItemId,
-      user_id: null
+      user_id: null,
+      ...sourceDateUpdate
     })
     .select("id")
     .single();
@@ -453,7 +521,7 @@ async function syncImportedComments(supabase, params) {
         post_id: postId,
         import_item_id: itemId,
         user_id: null,
-        author_label: buildAnonymousCommentAuthor(index),
+        author_label: comment.authorLabel || buildAnonymousCommentAuthor(index, `${itemId}:comment:${index + 1}`),
         body: normalizeCommentBody(comment.body),
         sort_order: index
       }))
@@ -524,6 +592,9 @@ async function main() {
       source_payload_private: {
         title: story.title,
         body: story.body,
+        date: story.date ?? null,
+        source_created_at: getStorySourcePublishedAt(story),
+        created_utc: story.created_utc ?? null,
         comments: Array.isArray(story.comments)
           ? story.comments.map((body, commentIndex) => ({
               id: `${story.source_story_id}_c${commentIndex + 1}`,
@@ -619,16 +690,23 @@ async function main() {
       ? draft.comments
           .map((comment, index) => {
             const body = normalizeCommentBody(readString(readObject(comment).body));
-            return body ? { authorLabel: buildAnonymousCommentAuthor(index), body } : null;
+            return body
+              ? {
+                  authorLabel: buildAnonymousCommentAuthor(index, `${item.source_story_id}:comment:${index + 1}`),
+                  body
+                }
+              : null;
           })
           .filter(Boolean)
       : [];
 
+    const sourcePayload = readObject(generated.find((generatedItem) => generatedItem.source_story_id === item.source_story_id)?.source_payload_private);
     const postId = await resolvePublishedPostId(supabase, {
       communitySpaceId,
       draft,
       importItemId: item.id,
-      publishedPostId: item.published_post_id
+      publishedPostId: item.published_post_id,
+      sourcePublishedAt: readString(sourcePayload.source_created_at)
     });
 
     await syncImportedComments(supabase, {
