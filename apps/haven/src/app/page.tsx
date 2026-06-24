@@ -106,18 +106,18 @@ const toolIcons: Record<ToolSlug, typeof Sparkles> = {
 
 export const metadata: Metadata = {
   title: "Haven",
-  description: "Immigration timeline, layoff planning, and community guidance for H-1B and adjacent visa holders.",
+  description: "Immigration timeline, layoff planning, and community guidance for F-1/OPT students, H-1B workers, and employment-based green card applicants.",
   alternates: {
     canonical: "/"
   },
   openGraph: {
     url: absoluteUrl("/"),
     title: "Haven",
-    description: "Immigration timeline, layoff planning, and community guidance for H-1B and adjacent visa holders."
+    description: "Immigration timeline, layoff planning, and community guidance for F-1/OPT students, H-1B workers, and employment-based green card applicants."
   },
   twitter: {
     title: "Haven",
-    description: "Immigration timeline, layoff planning, and community guidance for H-1B and adjacent visa holders."
+    description: "Immigration timeline, layoff planning, and community guidance for F-1/OPT students, H-1B workers, and employment-based green card applicants."
   }
 };
 
@@ -173,7 +173,7 @@ export default function HomePage() {
               You don&apos;t have to navigate immigration <em>alone</em>.
             </h1>
             <p className="text-body mt-6 max-w-[60ch]">
-              Haven helps global talent navigate U.S. visas and green cards, from H-1B and F-1/OPT to job changes, layoffs, priority dates, and family- or employment-based pathways.
+              Haven helps global talent navigate U.S. visas and green cards — from F-1, OPT/CPT, and H-1B to job changes, layoffs, priority dates, and employment-based green cards.
             </p>
             <div className="mt-8 flex flex-col items-start gap-3 sm:flex-row">
               <Link className={buttonVariants({ variant: "default", size: "lg" })} href="/register">
