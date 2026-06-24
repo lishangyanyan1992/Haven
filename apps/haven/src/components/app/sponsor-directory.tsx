@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useMemo, useState, type ReactNode } from "react";
-import { ArrowUpDown, BriefcaseBusiness, Building2, Globe, MapPin, MessageSquareText, PlusCircle, Search } from "lucide-react";
+import { ArrowRight, ArrowUpDown, BriefcaseBusiness, Building2, Globe, MapPin, MessageSquareText, PlusCircle, Search } from "lucide-react";
 
 import { submitSponsorFeedback, type SponsorFeedbackActionState } from "@/server/sponsor-directory-actions";
 import { Button } from "@/components/ui/button";
@@ -266,7 +266,17 @@ export function SponsorDirectory({ companies }: SponsorDirectoryProps) {
               />
             </div>
 
-            <details className="mt-5 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--haven-cream)] p-4">
+            <div className="mt-5">
+              <Link
+                className="inline-flex items-center gap-1.5 text-body-sm font-medium text-[var(--haven-sky-ink)] underline-offset-4 hover:underline"
+                href={`/jobs/${company.id}`}
+              >
+                View full H-1B profile
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+
+            <details className="mt-4 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--haven-cream)] p-4">
               <summary className="flex cursor-pointer list-none items-center gap-2 text-body-sm font-medium text-[var(--haven-ink)] [&::-webkit-details-marker]:hidden">
                 <MessageSquareText className="h-4 w-4" />
                 Leave a sponsorship note

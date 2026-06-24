@@ -1,0 +1,26 @@
+# Haven
+
+> Haven helps global talent navigate U.S. visas and green cards — from F-1, OPT/CPT, and H-1B to job changes, layoffs, priority dates, and employment-based green cards. Haven provides information, not legal advice.
+
+Haven combines personal immigration timelines, layoff planning, a community of people in the same visa stage, and an H-1B sponsor directory built entirely from official U.S. government data (Department of Labor LCA filings and USCIS H-1B Employer Data Hub records).
+
+## H-1B Sponsor Directory
+
+- [H-1B Sponsor Directory](https://haven-h1b.com/jobs): Search 120+ companies with recent DOL H-1B LCA filings (FY2026 Q2) and historical USCIS H-1B approval data (FY2023). Built for workers planning H-1B transfers, especially during a layoff grace period. Each company has its own profile page at /jobs/{company-id} with sponsorship signals, common sponsored roles, and top worksites.
+
+## Free Tools
+
+- [Free Immigration Tools](https://haven-h1b.com/tools): Grace period calculator, USCIS vaccine requirement finder, Visa Bulletin priority date checker, and document pack builder. No account required.
+
+## Guidance & Resources
+
+- [H-1B Resources](https://haven-h1b.com/resources?category=h1b): Plain-language guides for layoffs, grace periods, transfers, and decision workflows.
+- [Resources](https://haven-h1b.com/resources): Full library of immigration planning resources.
+- [Blog](https://haven-h1b.com/blog): Practical, tactical articles on layoffs, transfers, and green card uncertainty.
+- [About Haven](https://haven-h1b.com/about): Who builds Haven and why.
+
+## Notes
+
+- Audience focus: foreign/global talent on the employment track (F-1 → OPT/CPT → H-1B → employment-based green card).
+- All sponsor directory figures trace to public government filings; they indicate sponsorship history, not a guarantee that a specific opening will sponsor.
+- Haven provides information, not legal advice. Users should verify decisions with a qualified immigration attorney.

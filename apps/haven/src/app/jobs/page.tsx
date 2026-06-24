@@ -3,10 +3,16 @@ import Link from "next/link";
 import { ArrowRight, Database, ShieldCheck } from "lucide-react";
 
 import { PublicNavbar } from "@/components/app/public-navbar";
-import { SponsorDirectory, type SponsorCompany } from "@/components/app/sponsor-directory";
+import { SponsorDirectory } from "@/components/app/sponsor-directory";
 import { buttonVariants } from "@/components/ui/button";
-import sponsorDirectoryData from "@/data/sponsor-directory.json";
+import {
+  getCompanyPath,
+  getSponsorCompanies,
+  getSponsorGeneratedAt,
+  getSponsorSources
+} from "@/lib/sponsor-directory";
 import { absoluteUrl } from "@/lib/seo";
+import { buildBreadcrumbStructuredData, siteIdentity } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "H-1B Sponsor Directory — Find Employers With Sponsorship History",
@@ -28,17 +34,6 @@ export const metadata: Metadata = {
   }
 };
 
-type SponsorDirectoryData = {
-  companies: SponsorCompany[];
-  generatedAt: string;
-  sources: Array<{
-    label: string;
-    name: string;
-    recordCount: number;
-    url: string;
-  }>;
-};
-
 function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US").format(value);
 }
@@ -51,14 +46,90 @@ function formatSnapshotDate(value: string) {
   });
 }
 
+const faqItems = [
+  {
+    question: "Does a DOL LCA filing guarantee a company will sponsor my H-1B?",
+    answer:
+      "No. A certified Labor Condition Application shows the employer filed for an H-1B-class role with the Department of Labor, which is a prerequisite to an H-1B petition. It does not prove a specific current opening will be sponsored. Treat it as a prioritization signal and confirm sponsorship with the recruiter early."
+  },
+  {
+    question: "What does the USCIS H-1B approval data show?",
+    answer:
+      "USCIS H-1B Employer Data Hub files report initial and continuing petition approvals and denials by employer and fiscal year. Haven surfaces FY2023 approval counts so you can see which employers have an established H-1B petition history."
+  },
+  {
+    question: "Where does the sponsor directory data come from?",
+    answer:
+      "Two official government sources: the Department of Labor OFLC LCA disclosure data (FY2026 Q2) and the USCIS H-1B Employer Data Hub files (FY2023). Haven does not add private estimates — every number traces back to public filings."
+  },
+  {
+    question: "Is this a job board?",
+    answer:
+      "No. It is a sponsor-history directory built to help workers — especially those in an H-1B layoff grace period — prioritize which employers to approach based on real sponsorship signals, before spending scarce time on applications."
+  }
+];
+
 export default function JobsPage() {
-  const data = sponsorDirectoryData as SponsorDirectoryData;
-  const totalLcaCount = data.companies.reduce((sum, company) => sum + company.certifiedLcaCountFy2026Q2, 0);
-  const totalTransferPositions = data.companies.reduce((sum, company) => sum + company.h1bTransferPositionsFy2026Q2, 0);
-  const totalUscisApprovals = data.companies.reduce((sum, company) => sum + company.uscisApprovalsFy2023, 0);
+  const companies = getSponsorCompanies();
+  const sources = getSponsorSources();
+  const generatedAt = getSponsorGeneratedAt();
+  const data = { companies, sources, generatedAt };
+  const totalLcaCount = companies.reduce((sum, company) => sum + company.certifiedLcaCountFy2026Q2, 0);
+  const totalTransferPositions = companies.reduce((sum, company) => sum + company.h1bTransferPositionsFy2026Q2, 0);
+  const totalUscisApprovals = companies.reduce((sum, company) => sum + company.uscisApprovalsFy2023, 0);
+
+  const breadcrumbData = buildBreadcrumbStructuredData([
+    { name: "Home", path: "/" },
+    { name: "H-1B Sponsor Directory", path: "/jobs" }
+  ]);
+
+  const datasetData = {
+    "@context": "https://schema.org",
+    "@type": "Dataset",
+    name: "Haven H-1B Sponsor Directory",
+    description:
+      "Directory of companies with recent DOL H-1B LCA filings (FY2026 Q2) and historical USCIS H-1B petition approval data (FY2023), built to help workers plan H-1B transfers.",
+    url: absoluteUrl("/jobs").toString(),
+    dateModified: generatedAt,
+    isAccessibleForFree: true,
+    keywords: ["H-1B sponsorship", "H-1B sponsors", "LCA filings", "USCIS H-1B approvals", "H-1B transfer", "visa sponsorship"],
+    creator: { "@type": "Organization", name: siteIdentity.name, url: siteIdentity.url },
+    distribution: sources.map((source) => ({
+      "@type": "DataDownload",
+      name: source.name,
+      contentUrl: source.url
+    }))
+  };
+
+  const itemListData = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: "H-1B Sponsor Companies",
+    numberOfItems: companies.length,
+    itemListElement: companies.map((company, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: company.companyName,
+      url: absoluteUrl(getCompanyPath(company.id)).toString()
+    }))
+  };
+
+  const faqData = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqItems.map((item) => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: { "@type": "Answer", text: item.answer }
+    }))
+  };
 
   return (
     <div className="min-h-screen">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbData) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(datasetData) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListData) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqData) }} />
       <PublicNavbar currentPath="/jobs" />
 
       <main className="content-container-visual py-10 md:py-14 lg:py-16">
@@ -123,6 +194,18 @@ export default function JobsPage() {
           </section>
 
           <SponsorDirectory companies={data.companies} />
+
+          <section className="rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-5 md:p-6">
+            <h2 className="text-h2">Frequently asked questions</h2>
+            <div className="mt-4 divide-y divide-[var(--color-border)]">
+              {faqItems.map((item) => (
+                <div className="py-4 first:pt-0 last:pb-0" key={item.question}>
+                  <h3 className="text-h3">{item.question}</h3>
+                  <p className="text-body-sm mt-2 max-w-[95ch]">{item.answer}</p>
+                </div>
+              ))}
+            </div>
+          </section>
         </div>
       </main>
     </div>
