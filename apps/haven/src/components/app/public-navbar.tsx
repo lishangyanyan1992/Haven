@@ -12,6 +12,7 @@ const IMMIG_WIZARD_URL = "https://immig.haven-h1b.com/";
 const navItems = [
   { href: "/", label: "Home" },
   { href: "/tools", label: "Tools" },
+  { href: "/jobs", label: "Jobs" },
   { href: "/community", label: "Community" },
   { href: "/resources", label: "Resources" },
   { href: "/blog", label: "Blog" },
