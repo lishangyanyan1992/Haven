@@ -11,7 +11,6 @@ export async function ImmigrationUpdates({ updates: providedUpdates }: { updates
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-label">Official updates</p>
-          <h2 className="text-h2 mt-2">Important immigration changes to watch right now</h2>
         </div>
         <p className="text-caption max-w-[46ch]">
           Pulled from official government pages only. Use this as a watchlist, then open the source before making decisions.

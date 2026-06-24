@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=Raleway:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 1584px;
+      height: 396px;
+      overflow: hidden;
+      background: #1C2E22;
+    }
+
+    body {
+      font-family: 'Raleway', sans-serif;
+      position: relative;
+    }
+
+    /* Subtle dot-grid texture */
+    .bg-dots {
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(circle, rgba(74,124,89,0.22) 1.5px, transparent 1.5px);
+      background-size: 28px 28px;
+    }
+
+    /* Left-side vignette so text pops */
+    .bg-vignette {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        to right,
+        rgba(28,46,34,1)   0%,
+        rgba(28,46,34,0.88) 42%,
+        rgba(28,46,34,0.28) 72%,
+        rgba(28,46,34,0)   100%
+      );
+    }
+
+    /* Layout */
+    .layout {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      height: 100%;
+      padding: 0 88px;
+    }
+
+    /* ── Left: branding ── */
+    .left {
+      width: 640px;
+      flex-shrink: 0;
+    }
+
+    .brand-row {
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      margin-bottom: 6px;
+    }
+
+    .haven-wordmark {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 92px;
+      font-weight: 600;
+      color: #FFFFFF;
+      line-height: 1;
+      letter-spacing: -1.5px;
+    }
+
+    /* Golden rule - mirrors the roof-line in the logo */
+    .golden-rule {
+      width: 52px;
+      height: 2.5px;
+      background: linear-gradient(to right, #C98928, rgba(201,137,40,0.3));
+      border-radius: 2px;
+      margin: 12px 0 18px 0;
+    }
+
+    .tagline {
+      font-family: 'Raleway', sans-serif;
+      font-size: 18px;
+      font-weight: 300;
+      color: rgba(255, 255, 255, 0.68);
+      line-height: 1.65;
+      letter-spacing: 0.25px;
+      margin-bottom: 28px;
+      max-width: 510px;
+    }
+
+    .tagline strong {
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    .pills {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .pill {
+      padding: 5px 13px;
+      border-radius: 100px;
+      font-size: 11.5px;
+      font-weight: 500;
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+    }
+
+    .pill-gold {
+      background: rgba(201,137,40,0.14);
+      border: 1px solid rgba(201,137,40,0.38);
+      color: rgba(255,255,255,0.82);
+    }
+
+    .pill-sage {
+      background: rgba(74,124,89,0.18);
+      border: 1px solid rgba(74,124,89,0.42);
+      color: rgba(255,255,255,0.78);
+    }
+
+    /* ── Right: visual ── */
+    .right {
+      flex: 1;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+    }
+
+    /* ── Footer URL ── */
+    .footer-url {
+      position: absolute;
+      bottom: 22px;
+      left: 88px;
+      font-family: 'Raleway', sans-serif;
+      font-size: 11px;
+      font-weight: 400;
+      letter-spacing: 1.4px;
+      color: rgba(255,255,255,0.28);
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-dots"></div>
+  <div class="bg-vignette"></div>
+
+  <div class="layout">
+
+    <!-- ── LEFT: Text ── -->
+    <div class="left">
+
+      <!-- Logo row: icon + wordmark -->
+      <div class="brand-row">
+        <!-- Haven house icon, adapted to white + gold -->
+        <svg width="62" height="62" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M32 8 L7 26 L7 54 L57 54 L57 26 Z"
+                stroke="rgba(255,255,255,0.88)" stroke-width="2.2"
+                stroke-linejoin="round" stroke-linecap="round"/>
+          <path d="M21 54 L21 42 Q21 34 32 34 Q43 34 43 42 L43 54"
+                stroke="rgba(255,255,255,0.88)" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="11" y1="26" x2="53" y2="26"
+                stroke="#C98928" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+
+        <span class="haven-wordmark">Haven</span>
+      </div>
+
+      <div class="golden-rule"></div>
+
+      <p class="tagline">
+        <strong>AI-powered immigration guidance</strong> for H-1B holders.<br>
+        Track timelines · Navigate layoffs · Stay one step ahead.
+      </p>
+
+      <div class="pills">
+        <span class="pill pill-gold">AI Advisor</span>
+        <span class="pill pill-sage">Timeline Tracking</span>
+        <span class="pill pill-gold">Layoff Planning</span>
+        <span class="pill pill-sage">H-1B · PERM · Green Card</span>
+      </div>
+
+    </div><!-- /left -->
+
+    <!-- ── RIGHT: Compass / journey map ── -->
+    <div class="right">
+      <svg width="520" height="390" viewBox="0 0 520 390" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+        <!-- Concentric rings -->
+        <circle cx="260" cy="195" r="178" stroke="#4A7C59" stroke-width="0.5" opacity="0.15"/>
+        <circle cx="260" cy="195" r="138" stroke="#4A7C59" stroke-width="0.5" opacity="0.28"/>
+        <circle cx="260" cy="195" r="98"  stroke="#4A7C59" stroke-width="0.8" opacity="0.38"/>
+        <circle cx="260" cy="195" r="58"  stroke="#4A7C59" stroke-width="1"   opacity="0.5"/>
+        <circle cx="260" cy="195" r="22"  stroke="#C98928" stroke-width="1.5" opacity="0.6"/>
+
+        <!-- Center dot -->
+        <circle cx="260" cy="195" r="5" fill="#C98928" opacity="0.85"/>
+
+        <!-- Cardinal dashed radials -->
+        <line x1="260" y1="195" x2="260" y2="17"  stroke="#4A7C59" stroke-width="0.5" stroke-dasharray="4 7" opacity="0.28"/>
+        <line x1="260" y1="195" x2="260" y2="373" stroke="#4A7C59" stroke-width="0.5" stroke-dasharray="4 7" opacity="0.28"/>
+        <line x1="82"  y1="195" x2="438" y2="195" stroke="#4A7C59" stroke-width="0.5" stroke-dasharray="4 7" opacity="0.28"/>
+
+        <!-- Diagonal radials -->
+        <line x1="260" y1="195" x2="134" y2="69"  stroke="#4A7C59" stroke-width="0.4" stroke-dasharray="3 8" opacity="0.18"/>
+        <line x1="260" y1="195" x2="386" y2="69"  stroke="#4A7C59" stroke-width="0.4" stroke-dasharray="3 8" opacity="0.18"/>
+        <line x1="260" y1="195" x2="134" y2="321" stroke="#4A7C59" stroke-width="0.4" stroke-dasharray="3 8" opacity="0.18"/>
+        <line x1="260" y1="195" x2="386" y2="321" stroke="#4A7C59" stroke-width="0.4" stroke-dasharray="3 8" opacity="0.18"/>
+
+        <!-- North pointer -->
+        <path d="M260 34 L256 46 L260 43 L264 46 Z" fill="#4A7C59" opacity="0.45"/>
+
+        <!-- Journey arc (H-1B → GC path) -->
+        <path d="M 140 308 Q 190 248 260 195 Q 318 152 390 128"
+              stroke="#C98928" stroke-width="2.2" fill="none"
+              opacity="0.62" stroke-linecap="round"/>
+
+        <!-- Milestone dots -->
+        <circle cx="156" cy="291" r="4.5" fill="#C98928" opacity="0.65"/>
+        <circle cx="210" cy="231" r="4.5" fill="#C98928" opacity="0.78"/>
+        <circle cx="260" cy="195" r="5.5" fill="#C98928" opacity="1"/>
+        <circle cx="322" cy="161" r="4.5" fill="#C98928" opacity="0.78"/>
+        <circle cx="383" cy="132" r="4.5" fill="#C98928" opacity="0.65"/>
+
+        <!-- Milestone labels -->
+        <text x="148" y="284" font-family="'Raleway',sans-serif" font-size="10.5" font-weight="400"
+              fill="rgba(255,255,255,0.45)" text-anchor="middle">H-1B</text>
+        <text x="202" y="222" font-family="'Raleway',sans-serif" font-size="10.5" font-weight="400"
+              fill="rgba(255,255,255,0.45)" text-anchor="middle">PERM</text>
+        <text x="328" y="153" font-family="'Raleway',sans-serif" font-size="10.5" font-weight="400"
+              fill="rgba(255,255,255,0.45)" text-anchor="middle">I-140</text>
+        <text x="392" y="122" font-family="'Raleway',sans-serif" font-size="10.5" font-weight="400"
+              fill="rgba(255,255,255,0.45)" text-anchor="middle">GC</text>
+
+        <!-- "You are here" label -->
+        <text x="277" y="183" font-family="'Raleway',sans-serif" font-size="9.5" font-weight="500"
+              fill="rgba(201,137,40,0.8)" text-anchor="start" letter-spacing="0.5">You are here</text>
+
+        <!-- Extra ambient dots for depth -->
+        <circle cx="170" cy="105" r="2" fill="#4A7C59" opacity="0.3"/>
+        <circle cx="380" cy="280" r="2" fill="#4A7C59" opacity="0.3"/>
+        <circle cx="350" cy="80"  r="1.5" fill="#4A7C59" opacity="0.25"/>
+        <circle cx="110" cy="260" r="1.5" fill="#4A7C59" opacity="0.25"/>
+        <circle cx="430" cy="200" r="2" fill="#4A7C59" opacity="0.2"/>
+      </svg>
+    </div><!-- /right -->
+
+  </div><!-- /layout -->
+
+  <div class="footer-url">haven-h1b.com</div>
+
+</body>
+</html>
