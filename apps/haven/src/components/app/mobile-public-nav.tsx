@@ -23,18 +23,24 @@ function isNavItemActive(currentPath: string, href: string) {
 export function MobilePublicNav({
   currentPath,
   immigWizardUrl,
+  marketplaceNavItems,
   navItems,
   resourceNavItems
 }: {
   currentPath: string;
   immigWizardUrl: string | null;
+  marketplaceNavItems: PublicNavItem[];
   navItems: PublicNavItem[];
   resourceNavItems: PublicNavItem[];
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isMarketplaceOpen, setIsMarketplaceOpen] = useState(() =>
+    marketplaceNavItems.some((item) => isNavItemActive(currentPath, item.href))
+  );
   const [isResourcesOpen, setIsResourcesOpen] = useState(() =>
     resourceNavItems.some((item) => isNavItemActive(currentPath, item.href))
   );
+  const isMarketplaceActive = marketplaceNavItems.some((item) => isNavItemActive(currentPath, item.href));
   const isResourcesActive = resourceNavItems.some((item) => isNavItemActive(currentPath, item.href));
 
   return (
@@ -73,6 +79,45 @@ export function MobilePublicNav({
                   </Link>
                 );
               })}
+              <div>
+                <button
+                  aria-expanded={isMarketplaceOpen}
+                  className={cn(
+                    "flex min-h-11 w-full items-center justify-between rounded-[var(--radius-md)] px-3 text-left text-body-sm transition-colors",
+                    isMarketplaceActive
+                      ? "bg-[var(--haven-sage-light)] font-medium text-[var(--haven-ink)]"
+                      : "text-[var(--color-text-secondary)] hover:bg-[var(--haven-sage-light)] hover:text-[var(--haven-ink)]"
+                  )}
+                  onClick={() => setIsMarketplaceOpen((open) => !open)}
+                  type="button"
+                >
+                  Marketplace
+                  <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isMarketplaceOpen && "rotate-180")} />
+                </button>
+                {isMarketplaceOpen ? (
+                  <div className="mt-1 grid gap-1 pl-3">
+                    {marketplaceNavItems.map((item) => {
+                      const isActive = isNavItemActive(currentPath, item.href);
+
+                      return (
+                        <Link
+                          key={item.href}
+                          className={cn(
+                            "flex min-h-10 items-center rounded-[var(--radius-md)] px-3 text-body-sm transition-colors",
+                            isActive
+                              ? "bg-[var(--haven-sage-light)] font-medium text-[var(--haven-ink)]"
+                              : "text-[var(--color-text-secondary)] hover:bg-[var(--haven-sage-light)] hover:text-[var(--haven-ink)]"
+                          )}
+                          href={item.href}
+                          onClick={() => setIsOpen(false)}
+                        >
+                          {item.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
               <div>
                 <button
                   aria-expanded={isResourcesOpen}

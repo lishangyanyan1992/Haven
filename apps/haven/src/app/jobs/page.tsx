@@ -15,9 +15,18 @@ import { absoluteUrl } from "@/lib/seo";
 import { buildBreadcrumbStructuredData, siteIdentity } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "H-1B Sponsor Directory — Find Employers With Sponsorship History",
+  title: "H-1B Sponsor Directory — Companies With Visa Sponsorship History",
   description:
-    "Search companies with recent H-1B LCA filings and historical USCIS H-1B approval data. Built for workers planning H-1B transfers after layoffs.",
+    "Find companies with H-1B sponsorship history using recent DOL LCA filings and USCIS approval data. Compare sponsor signals, transfer volume, roles, worksites, and wages.",
+  keywords: [
+    "H-1B sponsor directory",
+    "H-1B sponsoring companies",
+    "companies that sponsor H-1B",
+    "H-1B transfer employers",
+    "visa sponsorship jobs",
+    "LCA filings",
+    "USCIS H-1B approvals"
+  ],
   alternates: {
     canonical: "/jobs"
   },
@@ -25,12 +34,12 @@ export const metadata: Metadata = {
     url: absoluteUrl("/jobs"),
     title: "Haven H-1B Sponsor Directory",
     description:
-      "Search companies with recent H-1B LCA filings and historical USCIS H-1B approval data."
+      "Compare companies with H-1B sponsorship history using DOL LCA filings, USCIS approval data, transfer signals, roles, worksites, and wages."
   },
   twitter: {
     title: "Haven H-1B Sponsor Directory",
     description:
-      "Search companies with recent H-1B LCA filings and historical USCIS H-1B approval data."
+      "Compare companies with H-1B sponsorship history using DOL LCA filings, USCIS approvals, transfer signals, roles, worksites, and wages."
   }
 };
 
@@ -44,6 +53,10 @@ function formatSnapshotDate(value: string) {
     day: "numeric",
     year: "numeric"
   });
+}
+
+function ensureHttp(url: string) {
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
 }
 
 const faqItems = [
@@ -66,6 +79,16 @@ const faqItems = [
     question: "Is this a job board?",
     answer:
       "No. It is a sponsor-history directory built to help workers — especially those in an H-1B layoff grace period — prioritize which employers to approach based on real sponsorship signals, before spending scarce time on applications."
+  },
+  {
+    question: "How should I use this during a 60-day H-1B grace period?",
+    answer:
+      "Start with employers that show both recent certified LCAs and a transfer-position signal, then confirm sponsorship policy with recruiters in the first conversation. Historical filings should help you prioritize outreach; they should not replace a direct sponsorship confirmation."
+  },
+  {
+    question: "Why does Haven show roles and worksites?",
+    answer:
+      "Role and worksite patterns help you see whether a company has sponsored jobs similar to your target role and location. A company with high overall volume may still be a weak fit if its filings are concentrated in unrelated roles or cities."
   }
 ];
 
@@ -77,6 +100,9 @@ export default function JobsPage() {
   const totalLcaCount = companies.reduce((sum, company) => sum + company.certifiedLcaCountFy2026Q2, 0);
   const totalTransferPositions = companies.reduce((sum, company) => sum + company.h1bTransferPositionsFy2026Q2, 0);
   const totalUscisApprovals = companies.reduce((sum, company) => sum + company.uscisApprovalsFy2023, 0);
+  const topCompanies = [...companies]
+    .sort((left, right) => right.sponsorScore - left.sponsorScore || right.certifiedLcaCountFy2026Q2 - left.certifiedLcaCountFy2026Q2)
+    .slice(0, 8);
 
   const breadcrumbData = buildBreadcrumbStructuredData([
     { name: "Home", path: "/" },
@@ -86,9 +112,10 @@ export default function JobsPage() {
   const datasetData = {
     "@context": "https://schema.org",
     "@type": "Dataset",
+    "@id": absoluteUrl("/jobs#dataset").toString(),
     name: "Haven H-1B Sponsor Directory",
     description:
-      "Directory of companies with recent DOL H-1B LCA filings (FY2026 Q2) and historical USCIS H-1B petition approval data (FY2023), built to help workers plan H-1B transfers.",
+      "Directory of companies with recent DOL H-1B LCA filings (FY2026 Q2), H-1B transfer-position signals, common sponsored roles, worksites, wage data, and historical USCIS H-1B petition approval data (FY2023), built to help workers plan H-1B transfers.",
     url: absoluteUrl("/jobs").toString(),
     dateModified: generatedAt,
     isAccessibleForFree: true,
@@ -104,14 +131,67 @@ export default function JobsPage() {
   const itemListData = {
     "@context": "https://schema.org",
     "@type": "ItemList",
+    "@id": absoluteUrl("/jobs#sponsor-directory").toString(),
     name: "H-1B Sponsor Companies",
+    description: "Ranked list of companies with H-1B sponsorship signals from public DOL and USCIS data.",
     numberOfItems: companies.length,
+    itemListOrder: "https://schema.org/ItemListOrderDescending",
     itemListElement: companies.map((company, index) => ({
       "@type": "ListItem",
       position: index + 1,
-      name: company.companyName,
-      url: absoluteUrl(getCompanyPath(company.id)).toString()
+      url: absoluteUrl(getCompanyPath(company.id)).toString(),
+      item: {
+        "@type": "Organization",
+        name: company.companyName,
+        url: absoluteUrl(getCompanyPath(company.id)).toString(),
+        sameAs: company.website ? ensureHttp(company.website) : undefined,
+        subjectOf: absoluteUrl(getCompanyPath(company.id)).toString(),
+        additionalProperty: [
+          {
+            "@type": "PropertyValue",
+            name: "Sponsor signal",
+            value: company.sponsorScore
+          },
+          {
+            "@type": "PropertyValue",
+            name: "FY2026 Q2 certified H-1B LCAs",
+            value: company.certifiedLcaCountFy2026Q2
+          },
+          {
+            "@type": "PropertyValue",
+            name: "FY2026 Q2 H-1B transfer positions",
+            value: company.h1bTransferPositionsFy2026Q2
+          },
+          {
+            "@type": "PropertyValue",
+            name: "FY2023 USCIS H-1B approvals",
+            value: company.uscisApprovalsFy2023
+          }
+        ]
+      }
     }))
+  };
+
+  const collectionPageData = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: "H-1B Sponsor Directory",
+    description:
+      "Haven's H-1B sponsor directory helps visa workers compare employers by sponsorship history, transfer signals, common roles, worksites, wages, and USCIS approval data.",
+    url: absoluteUrl("/jobs").toString(),
+    isPartOf: {
+      "@type": "WebSite",
+      name: siteIdentity.name,
+      url: siteIdentity.url
+    },
+    publisher: { "@type": "Organization", name: siteIdentity.name, url: siteIdentity.url },
+    about: [
+      { "@type": "Thing", name: "H-1B sponsorship" },
+      { "@type": "Thing", name: "H-1B transfer" },
+      { "@type": "Thing", name: "Labor Condition Application" },
+      { "@type": "Thing", name: "USCIS H-1B approvals" }
+    ],
+    mainEntity: { "@id": absoluteUrl("/jobs#sponsor-directory").toString() }
   };
 
   const faqData = {
@@ -127,6 +207,7 @@ export default function JobsPage() {
   return (
     <div className="min-h-screen">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbData) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionPageData) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(datasetData) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListData) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqData) }} />
@@ -143,8 +224,9 @@ export default function JobsPage() {
               <h1 className="text-display mt-5 max-w-[22ch]">Find employers with H-1B sponsorship history.</h1>
               <p className="text-body mt-5 max-w-[72ch]">
                 Search recent DOL LCA filings and historical USCIS approval data before you spend scarce layoff-window
-                time on applications. This is a sponsor-history directory, not a guarantee that a specific opening will
-                sponsor today.
+                time on applications. Compare sponsor signal, H-1B transfer positions, common sponsored roles, worksites,
+                wages, and approval history. This is a sponsor-history directory, not a guarantee that a specific opening
+                will sponsor today.
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link className={buttonVariants({ variant: "default" })} href="/community/contribute">
@@ -174,6 +256,40 @@ export default function JobsPage() {
                 <SnapshotMetric label="FY2023 USCIS approvals" value={formatNumber(totalUscisApprovals)} />
               </div>
             </aside>
+          </section>
+
+          <section className="rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-5 md:p-6">
+            <div className="max-w-[86ch]">
+              <h2 className="text-h2">Top H-1B sponsor signals in this dataset</h2>
+              <p className="text-body-sm mt-2">
+                These employers currently rank highest in Haven&rsquo;s sponsor directory because they combine recent
+                certified LCA activity, H-1B transfer-position signals, and USCIS approval history. Use this as a
+                shortlist for outreach, then verify sponsorship policy with each recruiter.
+              </p>
+            </div>
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              {topCompanies.map((company) => (
+                <Link
+                  className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--haven-cream)] p-4 transition-colors hover:border-[var(--haven-sage-mid)] hover:bg-[var(--haven-sage-light)]"
+                  href={getCompanyPath(company.id)}
+                  key={company.id}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <h3 className="text-h3 break-words">{company.companyName}</h3>
+                      <p className="text-caption mt-1">
+                        {formatNumber(company.certifiedLcaCountFy2026Q2)} certified FY2026 Q2 LCAs ·{" "}
+                        {formatNumber(company.h1bTransferPositionsFy2026Q2)} transfer positions
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-[var(--radius-md)] bg-[var(--haven-white)] px-3 py-2 text-center">
+                      <span className="block text-caption">Signal</span>
+                      <span className="block text-body-sm font-semibold text-[var(--haven-ink)]">{company.sponsorScore}</span>
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </section>
 
           <section className="rounded-[var(--radius-xl)] border border-[var(--haven-sky-mid)] bg-[var(--haven-sky-light)] p-5">

@@ -12,8 +12,11 @@ const IMMIG_WIZARD_URL = "https://immig.haven-h1b.com/";
 const navItems = [
   { href: "/", label: "Home" },
   { href: "/jobs", label: "Jobs" },
-  { href: "/lawyers", label: "Lawyers" },
   { href: "/community", label: "Community" }
+];
+
+const marketplaceNavItems = [
+  { href: "/lawyers", label: "Immigration Lawyers" }
 ];
 
 const resourceNavItems = [
@@ -41,6 +44,7 @@ function isNavItemActive(currentPath: string, href: string) {
 
 export function PublicNavbar({ currentPath }: { currentPath: string }) {
   const immigWizardUrl = getPublicImmigWizardUrl();
+  const isMarketplaceActive = marketplaceNavItems.some((item) => isNavItemActive(currentPath, item.href));
   const isResourcesActive = resourceNavItems.some((item) => isNavItemActive(currentPath, item.href));
 
   return (
@@ -66,6 +70,37 @@ export function PublicNavbar({ currentPath }: { currentPath: string }) {
               </Link>
             );
           })}
+          <details className="group relative">
+            <summary
+              className={cn(
+                "flex cursor-pointer list-none items-center gap-1 text-body-sm transition-colors hover:text-[var(--haven-ink)] [&::-webkit-details-marker]:hidden",
+                isMarketplaceActive ? "font-medium text-[var(--haven-ink)]" : "text-[var(--color-text-secondary)]"
+              )}
+            >
+              Marketplace
+              <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="absolute left-1/2 top-8 z-50 min-w-52 -translate-x-1/2 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--haven-white)] p-2 shadow-[0_18px_40px_-24px_rgba(44,54,48,0.45)]">
+              {marketplaceNavItems.map((item) => {
+                const isActive = isNavItemActive(currentPath, item.href);
+
+                return (
+                  <Link
+                    key={item.href}
+                    className={cn(
+                      "block rounded-[var(--radius-md)] px-3 py-2 text-body-sm transition-colors",
+                      isActive
+                        ? "bg-[var(--haven-sage-light)] font-medium text-[var(--haven-ink)]"
+                        : "text-[var(--color-text-secondary)] hover:bg-[var(--haven-sage-light)] hover:text-[var(--haven-ink)]"
+                    )}
+                    href={item.href}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+          </details>
           <details className="group relative">
             <summary
               className={cn(
@@ -120,6 +155,7 @@ export function PublicNavbar({ currentPath }: { currentPath: string }) {
           <MobilePublicNav
             currentPath={currentPath}
             immigWizardUrl={immigWizardUrl}
+            marketplaceNavItems={marketplaceNavItems}
             navItems={navItems}
             resourceNavItems={resourceNavItems}
           />

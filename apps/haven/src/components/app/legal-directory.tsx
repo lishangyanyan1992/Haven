@@ -6,6 +6,7 @@ import { ArrowRight, ArrowUpDown, BadgeCheck, Globe, Languages, MapPin, MessageS
 
 import { submitLegalFeedback, type LegalFeedbackActionState } from "@/server/legal-directory-actions";
 import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -110,6 +111,10 @@ function getSortValue(firm: LawFirm, sortBy: string) {
     default:
       return firm.trustScore;
   }
+}
+
+function isFirmVerified(firm: LawFirm) {
+  return firm.claimStatus === "claimed";
 }
 
 export function LegalDirectory({ firms }: LegalDirectoryProps) {
@@ -229,13 +234,40 @@ export function LegalDirectory({ firms }: LegalDirectoryProps) {
         </div>
       </details>
 
+      <section className="rounded-[var(--radius-xl)] border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] p-5">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div className="max-w-[86ch]">
+            <p className="text-h3">Verification labels</p>
+            <p className="text-body-sm mt-2">
+              <strong>Verified</strong> means the firm provided the necessary profile information, public proof links,
+              and an authorized attestation for Haven to publish its firm-provided details. <strong>Unverified</strong>{" "}
+              means the card is based on public directory data and has not been claimed or submitted by the firm yet.
+            </p>
+            <p className="text-caption mt-2">
+              Verification is not a referral, endorsement, or legal advice. Always confirm licensing, scope, and fees
+              directly with the firm.
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <span className="tag tag-active inline-flex items-center gap-1">
+              <BadgeCheck className="h-3.5 w-3.5" />
+              Verified
+            </span>
+            <span className="tag tag-pending">Unverified</span>
+          </div>
+        </div>
+      </section>
+
       <div className="grid gap-4 xl:grid-cols-2">
-        {visibleFirms.map((firm) => (
-          <article
-            className="min-w-0 rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-5 shadow-[0_8px_28px_-16px_rgba(44,54,48,0.16)] scroll-mt-28"
-            id={`firm-${firm.id}`}
-            key={firm.id}
-          >
+        {visibleFirms.map((firm) => {
+          const firmVerified = isFirmVerified(firm);
+
+          return (
+            <article
+              className="min-w-0 rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-5 shadow-[0_8px_28px_-16px_rgba(44,54,48,0.16)] scroll-mt-28"
+              id={`firm-${firm.id}`}
+              key={firm.id}
+            >
             <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div className="min-w-0">
                 <div className="flex min-w-0 items-center gap-3">
@@ -274,6 +306,10 @@ export function LegalDirectory({ firms }: LegalDirectoryProps) {
             </div>
 
             <div className="mt-4 flex flex-wrap gap-2">
+              <span className={`tag ${firmVerified ? "tag-active" : "tag-pending"} inline-flex items-center gap-1`}>
+                {firmVerified ? <BadgeCheck className="h-3.5 w-3.5" /> : null}
+                {firmVerified ? "Verified" : "Unverified"}
+              </span>
               {firm.barVerified ? (
                 <span className="tag tag-active inline-flex items-center gap-1">
                   <BadgeCheck className="h-3.5 w-3.5" />
@@ -293,12 +329,6 @@ export function LegalDirectory({ firms }: LegalDirectoryProps) {
                   {firm.reviewCount != null ? ` · ${formatNumber(firm.reviewCount)} reviews` : ""}
                 </span>
               ) : null}
-              {firm.claimStatus === "claimed" ? (
-                <span className="tag tag-visa inline-flex items-center gap-1">
-                  <BadgeCheck className="h-3.5 w-3.5" />
-                  Claimed by firm
-                </span>
-              ) : null}
             </div>
 
             <div className="mt-5 grid min-w-0 gap-4 lg:grid-cols-2">
@@ -316,10 +346,11 @@ export function LegalDirectory({ firms }: LegalDirectoryProps) {
               </Link>
               {firm.claimStatus !== "claimed" ? (
                 <Link
-                  className="inline-flex items-center gap-1 text-body-sm text-[var(--haven-ink-mid)] underline-offset-4 hover:text-[var(--haven-ink)] hover:underline"
+                  className={buttonVariants({ variant: "accent", size: "sm" })}
                   href={`/lawyers/${firm.id}/claim`}
                 >
-                  Are you this firm? Claim it
+                  Are you this firm? Claim listing
+                  <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
               ) : null}
             </div>
@@ -333,8 +364,9 @@ export function LegalDirectory({ firms }: LegalDirectoryProps) {
                 <LegalFeedbackForm firm={firm} kind="firm_comment" />
               </div>
             </details>
-          </article>
-        ))}
+            </article>
+          );
+        })}
       </div>
 
       {visibleFirms.length === 0 ? (

@@ -72,6 +72,14 @@ export async function generateMetadata({ params }: CompanyPageProps): Promise<Me
   return {
     title,
     description,
+    keywords: [
+      `${company.companyName} H-1B sponsorship`,
+      `${company.companyName} H-1B transfer`,
+      `${company.companyName} LCA filings`,
+      `${company.companyName} visa sponsorship`,
+      "H-1B sponsor history",
+      "USCIS H-1B approvals"
+    ],
     alternates: { canonical: url },
     openGraph: { url: absoluteUrl(url).toString(), title, description },
     twitter: { title, description }
@@ -98,14 +106,47 @@ export default async function CompanyPage({ params }: CompanyPageProps) {
   const organizationData = {
     "@context": "https://schema.org",
     "@type": "Organization",
+    "@id": absoluteUrl(`${getCompanyPath(company.id)}#organization`).toString(),
     name: company.companyName,
-    url: company.website ? ensureHttp(company.website) : undefined,
+    url: absoluteUrl(getCompanyPath(company.id)).toString(),
+    sameAs: company.website ? ensureHttp(company.website) : undefined,
+    mainEntityOfPage: absoluteUrl(getCompanyPath(company.id)).toString(),
     description: `${company.companyName} is a U.S. employer with H-1B sponsorship history: ${formatNumber(
       company.certifiedLcaCountFy2026Q2
     )} certified LCAs in FY2026 Q2 and ${formatNumber(company.uscisApprovalsFy2023)} USCIS H-1B approvals in FY2023.`,
+    additionalProperty: [
+      {
+        "@type": "PropertyValue",
+        name: "Sponsor signal",
+        value: company.sponsorScore
+      },
+      {
+        "@type": "PropertyValue",
+        name: "FY2026 Q2 certified H-1B LCAs",
+        value: company.certifiedLcaCountFy2026Q2
+      },
+      {
+        "@type": "PropertyValue",
+        name: "FY2026 Q2 H-1B transfer positions",
+        value: company.h1bTransferPositionsFy2026Q2
+      },
+      {
+        "@type": "PropertyValue",
+        name: "FY2023 USCIS H-1B approvals",
+        value: company.uscisApprovalsFy2023
+      },
+      {
+        "@type": "PropertyValue",
+        name: "Median annual wage",
+        value: company.medianAnnualWage ?? "Not enough data"
+      }
+    ],
     subjectOf: {
       "@type": "Dataset",
+      "@id": absoluteUrl(`${getCompanyPath(company.id)}#dataset`).toString(),
       name: `${company.companyName} H-1B sponsorship data`,
+      description: `Public DOL and USCIS sponsorship-history signals for ${company.companyName}, including certified LCAs, transfer-position signals, common roles, worksites, wages, approvals, and denials.`,
+      url: absoluteUrl(getCompanyPath(company.id)).toString(),
       dateModified: generatedAt,
       isAccessibleForFree: true,
       creator: { "@type": "Organization", name: siteIdentity.name, url: siteIdentity.url },
@@ -115,6 +156,26 @@ export default async function CompanyPage({ params }: CompanyPageProps) {
         contentUrl: source.url
       }))
     }
+  };
+
+  const webPageData = {
+    "@context": "https://schema.org",
+    "@type": "ProfilePage",
+    name: `${company.companyName} H-1B Sponsorship History`,
+    description: `${company.companyName} H-1B sponsorship profile with DOL LCA filings, H-1B transfer signals, common sponsored roles, worksites, wage data, and USCIS approval history.`,
+    url: absoluteUrl(getCompanyPath(company.id)).toString(),
+    isPartOf: {
+      "@type": "CollectionPage",
+      name: "H-1B Sponsor Directory",
+      url: absoluteUrl("/jobs").toString()
+    },
+    publisher: { "@type": "Organization", name: siteIdentity.name, url: siteIdentity.url },
+    mainEntity: { "@id": absoluteUrl(`${getCompanyPath(company.id)}#organization`).toString() },
+    about: [
+      { "@type": "Thing", name: "H-1B sponsorship" },
+      { "@type": "Thing", name: "H-1B transfer" },
+      { "@type": "Thing", name: "Labor Condition Application" }
+    ]
   };
 
   const metrics = [
@@ -131,6 +192,7 @@ export default async function CompanyPage({ params }: CompanyPageProps) {
   return (
     <div className="min-h-screen">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbData) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(webPageData) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationData) }} />
       <PublicNavbar currentPath="/jobs" />
 
@@ -152,6 +214,11 @@ export default async function CompanyPage({ params }: CompanyPageProps) {
               <p className="text-body mt-5 max-w-[72ch]">
                 H-1B sponsorship history for {company.companyName}, compiled from official U.S. Department of Labor LCA
                 filings and USCIS petition data. Latest LCA decision: {formatDate(company.latestDecisionDate)}.
+              </p>
+              <p className="text-body-sm mt-3 max-w-[72ch]">
+                In this dataset, {company.companyName} has {formatNumber(company.certifiedLcaCountFy2026Q2)} certified
+                FY2026 Q2 H-1B LCAs, {formatNumber(company.h1bTransferPositionsFy2026Q2)} H-1B transfer-position signals,
+                and {formatNumber(company.uscisApprovalsFy2023)} FY2023 USCIS H-1B approvals.
               </p>
               {company.website ? (
                 <a

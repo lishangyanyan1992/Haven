@@ -6,7 +6,9 @@ Haven combines personal immigration timelines, layoff planning, a community of p
 
 ## H-1B Sponsor Directory
 
-- [H-1B Sponsor Directory](https://haven-h1b.com/jobs): Search 120+ companies with recent DOL H-1B LCA filings (FY2026 Q2) and historical USCIS H-1B approval data (FY2023). Built for workers planning H-1B transfers, especially during a layoff grace period. Each company has its own profile page at /jobs/{company-id} with sponsorship signals, common sponsored roles, and top worksites.
+- [H-1B Sponsor Directory](https://haven-h1b.com/jobs): Search 120+ companies with recent DOL H-1B LCA filings (FY2026 Q2), H-1B transfer-position signals, common sponsored roles, top worksites, median wage data, and historical USCIS H-1B approval data (FY2023). Built for workers planning H-1B transfers, especially during a layoff grace period.
+- Each company has its own profile page at /jobs/{company-id} with sponsorship signal score, certified LCA count, H-1B transfer-position count, USCIS approvals and denials, common roles, top worksites, and source notes.
+- The sponsor directory is not a job board and should not be described as current job openings. Historical filings indicate sponsorship history, not a guarantee that a specific opening will sponsor today.
 
 ## Free Tools
 

@@ -76,6 +76,7 @@ export default async function FirmPage({ params }: FirmPageProps) {
 
   const claim = firm.claimStatus === "claimed" ? firm.claimProfile ?? null : null;
   const evidence = firm.claimStatus === "claimed" ? firm.evidence ?? null : null;
+  const firmVerified = firm.claimStatus === "claimed";
 
   const generatedAt = getLegalGeneratedAt();
   const sources = getLegalSources();
@@ -102,6 +103,13 @@ export default async function FirmPage({ params }: FirmPageProps) {
     },
     knowsLanguage: firm.languagesSpoken,
     knowsAbout: firm.practiceFocus,
+    additionalProperty: [
+      {
+        "@type": "PropertyValue",
+        name: "Haven verification label",
+        value: firmVerified ? "Verified" : "Unverified"
+      }
+    ],
     ...(firm.rating != null && firm.reviewCount != null
       ? {
           aggregateRating: {
@@ -170,6 +178,10 @@ export default async function FirmPage({ params }: FirmPageProps) {
               </div>
 
               <div className="mt-5 flex flex-wrap gap-2">
+                <span className={`tag ${firmVerified ? "tag-active" : "tag-pending"} inline-flex items-center gap-1`}>
+                  {firmVerified ? <BadgeCheck className="h-3.5 w-3.5" /> : null}
+                  {firmVerified ? "Verified" : "Unverified"}
+                </span>
                 {firm.barVerified ? (
                   <span className="tag tag-active inline-flex items-center gap-1">
                     <BadgeCheck className="h-3.5 w-3.5" />
@@ -247,7 +259,9 @@ export default async function FirmPage({ params }: FirmPageProps) {
                 <h2 className="text-h3">Provided by the firm</h2>
               </div>
               <p className="text-caption mt-1 max-w-[95ch]">
-                Submitted by {firm.firmName} — not independently verified by Haven. Use the proof links below to confirm.
+                Verified means {firm.firmName} provided the necessary profile information, public proof links, and an
+                authorized attestation for Haven to publish these firm-provided details. Use the proof links below to
+                confirm licensing and fit directly.
               </p>
 
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -348,7 +362,8 @@ export default async function FirmPage({ params }: FirmPageProps) {
               <div>
                 <p className="text-h3">Is this your firm?</p>
                 <p className="text-body-sm mt-1 max-w-[70ch]">
-                  Claim this listing to add your specialties, languages, pricing, and proof links — free.
+                  This listing is currently unverified. Claim it to add your specialties, languages, pricing, proof
+                  links, and authorized attestation — free.
                 </p>
               </div>
               <Link className={buttonVariants({ variant: "outline" })} href={`/lawyers/${firm.id}/claim`}>
