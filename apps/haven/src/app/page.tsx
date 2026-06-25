@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, ArrowUpRight, Calculator, CalendarCheck, Clock, FileText, FolderOpen, Heart, Landmark, MessageCircle, Search, ShieldAlert, Sparkles, Star, Users } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Calculator, CalendarCheck, FileText, FolderOpen, Heart, Landmark, MessageCircle, Search, ShieldAlert, Sparkles, Star, Users } from "lucide-react";
 
 import {
   CommunityFeaturePreview,
-  DocumentVaultFeaturePreview,
   JobBoardFeaturePreview,
   LayoffFeaturePreview,
   MarketplaceFeaturePreview,
@@ -27,13 +26,14 @@ import { cn } from "@/lib/utils";
 
 const features = [
   {
-    icon: Clock,
-    title: "Personal timelines",
-    description: "See the dates, ranges, and action windows that actually matter for your path.",
+    icon: CalendarCheck,
+    title: "Organized and on track",
+    description: "See the dates and action windows that matter, and keep every document and message with employers and lawyers in one organized place.",
     preview: TimelineFeaturePreview,
     cardClass: "bg-[var(--haven-sand)]",
     iconClass: "bg-[var(--haven-white)] text-[var(--haven-ink)]",
-    layoutClass: "xl:col-span-6"
+    layoutClass: "xl:col-span-6",
+    cta: { href: "/register", label: "Get started" }
   },
   {
     icon: ShieldAlert,
@@ -42,7 +42,8 @@ const features = [
     preview: LayoffFeaturePreview,
     cardClass: "bg-[var(--haven-sky-light)]",
     iconClass: "bg-white/70 text-[var(--haven-ink)]",
-    layoutClass: "xl:col-span-6"
+    layoutClass: "xl:col-span-6",
+    cta: { href: "/register", label: "Get started" }
   },
   {
     icon: Users,
@@ -51,16 +52,8 @@ const features = [
     preview: CommunityFeaturePreview,
     cardClass: "bg-[rgba(236,243,238,0.92)]",
     iconClass: "bg-[var(--haven-white)] text-[var(--haven-ink)]",
-    layoutClass: "xl:col-span-4"
-  },
-  {
-    icon: FolderOpen,
-    title: "Document vault",
-    description: "Save your documents and keep communication with employers, lawyers, and more in one place so you never lose a thing.",
-    preview: DocumentVaultFeaturePreview,
-    cardClass: "bg-[rgba(240,247,249,0.92)]",
-    iconClass: "bg-[var(--haven-white)] text-[var(--haven-ink)]",
-    layoutClass: "xl:col-span-4"
+    layoutClass: "xl:col-span-6",
+    cta: { href: "/community", label: "Explore the community" }
   },
   {
     icon: Heart,
@@ -69,7 +62,7 @@ const features = [
     preview: WaitlistFeaturePreview,
     cardClass: "bg-[rgba(249,242,236,0.96)]",
     iconClass: "bg-[var(--haven-white)] text-[var(--haven-ink)]",
-    layoutClass: "xl:col-span-4"
+    layoutClass: "xl:col-span-6"
   },
 ];
 
@@ -234,6 +227,15 @@ export default function HomePage() {
                   <h3 className="text-h2 mt-5">{feature.title}</h3>
                   <p className="text-body mt-2">{feature.description}</p>
                   <feature.preview />
+                  {feature.cta ? (
+                    <Link
+                      href={feature.cta.href}
+                      className="relative z-10 mt-5 inline-flex items-center gap-1 text-[13px] font-medium text-[var(--haven-ink)]"
+                    >
+                      {feature.cta.label}
+                      <ArrowRight className="h-3.5 w-3.5 transition-transform duration-150 group-hover:translate-x-0.5" />
+                    </Link>
+                  ) : null}
                 </article>
               ))}
             </div>
