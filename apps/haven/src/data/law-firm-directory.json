@@ -1,0 +1,1835 @@
+{
+  "generatedAt": "2026-06-25T20:52:42.884Z",
+  "isSampleData": false,
+  "sources": [
+    {
+      "name": "Google Places API (firm discovery)",
+      "url": "https://developers.google.com/maps/documentation/places/web-service",
+      "label": "Places discovery — firm name, website, rating, reviews",
+      "recordCount": 60
+    },
+    {
+      "name": "State bar attorney lookups",
+      "url": "https://www.americanbar.org/groups/legal_services/flh-home/flh-bar-directories-and-lawyer-finders/",
+      "label": "State bar license verification",
+      "recordCount": 0
+    },
+    {
+      "name": "AILA member search (cross-reference)",
+      "url": "https://www.ailalawyer.com/",
+      "label": "AILA membership badge",
+      "recordCount": 0
+    }
+  ],
+  "firms": [
+    {
+      "id": "lincoln-goldfinch-law-abogados-de-inmigraci-n",
+      "firmName": "Lincoln-Goldfinch Law - Abogados de Inmigración",
+      "trustScore": 55,
+      "metro": "Austin",
+      "city": "Austin",
+      "state": "TX",
+      "website": "https://www.lincolngoldfinch.com/",
+      "phone": "(512) 488-1776",
+      "practiceFocus": [
+        "H-1B",
+        "L-1",
+        "O-1",
+        "PERM",
+        "Family",
+        "Asylum",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Spanish"
+      ],
+      "firmSizeBucket": "6-20",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 1565,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJQfFa0_S1RIYRAj3M6yuWUJI"
+      ]
+    },
+    {
+      "id": "kpb-immigration-law-firm",
+      "firmName": "KPB Immigration Law Firm",
+      "trustScore": 55,
+      "metro": "San Francisco Bay Area",
+      "city": "San Francisco",
+      "state": "CA",
+      "website": "https://www.kpbimmigrationlawfirm.com/",
+      "phone": "(415) 900-4405",
+      "practiceFocus": [
+        "H-1B",
+        "Family"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Mandarin",
+        "Spanish",
+        "Korean",
+        "Portuguese",
+        "Russian",
+        "Polish",
+        "French",
+        "Japanese"
+      ],
+      "firmSizeBucket": "2-5",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 1450,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJAShaJ4aAhYARLkE11MQ8WaY"
+      ]
+    },
+    {
+      "id": "volkan-anik-esq-lawyer",
+      "firmName": "Volkan Anik, Esq. lawyer",
+      "trustScore": 55,
+      "metro": "New York City",
+      "city": "Brooklyn",
+      "state": "NY",
+      "website": "http://www.aniklaw.com/",
+      "phone": "(862) 281-0100",
+      "practiceFocus": [
+        "Family",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English"
+      ],
+      "firmSizeBucket": "2-5",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 5,
+      "reviewCount": 1057,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJk2TUHGREwokRuD6L5-W9Rp8"
+      ]
+    },
+    {
+      "id": "law-offices-of-gihan-l-thomas",
+      "firmName": "Law Offices of Gihan L. Thomas",
+      "trustScore": 55,
+      "metro": "Los Angeles",
+      "city": "Los Angeles",
+      "state": "CA",
+      "website": "https://gihanthomaslaw.com/",
+      "phone": "(310) 203-2242",
+      "practiceFocus": [
+        "H-1B",
+        "PERM",
+        "Family",
+        "Asylum",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English"
+      ],
+      "firmSizeBucket": "6-20",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 990,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJhctCXrPHwoARHu30CGVjNLc"
+      ]
+    },
+    {
+      "id": "jcs-immigration-and-visa-law-office",
+      "firmName": "JCS Immigration & Visa Law Office",
+      "trustScore": 53,
+      "metro": "Los Angeles",
+      "city": "Los Angeles",
+      "state": "CA",
+      "website": "http://www.jcsimmigration.com/",
+      "phone": "(323) 380-8034",
+      "practiceFocus": [
+        "H-1B",
+        "EB-1",
+        "EB-2 NIW",
+        "PERM",
+        "Family",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Mandarin"
+      ],
+      "firmSizeBucket": "solo",
+      "sizeConfidence": "low",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 5,
+      "reviewCount": 811,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJ5WdZs3DHwoARDuOMDQN0sIM"
+      ]
+    },
+    {
+      "id": "choquette-immigration-law-group",
+      "firmName": "Choquette Immigration Law Group",
+      "trustScore": 55,
+      "metro": "Seattle",
+      "city": "Seattle",
+      "state": "WA",
+      "website": "https://www.choquettelaw.com/?utm_source=gbp&utm_medium=organic&utm_campaign=gbp-website-seattle",
+      "phone": "(206) 438-4195",
+      "practiceFocus": [
+        "PERM",
+        "Family",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English"
+      ],
+      "firmSizeBucket": "6-20",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 925,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJqSz6a-FqkFQR34VY2-SCd3A"
+      ]
+    },
+    {
+      "id": "urbina-immigration-law",
+      "firmName": "Urbina Immigration Law",
+      "trustScore": 53,
+      "metro": "Atlanta",
+      "city": "Atlanta",
+      "state": "GA",
+      "website": "https://urbinalawfirm.com/?utm_campaign=gmb&utm_medium=organic&utm_source=google",
+      "phone": "(770) 401-7646",
+      "practiceFocus": [
+        "PERM"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Spanish"
+      ],
+      "firmSizeBucket": "solo",
+      "sizeConfidence": "low",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 875,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJC0NKHHYR9YgR8GtJpJsDTLA"
+      ]
+    },
+    {
+      "id": "goel-and-anderson-llc",
+      "firmName": "Goel & Anderson LLC",
+      "trustScore": 55,
+      "metro": "Washington DC",
+      "city": "Reston",
+      "state": "VA",
+      "website": "http://www.goellaw.com/",
+      "phone": "(877) 463-5529",
+      "practiceFocus": [
+        "H-1B",
+        "L-1",
+        "O-1",
+        "EB-2 NIW",
+        "PERM",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English"
+      ],
+      "firmSizeBucket": "2-5",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 807,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJ_9YHWC5ItokRD8Ygbl-zjYY"
+      ]
+    },
+    {
+      "id": "monteza-law-firm-p-c",
+      "firmName": "Monteza Law Firm, P.C.",
+      "trustScore": 53,
+      "metro": "New York City",
+      "city": "New York",
+      "state": "NY",
+      "website": "https://visajuvenil.com/",
+      "phone": "(212) 870-6175",
+      "practiceFocus": [
+        "PERM"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Spanish"
+      ],
+      "firmSizeBucket": "solo",
+      "sizeConfidence": "low",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 785,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJpZSJPNRZwokRPcd1zWOS3vo"
+      ]
+    },
+    {
+      "id": "vazquez-and-servi-pc",
+      "firmName": "VAZQUEZ & SERVI, PC",
+      "trustScore": 53,
+      "metro": "Atlanta",
+      "city": "Atlanta",
+      "state": "GA",
+      "website": "http://www.imlaw.us/",
+      "phone": "(678) 303-0018",
+      "practiceFocus": [
+        "Immigration"
+      ],
+      "languagesSpoken": [
+        "English"
+      ],
+      "firmSizeBucket": "solo",
+      "sizeConfidence": "low",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.8,
+      "reviewCount": 894,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJg93yWzsI9YgRP5PKCYSHUDw"
+      ]
+    },
+    {
+      "id": "texas-immigration-law-office-pllc",
+      "firmName": "Texas Immigration Law Office PLLC",
+      "trustScore": 55,
+      "metro": "Dallas",
+      "city": "Garland",
+      "state": "TX",
+      "website": "http://www.tximmigrantlaws.com/",
+      "phone": null,
+      "practiceFocus": [
+        "Family",
+        "Asylum",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Spanish"
+      ],
+      "firmSizeBucket": "solo",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 741,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJh463kfWhMEkRFGo3yf0YSiU"
+      ]
+    },
+    {
+      "id": "kuck-baxter-immigration-lawyer",
+      "firmName": "Kuck Baxter - Immigration Lawyer",
+      "trustScore": 55,
+      "metro": "Atlanta",
+      "city": "Atlanta",
+      "state": "GA",
+      "website": "https://immigration.net/",
+      "phone": "(404) 800-5538",
+      "practiceFocus": [
+        "H-1B",
+        "L-1",
+        "O-1",
+        "EB-1",
+        "EB-2 NIW",
+        "PERM",
+        "Family",
+        "Asylum",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Spanish"
+      ],
+      "firmSizeBucket": "6-20",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.7,
+      "reviewCount": 914,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJM2Zmrtht9ogR-qWldqeDvWs"
+      ]
+    },
+    {
+      "id": "antonini-and-cohen-immigration-law-group",
+      "firmName": "Antonini & Cohen Immigration Law Group",
+      "trustScore": 55,
+      "metro": "Atlanta",
+      "city": "Atlanta",
+      "state": "GA",
+      "website": "https://www.antoniniandcohen.com/?utm_campaign=gmb&utm_medium=organic&utm_source=google+my+business",
+      "phone": "(470) 777-6160",
+      "practiceFocus": [
+        "Asylum"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Spanish",
+        "Hindi",
+        "French"
+      ],
+      "firmSizeBucket": "6-20",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.8,
+      "reviewCount": 764,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJ5Zg2y3cJ9YgRg8CAgaMQZuw"
+      ]
+    },
+    {
+      "id": "aparicio-immigration-law",
+      "firmName": "Aparicio Immigration Law",
+      "trustScore": 55,
+      "metro": "Chicago",
+      "city": "Chicago",
+      "state": "IL",
+      "website": "https://www.aparicioimmigrationlaw.com/",
+      "phone": "(312) 858-5824",
+      "practiceFocus": [
+        "H-1B",
+        "PERM",
+        "Family",
+        "Asylum",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Spanish"
+      ],
+      "firmSizeBucket": "6-20",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 652,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJC556KsMsDogRTIhlkYJMQ8k"
+      ]
+    },
+    {
+      "id": "gehi-and-associates",
+      "firmName": "Gehi & Associates",
+      "trustScore": 55,
+      "metro": "New York City",
+      "city": "Jackson Heights",
+      "state": "NY",
+      "website": "http://www.gehilaw.com/",
+      "phone": "(718) 263-5999",
+      "practiceFocus": [
+        "H-1B",
+        "EB-1",
+        "PERM",
+        "Family",
+        "Asylum",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Spanish",
+        "French"
+      ],
+      "firmSizeBucket": "6-20",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.5,
+      "reviewCount": 1083,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJHddmaphgwokRAxV_POcV14E"
+      ]
+    },
+    {
+      "id": "mathur-law-offices-p-c",
+      "firmName": "Mathur Law Offices, P.C.",
+      "trustScore": 55,
+      "metro": "Dallas",
+      "city": "Dallas",
+      "state": "TX",
+      "website": "https://www.mathurlawoffices.com/",
+      "phone": "(888) 867-5191",
+      "practiceFocus": [
+        "H-1B",
+        "Asylum",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English"
+      ],
+      "firmSizeBucket": "6-20",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 607,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJD4u0Rg2cToYRG4GVIc_tk8w"
+      ]
+    },
+    {
+      "id": "christensen-immigration-attorneys",
+      "firmName": "Christensen Immigration Attorneys",
+      "trustScore": 55,
+      "metro": "Dallas",
+      "city": "Coppell",
+      "state": "TX",
+      "website": "https://espanol.immigrationlawyerdallastx.com/",
+      "phone": "(972) 497-1017",
+      "practiceFocus": [
+        "H-1B",
+        "PERM",
+        "Family",
+        "Asylum",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Spanish"
+      ],
+      "firmSizeBucket": "6-20",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 5,
+      "reviewCount": 527,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJfa47XXUnTIYRRgKUs9fFy-4"
+      ]
+    },
+    {
+      "id": "wildes-and-weinberg-p-c-law-offices",
+      "firmName": "Wildes & Weinberg P.C Law Offices",
+      "trustScore": 55,
+      "metro": "New York City",
+      "city": "New York",
+      "state": "NY",
+      "website": "https://www.wildeslaw.com/offices/immigration-office-new-york/",
+      "phone": "(212) 753-3468",
+      "practiceFocus": [
+        "O-1",
+        "PERM",
+        "Asylum"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Spanish",
+        "Korean",
+        "Russian",
+        "Polish",
+        "French",
+        "Tagalog"
+      ],
+      "firmSizeBucket": "6-20",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 596,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJP2CRdvtYwokRoaQaqDvWqXQ"
+      ]
+    },
+    {
+      "id": "the-chidolue-law-firm-pllc",
+      "firmName": "The Chidolue Law Firm, PLLC",
+      "trustScore": 55,
+      "metro": "Atlanta",
+      "city": "Roswell",
+      "state": "GA",
+      "website": "https://chidoluelaw.com/",
+      "phone": "(678) 325-1037",
+      "practiceFocus": [
+        "PERM",
+        "Family",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Spanish"
+      ],
+      "firmSizeBucket": "solo",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 5,
+      "reviewCount": 518,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJ3_dQVXML9YgR3a0F1Rc6brg"
+      ]
+    },
+    {
+      "id": "law-office-of-rachel-einbund-pc",
+      "firmName": "Law Office of Rachel Einbund, PC",
+      "trustScore": 55,
+      "metro": "New York City",
+      "city": "New York",
+      "state": "NY",
+      "website": "http://lo-re.com/",
+      "phone": "(917) 399-7090",
+      "practiceFocus": [
+        "PERM",
+        "Family",
+        "Asylum",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Tagalog"
+      ],
+      "firmSizeBucket": "2-5",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 5,
+      "reviewCount": 503,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJwSYsJahZwokR_X2wxDvo3FU"
+      ]
+    },
+    {
+      "id": "lira-bravo-law",
+      "firmName": "Lira Bravo Law",
+      "trustScore": 55,
+      "metro": "Dallas",
+      "city": "Dallas",
+      "state": "TX",
+      "website": "https://lirabravo.com/?utm_source=google&utm_medium=organic&utm_campaign=gbp",
+      "phone": "(214) 380-2628",
+      "practiceFocus": [
+        "H-1B",
+        "PERM",
+        "Asylum"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Spanish"
+      ],
+      "firmSizeBucket": "6-20",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 551,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJP0cyLM-jToYR8_d4RS2WRXA"
+      ]
+    },
+    {
+      "id": "law-office-of-alex-galvez-abogado",
+      "firmName": "Law Office of Alex Galvez (Abogado)",
+      "trustScore": 53,
+      "metro": "Los Angeles",
+      "city": "Los Angeles",
+      "state": "CA",
+      "website": "http://www.alexgalvez.com/",
+      "phone": "(213) 623-2358",
+      "practiceFocus": [
+        "PERM"
+      ],
+      "languagesSpoken": [
+        "English"
+      ],
+      "firmSizeBucket": "solo",
+      "sizeConfidence": "low",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.6,
+      "reviewCount": 828,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJeQZL7rTHwoARXwPAeWRsRGM"
+      ]
+    },
+    {
+      "id": "chavez-and-valko-llp",
+      "firmName": "Chavez & Valko LLP",
+      "trustScore": 53,
+      "metro": "Dallas",
+      "city": "Dallas",
+      "state": "TX",
+      "website": "http://www.keyvisa.com/",
+      "phone": "(214) 251-8011",
+      "practiceFocus": [
+        "Immigration"
+      ],
+      "languagesSpoken": [
+        "English"
+      ],
+      "firmSizeBucket": "solo",
+      "sizeConfidence": "low",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 547,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJxSx9fgogTIYRtbRakn1kJXA"
+      ]
+    },
+    {
+      "id": "brown-law-pllc",
+      "firmName": "Brown Law, PLLC",
+      "trustScore": 53,
+      "metro": "Washington DC",
+      "city": "Alexandria",
+      "state": "VA",
+      "website": "http://www.brownlawpllc.com/",
+      "phone": "(703) 778-6531",
+      "practiceFocus": [
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Spanish"
+      ],
+      "firmSizeBucket": "solo",
+      "sizeConfidence": "low",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 517,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJ0_w4Wvawt4kRhCM8oBw4DRM"
+      ]
+    },
+    {
+      "id": "goldstein-immigration-lawyers",
+      "firmName": "Goldstein Immigration Lawyers",
+      "trustScore": 55,
+      "metro": "Los Angeles",
+      "city": "Los Angeles",
+      "state": "CA",
+      "website": "https://jgoldlaw.com/?utm_source=google&utm_medium=organic&utm_campaign=gbp_la",
+      "phone": "(213) 262-2000",
+      "practiceFocus": [
+        "Family",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English"
+      ],
+      "firmSizeBucket": "6-20",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.8,
+      "reviewCount": 583,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJ-S_AG0zGwoARAafWq91r6FQ"
+      ]
+    },
+    {
+      "id": "jcp-law-firm-and-associates",
+      "firmName": "JCP Law Firm & Associates",
+      "trustScore": 53,
+      "metro": "Dallas",
+      "city": "Dallas",
+      "state": "TX",
+      "website": "http://www.theimmigrationlawyers.com/",
+      "phone": "(214) 631-8472",
+      "practiceFocus": [
+        "PERM",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English"
+      ],
+      "firmSizeBucket": "solo",
+      "sizeConfidence": "low",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 485,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJHzIQTl6cToYRU43AsiReb5w"
+      ]
+    },
+    {
+      "id": "terkiana-pc",
+      "firmName": "Terkiana, PC",
+      "trustScore": 55,
+      "metro": "San Francisco Bay Area",
+      "city": "San Jose",
+      "state": "CA",
+      "website": "https://www.terkiana.com/?utm_source=GMB&utm_medium=organic&utm_campaign=sanjose",
+      "phone": "(415) 909-0503",
+      "practiceFocus": [
+        "H-1B",
+        "L-1",
+        "EB-1",
+        "EB-2 NIW",
+        "PERM",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English"
+      ],
+      "firmSizeBucket": "6-20",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.6,
+      "reviewCount": 708,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJjdXsVuvLj4AR9AflC6EY0jQ"
+      ]
+    },
+    {
+      "id": "law-office-of-johanna-herrero",
+      "firmName": "Law Office of Johanna Herrero",
+      "trustScore": 55,
+      "metro": "Boston",
+      "city": "Boston",
+      "state": "MA",
+      "website": "http://www.johannaherrerolaw.com/",
+      "phone": "(617) 720-5200",
+      "practiceFocus": [
+        "PERM",
+        "Family",
+        "Asylum",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Spanish"
+      ],
+      "firmSizeBucket": "2-5",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.6,
+      "reviewCount": 696,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJCxnTYY5w44kRxx8-EaINmQM"
+      ]
+    },
+    {
+      "id": "the-pineda-law-firm-pllc",
+      "firmName": "The Pineda Law Firm PLLC",
+      "trustScore": 53,
+      "metro": "Dallas",
+      "city": "Dallas",
+      "state": "TX",
+      "website": "http://www.josepineda.com/",
+      "phone": "(214) 630-0080",
+      "practiceFocus": [
+        "Asylum",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English"
+      ],
+      "firmSizeBucket": "solo",
+      "sizeConfidence": "low",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 462,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJE1Get2mcToYRNzWdKZxx_Kc"
+      ]
+    },
+    {
+      "id": "khunkhun-law",
+      "firmName": "Khunkhun Law",
+      "trustScore": 55,
+      "metro": "New York City",
+      "city": "New York",
+      "state": "NY",
+      "website": "http://www.immigrationlawnewyork.com/",
+      "phone": "(212) 401-6222",
+      "practiceFocus": [
+        "H-1B",
+        "PERM",
+        "Family",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English"
+      ],
+      "firmSizeBucket": "6-20",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 5,
+      "reviewCount": 393,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJu5iXCZhgwokRC9Ko2EJ4gpI"
+      ]
+    },
+    {
+      "id": "perdomo-dorsett-immigration-law",
+      "firmName": "Perdomo Dorsett immigration Law",
+      "trustScore": 53,
+      "metro": "Dallas",
+      "city": "Dallas",
+      "state": "TX",
+      "website": "http://www.perdomodorsett.com/",
+      "phone": "(214) 501-0560",
+      "practiceFocus": [
+        "Immigration"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Spanish"
+      ],
+      "firmSizeBucket": "solo",
+      "sizeConfidence": "low",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 421,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJLzhFE2icToYR_uRmbuBr9QQ"
+      ]
+    },
+    {
+      "id": "stephen-bandar-law-office",
+      "firmName": "Stephen Bandar Law Office",
+      "trustScore": 53,
+      "metro": "Boston",
+      "city": "Burlington",
+      "state": "MA",
+      "website": "https://www.stephenbandarlaw.com/home",
+      "phone": "(617) 417-1145",
+      "practiceFocus": [
+        "Immigration"
+      ],
+      "languagesSpoken": [
+        "English"
+      ],
+      "firmSizeBucket": "solo",
+      "sizeConfidence": "low",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 412,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJv5hH3hd344kROwuusyTUBPk"
+      ]
+    },
+    {
+      "id": "minsky-mccormick-and-hallagan-p-c",
+      "firmName": "Minsky McCormick & Hallagan, P.C.",
+      "trustScore": 55,
+      "metro": "Chicago",
+      "city": "Chicago",
+      "state": "IL",
+      "website": "https://www.mmhpc.com/",
+      "phone": "(312) 427-6163",
+      "practiceFocus": [
+        "H-1B",
+        "O-1",
+        "EB-2 NIW",
+        "PERM",
+        "Family",
+        "Asylum",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Spanish",
+        "Polish"
+      ],
+      "firmSizeBucket": "2-5",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.8,
+      "reviewCount": 435,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJ-20X9bwsDogRVEozJVPNmjA"
+      ]
+    },
+    {
+      "id": "solano-immigration-law-firm",
+      "firmName": "Solano Immigration Law Firm",
+      "trustScore": 55,
+      "metro": "Atlanta",
+      "city": "Atlanta",
+      "state": "GA",
+      "website": "https://solanofirm.com/atlanta-immigration/?utm_source=GBP&utm_medium=GBP&utm_campaign=GBP_Century&utm_id=GBP_Century",
+      "phone": "(678) 730-8922",
+      "practiceFocus": [
+        "PERM",
+        "Family",
+        "Asylum",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English"
+      ],
+      "firmSizeBucket": "6-20",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.8,
+      "reviewCount": 427,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJ2UVcbX4I9YgR0-ua0h-o4b4"
+      ]
+    },
+    {
+      "id": "law-offices-of-shamieh-shamieh-and-ternieden",
+      "firmName": "Law Offices of Shamieh, Shamieh & Ternieden",
+      "trustScore": 55,
+      "metro": "San Francisco Bay Area",
+      "city": "San Francisco",
+      "state": "CA",
+      "website": "https://www.shamiehlawsf.com/",
+      "phone": "(415) 300-2144",
+      "practiceFocus": [
+        "H-1B",
+        "L-1",
+        "O-1",
+        "EB-1",
+        "EB-2 NIW",
+        "PERM",
+        "Family",
+        "Asylum",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English"
+      ],
+      "firmSizeBucket": "2-5",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.8,
+      "reviewCount": 423,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJ29dKyxT3MhURCY5wHUcNqQQ"
+      ]
+    },
+    {
+      "id": "immigration-attorneys-ortega-canossa-and-associates-plc",
+      "firmName": "Immigration Attorneys Ortega, Canossa and Associates, PLC",
+      "trustScore": 55,
+      "metro": "Los Angeles",
+      "city": "Montebello",
+      "state": "CA",
+      "website": "http://www.ocalegal.com/",
+      "phone": "(213) 347-0050",
+      "practiceFocus": [
+        "Immigration"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Spanish"
+      ],
+      "firmSizeBucket": "2-5",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 372,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJB39TDsrHwoARccJeXz6dRjk"
+      ]
+    },
+    {
+      "id": "hacking-immigration-law-llc-immigration-lawyers",
+      "firmName": "Hacking Immigration Law, LLC - Immigration Lawyers",
+      "trustScore": 55,
+      "metro": "Washington DC",
+      "city": "Washington",
+      "state": "DC",
+      "website": "https://hackinglawpractice.com/contact-us/?utm_source=GMBlisting&utm_medium=GMB_Profile&location=Washington_DC",
+      "phone": "(202) 516-8200",
+      "practiceFocus": [
+        "O-1",
+        "Family",
+        "Asylum"
+      ],
+      "languagesSpoken": [
+        "English"
+      ],
+      "firmSizeBucket": "6-20",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 365,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJ16lSa3-3t4kRLhC6R8qtcu8"
+      ]
+    },
+    {
+      "id": "abogados-de-inmigracion-en-los-angeles",
+      "firmName": "Abogados de Inmigracion en Los Angeles",
+      "trustScore": 53,
+      "metro": "Los Angeles",
+      "city": "Los Angeles",
+      "state": "CA",
+      "website": "https://abogadosinmigracionlosangeles.la/",
+      "phone": "(818) 506-0070",
+      "practiceFocus": [
+        "PERM",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Spanish"
+      ],
+      "firmSizeBucket": "solo",
+      "sizeConfidence": "low",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 354,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJldgUeUW-woARn-osyivWYiY"
+      ]
+    },
+    {
+      "id": "moreno-law-immigration",
+      "firmName": "Moreno Law Immigration",
+      "trustScore": 55,
+      "metro": "Boston",
+      "city": "Boston",
+      "state": "MA",
+      "website": "https://morenoimmigration.com/",
+      "phone": "(857) 277-1067",
+      "practiceFocus": [
+        "Family",
+        "Asylum",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Spanish"
+      ],
+      "firmSizeBucket": "2-5",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 349,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJ-aXAZB5x44kRB0yocWQVrWM"
+      ]
+    },
+    {
+      "id": "zambrano-law",
+      "firmName": "Zambrano Law",
+      "trustScore": 53,
+      "metro": "Atlanta",
+      "city": "Atlanta",
+      "state": "GA",
+      "website": "https://www.zambranolaw.com/?npcmp=dir:local:5173652:30339",
+      "phone": "(770) 870-6438",
+      "practiceFocus": [
+        "Immigration"
+      ],
+      "languagesSpoken": [
+        "English"
+      ],
+      "firmSizeBucket": "solo",
+      "sizeConfidence": "low",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 5,
+      "reviewCount": 289,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJkWlHCHsR9YgRmDpzEMZ8aOM"
+      ]
+    },
+    {
+      "id": "meaders-law-pllc",
+      "firmName": "Meaders Law PLLC",
+      "trustScore": 55,
+      "metro": "Dallas",
+      "city": "Dallas",
+      "state": "TX",
+      "website": "https://www.alexandrameaderslawoffice.com/",
+      "phone": "(972) 440-1418",
+      "practiceFocus": [
+        "PERM",
+        "Family",
+        "Asylum",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Spanish"
+      ],
+      "firmSizeBucket": "2-5",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 317,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJw_1yRkqdToYRRsdU_jJwqdg"
+      ]
+    },
+    {
+      "id": "feiner-and-lavy-p-c",
+      "firmName": "Feiner & Lavy P.C",
+      "trustScore": 55,
+      "metro": "New York City",
+      "city": "New York",
+      "state": "NY",
+      "website": "https://www.drimmigration.com/",
+      "phone": "(212) 571-9200",
+      "practiceFocus": [
+        "H-1B",
+        "L-1",
+        "O-1",
+        "PERM",
+        "Family",
+        "Asylum",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Spanish"
+      ],
+      "firmSizeBucket": "2-5",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.7,
+      "reviewCount": 364,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJpT7RtCFawokRNYGkUSU75nU"
+      ]
+    },
+    {
+      "id": "law-offices-of-david-m-haghighi-apc",
+      "firmName": "Law Offices of David M. Haghighi, APC",
+      "trustScore": 55,
+      "metro": "Los Angeles",
+      "city": "Los Angeles",
+      "state": "CA",
+      "website": "http://www.haghighi-law.com/",
+      "phone": "(213) 632-3900",
+      "practiceFocus": [
+        "Family",
+        "Asylum",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Mandarin",
+        "Spanish",
+        "Tagalog"
+      ],
+      "firmSizeBucket": "2-5",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 285,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJfU0agn3HwoARqRQ752SnQ7w"
+      ]
+    },
+    {
+      "id": "immigration-law-office-of-los-angeles-pc",
+      "firmName": "Immigration Law Office of Los Angeles PC",
+      "trustScore": 55,
+      "metro": "Los Angeles",
+      "city": "Los Angeles",
+      "state": "CA",
+      "website": "https://immigrationhelpla.com/",
+      "phone": "(888) 347-3954",
+      "practiceFocus": [
+        "H-1B",
+        "L-1",
+        "O-1",
+        "EB-1",
+        "EB-2 NIW",
+        "PERM",
+        "Family",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English"
+      ],
+      "firmSizeBucket": "6-20",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 5,
+      "reviewCount": 254,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJ_5i_21a3woARs9X4mplM-I4"
+      ]
+    },
+    {
+      "id": "kz-law-llc",
+      "firmName": "KZ LAW LLC",
+      "trustScore": 55,
+      "metro": "Atlanta",
+      "city": "Atlanta",
+      "state": "GA",
+      "website": "https://kzlawllc.com/",
+      "phone": "(404) 889-8785",
+      "practiceFocus": [
+        "EB-1",
+        "EB-2 NIW",
+        "PERM",
+        "Family",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English"
+      ],
+      "firmSizeBucket": "solo",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 5,
+      "reviewCount": 242,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJPxa_FRIP9YgR_LbJkQtD9W8"
+      ]
+    },
+    {
+      "id": "gillin-law-group-pllc",
+      "firmName": "Gillin Law Group, PLLC",
+      "trustScore": 55,
+      "metro": "Seattle",
+      "city": "Lynnwood",
+      "state": "WA",
+      "website": "http://www.gillinlaw.com/",
+      "phone": "(425) 947-1130",
+      "practiceFocus": [
+        "PERM",
+        "Family",
+        "Asylum"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Mandarin",
+        "Spanish"
+      ],
+      "firmSizeBucket": "2-5",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 259,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJCcyLEV0FkFQRRKIE_TCAFSM"
+      ]
+    },
+    {
+      "id": "cipolla-law-group",
+      "firmName": "Cipolla Law Group",
+      "trustScore": 55,
+      "metro": "Chicago",
+      "city": "Chicago",
+      "state": "IL",
+      "website": "https://www.immigrationvisaus.com/",
+      "phone": "(773) 687-0549",
+      "practiceFocus": [
+        "H-1B",
+        "L-1",
+        "O-1",
+        "EB-1",
+        "EB-2 NIW",
+        "Family",
+        "Asylum",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Mandarin",
+        "Spanish",
+        "Portuguese",
+        "French"
+      ],
+      "firmSizeBucket": "2-5",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.8,
+      "reviewCount": 285,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJRZzZOKQsDogRE0fp_4nSOvo"
+      ]
+    },
+    {
+      "id": "jqk-immigration-law-firm",
+      "firmName": "JQK immigration Law Firm",
+      "trustScore": 55,
+      "metro": "Los Angeles",
+      "city": "Los Angeles",
+      "state": "CA",
+      "website": "https://www.jqklaw.com/",
+      "phone": "(818) 934-1561",
+      "practiceFocus": [
+        "H-1B",
+        "L-1",
+        "O-1",
+        "EB-1",
+        "EB-2 NIW",
+        "PERM",
+        "Family",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Russian"
+      ],
+      "firmSizeBucket": "6-20",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 251,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJM4sbqaC8woARbPjbeTadM4g"
+      ]
+    },
+    {
+      "id": "the-law-offices-of-michael-h-markovitch",
+      "firmName": "The Law Offices of Michael H. Markovitch",
+      "trustScore": 55,
+      "metro": "New York City",
+      "city": "New York",
+      "state": "NY",
+      "website": "http://www.immigrationlawyernewyork.com/",
+      "phone": "(646) 558-3138",
+      "practiceFocus": [
+        "H-1B",
+        "L-1",
+        "O-1",
+        "PERM",
+        "Family"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Spanish",
+        "Russian",
+        "French"
+      ],
+      "firmSizeBucket": "2-5",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 5,
+      "reviewCount": 222,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJ20L03PdYwokRi_wJ1PQlEw4"
+      ]
+    },
+    {
+      "id": "alena-shautsova-law-offices",
+      "firmName": "Alena Shautsova law offices",
+      "trustScore": 55,
+      "metro": "New York City",
+      "city": "Brooklyn",
+      "state": "NY",
+      "website": "https://www.shautsova.com/",
+      "phone": "(917) 885-2261",
+      "practiceFocus": [
+        "H-1B",
+        "L-1",
+        "O-1",
+        "EB-1",
+        "PERM",
+        "Family",
+        "Asylum",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Russian"
+      ],
+      "firmSizeBucket": "2-5",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 246,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJ56T3AHlEwokRLdT4fnmE70U"
+      ]
+    },
+    {
+      "id": "pandev-law",
+      "firmName": "Pandev Law",
+      "trustScore": 55,
+      "metro": "New York City",
+      "city": "New York",
+      "state": "NY",
+      "website": "https://www.pandevlaw.com/new-york-immigration-lawyer?utm_source=google&utm_medium=gmb&utm_campaign=local",
+      "phone": "(646) 354-3780",
+      "practiceFocus": [
+        "H-1B",
+        "L-1",
+        "O-1",
+        "EB-1",
+        "EB-2 NIW",
+        "PERM",
+        "Family",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Spanish"
+      ],
+      "firmSizeBucket": "6-20",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 5,
+      "reviewCount": 220,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJhU5L9ANZwokRUgQVXlSdiaM"
+      ]
+    },
+    {
+      "id": "grape-law-firm-pllc",
+      "firmName": "Grape Law Firm PLLC",
+      "trustScore": 55,
+      "metro": "New York City",
+      "city": "New York",
+      "state": "NY",
+      "website": "https://www.grapelaw.com/",
+      "phone": "(646) 825-6556",
+      "practiceFocus": [
+        "H-1B",
+        "L-1",
+        "O-1",
+        "EB-1",
+        "EB-2 NIW",
+        "PERM",
+        "Family",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English"
+      ],
+      "firmSizeBucket": "2-5",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 244,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJR3Rnp0RZwokRKjtma7X9Ld4"
+      ]
+    },
+    {
+      "id": "zohar-law-pllc-immigration-lawyer-nyc",
+      "firmName": "Zohar Law, PLLC - Immigration Lawyer NYC",
+      "trustScore": 55,
+      "metro": "New York City",
+      "city": "New York",
+      "state": "NY",
+      "website": "https://www.zoharlawpllc.com/",
+      "phone": "(833) 416-9681",
+      "practiceFocus": [
+        "H-1B",
+        "L-1",
+        "O-1",
+        "PERM",
+        "Family",
+        "Asylum",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Spanish",
+        "Portuguese"
+      ],
+      "firmSizeBucket": "solo",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 243,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJN6qZoxtawokRO9Hn5ar8Y2E"
+      ]
+    },
+    {
+      "id": "global-talent-immigration-law-group",
+      "firmName": "Global Talent Immigration Law Group",
+      "trustScore": 55,
+      "metro": "Los Angeles",
+      "city": "Los Angeles",
+      "state": "CA",
+      "website": "https://www.globaltalentlaw.com/?utm_source=google&utm_medium=wix_google_business_profile&utm_campaign=14483529839846000927",
+      "phone": "(310) 730-5655",
+      "practiceFocus": [
+        "O-1",
+        "EB-1",
+        "EB-2 NIW",
+        "PERM",
+        "Family",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English"
+      ],
+      "firmSizeBucket": "6-20",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 5,
+      "reviewCount": 215,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJD320f9K5woARmLR6vUJMDng"
+      ]
+    },
+    {
+      "id": "malik-law-firm-p-c",
+      "firmName": "Malik Law Firm, P.C",
+      "trustScore": 55,
+      "metro": "New York City",
+      "city": "New York",
+      "state": "NY",
+      "website": "http://maliklawimmigration.com/",
+      "phone": "(646) 901-7746",
+      "practiceFocus": [
+        "L-1",
+        "O-1",
+        "EB-2 NIW",
+        "PERM",
+        "Family",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Spanish",
+        "Hindi"
+      ],
+      "firmSizeBucket": "6-20",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.8,
+      "reviewCount": 267,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJVwinFxRawokRi0MooQW5000"
+      ]
+    },
+    {
+      "id": "prizant-law-immigration-lawyer-nyc",
+      "firmName": "Prizant Law - Immigration Lawyer NYC",
+      "trustScore": 55,
+      "metro": "New York City",
+      "city": "Forest Hills",
+      "state": "NY",
+      "website": "https://www.prizant-law.com/",
+      "phone": "(718) 407-0871",
+      "practiceFocus": [
+        "PERM",
+        "Asylum"
+      ],
+      "languagesSpoken": [
+        "English"
+      ],
+      "firmSizeBucket": "2-5",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 236,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJ0yNnaphgwokRC_VYstsjmcA"
+      ]
+    },
+    {
+      "id": "garfield-law-group-pc",
+      "firmName": "Garfield Law Group, PC",
+      "trustScore": 55,
+      "metro": "Washington DC",
+      "city": "Washington",
+      "state": "DC",
+      "website": "https://www.garfieldlaw.com/",
+      "phone": "(202) 328-0605",
+      "practiceFocus": [
+        "Family",
+        "Asylum",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Spanish",
+        "Korean",
+        "Portuguese"
+      ],
+      "firmSizeBucket": "2-5",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 229,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJJaMXAby3t4kRgm3CxiXXtvk"
+      ]
+    },
+    {
+      "id": "law-offices-of-daniel-shanfield-immigration-defense-pc",
+      "firmName": "Law Offices of Daniel Shanfield Immigration Defense PC.",
+      "trustScore": 55,
+      "metro": "San Francisco Bay Area",
+      "city": "San Jose",
+      "state": "CA",
+      "website": "https://www.immigration-defense.com/",
+      "phone": "(408) 359-4388",
+      "practiceFocus": [
+        "PERM",
+        "Family",
+        "Asylum",
+        "Student"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Spanish"
+      ],
+      "firmSizeBucket": "6-20",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 227,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJwVE9LL3Mj4ARU6xfk_XsUEk"
+      ]
+    },
+    {
+      "id": "kamala-law-corporation",
+      "firmName": "Kamala Law Corporation",
+      "trustScore": 55,
+      "metro": "San Francisco Bay Area",
+      "city": "San Jose",
+      "state": "CA",
+      "website": "https://www.kamalalaw.com/",
+      "phone": null,
+      "practiceFocus": [
+        "H-1B",
+        "EB-2 NIW",
+        "PERM"
+      ],
+      "languagesSpoken": [
+        "English"
+      ],
+      "firmSizeBucket": "2-5",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 5,
+      "reviewCount": 202,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJ__8_70ItjoAROJr9eadAZNs"
+      ]
+    },
+    {
+      "id": "ganjoo-law-office",
+      "firmName": "Ganjoo Law Office",
+      "trustScore": 55,
+      "metro": "San Francisco Bay Area",
+      "city": "San Jose",
+      "state": "CA",
+      "website": "http://ganjoolawcorp.com/",
+      "phone": "(408) 975-0500",
+      "practiceFocus": [
+        "EB-1",
+        "EB-2 NIW",
+        "PERM",
+        "Family"
+      ],
+      "languagesSpoken": [
+        "English",
+        "Spanish",
+        "Portuguese"
+      ],
+      "firmSizeBucket": "2-5",
+      "sizeConfidence": "high",
+      "barVerified": null,
+      "ailaMember": false,
+      "rating": 4.9,
+      "reviewCount": 225,
+      "verifiedAsOf": "2026-06-25",
+      "sources": [
+        "places:ChIJeeAEoZjMj4ARRSvueqe_46w"
+      ]
+    }
+  ]
+}
