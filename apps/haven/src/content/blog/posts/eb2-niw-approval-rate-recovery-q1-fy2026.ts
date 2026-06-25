@@ -4,7 +4,7 @@ export const eb2NiwApprovalRateRecoveryQ1Fy2026Post: BlogPost = {
   slug: "eb2-niw-approval-rate-recovery-q1-fy2026",
   title: "EB-2 NIW Approval Rate Climbs to 42.6% in Q1 FY2026",
   excerpt:
-    "USCIS data released June 15 shows EB-2 National Interest Waiver approvals recovering to 42.6% in Q1 FY2026, up from 35.7% in Q4 FY2025. The rebound suggests the historic decline may be leveling off, but petitioners still need stronger cases than ever.",
+    "USCIS data released June 15 shows EB-2 National Interest Waiver approvals rising to 42.6% in Q1 FY2026, up from 35.7% in Q4 FY2025. That is a real improvement, not a return to the easy-approval era. Petitioners still need narrow proposed endeavors and evidence of measurable U.S. impact.",
   category: "USCIS update",
   publishedAt: "2026-06-20",
   readingTime: "7 min read",
@@ -14,28 +14,28 @@ export const eb2NiwApprovalRateRecoveryQ1Fy2026Post: BlogPost = {
   seoDescription:
     "USCIS Q1 FY2026 data shows EB-2 NIW approval rate climbed to 42.6% from 35.7% in Q4 FY2025. What changed, EB-1A trends, and petition strategy.",
   keyTakeaways: [
-    "EB-2 NIW approval rate rose to 42.6% in Q1 FY2026 (Oct–Dec 2025), up nearly 7 points from the 35.7% low in Q4 FY2025, suggesting the historic decline may be stabilizing.",
+    "The EB-2 NIW approval rate rose to 42.6% in Q1 FY2026 (Oct-Dec 2025), almost 7 points above the 35.7% low in Q4 FY2025.",
     "EB-1A approval rates fell to roughly 53% in Q4 FY2025, down from 66.9% for full FY2025, indicating tighter scrutiny across both self-petition categories.",
-    "USCIS continues to apply the Matter of Dhanasar framework with heightened rigor — petitioners who document measurable, U.S.-specific impact beyond a single employer fare best.",
+    "USCIS is still applying Matter of Dhanasar tightly. Petitioners who show measurable, U.S.-specific impact beyond one employer are in the strongest position.",
     "Filing concurrent EB-1A and NIW petitions remains a viable strategy, especially for India- and China-born applicants navigating severe visa bulletin retrogression.",
   ],
   sections: [
     {
       heading: "What Happened",
       paragraphs: [
-        "On June 15, 2026, USCIS published its [Form I-140 adjudication data](https://www.uscis.gov/tools/reports-and-studies/immigration-and-citizenship-data) for the first quarter of fiscal year 2026, covering petitions decided between October and December 2025. The headline number: the EB-2 National Interest Waiver approval rate climbed to 42.6%, up from just 35.7% in Q4 FY2025 — a nearly 7-percentage-point rebound that marks the first quarterly increase after a multi-year decline.",
-        "The trajectory has been steep. NIW approvals peaked at roughly 96% during FY2022 when filing volumes were far lower. As the category surged in popularity — driven in part by Indian-born professionals seeking an alternative to years-long PERM backlogs — the rate fell to approximately 80% in FY2023, 71% in FY2024, and 55.2% for full FY2025, before bottoming out at 35.7% in the fiscal year's final quarter.",
-        "The Q1 FY2026 uptick does not signal a return to near-universal approval. It does suggest the decline is leveling off, and that USCIS adjudicators may be reaching a steadier equilibrium in how they evaluate NIW petitions under the [Matter of Dhanasar](https://www.uscis.gov/policy-manual/volume-6-part-f-chapter-5) framework.",
+        "On June 15, 2026, USCIS published [Form I-140 adjudication data](https://www.uscis.gov/tools/reports-and-studies/immigration-and-citizenship-data) for the first quarter of fiscal year 2026, covering petitions decided from October through December 2025. The main number is the EB-2 National Interest Waiver approval rate: 42.6%, up from 35.7% in Q4 FY2025.",
+        "The longer trend is still severe. NIW approvals were roughly 96% in FY2022, when filing volumes were much lower. As the category became more popular, partly because Indian-born professionals were looking for alternatives to years-long PERM backlogs, the approval rate fell to about 80% in FY2023, 71% in FY2024, and 55.2% for full FY2025. It then hit 35.7% in the final quarter of FY2025.",
+        "So the Q1 FY2026 number is not a return to near-automatic approval. It is a sign that the drop may be leveling off, and that USCIS adjudicators may be settling into a more consistent way of applying the [Matter of Dhanasar](https://www.uscis.gov/policy-manual/volume-6-part-f-chapter-5) framework.",
       ],
     },
     {
       heading: "The Full Picture: NIW Approval Rates by Fiscal Year",
       paragraphs: [
-        "Understanding the Q1 FY2026 recovery requires context. Below is the approval trend that the data reveals, drawn from USCIS quarterly adjudication reports:",
+        "The rebound makes more sense against the full trend. USCIS quarterly adjudication reports show this pattern:",
       ],
       bullets: [
         "FY2022: ~96% approval rate (smaller filing pool, pandemic-era conditions)",
-        "FY2023: ~80% (filing volumes rising significantly)",
+        "FY2023: ~80% (filing volumes rising fast)",
         "FY2024: ~71% (continued volume growth, tightening adjudication standards)",
         "FY2025 full year: 55.2% (sharp drop, record backlog of filings)",
         "FY2025 Q4 (Jul–Sep 2025): 35.7% (lowest quarterly rate on record)",
@@ -46,23 +46,23 @@ export const eb2NiwApprovalRateRecoveryQ1Fy2026Post: BlogPost = {
     {
       heading: "EB-1A and O-1 Trends",
       paragraphs: [
-        "The tightened scrutiny is not limited to NIW. EB-1A Extraordinary Ability petitions finished FY2025 with a 66.9% approval rate, dropping to approximately 53% in Q4 FY2025. While EB-1A remains a higher-approval category than NIW, the downward pressure is unmistakable.",
+        "The tougher posture is not limited to NIW. EB-1A Extraordinary Ability petitions finished FY2025 with a 66.9% approval rate, then dropped to roughly 53% in Q4 FY2025. EB-1A still approves at a higher rate than NIW, but it is moving in the same direction.",
         "The O-1 nonimmigrant extraordinary ability classification, by contrast, remained above 90% throughout FY2025. Practitioners attribute the gap partly to the different evidentiary standards: O-1 requires a showing of extraordinary ability for a temporary work classification, while EB-1A demands sustained national or international acclaim for permanent residence.",
-        "The EB-1A adjudication landscape is also being shaped by litigation. In Mukherji v. Miller (D. Neb., Jan. 28, 2026), a federal district court questioned whether USCIS properly adopted its two-step \"final merits\" framework and ordered the petition approved after the agency conceded the petitioner met five of ten criteria. USCIS subsequently dropped its appeal in the case, providing practitioners with persuasive — though non-binding — authority to cite when responding to RFEs and Notices of Intent to Deny.",
+        "EB-1A adjudication is also being shaped by litigation. In Mukherji v. Miller (D. Neb., Jan. 28, 2026), a federal district court questioned whether USCIS properly adopted its two-step \"final merits\" framework and ordered the petition approved after the agency conceded the petitioner met five of ten criteria. USCIS subsequently dropped its appeal in the case, providing practitioners with persuasive — though non-binding — authority to cite when responding to RFEs and Notices of Intent to Deny.",
       ],
     },
     {
       heading: "Why the NIW Recovery Matters",
       paragraphs: [
-        "The 42.6% figure carries two important signals for the immigration community.",
-        "First, USCIS adjudicators appear to be finding a consistent baseline for applying Matter of Dhanasar's three-prong test. The precipitous decline from FY2022 to Q4 FY2025 coincided with a period of recalibration — adjudicators were applying heightened scrutiny across the board as they worked through a record backlog of filings, many of which were filed during the pandemic-era boom when perceived approval odds were much higher. The Q1 FY2026 uptick suggests the initial tightening wave has passed its most severe phase.",
+        "The 42.6% figure sends two signals.",
+        "First, USCIS adjudicators may be finding a baseline for Matter of Dhanasar's three-prong test. The fall from FY2022 to Q4 FY2025 came during a period of recalibration: adjudicators were applying tighter scrutiny while working through a large filing backlog, much of it submitted when perceived approval odds were higher. The Q1 FY2026 uptick suggests the first tightening wave may have passed its harshest point.",
         "Second, well-prepared cases with concrete evidence continue to succeed. As immigration attorney Ana Gabriela Urizar of Manifest Law noted, \"the data suggests that despite the heightened scrutiny USCIS has applied to NIW petitions in recent years, well-prepared cases with a clearly defined proposed endeavor, strong evidence of national importance, and compelling proof that the applicant is well-positioned to advance that endeavor continue to succeed.\"",
       ],
     },
     {
       heading: "What Attorneys Should Know",
       paragraphs: [
-        "The data reinforces that case quality — not category popularity — drives outcomes. Key adjudication patterns attorneys should track:",
+        "The data reinforces a basic point: category popularity does not carry a weak petition. Case quality still drives outcomes. Attorneys should track these patterns:",
         "Under the [Matter of Dhanasar framework](https://www.uscis.gov/policy-manual/volume-6-part-f-chapter-5) (USCIS Policy Manual, Vol. 6, Pt. F, Ch. 5), adjudicators are placing greater weight on Prong 2 (\"the applicant is well positioned to advance the proposed endeavor\") and Prong 3 (\"on balance, it would be beneficial to the United States to waive the job offer and labor certification requirements\"). Generic claims about broad societal benefit are no longer sufficient.",
         "Healthcare, core STEM, national-security-adjacent fields, and applied research with measurable U.S. deployment continue to show stronger approval rates. But the category is not limited to these fields — cases in business, education, and the arts succeed when the proposed endeavor is framed narrowly and the evidence demonstrates concrete, documented impact.",
         "The Mukherji decision, though non-binding, gives practitioners a framework for challenging EB-1A denials based on vague or conclusory USCIS reasoning. Attorneys should cite it in RFE responses where the record shows the petitioner clearly meets the regulatory criteria but the adjudicator has substituted personal judgment for the evidence presented.",
@@ -72,7 +72,7 @@ export const eb2NiwApprovalRateRecoveryQ1Fy2026Post: BlogPost = {
     {
       heading: "What Applicants Should Do",
       paragraphs: [
-        "If you are considering a National Interest Waiver or EB-1A petition, the data shows these categories remain viable — but demand a higher level of preparation than even two years ago.",
+        "If you are considering a National Interest Waiver or EB-1A petition, the data supports filing only when the record is ready. These categories remain viable, but they require more preparation than they did two years ago.",
       ],
       bullets: [
         "Frame your proposed endeavor narrowly and specifically. \"Advancing artificial intelligence\" is too broad; \"developing privacy-preserving machine learning for U.S. healthcare systems\" demonstrates the specificity adjudicators are rewarding.",
@@ -86,7 +86,7 @@ export const eb2NiwApprovalRateRecoveryQ1Fy2026Post: BlogPost = {
     {
       heading: "What to Watch",
       paragraphs: [
-        "The Q1 FY2026 data is a single quarter. Whether the 42.6% holds, climbs further, or dips again in Q2 (Jan–Mar 2026) will determine whether this is a true stabilization or a temporary fluctuation. Key developments to monitor:",
+        "Q1 FY2026 is only one quarter. Q2 data, covering January through March 2026, will show whether 42.6% is the start of stabilization or just a temporary bounce. Watch for:",
       ],
       bullets: [
         "Q2 FY2026 I-140 data, expected in the coming months, will confirm whether the recovery trend continues.",

@@ -3,9 +3,9 @@ import { BlogPost } from "../types";
 export const h1bBillEndGreenCardPathway2026Post: BlogPost = {
   slug: "h1b-bill-end-green-card-pathway-2026",
   title:
-    "New H-1B Bill Would End Green Card Path, Cut Visa to 2 Years",
+    "New H-1B bill would end the green card path and cut the visa to two years",
   excerpt:
-    "Rep. Chip Roy introduced the American White-Collar Worker Jobs Act on June 4, 2026, proposing to eliminate the H-1B-to-green card pathway, slash visa duration from six years to two, and impose a 75th-percentile wage floor. The bill faces long odds in Congress but signals where restrictionist proposals are heading.",
+    "Rep. Chip Roy introduced the American White-Collar Worker Jobs Act on June 4, 2026. It would eliminate the H-1B-to-green-card pathway, cut H-1B duration from six years to two, and require a 75th-percentile wage floor. The bill is unlikely to pass as written, but its provisions show where restrictionist policy is heading.",
   category: "Policy update",
   publishedAt: "2026-06-08",
   readingTime: "7 min read",
@@ -17,27 +17,27 @@ export const h1bBillEndGreenCardPathway2026Post: BlogPost = {
   keyTakeaways: [
     "The American White-Collar Worker Jobs Act, introduced June 4, 2026, would repeal dual intent for H-1B holders, eliminating the visa's long-standing role as a pathway to employer-sponsored green cards.",
     "Key provisions include cutting H-1B duration from 6 years to 2 years, requiring wages at the 75th percentile, capping nonimmigrant workers at 5% of an employer's U.S. workforce, and eliminating OPT.",
-    "The bill faces near-zero chance of passage: it has one co-sponsor, no White House support, and the House's razor-thin 217-212 majority leaves little margin for controversial legislation.",
-    "Current H-1B holders and EB-2/EB-3 applicants are not immediately affected, but the provisions preview the direction of future restrictionist proposals that could surface in reconciliation or appropriations packages.",
+    "The bill faces very long odds: it has one co-sponsor, no White House support, and the House's narrow 217-212 majority leaves little room for controversial legislation.",
+    "Current H-1B holders and EB-2/EB-3 applicants are not immediately affected. The real value of the bill is as a preview of provisions that could reappear in reconciliation, appropriations, or agency rulemaking.",
   ],
   sections: [
     {
       heading: "What Happened",
       paragraphs: [
-        "On June 4, 2026, Rep. Chip Roy (R-TX) introduced the [American White-Collar Worker Jobs Act](https://www.newsweek.com/republican-launches-long-shot-bid-to-end-h-1b-visa-green-card-pathway-12035478), a sweeping proposal to overhaul the H-1B visa program and sever the link between temporary specialty-occupation work and permanent residency. Rep. Eli Crane (R-AZ), who earlier introduced the separate [End H-1B Visa Abuse Act](https://crane.house.gov/2026/04/22/rep-crane-introduces-legislation-to-pause-and-reform-the-broken-h-1b-visa-process/) calling for a three-year H-1B moratorium, signed on as the sole co-sponsor.",
+        "On June 4, 2026, Rep. Chip Roy (R-TX) introduced the [American White-Collar Worker Jobs Act](https://www.newsweek.com/republican-launches-long-shot-bid-to-end-h-1b-visa-green-card-pathway-12035478), a broad proposal to overhaul H-1B and sever the link between temporary specialty-occupation work and permanent residency. Rep. Eli Crane (R-AZ), who earlier introduced the separate [End H-1B Visa Abuse Act](https://crane.house.gov/2026/04/22/rep-crane-introduces-legislation-to-pause-and-reform-the-broken-h-1b-visa-process/) calling for a three-year H-1B moratorium, signed on as the sole co-sponsor.",
         "The bill has drawn endorsements from the Federation for American Immigration Reform (FAIR), the Immigration Accountability Project, Citizens for Renewing America, and U.S. Tech Workers. Its president, Kevin Lynn, called it a measure that would \"effectively address many of the egregious aspects of the H-1B visa program.\"",
-        "The legislation arrives during a period of significant H-1B contraction. USCIS data released May 21 showed FY 2027 cap registrations dropped 38.5% year-over-year, from 343,981 to [211,600 properly submitted applications](https://www.uscis.gov/newsroom/alerts/fy-2027-h-1b-initial-registration-selection-process-completed) — driven by the new $100,000 petition fee, the wage-weighted lottery, and stepped-up Department of Labor enforcement that has produced nearly 200 investigations and four employer disqualifications as of May 4, 2026.",
+        "The bill arrives as the H-1B program is already contracting. USCIS data released May 21 showed FY 2027 cap registrations down 38.5% year over year, from 343,981 to [211,600 properly submitted applications](https://www.uscis.gov/newsroom/alerts/fy-2027-h-1b-initial-registration-selection-process-completed). The drop reflects the new $100,000 petition fee, the wage-weighted lottery, and stepped-up Department of Labor enforcement that has produced nearly 200 investigations and four employer disqualifications as of May 4, 2026.",
       ],
     },
     {
       heading: "Key Provisions",
       paragraphs: [
-        "The bill proposes the most comprehensive set of H-1B restrictions introduced in the 119th Congress. Here are the major provisions:",
+        "The bill is the broadest H-1B restriction package introduced in the 119th Congress. The main provisions are:",
       ],
       bullets: [
         "**Dual intent repealed.** H-1B applicants would be required to demonstrate they maintain a foreign residence and have no intention of abandoning it — reversing nearly four decades of dual-intent policy under INA § 214(b) that has allowed H-1B holders to simultaneously pursue permanent residency.",
         "**AC21 extensions eliminated.** Current law (American Competitiveness in the Twenty-First Century Act, § 106(a)) allows H-1B holders to extend their six-year cap while an employment-based green card petition is pending. The bill would repeal these provisions, forcing departure if the green card is not approved within the new two-year window.",
-        "**Visa duration cut from 6 years to 2 years.** The maximum H-1B stay would drop from the current three-year initial period (renewable once for three more years) to a single two-year term.",
+        "**Visa duration cut from six years to two years.** The maximum H-1B stay would drop from the current three-year initial period, renewable once for three more years, to a single two-year term.",
         "**75th-percentile wage floor.** Employers would be required to offer compensation at or above the 75th percentile for the occupation in the geographic area — a dramatic increase from the current prevailing wage system where many H-1B positions are certified at Level 1 or Level 2 wages.",
         "**5% workforce cap.** No employer could have more than 5% of its U.S. workforce composed of nonimmigrant workers, targeting IT staffing firms and large tech companies that rely heavily on H-1B labor.",
         "**Anti-displacement and post-layoff bars.** Employers would be prohibited from laying off U.S. workers in comparable roles within one year of an H-1B hire. Companies that have recently conducted layoffs would be barred from sponsoring new H-1B petitions entirely.",
@@ -49,7 +49,7 @@ export const h1bBillEndGreenCardPathway2026Post: BlogPost = {
     {
       heading: "Who's Affected",
       paragraphs: [
-        "If enacted, the bill would reshape the employment-based immigration pipeline from end to end. The practical impact would fall hardest on several groups:",
+        "If enacted, the bill would reshape the employment-based immigration pipeline from end to end. The practical impact would fall hardest on these groups:",
       ],
       bullets: [
         "**Current H-1B holders in the EB-2/EB-3 green card queue.** This is the most severe impact. Approximately 70% of H-1B holders are Indian nationals, many of whom face EB-2 backlogs exceeding 13 years (the current EB-2 India Final Action Date is September 1, 2013). Eliminating AC21 extensions would remove the mechanism that allows them to maintain work authorization while waiting.",
@@ -62,9 +62,9 @@ export const h1bBillEndGreenCardPathway2026Post: BlogPost = {
     {
       heading: "What Attorneys Should Know",
       paragraphs: [
-        "The bill's prospects are bleak by any conventional measure. It has one co-sponsor in the House, no companion bill in the Senate, and no indication of White House support. President Trump stated in a November 2025 Fox News interview that \"you have to bring in talent,\" and the administration has focused its H-1B policy on wage-based selectivity and fee increases rather than program elimination.",
+        "The bill's prospects are weak by any conventional measure. It has one co-sponsor in the House, no Senate companion, and no clear White House support. President Trump said in a November 2025 Fox News interview that \"you have to bring in talent,\" and the administration has focused its H-1B policy on wage-based selectivity and fee increases rather than program elimination.",
         "The House's 217-212 Republican majority (with one independent and five vacancies) leaves virtually no room for legislation that divides the GOP base. Tech-aligned Republicans and business-oriented members are unlikely to support provisions as sweeping as OPT elimination or the 5% workforce cap.",
-        "That said, individual provisions have a longer shelf life than the bill itself. Attorneys should monitor for:",
+        "Individual provisions may last longer than the bill itself. Attorneys should monitor for:",
       ],
       bullets: [
         "**Reconciliation riders.** Specific H-1B fee increases, wage floors, or duration caps could be attached to budget reconciliation packages, which require only a simple majority and cannot be filibustered in the Senate. The existing $100,000 H-1B fee was enacted through exactly this mechanism via H.R. 1.",
@@ -76,8 +76,8 @@ export const h1bBillEndGreenCardPathway2026Post: BlogPost = {
     {
       heading: "What Applicants Should Do",
       paragraphs: [
-        "If you hold an H-1B visa or are in the employment-based green card pipeline, there is no immediate action required in response to this bill. Its introduction does not change any current rules, timelines, or filing obligations.",
-        "That said, the broader policy environment it reflects is worth noting:",
+        "If you hold H-1B status or are in the employment-based green card pipeline, the bill does not require immediate action. Its introduction changes no current rules, timelines, or filing obligations.",
+        "Still, the policy direction is worth planning around:",
       ],
       bullets: [
         "**Continue all pending applications.** Your PERM, I-140, I-485, or H-1B extension filings are unaffected. Do not withdraw or delay any petition based on this legislation.",
@@ -94,7 +94,7 @@ export const h1bBillEndGreenCardPathway2026Post: BlogPost = {
         "The American White-Collar Worker Jobs Act is part of a broader wave of H-1B restrictions in the 119th Congress. Rep. Eli Crane's End H-1B Visa Abuse Act (introduced April 22, 2026) proposes a three-year moratorium on new H-1B issuances with 11 co-sponsors. A separate bill in the Iowa state legislature seeks to bar universities from hiring H-1B holders.",
         "At the executive level, the Trump administration has pursued H-1B reform through regulatory channels rather than legislation. The [wage-weighted lottery](https://www.uscis.gov/newsroom/news-releases/dhs-changes-process-for-awarding-h-1b-work-visas-to-better-protect-american-workers), effective for FY 2027, gives Level 4 wage positions four entries versus one entry for Level 1 positions. The $100,000 petition fee on certain H-1B filings, enacted through the H.R. 1 reconciliation bill, contributed to the 38.5% drop in cap registrations.",
         "The Department of Labor has also intensified enforcement. As of May 4, 2026, DOL has initiated nearly 200 investigations into H-1B program abuse and disqualified four employers from the program. Willful violators face random audits for up to five years.",
-        "For attorneys advising clients and applicants planning their careers, the signal is clear: the policy environment is moving toward higher wages, stricter employer accountability, and reduced pathways from temporary to permanent status. Whether this particular bill advances or not, its provisions map the terrain that future proposals will likely occupy.",
+        "For attorneys advising clients and for applicants planning careers, the signal is clear: the policy environment is moving toward higher wages, stricter employer accountability, and fewer pathways from temporary to permanent status. This bill may not advance, but its provisions map the terrain future proposals are likely to occupy.",
       ],
     },
   ],

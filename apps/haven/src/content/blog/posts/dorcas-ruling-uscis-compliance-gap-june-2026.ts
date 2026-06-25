@@ -3,9 +3,9 @@ import { BlogPost } from "../types";
 export const dorcasRulingUscisComplianceGapJune2026Post: BlogPost = {
   slug: "dorcas-ruling-uscis-compliance-gap-june-2026",
   title:
-    "After Dorcas: Benefits Hold Lifted, But EB Cases Still Stalled",
+    "After Dorcas: the benefits hold is gone, but EB cases are still stalled",
   excerpt:
-    "Three weeks after a federal court vacated the USCIS benefits hold for 39 countries, the agency says it is complying — but practitioners report no visible change in processing speed for affected employment-based cases. Here is what employers and applicants can do now.",
+    "Three weeks after a federal court vacated the USCIS benefits hold for nationals of 39 countries, USCIS says the old policies are no longer in effect. Attorneys, however, are not yet seeing long-stuck employment-based cases move. Employers and applicants should treat the ruling as leverage, not as proof that processing has restarted.",
   category: "Policy update",
   publishedAt: "2026-06-23",
   readingTime: "8 min read",
@@ -15,35 +15,35 @@ export const dorcasRulingUscisComplianceGapJune2026Post: BlogPost = {
   seoDescription:
     "USCIS says benefits hold policies are gone after Dorcas, but EB cases from 39 countries remain stuck. What employers and applicants can do now.",
   keyTakeaways: [
-    "USCIS has publicly acknowledged that the four vacated policies — PM-602-0192, PM-602-0194, and PA-2025-26 — are no longer in effect agency-wide, following the June 5 Dorcas ruling and June 11 final judgment.",
-    "Despite the acknowledgment, immigration practitioners report no meaningful change in adjudication speed for affected employment-based cases, including I-485 adjustment of status and I-765 EAD applications.",
+    "USCIS has acknowledged that the vacated policies — PM-602-0192, PM-602-0194, and PA-2025-26 — are no longer in effect agency-wide after the June 5 Dorcas ruling and June 11 final judgment.",
+    "That acknowledgement has not yet produced obvious movement. Practitioners still report stalled I-485 adjustment of status and I-765 EAD cases for affected employment-based applicants.",
     "The government has appealed to the First Circuit but has not obtained a stay, meaning USCIS remains legally obligated to process affected cases without relying on the vacated policies.",
-    "Employers with affected workers should pursue available levers now: premium processing outreach, congressional inquiries, business-group advocacy, and — as a last resort — mandamus litigation to compel adjudication.",
+    "Employers with affected workers should use the tools available now: premium processing outreach, congressional inquiries, business-group pressure, and, when the record supports it, mandamus litigation to force a decision.",
   ],
   sections: [
     {
       heading: "What Has Changed Since the Ruling",
       paragraphs: [
         "On June 5, 2026, the U.S. District Court for the District of Rhode Island [vacated four USCIS policies](https://www.documentcloud.org/documents/28199744-dorcasopn060526/) in *Dorcas International Institute of Rhode Island v. USCIS* ([No. 1:26-cv-00132](https://www.courtlistener.com/docket/72369535/)) that had frozen immigration benefit adjudications for nationals of 39 countries designated under expanded travel ban proclamations. The court entered [final judgment on June 11](https://www.courtlistener.com/docket/72369535/dorcas-international-institute-of-rhode-island-v-united-states-citizenship/), making the vacatur effective nationwide.",
-        "Since then, three things have happened. First, USCIS has publicly acknowledged that the underlying issuances — Policy Memorandums PM-602-0192 and [PM-602-0194](https://www.uscis.gov/sites/default/files/document/policy-alerts/PM-602-0194-PendingApplicationsAdditionalHighRiskCountries-20260101.pdf), along with Policy Alert PA-2025-26 — should be treated as though they are not in effect, agency-wide. Second, the government has [filed an appeal to the First Circuit Court of Appeals](https://www.courtlistener.com/docket/72369535/dorcas-international-institute-of-rhode-island-v-united-states-citizenship/). Third, and most critically for practitioners, no stay of the vacatur has been granted — USCIS is legally obligated to adjudicate affected cases without relying on the vacated policies.",
+        "Since then, the posture has changed in three ways. USCIS has acknowledged that Policy Memorandums PM-602-0192 and [PM-602-0194](https://www.uscis.gov/sites/default/files/document/policy-alerts/PM-602-0194-PendingApplicationsAdditionalHighRiskCountries-20260101.pdf), along with Policy Alert PA-2025-26, should be treated as inactive across the agency. The government has [appealed to the First Circuit Court of Appeals](https://www.courtlistener.com/docket/72369535/dorcas-international-institute-of-rhode-island-v-united-states-citizenship/). Most important for pending cases, no stay has been granted, so USCIS remains legally obligated to adjudicate without relying on the vacated policies.",
       ],
     },
     {
       heading: "The Compliance Gap: Words Without Movement",
       paragraphs: [
         "The acknowledgment has not been matched by action. As [Duane Morris attorneys M. Alejandra Vargas and Ted J. Chiappari wrote on June 22](https://www.mondaq.com/unitedstates/work-visas/1804468/after-dorcas-uscis-says-the-hold-policies-are-gone-what-affected-employers-and-employees-can-do-now): \"Despite the acknowledgment, we have not seen meaningful swings in adjudication speed, nor anecdotal evidence of long-delayed cases suddenly being adjudicated. For many affected applicants, little has changed on the ground.\"",
-        "This gap between public statements and actual processing is the central issue for employment-based applicants and their employers. USCIS says it is complying. But \"complying\" has not translated into visible movement on cases that were paused — some for more than six months — under the vacated Benefits Hold. No implementation guidance has been issued. No priority processing queue for backlogged cases has been announced. No metrics on resumed adjudications have been published.",
-        "[Greenberg Traurig noted on June 22](https://www.mondaq.com/unitedstates/work-visas/1803222/federal-court-strikes-down-uscis-policies-that-froze-immigration-benefit-adjudications-considerations-for-employers-and-foreign-nationals) that if the ruling remains in place, \"employers may begin to see movement on long-stalled applications and employment authorization requests,\" providing \"more predictability for workforce planning and immigration compliance.\" The operative word is \"may\" — three weeks after the ruling, that movement remains aspirational rather than observed.",
+        "That gap between agency language and actual case movement is now the problem. USCIS says it is complying, but compliance has not translated into visible action on cases paused for months under the Benefits Hold. The agency has not issued implementation guidance, announced a triage queue for backlogged cases, or published numbers showing resumed adjudications.",
+        "[Greenberg Traurig noted on June 22](https://www.mondaq.com/unitedstates/work-visas/1803222/federal-court-strikes-down-uscis-policies-that-froze-immigration-benefit-adjudications-considerations-for-employers-and-foreign-nationals) that if the ruling remains in place, \"employers may begin to see movement on long-stalled applications and employment authorization requests,\" providing \"more predictability for workforce planning and immigration compliance.\" The important word is \"may.\" Three weeks after the ruling, that movement is still more possibility than pattern.",
       ],
     },
     {
       heading: "Who Is Affected",
       paragraphs: [
         "The Benefits Hold applied to nationals of [39 countries designated under Presidential Proclamation 10998](https://www.federalregister.gov/documents/2025/12/19/2025-23570/restricting-and-limiting-the-entry-of-foreign-nationals-to-protect-the-security-of-the-united-states). For employment-based applicants from these countries, the hold froze the entire green card pipeline: I-485 adjustment of status in all EB categories, I-765 employment authorization documents, I-131 advance parole, and downstream processing of approved I-140 immigrant petitions.",
-        "Among the 39 countries, the largest employment-based cohorts include Nigerian nationals — particularly H-1B holders in technology, healthcare, and academia — Iranian nationals in STEM fields, and Venezuelan professionals. Some applicants have had cases frozen since December 2025, when the original Benefits Hold (PM-602-0192) took effect.",
+        "The largest employment-based cohorts among the 39 countries appear to include Nigerian nationals, especially H-1B workers in technology, healthcare, and academia; Iranian nationals in STEM fields; and Venezuelan professionals. Some applicants have been waiting since December 2025, when the original Benefits Hold, PM-602-0192, took effect.",
       ],
       bullets: [
-        "The industries most affected include technology, healthcare, research institutions, and universities that employ significant numbers of workers from the 39 listed countries.",
+        "The industries most affected include technology, healthcare, research institutions, and universities that employ many workers from the 39 listed countries.",
         "India, China, and the Philippines are NOT on the 39-country list. They face separate EB backlog challenges but were not subject to the Benefits Hold.",
         "Premium processing remained available for I-140 petitions during the hold, but an approved I-140 could not unblock a frozen I-485.",
       ],
@@ -53,8 +53,8 @@ export const dorcasRulingUscisComplianceGapJune2026Post: BlogPost = {
     {
       heading: "What Attorneys Should Know",
       paragraphs: [
-        "The Duane Morris analysis identifies a crucial practical distinction: cases in premium processing have a direct path to push for resolution, while non-premium cases face a harder road.",
-        "For premium processing cases, the firm recommends emailing the USCIS premium processing unit handling the case directly, attaching the Dorcas vacatur order and USCIS's own acknowledgment that the policies are no longer in effect, and requesting that adjudication proceed within the statutory premium processing timeframe. The agency's acknowledgment gives this request concrete legal backing — it is not just a court order the agency might dispute, but a position the agency itself has taken.",
+        "The Duane Morris analysis draws a useful line between premium and non-premium cases. Premium processing gives counsel a specific unit to contact and a statutory clock to invoke. Non-premium cases are harder to move.",
+        "For premium processing cases, the firm recommends emailing the USCIS premium processing unit handling the case, attaching the Dorcas vacatur order and USCIS's own acknowledgement that the policies are no longer in effect, and asking that adjudication proceed within the premium processing timeframe. That acknowledgement matters: the request rests not only on a court order, but on a position the agency has now taken itself.",
         "For non-premium cases, the options are more limited. USCIS's published processing times continue to lengthen, and the agency treats a case as within \"normal\" processing time until it exceeds those posted benchmarks — which themselves keep extending. As Duane Morris notes, this makes it impossible in many instances even to submit a standard case inquiry through the USCIS online portal. For cases pending well beyond any reasonable period, mandamus litigation — a federal court action to compel the agency to adjudicate — may be the most effective tool.",
         "The First Circuit appeal creates ongoing uncertainty. If the appellate court grants a stay pending the merits of the appeal, the vacated policies could be temporarily reinstated. Attorneys should document all delayed cases now and begin building records that demonstrate unreasonable delay, in case mandamus actions become necessary. The Dorcas ruling itself, combined with USCIS's own acknowledgment of non-compliance with the vacated policies, strengthens any future mandamus petition.",
       ],
@@ -62,12 +62,12 @@ export const dorcasRulingUscisComplianceGapJune2026Post: BlogPost = {
     {
       heading: "What Applicants and Employers Should Do Now",
       paragraphs: [
-        "The Dorcas vacatur and USCIS's acknowledgment create a concrete basis to press for action. Practitioners recommend a multi-pronged approach:",
+        "The Dorcas vacatur and USCIS's acknowledgement give affected applicants a concrete basis to press for action. A practical sequence looks like this:",
       ],
       bullets: [
         "If your case is in premium processing: Contact the USCIS premium processing unit directly. Reference the Dorcas vacatur and USCIS's acknowledgment that PM-602-0192, PM-602-0194, and PA-2025-26 are no longer in effect. Request adjudication within the premium processing timeframe.",
         "If your case is not in premium processing: Direct USCIS contact is limited. Work with your attorney to determine whether a case inquiry or expedite request is viable under current published processing times.",
-        "Contact your congressional representative: Members of Congress maintain casework staff who can submit inquiries to USCIS through the agency's congressional liaison channels. Provide a signed privacy release and reference USCIS's acknowledgment that the hold policies are gone — this gives the inquiry added force.",
+        "Contact your congressional representative: Members of Congress have casework staff who can send inquiries through USCIS congressional liaison channels. Provide a signed privacy release and point to USCIS's acknowledgement that the hold policies are gone.",
         "Employers: Engage your chambers of commerce, trade associations, and industry groups. Collective advocacy from business organizations can amplify pressure on USCIS to translate its public acknowledgment into actual processing.",
         "Maintain your nonimmigrant status: The separate PM-602-0199 policy creates heightened denial risk for I-485 applicants who let their H-1B or O-1 status lapse. Continue renewing your underlying visa status while waiting for AOS adjudication.",
         "Document everything: Record all USCIS correspondence, receipt notices, biometrics appointments, and processing timelines. This documentation will be essential if mandamus litigation becomes necessary.",
@@ -79,8 +79,8 @@ export const dorcasRulingUscisComplianceGapJune2026Post: BlogPost = {
       heading: "What Happens Next",
       paragraphs: [
         "The government's First Circuit appeal will determine whether the Dorcas vacatur survives. So far, no stay has been granted — which means the vacated policies remain unenforceable, and USCIS is legally required to process affected cases under normal standards. If the First Circuit does grant a stay, the hold policies could be temporarily reinstated during the appeal, refreezing affected cases.",
-        "Separately, the government may pursue re-promulgation of narrower policies through formal notice-and-comment rulemaking — building the administrative record that the Dorcas court found lacking. Over 30 separate lawsuits challenging the Benefits Hold remain pending across federal courts. While Dorcas provided the first nationwide vacatur, the litigation landscape continues to evolve.",
-        "For now, the practical reality is a gap between what the law requires and what USCIS is actually doing. Employers and their counsel should not wait for the agency to act on its own. The available levers — premium processing outreach, congressional inquiries, business-group advocacy, and mandamus litigation as a backstop — exist precisely for situations where the agency's words have not yet caught up with its obligations.",
+        "Separately, the government may pursue re-promulgation of narrower policies through formal notice-and-comment rulemaking — building the administrative record that the Dorcas court found lacking. Over 30 separate lawsuits challenging the Benefits Hold remain pending across federal courts. Dorcas supplied the first nationwide vacatur, but the litigation is not over.",
+        "For now, the practical reality is a gap between what the law requires and what USCIS appears to be doing. Employers and counsel should not wait passively for the agency to clear the backlog. Premium processing outreach, congressional inquiries, business-group advocacy, and mandamus litigation exist for exactly this kind of gap between agency position and agency action.",
       ],
     },
   ],
@@ -138,7 +138,7 @@ export const dorcasRulingUscisComplianceGapJune2026Post: BlogPost = {
       question:
         "Has USCIS actually resumed processing cases after the Dorcas ruling?",
       answer:
-        "USCIS has publicly acknowledged that the four vacated policies (PM-602-0192, PM-602-0194, and PA-2025-26) are no longer in effect agency-wide. However, as of late June 2026, immigration practitioners report no meaningful increase in adjudication speed for affected employment-based cases. The agency says it is complying, but processing has not visibly restarted for most affected applicants.",
+        "USCIS has acknowledged that the vacated policies (PM-602-0192, PM-602-0194, and PA-2025-26) are no longer in effect agency-wide. As of late June 2026, though, immigration practitioners are not reporting a meaningful increase in adjudication speed for affected employment-based cases. The agency says it is complying; the case movement has not caught up.",
     },
     {
       question:
@@ -156,7 +156,7 @@ export const dorcasRulingUscisComplianceGapJune2026Post: BlogPost = {
       question:
         "Does this affect employment-based cases for Indian or Chinese nationals?",
       answer:
-        "No. India, China, and the Philippines are not on the 39-country list subject to the Benefits Hold. Nationals of those countries face separate challenges — including EB-2 India visa unavailability through September 30, 2026, and significant priority date retrogression — but the Dorcas ruling and its compliance gap do not directly affect their cases.",
+        "No. India, China, and the Philippines are not on the 39-country list subject to the Benefits Hold. Nationals of those countries face separate challenges — including EB-2 India visa unavailability through September 30, 2026, and severe priority date retrogression — but the Dorcas ruling and its compliance gap do not directly affect their cases.",
     },
     {
       question:

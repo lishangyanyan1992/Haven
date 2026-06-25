@@ -4,7 +4,7 @@ export const federalCourtVacates100000H1bFee2026Post: BlogPost = {
   slug: "federal-court-vacates-100000-h1b-fee-2026",
   title: "Federal Court Vacates $100,000 H-1B Fee as Unlawful Tax",
   excerpt:
-    "A federal judge in Massachusetts struck down the Trump administration's $100,000 H-1B supplemental fee on June 8, 2026, ruling it an unconstitutional tax imposed without Congressional authorization. The decision has immediate implications for FY2027 H-1B cap petitions due by June 30.",
+    "A Massachusetts federal judge struck down the Trump administration's $100,000 H-1B supplemental fee on June 8, 2026, calling it an unconstitutional tax imposed without congressional authorization. The ruling matters immediately for FY2027 H-1B cap petitions due by June 30.",
   category: "Court ruling",
   publishedAt: "2026-06-09",
   readingTime: "8 min read",
@@ -14,19 +14,19 @@ export const federalCourtVacates100000H1bFee2026Post: BlogPost = {
   seoDescription:
     "Judge Sorokin vacated the $100,000 H-1B fee under the APA, ruling it an unlawful tax. Key implications for FY2027 cap petitions, refunds, and employer next steps.",
   keyTakeaways: [
-    "U.S. District Judge Leo Sorokin vacated the $100,000 H-1B supplemental fee on June 8, 2026, ruling it an unlawful tax under the APA",
-    "The fee, imposed by Presidential Proclamation 10973 in September 2025, applied to new H-1B petitions requiring consular processing",
-    "USCIS should no longer require the fee for H-1B petition approvals unless a stay is granted on appeal",
-    "FY2027 H-1B cap petitions are due by June 30, 2026 — employers filing now benefit from the vacatur",
-    "The government has signaled it will appeal, and a circuit conflict with a D.C. ruling that upheld the fee could push the issue to the Supreme Court",
+    "U.S. District Judge Leo Sorokin vacated the $100,000 H-1B supplemental fee on June 8, 2026, ruling that it functions as an unlawful tax under the APA.",
+    "The fee, imposed by Presidential Proclamation 10973 in September 2025, applied to new H-1B petitions requiring consular processing.",
+    "USCIS should not require the fee for H-1B petition approvals unless the government obtains a stay on appeal.",
+    "FY2027 H-1B cap petitions are due by June 30, 2026, so employers filing now have a short window to act under the vacatur.",
+    "The government has signaled an appeal, and the conflict with a D.C. ruling that upheld the fee could push the issue toward the Supreme Court.",
   ],
   sections: [
     {
       heading: "What Happened",
       paragraphs: [
-        "On June 8, 2026, U.S. District Judge Leo T. Sorokin of the District of Massachusetts issued a [42-page opinion](https://www.fragomen.com/insights/united-states-district-court-vacates-dollar100000-h-1b-fee-government-expected-to-quickly-appeal.html) vacating the Trump administration's $100,000 supplemental fee on new H-1B visa petitions. The ruling came on summary judgment in *California et al. v. Markwayne Mullin et al.*, No. 1:25-cv-13829 (D. Mass.), a lawsuit brought by a coalition of 20 state attorneys general.",
+        "On June 8, 2026, U.S. District Judge Leo T. Sorokin of the District of Massachusetts issued a [42-page opinion](https://www.fragomen.com/insights/united-states-district-court-vacates-dollar100000-h-1b-fee-government-expected-to-quickly-appeal.html) vacating the Trump administration's $100,000 supplemental fee on new H-1B visa petitions. The ruling came at summary judgment in *California et al. v. Markwayne Mullin et al.*, No. 1:25-cv-13829 (D. Mass.), a lawsuit brought by 20 state attorneys general.",
         'The court found the fee violated the Administrative Procedure Act on three independent grounds: it constituted a tax levied without Congressional authorization, it exceeded the President\'s statutory authority under INA sections 212(f) and 215(a), and it was procedurally deficient and arbitrary and capricious. Judge Sorokin wrote that "the substance and application of the $100,000 payment reveal that it is a tax, regardless of what the payment is called," and that the President "has no authority to levy a tax unless such a power is delegated by Congress through statute."',
-        "Because the court granted APA vacatur — setting aside the implementing policy \"in its entirety\" — the ruling has nationwide practical effect. This is stronger than a preliminary injunction: the policy is void unless a higher court reverses or the government obtains a stay pending appeal.",
+        "Because the court granted APA vacatur, setting aside the implementing policy \"in its entirety,\" the ruling has nationwide practical effect. This is stronger than a plaintiff-specific injunction. The policy is void unless a higher court reverses the ruling or the government obtains a stay pending appeal.",
       ],
     },
     {
@@ -34,13 +34,13 @@ export const federalCourtVacates100000H1bFee2026Post: BlogPost = {
       paragraphs: [
         "The fee originated from [Presidential Proclamation 10973](https://www.whitehouse.gov/presidential-actions/2025/09/restriction-on-entry-of-certain-nonimmigrant-workers/), titled \"Restriction on Entry of Certain Nonimmigrant Workers,\" signed on September 19, 2025, and effective September 21, 2025. The proclamation invoked INA sections 212(f) and 215(a), the same broad authorities used for prior travel bans and entry restrictions.",
         "The fee applied only to new H-1B petitions filed on or after September 21, 2025, where the beneficiary required consular processing — meaning entry from outside the United States. It did not apply to extensions of stay with the same employer, petitions filed before the effective date, or workers already in H-1B status in the U.S. Payment was required via [Pay.gov](https://www.pay.gov) before filing Form I-129.",
-        "For context, standard H-1B filing fees typically total between $2,000 and $5,000 depending on employer size and premium processing. The $100,000 surcharge represented a roughly 20- to 50-fold increase in filing costs, effectively pricing out smaller employers and nonprofits from sponsoring new H-1B workers from abroad.",
+        "For context, standard H-1B filing fees typically total between $2,000 and $5,000 depending on employer size and premium processing. The $100,000 surcharge was a 20- to 50-fold increase in filing costs, enough to price many smaller employers and nonprofits out of sponsoring new H-1B workers from abroad.",
       ],
     },
     {
       heading: "Who's Affected",
       paragraphs: [
-        "The ruling has immediate relevance for several groups:",
+        "The ruling matters immediately for several groups:",
       ],
       bullets: [
         "Employers filing FY2027 H-1B cap petitions: The filing window closes June 30, 2026. Selected petitioners who have not yet filed can now submit without the $100,000 fee, unless a stay is granted before their filing date.",
@@ -54,13 +54,13 @@ export const federalCourtVacates100000H1bFee2026Post: BlogPost = {
       paragraphs: [
         "Judge Sorokin's decision creates a direct conflict with a December 23, 2025 ruling in the U.S. District Court for the District of Columbia. In [*Chamber of Commerce of the United States v. DHS*](https://www.uschamber.com/cases/labor-and-employment/chamber-of-commerce-v-dhs), No. 25-cv-03675 (D.D.C.), Judge Beryl A. Howell upheld the fee in a 32-page opinion, finding that Congress granted the President \"broad statutory authority\" under section 212(f) that \"plainly encompasses the imposition of fees designed to deter visas that displace U.S. workers.\"",
         "The Chamber of Commerce has appealed Judge Howell's decision to the D.C. Circuit, where expedited briefing was ordered. A third lawsuit, filed by Global Nurse Force and allied organizations in the Northern District of California, adds another potential circuit to the split.",
-        "With the First Circuit (Massachusetts) and D.C. Circuit now on opposing sides, the issue is a strong candidate for Supreme Court review. The timeline for that path is uncertain — likely not before the October 2026 term — but the conflict virtually guarantees continued litigation for months.",
+        "With Massachusetts and D.C. district courts now reaching opposite results, the issue is a strong candidate for Supreme Court review if the appellate courts split as well. The timeline is uncertain, likely not before the October 2026 term, but the conflict guarantees more litigation for months.",
       ],
     },
     {
       heading: "What Attorneys Should Know",
       paragraphs: [
-        "The legal mechanics of this ruling matter for advising clients over the next several weeks:",
+        "The mechanics of the ruling matter for client advice over the next several weeks:",
       ],
       bullets: [
         "APA vacatur vs. injunction: Judge Sorokin vacated the implementing policy under 5 U.S.C. section 706(2), not via injunctive relief. Vacatur sets aside the agency action entirely rather than enjoining its enforcement in specific cases. Practically, USCIS should stop collecting the fee nationwide absent a stay.",
@@ -74,7 +74,7 @@ export const federalCourtVacates100000H1bFee2026Post: BlogPost = {
     {
       heading: "What Applicants Should Do",
       paragraphs: [
-        "If you are an H-1B visa applicant or a worker whose employer is filing a new H-1B petition on your behalf, here is what the ruling means for you:",
+        "If your employer is filing a new H-1B petition for you, the ruling changes the filing calculus but does not remove every risk:",
       ],
       bullets: [
         "Talk to your employer or immigration attorney now. If your employer delayed filing an H-1B petition because of the $100,000 fee, this ruling removes that obstacle — but the FY2027 cap filing deadline is June 30, 2026. Time is short.",
@@ -88,7 +88,7 @@ export const federalCourtVacates100000H1bFee2026Post: BlogPost = {
     {
       heading: "Government Response",
       paragraphs: [
-        "The Department of Homeland Security called the ruling \"blatant judicial activism.\" DOJ spokesperson Natalie Baldassarre stated that \"the DOJ is committed to protecting American workers and fully supports President Trump's America First agenda.\" The government has indicated it will appeal.",
+        "The Department of Homeland Security called the ruling \"blatant judicial activism.\" DOJ spokesperson Natalie Baldassarre said \"the DOJ is committed to protecting American workers and fully supports President Trump's America First agenda.\" The government has indicated it will appeal.",
         "As of June 9, 2026, USCIS has not issued formal guidance on how it will implement the vacatur — including whether it will stop collecting the fee immediately, how it will handle pending petitions filed with the fee, or whether refunds will be available for fees already paid.",
         "[Fragomen's client alert](https://www.fragomen.com/insights/united-states-district-court-vacates-dollar100000-h-1b-fee-government-expected-to-quickly-appeal.html) from June 8 advises that \"unless and until a further court order is issued, USCIS should not require the $100,000 fee for the approval of any H-1B petition,\" but warns that \"a swift government appeal and further litigation are expected\" and employers \"should stay in close contact with immigration counsel regarding any developments, including a possible stay.\"",
       ],
@@ -96,7 +96,7 @@ export const federalCourtVacates100000H1bFee2026Post: BlogPost = {
     {
       heading: "What to Watch Next",
       paragraphs: [
-        "Several developments could shift the landscape in the coming days and weeks:",
+        "Several developments could change the advice quickly:",
       ],
       bullets: [
         "Stay motion: The government is expected to file a motion to stay the vacatur pending appeal. If the district court denies it, expect an emergency motion to the First Circuit. A stay would reinstate the fee obligation.",

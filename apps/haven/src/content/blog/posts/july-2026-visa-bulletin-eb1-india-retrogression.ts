@@ -4,7 +4,7 @@ export const july2026VisaBulletinEb1IndiaRetrogressionPost: BlogPost = {
   slug: "july-2026-visa-bulletin-eb1-india-retrogression",
   title: "July 2026 Visa Bulletin: EB-1 India Retrogresses Further",
   excerpt:
-    "The July 2026 Visa Bulletin moves EB-1 India backward two months to October 15, 2022, with a warning the category could go fully unavailable before fiscal year end. EB-2 India remains shut, while EB-3 sees modest gains.",
+    "The July 2026 Visa Bulletin moves EB-1 India back two months to October 15, 2022 and warns that the category could become unavailable before the fiscal year ends. EB-2 India remains closed, while EB-3 makes limited forward movement.",
   category: "Visa bulletin",
   publishedAt: "2026-06-17",
   readingTime: "6 min read",
@@ -14,18 +14,18 @@ export const july2026VisaBulletinEb1IndiaRetrogressionPost: BlogPost = {
   seoDescription:
     "July 2026 Visa Bulletin analysis: EB-1 India retrogresses to Oct 15, 2022; EB-2 India unavailable through FY2026; EB-3 advances. USCIS uses Final Action Dates.",
   keyTakeaways: [
-    "EB-1 India retrogresses two months to October 15, 2022 — the State Department warns further retrogression or full unavailability may follow before September 30, 2026",
-    "EB-2 India remains completely unavailable for the rest of FY2026; the earliest potential recovery is October 2026",
-    "EB-3 China advances nearly five months to December 22, 2021; EB-3 Rest of World moves forward two months to August 1, 2024",
-    "USCIS once again designates Final Action Dates as the filing chart for July 2026, keeping the more permissive Dates for Filing chart unavailable for EB cases",
+    "EB-1 India retrogresses two months to October 15, 2022, and the State Department warns that further retrogression or full unavailability may follow before September 30, 2026.",
+    "EB-2 India remains unavailable for the rest of FY2026. The earliest likely recovery point is October 2026.",
+    "EB-3 China advances nearly five months to December 22, 2021, and EB-3 Rest of World moves forward two months to August 1, 2024.",
+    "USCIS again requires employment-based applicants to use Final Action Dates in July 2026, keeping the more generous Dates for Filing chart off the table.",
   ],
   sections: [
     {
       heading: "What Happened",
       paragraphs: [
-        "The U.S. Department of State released the [July 2026 Visa Bulletin](https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin/2026/visa-bulletin-for-july-2026.html) (Volume XI, Number 16), and USCIS confirmed on June 16, 2026 that employment-based adjustment of status applicants must use the [Final Action Dates chart](https://www.uscis.gov/green-card/green-card-processes-and-procedures/visa-availability-priority-dates/adjustment-of-status-filing-charts-from-the-visa-bulletin) for determining filing eligibility. USCIS has once again declined to activate the more permissive Dates for Filing chart for EB categories.",
-        "The bulletin’s headline development is EB-1 India’s continued backward slide — the final action date retrogresses two full months, from December 15, 2022 in June to October 15, 2022 in July. The State Department explicitly warns that further retrogression or complete unavailability may follow if India’s pro-rated EB-1 limit is reached before fiscal year end on September 30.",
-        "Meanwhile, EB-2 India remains marked ‘Unavailable’ (its annual limit was [exhausted in May 2026](https://haven-five-hazel.vercel.app/blog/eb2-india-per-country-limit-exhausted-fy2026)), and the State Department projects the category won’t reopen until at least October 2026. On a brighter note, EB-3 categories see meaningful forward movement for China and Rest of World applicants.",
+        "The U.S. Department of State released the [July 2026 Visa Bulletin](https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin/2026/visa-bulletin-for-july-2026.html) (Volume XI, Number 16), and USCIS confirmed on June 16, 2026 that employment-based adjustment applicants must use the [Final Action Dates chart](https://www.uscis.gov/green-card/green-card-processes-and-procedures/visa-availability-priority-dates/adjustment-of-status-filing-charts-from-the-visa-bulletin). The more permissive Dates for Filing chart is unavailable again for EB categories.",
+        "The headline is EB-1 India's continued slide. The final action date moves back two full months, from December 15, 2022 in June to October 15, 2022 in July. The State Department also warns that further retrogression or complete unavailability may follow if India's prorated EB-1 limit is reached before the fiscal year ends on September 30.",
+        "EB-2 India remains marked 'Unavailable' after its annual limit was [exhausted in May 2026](https://haven-five-hazel.vercel.app/blog/eb2-india-per-country-limit-exhausted-fy2026), and the State Department does not expect the category to reopen before October 2026. EB-3 is the one area with forward movement, especially for China and Rest of World applicants.",
       ],
     },
     {
@@ -49,7 +49,7 @@ export const july2026VisaBulletinEb1IndiaRetrogressionPost: BlogPost = {
     {
       heading: "EB-1 India: Second Consecutive Retrogression",
       paragraphs: [
-        "EB-1 India has now retrogressed in back-to-back months. In the [June 2026 bulletin](https://haven-five-hazel.vercel.app/blog/june-2026-eb-visa-bulletin-retrogression), the category moved backward approximately 3.5 months. July adds another two months of retrogression, pushing the final action date to October 15, 2022 — meaning only applicants with I-140 approval (priority) dates before that cutoff can have their cases adjudicated.",
+        "EB-1 India has now retrogressed in back-to-back months. In the [June 2026 bulletin](https://haven-five-hazel.vercel.app/blog/june-2026-eb-visa-bulletin-retrogression), the category moved backward about 3.5 months. July adds another two months, pushing the final action date to October 15, 2022. Only applicants with priority dates before that cutoff can have their cases adjudicated.",
         "The State Department’s bulletin includes an unusually direct warning: ‘High demand and number use by aliens chargeable to India in the EB-1 visa category made it necessary to retrogress the final action date to hold number use within the FY 2026 annual limit. Further retrogression or making the category unavailable may be necessary in the coming months if India’s pro-rated limit in the EB-1 category is reached before the fiscal year ends.’",
         "If EB-1 India goes unavailable, it would mean both the EB-1 and EB-2 categories for India are simultaneously shut down within the same fiscal year — leaving EB-3 as the only active employment-based pathway for Indian nationals, with its own cutoff date stuck at January 1, 2014.",
       ],
@@ -65,7 +65,7 @@ export const july2026VisaBulletinEb1IndiaRetrogressionPost: BlogPost = {
     {
       heading: "EB-3: Forward Movement for China and Rest of World",
       paragraphs: [
-        "EB-3 provides the bulletin’s best news. China-born applicants in the Skilled Workers and Professionals subcategory see their final action date advance nearly five months, from August 1, 2021 to December 22, 2021 — the largest single-month EB advance in this bulletin cycle.",
+        "EB-3 provides the bulletin's clearest good news. China-born applicants in the Skilled Workers and Professionals subcategory see their final action date advance nearly five months, from August 1, 2021 to December 22, 2021, the largest single-month EB advance in this bulletin cycle.",
         "EB-3 Rest of World and Mexico both advance two months to August 1, 2024, opening filing for a wider pool of applicants. EB-3 India sees a smaller but still positive advance of approximately 2.5 weeks, moving from December 15, 2013 to January 1, 2014.",
         "However, the State Department flags a warning for EB-3 Philippines: ‘Sufficient demand and increased number use by aliens chargeable to Philippines in the EB-3 visa category may make it necessary to retrogress the final action date or make the category unavailable.’ Filipino applicants with EB-3 priority dates near the current cutoff of August 1, 2023 should file promptly if eligible.",
       ],
@@ -73,7 +73,7 @@ export const july2026VisaBulletinEb1IndiaRetrogressionPost: BlogPost = {
     {
       heading: "What Attorneys Should Know",
       paragraphs: [
-        "USCIS has once again designated the Final Action Dates chart (Chart A) as the operative chart for employment-based adjustment of status filings in July 2026. The [Dates for Filing chart](https://www.uscis.gov/green-card/green-card-processes-and-procedures/visa-availability-priority-dates/adjustment-of-status-filing-charts-from-the-visa-bulletin) (Chart B) is not available for EB cases.",
+        "USCIS has again designated the Final Action Dates chart (Chart A) as the operative chart for employment-based adjustment filings in July 2026. The [Dates for Filing chart](https://www.uscis.gov/green-card/green-card-processes-and-procedures/visa-availability-priority-dates/adjustment-of-status-filing-charts-from-the-visa-bulletin) (Chart B) is not available for EB cases.",
         "The bulletin also notes that Presidential Proclamations 10949 and 10998 have reduced immigrant visa issuance rates at consular posts, which paradoxically allowed dates to advance in prior months. With the [Dorcas v. USCIS ruling](https://haven-five-hazel.vercel.app/blog/court-vacates-uscis-benefits-hold-39-countries) vacating the associated USCIS hold policies, increased demand may now materialize — and the State Department explicitly warns that ‘retrogression may be necessary in the upcoming months to keep issuances within annual limits.’",
       ],
       bullets: [
@@ -86,12 +86,12 @@ export const july2026VisaBulletinEb1IndiaRetrogressionPost: BlogPost = {
     {
       heading: "What Applicants Should Do",
       paragraphs: [
-        "If your priority date is current under the July 2026 Final Action Dates chart, work with your employer and attorney to file Form I-485 as soon as possible. Several categories face retrogression or unavailability warnings, and waiting even one month could mean losing filing eligibility.",
+        "If your priority date is current under the July 2026 Final Action Dates chart, work with your employer and attorney to file Form I-485 as soon as possible. Several categories now carry retrogression or unavailability warnings, and a one-month delay could matter.",
       ],
       bullets: [
         "Check your priority date against the Final Action Dates chart — not the Dates for Filing chart, which USCIS has deactivated for EB cases this month",
-        "If you are EB-2 India: no action is possible until October 2026 at earliest. Use this time to ensure your I-140 is approved and employer sponsorship remains active. Consider filing under EB-3 if your priority date predates January 1, 2014",
-        "If you are EB-1 India with a priority date before October 15, 2022: file now. The State Department has warned this date could move backward again or the category could become unavailable entirely",
+        "If you are EB-2 India: no final action is possible until October 2026 at the earliest. Use this time to confirm that your I-140 is approved and employer sponsorship remains active. Consider EB-3 only if your priority date is before January 1, 2014",
+        "If you are EB-1 India with a priority date before October 15, 2022: file now. The State Department has warned that the date could move backward again or that the category could become unavailable entirely",
         "If you hold an approved I-140 and have been in H-1B status for six or more years, confirm your eligibility for three-year H-1B extensions under AC21 Section 104(c) — your ability to extend depends on having an approved I-140 regardless of visa bulletin movement",
         "If your I-485 is already pending, no action is needed on filing. Continue to renew your EAD and Advance Parole documents as needed",
       ],
@@ -159,7 +159,7 @@ export const july2026VisaBulletinEb1IndiaRetrogressionPost: BlogPost = {
     {
       question: "Is EB-2 India available in July 2026?",
       answer:
-        "No. EB-2 India remains ‘Unavailable’ for the July 2026 Visa Bulletin. The category’s annual limit was exhausted in May 2026, and no new I-485 approvals or immigrant visa issuances are possible until at least October 1, 2026, when FY2027 visa numbers become available.",
+        "No. EB-2 India remains 'Unavailable' in the July 2026 Visa Bulletin. The category's annual limit was exhausted in May 2026, and no new I-485 approvals or immigrant visa issuances are possible until at least October 1, 2026, when FY2027 visa numbers become available.",
     },
     {
       question:

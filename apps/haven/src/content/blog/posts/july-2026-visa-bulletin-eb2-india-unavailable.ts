@@ -3,9 +3,9 @@ import { BlogPost } from "../types";
 export const july2026VisaBulletinEb2IndiaUnavailable: BlogPost = {
   slug: "july-2026-visa-bulletin-eb2-india-unavailable",
   title:
-    "July 2026 Visa Bulletin: EB-2 India Unavailable, EB-1 Retrogresses",
+    "July 2026 Visa Bulletin: EB-2 India is unavailable, EB-1 moves backward",
   excerpt:
-    "The July 2026 Visa Bulletin marks EB-2 India as Unavailable for the rest of FY 2026 and retrogresses EB-1 India by two months. Here is what the numbers mean, who is affected, and what to do next.",
+    "The July 2026 Visa Bulletin shuts EB-2 India for the rest of FY 2026 and moves EB-1 India back by two months. Pending I-485s are not dead, but approvals are blocked until visa numbers return.",
   category: "Visa bulletin",
   publishedAt: "2026-06-22",
   readingTime: "9 min read",
@@ -15,17 +15,17 @@ export const july2026VisaBulletinEb2IndiaUnavailable: BlogPost = {
   seoDescription:
     "EB-2 India is Unavailable in the July 2026 Visa Bulletin through September 2026. EB-1 India retrogressed to October 2022. Action steps for attorneys and applicants.",
   keyTakeaways: [
-    "EB-2 India is marked Unavailable in the July 2026 Visa Bulletin. India's prorated EB-2 limit for FY 2026 is exhausted and no final action is possible until the new fiscal year begins on October 1, 2026.",
+    "EB-2 India is marked Unavailable in the July 2026 Visa Bulletin. India's prorated EB-2 limit for FY 2026 is exhausted, so no final action is possible until the new fiscal year begins on October 1, 2026.",
     "EB-1 India retrogressed 61 days to October 15, 2022. The State Department warns further retrogression or unavailability is possible before September.",
     "Pending I-485 applications are not terminated. Existing EAD and Advance Parole documents based on a pending I-485 remain valid and renewable.",
-    "Attorneys should audit Indian EB-2 and EB-1 client files immediately, ensure H-1B status is maintained as a backstop, and prepare I-485 packages for the FY 2027 reset in October.",
+    "Attorneys should audit Indian EB-2 and EB-1 files now, preserve H-1B status where available, and prepare I-485 packages for the FY 2027 reset in October.",
   ],
   sections: [
     {
       heading: "What Happened",
       paragraphs: [
-        "The [State Department released the July 2026 Visa Bulletin](https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin/2026/visa-bulletin-for-july-2026.html) in mid-June, and it delivers the most severe outcome of the fiscal year for Indian employment-based applicants. EB-2 India, which includes both labor-certification-based cases and National Interest Waiver (NIW) petitions, is marked \"U\" — Unavailable. India's prorated annual EB-2 limit for FY 2026 has been fully exhausted, and no further final actions can occur in this category until the new fiscal year begins on October 1, 2026.",
-        "At the same time, EB-1 India retrogressed by roughly two months, moving from a Final Action Date of December 15, 2022 in June to October 15, 2022 in July. The bulletin warns that further retrogression — or even unavailability — is possible in the remaining months of FY 2026. EB-3 India advanced modestly to January 1, 2014, a gain of just 17 days.",
+        "The [State Department released the July 2026 Visa Bulletin](https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin/2026/visa-bulletin-for-july-2026.html) in mid-June. For Indian employment-based applicants, it is the hardest bulletin of the fiscal year. EB-2 India, covering both labor-certification cases and National Interest Waiver petitions, is marked \"U\" for Unavailable. India's prorated annual EB-2 limit for FY 2026 has been used up, so no further final actions can occur in this category until October 1, 2026.",
+        "EB-1 India also moved backward, from a Final Action Date of December 15, 2022 in June to October 15, 2022 in July. The bulletin warns that more retrogression, or even unavailability, could follow before FY 2026 ends. EB-3 India advanced only modestly, to January 1, 2014, a gain of 17 days.",
         "USCIS has confirmed that employment-based adjustment of status applicants must use the [Final Action Dates chart (Chart A)](https://www.uscis.gov/green-card/green-card-processes-and-procedures/visa-availability-priority-dates) for July 2026. The more permissive Dates for Filing chart (Chart B) is not available for employment-based filers this month, which means applicants whose priority dates are current only under Chart B cannot file new I-485 applications.",
       ],
     },
@@ -43,7 +43,7 @@ export const july2026VisaBulletinEb2IndiaUnavailable: BlogPost = {
     {
       heading: "Who Is Affected",
       paragraphs: [
-        "The impact is concentrated on Indian nationals in the EB-2 and EB-1 categories, but the ripple effects extend across the employment-based system.",
+        "The immediate impact falls on Indian nationals in EB-2 and EB-1, but the planning consequences reach employers, dependents, and anyone waiting to file adjustment of status.",
       ],
       bullets: [
         "**Indian EB-2 applicants (including NIW):** No I-485 can be approved, and no new I-485 can be filed, for any Indian-born EB-2 beneficiary through September 30, 2026. This applies equally to labor-certification-based EB-2 cases and self-petitioned NIW cases. The [State Department bulletin](https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin/2026/visa-bulletin-for-july-2026.html) states that India's prorated EB-2 limit for FY 2026 has been reached.",
@@ -56,12 +56,12 @@ export const july2026VisaBulletinEb2IndiaUnavailable: BlogPost = {
     {
       heading: "What Attorneys Should Know",
       paragraphs: [
-        "The Unavailable designation triggers a specific set of legal and procedural implications that attorneys should communicate to affected clients immediately.",
-        "**Pending I-485 applications are preserved.** An Unavailable designation does not result in denial or termination of a pending Form I-485. Under [INA § 245](https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title8-section1255&num=0&edition=prelim), USCIS cannot approve the adjustment until a visa number is available, but the application remains in the queue. The underlying I-140 approval is not affected. Priority dates are preserved.",
+        "The Unavailable designation has specific legal and procedural consequences. These are the points affected clients need to hear clearly.",
+        "**Pending I-485 applications are preserved.** An Unavailable designation does not deny or terminate a pending Form I-485. Under [INA § 245](https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title8-section1255&num=0&edition=prelim), USCIS cannot approve the adjustment until a visa number is available, but the application stays in the queue. The I-140 approval and priority date remain intact.",
         "**AC21 portability is unaffected.** For applicants whose I-485 has been pending 180 days or more with an approved I-140, [INA § 204(j)](https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title8-section1154&num=0&edition=prelim) portability rights remain intact. The applicant may change to a same-or-similar occupation and retain both the priority date and the pending I-485. The Unavailable designation does not strip this right — it simply means USCIS cannot adjudicate the case until numbers reopen.",
         "**EAD and Advance Parole renewals continue.** Employment Authorization Documents issued under category (c)(9) based on a pending I-485, and Advance Parole documents under Form I-131, remain valid and renewable regardless of visa availability. Attorneys should ensure no client allows these documents to lapse.",
         "**New I-485 filings are blocked.** Because USCIS requires the Final Action Dates chart for July and EB-2 India is Unavailable, no new I-485 can be filed in this category. Applicants who have an approved I-140 but have not yet filed I-485 cannot access EAD or Advance Parole benefits through the adjustment process until numbers reopen.",
-        "**H-1B extensions beyond six years.** Under [AC21 § 104(c)](https://www.uscis.gov/working-in-the-united-states/temporary-workers/h-1b-specialty-occupations-and-fashion-models/extension-of-stay-for-h-1b-workers-under-sections-104c-and-106a-of-ac21) and [AC21 § 106(a)](https://www.uscis.gov/working-in-the-united-states/temporary-workers/h-1b-specialty-occupations-and-fashion-models/extension-of-stay-for-h-1b-workers-under-sections-104c-and-106a-of-ac21), individuals with an approved I-140 who are subject to per-country backlogs can obtain one-year or three-year H-1B extensions beyond the standard six-year cap. With EB-2 India Unavailable, virtually every Indian EB-2 beneficiary qualifies. Maintaining H-1B status provides a critical backstop.",
+        "**H-1B extensions beyond six years.** Under [AC21 § 104(c)](https://www.uscis.gov/working-in-the-united-states/temporary-workers/h-1b-specialty-occupations-and-fashion-models/extension-of-stay-for-h-1b-workers-under-sections-104c-and-106a-of-ac21) and [AC21 § 106(a)](https://www.uscis.gov/working-in-the-united-states/temporary-workers/h-1b-specialty-occupations-and-fashion-models/extension-of-stay-for-h-1b-workers-under-sections-104c-and-106a-of-ac21), individuals with an approved I-140 who are stuck in per-country backlogs can often obtain one-year or three-year H-1B extensions beyond the six-year cap. With EB-2 India Unavailable, H-1B status is more than a fallback; for many people, it is the thing that keeps the case viable.",
         "**CSPA age-out monitoring.** The [Child Status Protection Act](https://www.uscis.gov/green-card/green-card-processes-and-procedures/child-status-protection-act-cspa) freezes a child's age for immigration purposes at the time a visa number becomes available. With EB-2 India Unavailable, the CSPA clock is effectively paused because no number is available. However, when EB-2 India reopens in October 2026, the one-year \"sought to acquire\" clock restarts. Attorneys should identify every dependent between ages 19 and 21 in their EB-2 and EB-1 India caseloads and prepare I-485 packages for immediate filing when numbers reopen.",
         "**Cross-chargeability under [22 CFR § 42.12](https://www.ecfr.gov/current/title-22/chapter-I/subchapter-E/part-42/subpart-C/section-42.12).** For Indian-born EB-2 or EB-1 applicants married to a spouse born in a country where EB-2 is Current (such as most countries outside India and China), cross-chargeability may allow the applicant to use the spouse's country of chargeability. This should be evaluated for every affected client.",
       ],
@@ -72,12 +72,12 @@ export const july2026VisaBulletinEb2IndiaUnavailable: BlogPost = {
         "If you are an Indian national in the EB-2 or EB-1 green card process, here are the steps to take right now.",
       ],
       bullets: [
-        "**Do not panic about your pending I-485.** If you already filed your adjustment of status application, it is safe in the queue. USCIS will not deny it because of the Unavailable designation. Your priority date and I-140 approval are preserved.",
+        "**Do not panic about your pending I-485.** If you already filed your adjustment application, it remains in the queue. USCIS cannot approve it while no visa number is available, but the Unavailable designation by itself does not wipe out your filing. Your priority date and I-140 approval are preserved.",
         "**Renew your EAD and Advance Parole before they expire.** If your work permit or travel document is based on your pending I-485, it remains valid and renewable. File renewal applications well before expiration — processing times can be unpredictable.",
         "**Maintain your H-1B status if at all possible.** If you are currently in H-1B status while your I-485 is pending, continue extending your H-1B. It serves as a safety net. If you travel on Advance Parole instead of your H-1B visa, you may lose your H-1B status, which can create complications in the current enforcement environment.",
         "**If you have not filed I-485 yet, prepare your package now.** You cannot file while EB-2 India is Unavailable, but numbers are expected to reopen in October 2026. Have your medical exam (Form I-693, valid for two years), civil documents, employment verification letter, and supporting evidence ready to file as soon as the October 2026 Visa Bulletin is released.",
         "**Ask your attorney about EB-1 or cross-chargeability.** If you have extraordinary ability credentials, an EB-1A self-petition may be a faster path — EB-1 India still has a date, even after retrogression. If your spouse was born outside India and China, cross-chargeability could move your case to a Current category.",
-        "**Do not rush into an EB-2 to EB-3 downgrade without analysis.** EB-3 India is at January 1, 2014 — a backlog of over 12 years. For most applicants with EB-2 priority dates after 2014, a downgrade offers no advantage. EB-2 India is expected to return in October with a date in the 2013 range. Discuss the math with your attorney before making this move.",
+        "**Do not rush into an EB-2 to EB-3 downgrade without doing the math.** EB-3 India is at January 1, 2014, which is still more than 12 years behind. For most applicants with EB-2 priority dates after 2014, a downgrade offers no immediate advantage. EB-2 India is expected to return in October with a date in the 2013 range, so compare the actual cutoffs before filing anything new.",
       ],
       note: "The October 2026 Visa Bulletin, which sets the FY 2027 opening dates, is typically released in mid-September. Mark your calendar.",
     },
@@ -87,7 +87,7 @@ export const july2026VisaBulletinEb2IndiaUnavailable: BlogPost = {
         "The fiscal year ends on September 30, 2026, and a fresh annual visa allocation begins on October 1. The [July bulletin](https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin/2026/visa-bulletin-for-july-2026.html) states that EB-2 India \"should advance in October\" to at least its earlier FY 2026 levels, which had been in the September–October 2013 range before the retrogression spiral began in May.",
         "Between now and October, expect turbulence. The August and September bulletins may bring additional retrogression for EB-1 India and could push China EB-2 and Philippines EB-3 into retrogression or unavailability as FY 2026 numbers run out. [BAL's analysis](https://www.bal.com/immigration-news/july-2026-visa-bulletin-released-by-department-of-state/) and [Newland Chase](https://newlandchase.com/july-2026-u-s-state-department-visa-bulletin/) both note these risks in their July bulletin commentary.",
         "For EB-1 India, which has now retrogressed in consecutive months, recovery at the FY 2027 reset is expected but the precise date will depend on how much of FY 2026's EB-1 quota was consumed. Attorneys should have all EB-1 India clients with priority dates near the October 2022 cutoff prepared for potential further movement in either direction.",
-        "The broader structural problem remains unchanged: per-country caps under [INA § 202](https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title8-section1152&num=0&edition=prelim) limit India and China to approximately 7% of the worldwide employment-based total each fiscal year, while demand from these countries far exceeds that share. Until Congress acts on per-country cap reform — several bills have been introduced but none have passed — this annual cycle of advancement, retrogression, and unavailability will continue.",
+        "The structural problem has not changed. Per-country caps under [INA § 202](https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title8-section1152&num=0&edition=prelim) limit India and China to roughly 7% of the worldwide employment-based total each fiscal year, while demand from both countries far exceeds that share. Unless Congress changes those caps, this cycle of advancement, retrogression, and occasional unavailability will keep repeating.",
       ],
     },
   ],
