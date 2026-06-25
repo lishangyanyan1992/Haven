@@ -1247,6 +1247,120 @@ export type Database = {
         }
         Relationships: []
       }
+      legal_directory_feedback: {
+        Row: {
+          comment: string
+          created_at: string
+          feedback_kind: string
+          firm_domain: string | null
+          firm_id: string | null
+          firm_name: string
+          firm_website: string | null
+          id: string
+          moderation_status: string
+          relationship: string
+          submitter_email: string | null
+          updated_at: string
+        }
+        Insert: {
+          comment: string
+          created_at?: string
+          feedback_kind: string
+          firm_domain?: string | null
+          firm_id?: string | null
+          firm_name: string
+          firm_website?: string | null
+          id?: string
+          moderation_status?: string
+          relationship?: string
+          submitter_email?: string | null
+          updated_at?: string
+        }
+        Update: {
+          comment?: string
+          created_at?: string
+          feedback_kind?: string
+          firm_domain?: string | null
+          firm_id?: string | null
+          firm_name?: string
+          firm_website?: string | null
+          id?: string
+          moderation_status?: string
+          relationship?: string
+          submitter_email?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      legal_firm_claims: {
+        Row: {
+          attested: boolean
+          bar_number: string | null
+          bar_state: string | null
+          claim_type: string
+          claimant_email: string | null
+          claimant_name: string | null
+          claimant_phone: string | null
+          claimant_role: string | null
+          created_at: string
+          email_domain_match: boolean
+          evidence_aila_url: string | null
+          evidence_bar_url: string | null
+          evidence_specialist_url: string | null
+          evidence_website: string | null
+          firm_id: string | null
+          firm_name: string
+          id: string
+          profile: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attested?: boolean
+          bar_number?: string | null
+          bar_state?: string | null
+          claim_type: string
+          claimant_email?: string | null
+          claimant_name?: string | null
+          claimant_phone?: string | null
+          claimant_role?: string | null
+          created_at?: string
+          email_domain_match?: boolean
+          evidence_aila_url?: string | null
+          evidence_bar_url?: string | null
+          evidence_specialist_url?: string | null
+          evidence_website?: string | null
+          firm_id?: string | null
+          firm_name: string
+          id?: string
+          profile?: Json
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attested?: boolean
+          bar_number?: string | null
+          bar_state?: string | null
+          claim_type?: string
+          claimant_email?: string | null
+          claimant_name?: string | null
+          claimant_phone?: string | null
+          claimant_role?: string | null
+          created_at?: string
+          email_domain_match?: boolean
+          evidence_aila_url?: string | null
+          evidence_bar_url?: string | null
+          evidence_specialist_url?: string | null
+          evidence_website?: string | null
+          firm_id?: string | null
+          firm_name?: string
+          id?: string
+          profile?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       source_sync_runs: {
         Row: {
           completed_at: string | null
