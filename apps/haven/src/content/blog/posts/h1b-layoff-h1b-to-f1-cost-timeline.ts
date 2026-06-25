@@ -4,18 +4,18 @@ export const h1bLayoffH1bToF1CostTimelinePost: BlogPost = {
   slug: "h1b-layoff-h1b-to-f1-cost-timeline",
   title: "What it cost me to switch from H-1B to F-1 after a layoff",
   excerpt:
-    "A founder's plain breakdown of the money, timing pressure, and backup planning behind changing from H-1B to F-1 after a layoff.",
+    "I switched from H-1B to F-1 after a layoff. This is what the path cost me, what I had to decide under pressure, and why the spreadsheet mattered as much as the forms.",
   category: "H1B",
   publishedAt: "2026-06-09",
   readingTime: "7 min read",
   author: "Haven founder",
   seoTitle: "H-1B layoff to F-1 change of status cost breakdown",
   seoDescription:
-    "A founder's personal cost breakdown for moving from H-1B to F-1 after a layoff, including F-1, I-140, PhD application, and visa application expenses.",
+    "My personal cost breakdown for moving from H-1B to F-1 after a layoff, including F-1 change of status, I-140 filing costs, and PhD application expenses.",
   keyTakeaways: [
     "My F-1 change-of-status path was not just a form choice. It became a cash-flow problem with a deadline.",
-    "The F-1-related expenses alone reached $6,063, before counting my I-140, PhD-option applications, and visa application costs.",
-    "My full spreadsheet total was $12,727.97, which is why I now think of layoff planning as both immigration planning and financial planning."
+    "The F-1-related expenses alone reached $6,063, before counting the I-140 filing my former employer still agreed to support and the PhD applications I used as a safety net.",
+    "My full tracked total was $12,525.58, which is why I now think of layoff planning as both immigration planning and financial planning."
   ],
   sections: [
     {
@@ -26,7 +26,7 @@ export const h1bLayoffH1bToF1CostTimelinePost: BlogPost = {
       ]
     },
     {
-      heading: "1. The timeline pressure came first",
+      heading: "The timeline pressure came first",
       paragraphs: [
         "The hard part was not simply choosing F-1. It was choosing while the clock was already running.",
         "After a layoff, every option depends on something different. An H-1B transfer depends on an employer moving fast. A change of status depends on school admission, documents, filing readiness, and the USCIS process. Leaving the country depends on travel, family, finances, and what you are willing to reset.",
@@ -35,7 +35,7 @@ export const h1bLayoffH1bToF1CostTimelinePost: BlogPost = {
       note: "This is my personal experience, not legal advice. Anyone in this situation should confirm their own dates and options with a qualified immigration attorney."
     },
     {
-      heading: "2. What the F-1 path cost me",
+      heading: "What the F-1 path cost me",
       paragraphs: [
         "Here is the F-1-related part of my spreadsheet. These were the costs I tracked while trying to create a lawful bridge after the layoff.",
         "I am keeping the labels close to how I tracked them at the time. That is how the money felt: not like a neat legal category, but like a stack of payments appearing while I was trying to stay operational."
@@ -49,20 +49,22 @@ export const h1bLayoffH1bToF1CostTimelinePost: BlogPost = {
       ]
     },
     {
-      heading: "3. The I-140 was a separate strategic cost",
+      heading: "The I-140 was a separate strategic cost",
       paragraphs: [
-        "F-1 was not the only thing on the table. I also had to think about longer-term immigration positioning.",
-        "That is where the I-140 came in. It was a separate track, but it belonged in the same financial picture because all of these decisions were happening in the same life window."
+        "F-1 was not the only thing on the table. I also had to protect the longer-term green card path I had already started.",
+        "My PERM had been approved, but the I-140 still needed to be filed. After the layoff, I negotiated with my employer to still file it for me because they wanted to keep open the option of hiring me back later. I was responsible for the expenses.",
+        "That made the I-140 a separate track from the F-1 change of status, but not a separate financial problem. Both decisions belonged in the same spreadsheet because they were happening in the same life window."
       ],
       bullets: [
         "I-140: $5,656"
       ]
     },
     {
-      heading: "4. The PhD option added another layer",
+      heading: "The PhD path became my safety net",
       paragraphs: [
-        "A PhD was not directly tied to the immediate H-1B-to-F-1 move, but it was one option I explored while trying to keep my future from narrowing too quickly.",
-        "That is one of the costs people underestimate after a layoff. You are not only paying for one application. You are paying to keep several doors open until one path becomes stable enough to commit to."
+        "The PhD path was not just a random backup option. It became the safety net I decided to take seriously.",
+        "That is one of the costs people underestimate after a layoff. You are not only paying for one immigration filing. You are paying to keep enough future open so that one bad employment event does not collapse every option at once.",
+        "For me, that meant applying to programs, preparing for the GRE, and treating the PhD path as a real route, not just something I mentioned when I felt anxious."
       ],
       bullets: [
         "GRE: $220",
@@ -76,31 +78,20 @@ export const h1bLayoffH1bToF1CostTimelinePost: BlogPost = {
       ]
     },
     {
-      heading: "5. One more visa application cost",
+      heading: "The full expense breakdown",
       paragraphs: [
-        "There was also a visa application cost in the spreadsheet. On its own, it looked small next to the bigger items. In the middle of a layoff, it did not feel small.",
-        "That is how the financial side of immigration pressure works. The expensive line items are obvious. The smaller ones still matter because they arrive when your income just became uncertain."
-      ],
-      bullets: [
-        "Visa application: $202.39"
-      ]
-    },
-    {
-      heading: "6. The full expense breakdown",
-      paragraphs: [
-        "When I added everything together, the total came to $12,727.97.",
+        "When I added the costs tied to the actual decisions I made, the total came to $12,525.58.",
         "That number changed how I talk about H-1B layoff planning. People often frame the problem as, 'What form should I file?' The better question is broader: what legal path is available, how quickly can you execute it, and how much cash do you need to keep that path alive?"
       ],
       bullets: [
         "F-1 subtotal: $6,063",
         "I-140 subtotal: $5,656",
         "PhD-option subtotal: $806.58",
-        "Other visa application cost: $202.39",
-        "Total: $12,727.97"
+        "Total: $12,525.58"
       ]
     },
     {
-      heading: "7. What I wish I had tracked earlier",
+      heading: "What I wish I had tracked earlier",
       paragraphs: [
         "Looking back, I wish I had started with a single decision sheet: dates, legal options, documents, costs, and the point at which each option would become unrealistic.",
         "The emotional trap is believing you have to solve everything at once. You do not. But you do need a system that shows what each path requires before time and money disappear quietly."
@@ -114,7 +105,7 @@ export const h1bLayoffH1bToF1CostTimelinePost: BlogPost = {
       ]
     },
     {
-      heading: "8. Why I am sharing the number",
+      heading: "Why I am sharing the number",
       paragraphs: [
         "I am sharing the number because immigration planning often hides the cost until someone is already under pressure.",
         "For me, switching from H-1B to F-1 after a layoff was not just a legal maneuver. It was a time-sensitive, cash-intensive backup plan built while I was trying to stay legally present in the country where I had already built my life.",
@@ -141,19 +132,19 @@ export const h1bLayoffH1bToF1CostTimelinePost: BlogPost = {
   ],
   faqs: [
     {
-      question: "How much did the founder's H-1B-to-F-1 backup path cost?",
+      question: "How much did my H-1B-to-F-1 backup path cost?",
       answer:
-        "The F-1-related subtotal was $6,063. Including the I-140, PhD-option applications, and one visa application cost, the full tracked total was $12,727.97."
+        "The F-1-related subtotal was $6,063. Including the I-140 filing costs and PhD-option applications, my full tracked total was $12,525.58."
     },
     {
       question: "Is changing from H-1B to F-1 after a layoff always the right move?",
       answer:
-        "No. It depends on timing, school eligibility, documents, long-term plans, and legal risk. This article describes one founder's cost breakdown, not a universal recommendation."
+        "No. It depends on timing, school eligibility, documents, long-term plans, and legal risk. This is my cost breakdown and decision process, not a universal recommendation."
     },
     {
       question: "Why include PhD application expenses if they were not directly related?",
       answer:
-        "They were included because they were part of the broader option-preservation work happening after the layoff, even though they were not directly part of the F-1 change-of-status filing."
+        "I included them because the PhD path became my safety net after the layoff. Those expenses were not part of the F-1 change-of-status filing itself, but they were part of the same survival plan."
     }
   ],
   relatedSlugs: ["h1b-grace-period-checklist", "h1b-layoff-options", "student-visa-f1-m1-j1"]

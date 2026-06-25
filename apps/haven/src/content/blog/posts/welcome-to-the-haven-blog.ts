@@ -11,7 +11,7 @@ export const welcomeToTheHavenBlogPost: BlogPost = {
   author: "Haven founder",
   seoTitle: "Why I Started Haven",
   seoDescription:
-    "A founder story about building Haven after going through two H-1B layoffs and the uncertainty that followed.",
+    "Why I built Haven after going through two H-1B layoffs and the uncertainty that followed.",
   keyTakeaways: [
     "H-1B layoffs are not just job losses. They put status, timelines, and daily life into question at once.",
     "The real problem is not only missing information, but missing visibility and confidence in what to do next.",
