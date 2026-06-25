@@ -43,7 +43,7 @@ export function MobilePublicNav({
         aria-controls="mobile-public-nav"
         aria-expanded={isOpen}
         aria-label={isOpen ? "Close navigation menu" : "Open navigation menu"}
-        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--haven-white)] text-[var(--haven-ink)] md:hidden"
+        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--haven-white)] text-[var(--haven-ink)] lg:hidden"
         onClick={() => setIsOpen((open) => !open)}
         type="button"
       >
@@ -51,7 +51,7 @@ export function MobilePublicNav({
       </button>
 
       {isOpen ? (
-        <div className="fixed inset-x-0 top-16 z-40 border-b border-[var(--color-border)] bg-[var(--haven-cream)] shadow-[0_16px_40px_-24px_rgba(44,54,48,0.35)] md:hidden">
+        <div className="fixed inset-x-0 top-16 z-40 border-b border-[var(--color-border)] bg-[var(--haven-cream)] shadow-[0_16px_40px_-24px_rgba(44,54,48,0.35)] lg:hidden">
           <div className="content-container-visual py-3" id="mobile-public-nav">
             <nav className="grid gap-1">
               {navItems.map((item) => {

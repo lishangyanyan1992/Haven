@@ -213,18 +213,18 @@ export function SponsorDirectory({ companies }: SponsorDirectoryProps) {
       <div className="grid gap-4 xl:grid-cols-2">
         {visibleCompanies.map((company) => (
           <article
-            className="rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-5 shadow-[0_8px_28px_-16px_rgba(44,54,48,0.16)] scroll-mt-28"
+            className="min-w-0 rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-5 shadow-[0_8px_28px_-16px_rgba(44,54,48,0.16)] scroll-mt-28"
             id={`company-${company.id}`}
             key={company.id}
           >
             <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div className="min-w-0">
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius-lg)] bg-[var(--haven-sage-light)] text-[var(--haven-ink)]">
                     <Building2 className="h-4.5 w-4.5" />
                   </div>
                   <div className="min-w-0">
-                    <h2 className="text-h2 truncate">{company.companyName}</h2>
+                    <h2 className="text-h2 break-words">{company.companyName}</h2>
                     <p className="text-caption mt-1">Latest LCA decision: {formatDate(company.latestDecisionDate)}</p>
                     {company.website ? (
                       <a
@@ -234,26 +234,26 @@ export function SponsorDirectory({ companies }: SponsorDirectoryProps) {
                         rel="noopener noreferrer"
                       >
                         <Globe className="h-3.5 w-3.5 shrink-0" />
-                        <span className="truncate">{formatWebsiteHost(company.website)}</span>
+                        <span className="min-w-0 break-all">{formatWebsiteHost(company.website)}</span>
                       </a>
                     ) : null}
                   </div>
                 </div>
               </div>
-              <div className="rounded-[var(--radius-lg)] border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] px-4 py-3 text-center">
+              <div className="w-full min-w-0 rounded-[var(--radius-lg)] border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] px-4 py-3 text-center md:w-auto">
                 <p className="text-caption">Sponsor signal</p>
                 <p className="text-h2 mt-1">{company.sponsorScore}</p>
               </div>
             </div>
 
-            <div className="mt-5 grid gap-3 sm:grid-cols-4">
+            <div className="mt-5 grid min-w-0 gap-3 sm:grid-cols-4">
               <Metric label="FY26 LCA" value={formatNumber(company.certifiedLcaCountFy2026Q2)} />
               <Metric label="Transfer positions" value={formatNumber(company.h1bTransferPositionsFy2026Q2)} />
               <Metric label="FY23 approvals" value={formatNumber(company.uscisApprovalsFy2023)} />
               <Metric label="Median wage" value={formatCurrency(company.medianAnnualWage)} />
             </div>
 
-            <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            <div className="mt-5 grid min-w-0 gap-4 lg:grid-cols-2">
               <InfoList
                 icon={BriefcaseBusiness}
                 items={company.topRoles.slice(0, 3).map((role) => `${role.title} · ${formatNumber(role.count)}`)}
@@ -406,7 +406,7 @@ function SponsorFeedbackForm({
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[var(--radius-md)] bg-[var(--haven-cream)] p-3">
+    <div className="min-w-0 rounded-[var(--radius-md)] bg-[var(--haven-cream)] p-3">
       <p className="text-caption">{label}</p>
       <p className="text-body-sm mt-1 font-medium text-[var(--haven-ink)]">{value}</p>
     </div>
@@ -423,14 +423,14 @@ function InfoList({
   label: string;
 }) {
   return (
-    <div>
+    <div className="min-w-0">
       <div className="flex items-center gap-2 text-label">
         <Icon className="h-3.5 w-3.5" />
         {label}
       </div>
       <div className="mt-2 space-y-2">
         {items.map((item) => (
-          <p className="rounded-[var(--radius-md)] border border-[var(--color-border)] px-3 py-2 text-body-sm" key={item}>
+          <p className="min-w-0 rounded-[var(--radius-md)] border border-[var(--color-border)] px-3 py-2 text-body-sm break-words" key={item}>
             {item}
           </p>
         ))}

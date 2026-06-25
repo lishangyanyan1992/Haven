@@ -48,7 +48,7 @@ export function PublicNavbar({ currentPath }: { currentPath: string }) {
         <Link href={HAVEN_HOME_URL} prefetch={false}>
           <HavenBrand />
         </Link>
-        <nav className="hidden items-center gap-6 md:flex">
+        <nav className="hidden items-center gap-6 lg:flex">
           {navItems.map((item) => {
             const isActive = isNavItemActive(currentPath, item.href);
 
@@ -110,10 +110,10 @@ export function PublicNavbar({ currentPath }: { currentPath: string }) {
           ) : null}
         </nav>
         <div className="flex items-center gap-2 sm:gap-3">
-          <Link className="hidden text-body-sm hover:text-[var(--haven-ink)] sm:inline" href="/login">
+          <Link className="hidden text-body-sm hover:text-[var(--haven-ink)] lg:inline" href="/login">
             Sign in
           </Link>
-          <Link className={cn(buttonVariants({ variant: "default" }), "hidden sm:inline-flex")} href="/register">
+          <Link className={cn(buttonVariants({ variant: "default" }), "hidden lg:inline-flex")} href="/register">
             Get Started
           </Link>
           <MobilePublicNav

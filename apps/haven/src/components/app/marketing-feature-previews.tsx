@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowRight, CalendarCheck, FileText, FolderOpen, Heart, MessageCircle, Search, Sparkles } from "lucide-react";
+import { ArrowRight, CalendarCheck, FileText, FolderOpen, MessageCircle, Search, Sparkles } from "lucide-react";
 
 import { WaitlistTrigger } from "@/components/app/waitlist-modal";
 import { cn } from "@/lib/utils";
@@ -74,20 +74,20 @@ export function LayoffFeaturePreview() {
     <div className="mt-8 rounded-[1.5rem] border border-[rgba(58,110,132,0.18)] bg-[rgba(255,255,255,0.88)] p-4 shadow-[0_12px_30px_-18px_rgba(58,110,132,0.26)] transition-all hover:shadow-[0_16px_40px_-12px_rgba(58,110,132,0.3)]">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-[var(--haven-sky-ink)]">60-day plan</p>
+          <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-[var(--haven-sky-ink)]">H-1B 60-day plan</p>
           <p className="mt-1 text-[28px] font-semibold leading-none text-[var(--haven-ink)]">Day 18</p>
         </div>
         <div className="rounded-[1rem] border border-[var(--haven-sky-mid)] bg-[var(--haven-sky-light)] px-3 py-2 text-right">
           <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-[var(--haven-sky-ink)]">Next step</p>
-          <p className="mt-1 text-[13px] font-semibold text-[var(--haven-ink)]">Book transfer consult</p>
+          <p className="mt-1 text-[13px] font-semibold text-[var(--haven-ink)]">Review sponsor-ready roles</p>
         </div>
       </div>
 
       <div className="mt-4 space-y-2.5">
         {[
           ["Today", "Preserve payroll docs and I-94 copy"],
-          ["This week", "Shortlist cap-exempt and transfer-ready roles"],
-          ["By day 30", "Choose transfer, B-2, or departure path"]
+          ["This week", "Filter H-1B transfer-friendly job-board matches"],
+          ["By day 30", "Choose transfer, B-2, cap-exempt, or departure path"]
         ].map(([label, action], index) => (
           <motion.div
             key={label}
@@ -116,11 +116,11 @@ export function CommunityFeaturePreview() {
     <div className="mt-8 rounded-[1.5rem] border border-[rgba(74,92,84,0.14)] bg-[rgba(255,255,255,0.88)] p-4 shadow-[0_12px_30px_-18px_rgba(44,54,48,0.24)]">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-[var(--haven-ink-mid)]">Matched stories</p>
-          <p className="mt-1 text-[15px] font-semibold text-[var(--haven-ink)]">People in your queue and stage</p>
+          <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-[var(--haven-ink-mid)]">AI story expert</p>
+          <p className="mt-1 text-[15px] font-semibold text-[var(--haven-ink)]">Guidance grounded in real cases</p>
         </div>
         <div className="flex -space-x-2">
-          {["A", "R", "N"].map((initial, i) => (
+          {["AI", "H1", "GC"].map((initial, i) => (
             <motion.div
               key={initial}
               initial={{ x: -10, opacity: 0 }}
@@ -139,13 +139,13 @@ export function CommunityFeaturePreview() {
         {[
           {
             title: "H-1B transfer after layoff",
-            meta: "India queue · day 21",
-            body: "Reached out to three transfer-ready recruiters first, then upgraded to premium processing."
+            meta: "Matched from 18 moderated stories",
+            body: "AI highlights what worked: recruiter outreach, transfer timing, and when premium processing changed the risk."
           },
           {
             title: "OPT to H-1B backup plan",
-            meta: "Nigeria · STEM OPT",
-            body: "Used the same checklist to compare cap-gap timing, travel risk, and fallback options."
+            meta: "Compared across similar timelines",
+            body: "Real story patterns help compare cap-gap timing, travel risk, job search urgency, and fallback options."
           }
         ].map((story, index) => (
           <motion.div
@@ -229,17 +229,17 @@ export function WaitlistFeaturePreview() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(186,123,114,0.24)] bg-[rgba(255,245,242,0.9)] px-3 py-1">
-            <Heart className="h-3.5 w-3.5 text-[var(--haven-blush-ink)]" />
+            <FileText className="h-3.5 w-3.5 text-[var(--haven-blush-ink)]" />
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--haven-blush-ink)]">Available now</p>
           </div>
-          <p className="mt-3 text-[15px] font-semibold text-[var(--haven-ink)]">10+ forms. One packet. Zero guesswork.</p>
+          <p className="mt-3 text-[15px] font-semibold text-[var(--haven-ink)]">Guided prep for visa and green card applications.</p>
           <p className="mt-2 max-w-[60ch] text-[13px] leading-snug text-[var(--haven-ink-mid)]">
-            Start a guided green card packet builder so you can keep forms, evidence, and communications in one place.
+            Answer plain-English questions, collect the right evidence, and turn next steps into an organized application packet.
           </p>
         </div>
         <div className="rounded-[1rem] border border-[rgba(186,123,114,0.18)] bg-[rgba(255,248,246,0.92)] px-3 py-2">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--haven-blush-ink)]">Includes</p>
-          <p className="mt-1 text-[13px] font-medium text-[var(--haven-ink)]">Family-based and employment-based packet flows</p>
+          <p className="mt-1 text-[13px] font-medium text-[var(--haven-ink)]">Visa, work authorization, and green card prep flows</p>
         </div>
       </div>
 
@@ -253,7 +253,7 @@ export function WaitlistFeaturePreview() {
         <ArrowRight className="h-4 w-4" />
       </a>
 
-      <p className="mt-3 text-[12px] text-[var(--haven-ink-mid)]">Opens the guided marriage green card packet wizard.</p>
+      <p className="mt-3 text-[12px] text-[var(--haven-ink-mid)]">Opens guided immigration application prep.</p>
     </div>
   );
 }

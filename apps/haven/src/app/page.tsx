@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, ArrowUpRight, Calculator, CalendarCheck, FileText, FolderOpen, Heart, Landmark, MessageCircle, Search, ShieldAlert, Sparkles, Star, Users } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Calculator, CalendarCheck, FileText, FolderOpen, Landmark, MessageCircle, Search, ShieldAlert, Sparkles, Star } from "lucide-react";
 
 import {
   CommunityFeaturePreview,
@@ -37,8 +37,8 @@ const features = [
   },
   {
     icon: ShieldAlert,
-    title: "Layoff planning",
-    description: "A calmer 60-day plan with one clear action at a time instead of panic-driven checklists.",
+    title: "Layoff planning for H-1B workers",
+    description: "A calmer 60-day plan with H-1B transfer options, sponsor-ready job leads, and one clear action at a time.",
     preview: LayoffFeaturePreview,
     cardClass: "bg-[var(--haven-sky-light)]",
     iconClass: "bg-white/70 text-[var(--haven-ink)]",
@@ -46,9 +46,9 @@ const features = [
     cta: { href: "/register", label: "Get started" }
   },
   {
-    icon: Users,
-    title: "Matched community",
-    description: "Stories and tactics from people in the same visa stage, country queue, and moment.",
+    icon: Sparkles,
+    title: "AI expert from real stories",
+    description: "Ask about your immigration moment and get guidance grounded in moderated stories from people who have been there.",
     preview: CommunityFeaturePreview,
     cardClass: "bg-[rgba(236,243,238,0.92)]",
     iconClass: "bg-[var(--haven-white)] text-[var(--haven-ink)]",
@@ -56,9 +56,9 @@ const features = [
     cta: { href: "/community", label: "Explore the community" }
   },
   {
-    icon: Heart,
-    title: "Green card packet builder",
-    description: "A guided home for your adjustment-of-status packet, with one place for forms, documents, and next steps.",
+    icon: FileText,
+    title: "TurboTax-style immigration prep",
+    description: "Prepare visa and green card applications with guided questions, organized evidence, and form-ready next steps.",
     preview: WaitlistFeaturePreview,
     cardClass: "bg-[rgba(249,242,236,0.96)]",
     iconClass: "bg-[var(--haven-white)] text-[var(--haven-ink)]",
@@ -146,58 +146,58 @@ export default function HomePage() {
             <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(253,250,246,0.92)_0%,rgba(253,250,246,0.72)_42%,rgba(253,250,246,0.76)_100%)]" />
           </div>
 
-          <ScrollReveal isStaggerContainer className="relative z-10 grid gap-8 px-0 lg:grid-cols-[0.88fr_1.12fr] lg:items-center lg:gap-16 xl:grid-cols-[0.84fr_1.16fr] xl:gap-20 2xl:gap-24">
-          <div className="animate-enter">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex items-center gap-2 rounded-full border border-[var(--haven-sky-mid)] bg-[var(--haven-sky-light)] px-4 py-2">
-                <Landmark className="h-3.5 w-3.5 text-[var(--haven-sky-ink)]" />
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--haven-sky-ink)]">
-                  Built for U.S. immigration
-                </p>
+          <div className="relative z-10 grid gap-8 px-0 lg:grid-cols-[0.88fr_1.12fr] lg:items-center lg:gap-16 xl:grid-cols-[0.84fr_1.16fr] xl:gap-20 2xl:gap-24">
+            <div className="animate-enter">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-flex items-center gap-2 rounded-full border border-[var(--haven-sky-mid)] bg-[var(--haven-sky-light)] px-4 py-2">
+                  <Landmark className="h-3.5 w-3.5 text-[var(--haven-sky-ink)]" />
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--haven-sky-ink)]">
+                    Built for U.S. immigration
+                  </p>
+                </div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] px-4 py-2">
+                  <Sparkles className="h-3.5 w-3.5 text-[var(--haven-ink-mid)]" />
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--haven-ink-mid)]">
+                    Free to use
+                  </p>
+                </div>
               </div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] px-4 py-2">
-                <Sparkles className="h-3.5 w-3.5 text-[var(--haven-ink-mid)]" />
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--haven-ink-mid)]">
-                  Free to use
-                </p>
+              <h1 className="text-display mt-5 max-w-[12ch]">
+                You don&apos;t have to navigate immigration <em>alone</em>.
+              </h1>
+              <p className="text-body mt-6 max-w-[60ch]">
+                Haven helps global talent navigate U.S. visas and green cards — from F-1, OPT/CPT, and H-1B to job changes, layoffs, priority dates, and employment-based green cards.
+              </p>
+              <div className="mt-8 flex flex-col items-start gap-3 sm:flex-row">
+                <Link className={buttonVariants({ variant: "default", size: "lg" })} href="/register">
+                  Get Started
+                </Link>
               </div>
             </div>
-            <h1 className="text-display mt-5 max-w-[12ch]">
-              You don&apos;t have to navigate immigration <em>alone</em>.
-            </h1>
-            <p className="text-body mt-6 max-w-[60ch]">
-              Haven helps global talent navigate U.S. visas and green cards — from F-1, OPT/CPT, and H-1B to job changes, layoffs, priority dates, and employment-based green cards.
-            </p>
-            <div className="mt-8 flex flex-col items-start gap-3 sm:flex-row">
-              <Link className={buttonVariants({ variant: "default", size: "lg" })} href="/register">
-                Get Started
-              </Link>
-            </div>
-          </div>
 
-          <div className="animate-enter rounded-[2rem] border border-[var(--color-border)] bg-[var(--haven-white)] p-3 shadow-[0_12px_48px_-12px_rgba(44,54,48,0.12)] lg:p-4">
-            <div className="relative overflow-hidden rounded-[calc(var(--radius-2xl)+0.25rem)]">
-              <Image
-                src="/hero-banner.png"
-                alt="Three people reviewing immigration documents together"
-                width={1536}
-                height={1024}
-                className="h-auto w-full object-cover"
-                sizes="(min-width: 1728px) 62rem, (min-width: 1440px) 58rem, (min-width: 1280px) 54rem, (min-width: 1024px) 50vw, 100vw"
-                quality={95}
-                priority
-              />
-              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.02)_0%,rgba(255,255,255,0)_42%,rgba(44,54,48,0.08)_100%)]" />
+            <div className="animate-enter rounded-[2rem] border border-[var(--color-border)] bg-[var(--haven-white)] p-3 shadow-[0_12px_48px_-12px_rgba(44,54,48,0.12)] lg:p-4">
+              <div className="relative overflow-hidden rounded-[calc(var(--radius-2xl)+0.25rem)]">
+                <Image
+                  src="/hero-banner.png"
+                  alt="Three people reviewing immigration documents together"
+                  width={1536}
+                  height={1024}
+                  className="h-auto w-full object-cover"
+                  sizes="(min-width: 1728px) 62rem, (min-width: 1440px) 58rem, (min-width: 1280px) 54rem, (min-width: 1024px) 50vw, 100vw"
+                  quality={95}
+                  priority
+                />
+                <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.02)_0%,rgba(255,255,255,0)_42%,rgba(44,54,48,0.08)_100%)]" />
+              </div>
             </div>
           </div>
-          </ScrollReveal>
         </section>
 
         <section className={cn(pageSectionClass, "bg-[var(--haven-white)]")} id="features">
           <ScrollReveal yOffset={30} duration={0.8} className={pageSectionInnerClass}>
             <div className="max-w-[62ch]">
               <p className="text-label">Why Haven</p>
-              <h2 className="text-h1 mt-4 max-w-none whitespace-nowrap">All your immigration support, in one place</h2>
+              <h2 className="text-h1 mt-4 max-w-[28ch]">All your immigration support, in one place</h2>
             </div>
             <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-12 xl:gap-5">
               {features.map((feature) => (
@@ -243,9 +243,9 @@ export default function HomePage() {
         </section>
 
         <section className={cn(pageSectionClass, "bg-[var(--haven-white)]")} id="how-it-works">
-          <ScrollReveal yOffset={30} duration={0.8} className={pageSectionInnerClass}>
-            <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
-              <div>
+          <div className={pageSectionInnerClass}>
+            <div className="space-y-10">
+              <div className="max-w-[62ch]">
                 <p className="text-label">How it works</p>
                 <h2 className="text-h1 mt-4">Give Haven a few details. Get value back immediately.</h2>
                 <p className="text-body mt-4 max-w-[60ch]">
@@ -254,46 +254,8 @@ export default function HomePage() {
               </div>
               <HowItWorksShowcase />
             </div>
-          </ScrollReveal>
+          </div>
         </section>
-
-        {immigWizardUrl ? (
-          <section className={cn(pageSectionClass, "bg-[var(--haven-sage-light,var(--haven-sand))]")}>
-            <ScrollReveal yOffset={30} duration={0.8} className={pageSectionInnerClass}>
-              <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-center">
-                <div>
-                  <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[var(--haven-sage-mid)] bg-[var(--haven-white)] px-3 py-1">
-                    <FileText className="h-3.5 w-3.5 text-[var(--haven-sage)]" />
-                    <p className="text-[11px] font-medium tracking-wide text-[var(--haven-ink-mid)]">Free companion tool</p>
-                  </div>
-                  <h2 className="text-h1 max-w-[22ch]">
-                    Applying for a marriage-based green card? We've got you.
-                  </h2>
-                  <p className="text-body mt-4 max-w-[58ch]">
-                    ImmigWizard walks you through Forms I-130, I-485, I-864, I-765, and I-131 — step by step — and generates pre-filled PDFs ready to mail to USCIS. No attorney needed for a straightforward case.
-                  </p>
-                  <div className="mt-6 flex flex-wrap gap-3">
-                    {["I-130 · I-485 · I-864", "Pre-filled PDFs", "Free to use"].map((tag) => (
-                      <span key={tag} className="tag tag-visa">{tag}</span>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex flex-col items-start gap-3 lg:items-end">
-                  <a
-                    href={immigWizardUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-[var(--radius-lg)] bg-[var(--haven-ink)] px-6 py-3 text-[15px] font-semibold text-[var(--haven-cream)] shadow-sm transition-all hover:-translate-y-0.5 hover:bg-[var(--haven-ink-mid,var(--haven-ink))] hover:shadow-md"
-                  >
-                    Get Started
-                    <ArrowRight className="h-4 w-4" />
-                  </a>
-                  <p className="text-caption text-center lg:text-right">Takes about 10 minutes</p>
-                </div>
-              </div>
-            </ScrollReveal>
-          </section>
-        ) : null}
 
         <section className={cn(pageSectionClass, "bg-[var(--haven-sky-light)]")} id="community">
           <ScrollReveal yOffset={30} duration={0.8} className={pageSectionInnerClass}>

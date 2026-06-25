@@ -186,7 +186,13 @@ export default function JobsPage() {
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               {data.sources.map((source) => (
-                <a className="tag tag-pending" href={source.url} key={source.label} rel="noopener noreferrer" target="_blank">
+                <a
+                  className="tag tag-pending min-w-0 max-w-full whitespace-normal break-words text-left"
+                  href={source.url}
+                  key={source.label}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
                   {source.label} · {formatNumber(source.recordCount)} rows
                 </a>
               ))}
