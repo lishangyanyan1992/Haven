@@ -51,6 +51,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "weekly",
       priority: 0.85
     },
+    {
+      url: absoluteUrl("/day-1-cpt-schools").toString(),
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.8
+    },
     ...publicTools.map((tool) => ({
       url: absoluteUrl(`/tools/${tool.slug}`).toString(),
       lastModified: new Date(),

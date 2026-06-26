@@ -16,7 +16,8 @@ const navItems = [
 ];
 
 const marketplaceNavItems = [
-  { href: "/lawyers", label: "Immigration Lawyers" }
+  { href: "/lawyers", label: "Immigration Lawyers" },
+  { href: "/day-1-cpt-schools", label: "Day 1 CPT Schools" }
 ];
 
 const resourceNavItems = [

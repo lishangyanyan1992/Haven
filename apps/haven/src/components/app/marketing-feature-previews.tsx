@@ -272,7 +272,7 @@ export function MarketplaceFeaturePreview() {
       </div>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        {["Immigration lawyers", "Health insurance", "Tax and payroll help", "Move and relocation support"].map((item) => (
+        {["Immigration lawyers", "Day 1 CPT schools", "Tax and payroll help", "Move and relocation support"].map((item) => (
           <motion.div whileHover={{ scale: 1.02 }} key={item} className="rounded-[1rem] border border-[rgba(86,114,142,0.12)] bg-[rgba(243,248,251,0.92)] px-3 py-2 cursor-default">
             <p className="text-[13px] font-medium text-[var(--haven-ink)]">{item}</p>
           </motion.div>
