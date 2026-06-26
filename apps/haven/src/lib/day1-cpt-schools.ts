@@ -3,6 +3,12 @@ export type Day1CptSchoolSource = {
   url: string;
 };
 
+export type Day1CptPublicFeedback = {
+  note: string;
+  sourceLabel: string;
+  sourceUrl: string;
+};
+
 export type Day1CptSchool = {
   id: string;
   name: string;
@@ -16,6 +22,7 @@ export type Day1CptSchool = {
   degrees: string[];
   requirements: string[];
   caveats: string[];
+  publicFeedback: Day1CptPublicFeedback[];
   sources: Day1CptSchoolSource[];
 };
 
@@ -49,6 +56,18 @@ export const day1CptSchools: Day1CptSchool[] = [
     caveats: [
       "BAU has separate pages with different CPT wording for different program paths.",
       "Do not rely on a generic program page; ask the DSO about your exact degree, intake, and CPT course."
+    ],
+    publicFeedback: [
+      {
+        note: "Recent applicants are discussing BAU as a newer Day 1 CPT option and are still looking for current-student confirmation before committing.",
+        sourceLabel: "Reddit applicant thread",
+        sourceUrl: "https://www.reddit.com/r/Day1CPTuniversities/comments/1si09xt/starting_bau_bay_atlantic_university_ms_ai/"
+      },
+      {
+        note: "General graduate reviews mention affordable tuition and a fast admissions process, while other reviews raise concerns about support after enrollment.",
+        sourceLabel: "Niche student reviews",
+        sourceUrl: "https://www.niche.com/colleges/bay-atlantic-university/reviews/"
+      }
     ],
     sources: [
       { label: "Day-1 CPT page", url: "https://bau.edu/day-1-cpt/" },
@@ -84,6 +103,18 @@ export const day1CptSchools: Day1CptSchool[] = [
     caveats: [
       "The school uses 'eligible students' language; CPT is not automatic.",
       "Confirm whether the job, employer, and location match the degree plan before enrolling."
+    ],
+    publicFeedback: [
+      {
+        note: "A recent long-term student reported a generally workable experience at Harrisburg, with cost as the main complaint.",
+        sourceLabel: "Reddit CPT thread",
+        sourceUrl: "https://www.reddit.com/r/Day1CPTuniversities/comments/1smr6m8/harrisburg_university_pa_for_cpt/"
+      },
+      {
+        note: "Students comparing options often flag Harrisburg's in-person attendance and travel costs as practical factors to budget for.",
+        sourceLabel: "Reddit Day 1 CPT AMA",
+        sourceUrl: "https://www.reddit.com/r/h1b/comments/1275t2s/day_1_cpt_ama/"
+      }
     ],
     sources: [
       { label: "International admissions CPT FAQ", url: "https://www.harrisburgu.edu/international/admissions/" },
@@ -124,6 +155,18 @@ export const day1CptSchools: Day1CptSchool[] = [
       "Sessions start soon — late applicants should confirm feasibility with the DSO before depositing.",
       "Program-specific CPT availability and professional tuition category should be verified before deposit."
     ],
+    publicFeedback: [
+      {
+        note: "Applicants frequently compare Westcliff with Harrisburg because Westcliff is perceived as having a lighter campus-visit burden.",
+        sourceLabel: "Reddit comparison thread",
+        sourceUrl: "https://www.reddit.com/r/Day1CPTuniversities/comments/1j72jza/westcliff_vs_harrisburg_day_1_cpt_program/"
+      },
+      {
+        note: "Feedback on CPT document handling is mixed: one thread reports slow I-20 follow-up, while another commenter said their Westcliff experience was good so far.",
+        sourceLabel: "Reddit CPT I-20 thread",
+        sourceUrl: "https://www.reddit.com/r/Day1CPTuniversities/comments/1kfsurx/westcliff_cpt_i20/"
+      }
+    ],
     sources: [
       { label: "CPT FAQ", url: "https://services.westcliff.edu/TDClient/48/Portal/KB/ArticleDet?ID=837" },
       { label: "Academic calendar", url: "https://www.westcliff.edu/financial-aid/important-dates/" },
@@ -156,6 +199,18 @@ export const day1CptSchools: Day1CptSchool[] = [
     caveats: [
       "Tuition is changing effective Fall 2026, so verify the current rate before applying.",
       "The official CPT page states graduate eligibility, but the exact degree and campus should be confirmed."
+    ],
+    publicFeedback: [
+      {
+        note: "Independent CPT-specific discussion for IAU is thinner than for larger Day 1 CPT schools, so applicants should try to speak with current MBA or DBA students.",
+        sourceLabel: "Reddit IAU thread",
+        sourceUrl: "https://www.reddit.com/r/Day1CPTuniversities/comments/1ffgme5/international_american_university_los_angeles/"
+      },
+      {
+        note: "IAU publishes recent student-survey and Google-review indicators that are broadly positive, but these are school-published metrics and should be checked against outside feedback.",
+        sourceLabel: "IAU student reviews",
+        sourceUrl: "https://iaula.edu/"
+      }
     ],
     sources: [
       { label: "CPT page", url: "https://iaula.edu/cpt/" },
@@ -193,6 +248,18 @@ export const day1CptSchools: Day1CptSchool[] = [
       "Trine explicitly says it will not expedite CPT applications.",
       "Initial CPT review can take up to 14 business days, longer if materials are incomplete."
     ],
+    publicFeedback: [
+      {
+        note: "One student-experience writeup described Trine's annual CPT authorization and lower travel cost to Phoenix as practical advantages.",
+        sourceLabel: "Reddit student guide",
+        sourceUrl: "https://www.reddit.com/r/Day1CPTuniversities/comments/14lqsx9/trine_university_phoenix_student_experience_and/"
+      },
+      {
+        note: "Recent threads show more mixed sentiment, with some students asking about approval timing and others warning about responsiveness.",
+        sourceLabel: "Reddit Trine experience thread",
+        sourceUrl: "https://www.reddit.com/r/Day1CPTuniversities/comments/1rs7nsy/trine_university_day1_cpt_experience_1year/"
+      }
+    ],
     sources: [
       { label: "CPT information", url: "https://www.trine.edu/international/graduate/cpt-information.aspx" },
       { label: "Orientation dates", url: "https://www.trine.edu/international/graduate/international-orientation.aspx" },
@@ -221,6 +288,18 @@ export const day1CptSchools: Day1CptSchool[] = [
     caveats: [
       "The official page confirms Day-1 CPT but not every intake date — confirm yours with admissions.",
       "Use McDaniel admissions/DSO for the actual nearest F-1 transfer deadline."
+    ],
+    publicFeedback: [
+      {
+        note: "General student feedback describes McDaniel as close-knit, with small classes and professors who are accessible to students.",
+        sourceLabel: "Niche McDaniel reviews",
+        sourceUrl: "https://www.niche.com/colleges/mcdaniel-college/"
+      },
+      {
+        note: "Recent public discussion is not very CPT-specific; local alumni comments instead emphasize teaching quality and the need to compare actual net cost after aid.",
+        sourceLabel: "Reddit Maryland thread",
+        sourceUrl: "https://www.reddit.com/r/maryland/comments/1mt7q48/mcdaniel_college/"
+      }
     ],
     sources: [
       {
@@ -255,6 +334,18 @@ export const day1CptSchools: Day1CptSchool[] = [
       "The admissions page confirms first-day CPT eligibility but not every qualifying degree — confirm yours.",
       "Ask whether your prior F-1 history affects immediate CPT eligibility."
     ],
+    publicFeedback: [
+      {
+        note: "A recent enrolled-student thread describes GBC as a safer-feeling option but says the process can move slowly.",
+        sourceLabel: "Reddit GBC enrollment thread",
+        sourceUrl: "https://www.reddit.com/r/Day1CPTuniversities/comments/1twyz5y/anyone_enrolled_in_goldeybeacom_college_with/"
+      },
+      {
+        note: "Another applicant thread also calls out slow admissions communication, so students should leave time for I-20 and CPT processing.",
+        sourceLabel: "Reddit applicant thread",
+        sourceUrl: "https://www.reddit.com/r/Day1CPTuniversities/comments/1kcpz0x/anyone_joining_goldey_beacom_college/"
+      }
+    ],
     sources: [
       { label: "International admissions", url: "https://www.gbc.edu/admissions-aid/international-admissions/" },
       { label: "Graduate admissions", url: "https://www.gbc.edu/admissions-aid/graduate-admissions/" },
@@ -286,6 +377,18 @@ export const day1CptSchools: Day1CptSchool[] = [
     caveats: [
       "The official page says students can request CPT; it does not say approval is automatic.",
       "Confirm whether your exact program has an in-person or hybrid requirement compatible with F-1."
+    ],
+    publicFeedback: [
+      {
+        note: "Recent general student-review summaries frame Faulkner as a smaller school with room for growth but a supportive academic environment.",
+        sourceLabel: "Niche Faulkner reviews",
+        sourceUrl: "https://www.niche.com/colleges/faulkner-university/reviews/"
+      },
+      {
+        note: "Older graduate-program feedback highlights flexibility for working or non-traditional students, but CPT-specific public feedback remains limited.",
+        sourceLabel: "GradReports Faulkner reviews",
+        sourceUrl: "https://www.gradreports.com/colleges/faulkner-university"
+      }
     ],
     sources: [
       { label: "International graduate CPT", url: "https://www.faulkner.edu/graduate/international-students/" },
@@ -324,6 +427,18 @@ export const day1CptSchools: Day1CptSchool[] = [
       "Do not confuse EMEM part-time Day-1 CPT with MEM CPT after 30/24 credits.",
       "Verify tuition in the current SCSU tuition table because the EMEM page points out rates may change."
     ],
+    publicFeedback: [
+      {
+        note: "A 2026 computer-and-information-science review praised the study environment and resources, while asking for stronger career alignment and more international-student internship support.",
+        sourceLabel: "GradReports SCSU reviews",
+        sourceUrl: "https://www.gradreports.com/colleges/saint-cloud-state-university"
+      },
+      {
+        note: "Recent general reviews describe approachable faculty and a welcoming campus, with career services and diversity support still mentioned as areas to improve.",
+        sourceLabel: "Niche SCSU reviews",
+        sourceUrl: "https://www.niche.com/colleges/st-cloud-state-university/reviews/"
+      }
+    ],
     sources: [
       { label: "Engineering Management overview", url: "https://www.stcloudstate.edu/engineeringmanagement/" },
       { label: "EMEM course schedule", url: "https://www.stcloudstate.edu/engineeringmanagement/emem/courses.aspx" },
@@ -355,6 +470,18 @@ export const day1CptSchools: Day1CptSchool[] = [
     caveats: [
       "The international graduate page says all students are eligible, but the program page should still be checked.",
       "Tuition varies by graduate program."
+    ],
+    publicFeedback: [
+      {
+        note: "Recent general reviews mention a supportive campus, approachable professors, and smaller classes that make participation easier.",
+        sourceLabel: "Niche FSC reviews",
+        sourceUrl: "https://www.niche.com/colleges/florida-southern-college/reviews/"
+      },
+      {
+        note: "Parent and local discussion often centers on the quiet Lakeland setting, small-school feel, and hands-on programs rather than CPT processing details.",
+        sourceLabel: "Public parent discussion",
+        sourceUrl: "https://www.facebook.com/groups/563422112835528/posts/900000952510974/"
+      }
     ],
     sources: [
       {
@@ -399,6 +526,18 @@ export const day1CptSchools: Day1CptSchool[] = [
       "OC's online graduate business and systems programs are not F-1 eligible for U.S. study.",
       "Use the engineering/computer science deadline page for MSCS, not the business-school deadline page."
     ],
+    publicFeedback: [
+      {
+        note: "General reviews call out OC's engineering and computer science faculty for real-world experience and connections to local industry.",
+        sourceLabel: "Niche OC overview",
+        sourceUrl: "https://www.niche.com/colleges/oklahoma-christian-university/"
+      },
+      {
+        note: "Third-party student-review summaries consistently emphasize accessible professors, which is useful context for students weighing a smaller MSCS program.",
+        sourceLabel: "Princeton Review OC profile",
+        sourceUrl: "https://www.princetonreview.com/college/oklahoma-christian-university-1023680"
+      }
+    ],
     sources: [
       { label: "International graduate degrees", url: "https://www.oc.edu/academics/international-graduate-degrees" },
       {
@@ -434,6 +573,18 @@ export const day1CptSchools: Day1CptSchool[] = [
       "Official pages confirm CPT is required but don't state a specific first-day date — confirm it with International Programs.",
       "Students should confirm whether July or August 2026 is the next open EMBA CPT cohort before relying on timing."
     ],
+    publicFeedback: [
+      {
+        note: "A Day 1 CPT discussion describes Ottawa as a risk-conscious option with annual CPT renewal, but also flags higher tuition and limited curriculum detail online.",
+        sourceLabel: "Reddit Ottawa CPT thread",
+        sourceUrl: "https://www.reddit.com/r/Day1CPTuniversities/comments/1jvnmq8/how_is_ottawa_university_for_day_1_cpt/"
+      },
+      {
+        note: "General student reviews highlight approachable faculty and a small-class environment; CPT-specific comments remain less common than for Harrisburg or Westcliff.",
+        sourceLabel: "Niche Ottawa reviews",
+        sourceUrl: "https://www.niche.com/colleges/ottawa-university/reviews/"
+      }
+    ],
     sources: [
       { label: "International EMBA CPT page", url: "https://www.ottawa.edu/professional-and-online/academics/international-students/emba" },
       { label: "EMBA program page", url: "https://www.ottawa.edu/academics/school-of-business/degree-programs/graduate/executive-mba" },
@@ -442,4 +593,3 @@ export const day1CptSchools: Day1CptSchool[] = [
     ]
   }
 ];
-

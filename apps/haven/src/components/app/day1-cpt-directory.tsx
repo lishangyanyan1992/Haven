@@ -109,6 +109,8 @@ export function Day1CptDirectory({ schools }: Day1CptDirectoryProps) {
                 </CardSection>
               ) : null}
 
+              {school.publicFeedback.length ? <PublicFeedbackSection school={school} /> : null}
+
               <div className="border-t border-[var(--color-border)] pt-4">
                 <p className="text-label">Official sources</p>
                 <div className="mt-2.5 flex flex-wrap gap-2">
@@ -219,6 +221,36 @@ function BulletList({ items, tone = "default" }: { items: string[]; tone?: "defa
         </li>
       ))}
     </ul>
+  );
+}
+
+function PublicFeedbackSection({ school }: { school: Pick<Day1CptSchool, "name" | "publicFeedback"> }) {
+  return (
+    <section className="border-t border-[var(--color-border)] pt-4">
+      <div className="flex items-center gap-2 text-label">
+        <MessageSquareText className="h-3.5 w-3.5" />
+        Public feedback themes
+      </div>
+      <p className="mt-1.5 text-caption">
+        Paraphrased from linked public forums or review sites. These are not Haven-verified student submissions.
+      </p>
+      <ul className="mt-3 space-y-3">
+        {school.publicFeedback.map((feedback) => (
+          <li className="border-l-2 border-[var(--haven-sky-mid)] pl-3" key={`${school.name}-${feedback.sourceUrl}`}>
+            <p className="text-body-sm">{feedback.note}</p>
+            <a
+              className="mt-1.5 inline-flex items-center gap-1 text-caption font-medium text-[var(--haven-sky-ink)] underline-offset-4 hover:underline"
+              href={feedback.sourceUrl}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              {feedback.sourceLabel}
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -384,4 +416,3 @@ function ConsultantListingForm() {
     </form>
   );
 }
-
