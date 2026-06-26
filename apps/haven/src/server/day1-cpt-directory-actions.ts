@@ -11,7 +11,7 @@ export type Day1CptFeedbackActionState = {
   message: string;
 };
 
-const FEEDBACK_KINDS = ["school_comment", "consultant_listing"] as const;
+const FEEDBACK_KINDS = ["school_comment", "consultant_listing", "school_suggestion"] as const;
 const RELATIONSHIPS = ["student", "alum", "applicant", "school_staff", "consultant", "other"] as const;
 
 const schoolById = new Map(day1CptSchools.map((school) => [school.id, school]));
@@ -79,6 +79,22 @@ export async function submitDay1CptFeedback(
     schoolName = school.name;
   }
 
+  if (feedbackKind === "school_suggestion") {
+    schoolName = bounded(field(form, "school_name"), 180);
+    const parsedWebsite = safeUrl(bounded(field(form, "school_website"), 2048));
+
+    if (!schoolName) {
+      return { status: "error", message: "Add the school's name." };
+    }
+
+    if (!parsedWebsite) {
+      return { status: "error", message: "Add the school's official website so we can verify it." };
+    }
+
+    organizationWebsite = parsedWebsite.url;
+    organizationDomain = parsedWebsite.domain;
+  }
+
   if (feedbackKind === "consultant_listing") {
     organizationName = bounded(field(form, "organization_name"), 180);
     const parsedWebsite = safeUrl(bounded(field(form, "organization_website"), 2048));
@@ -130,7 +146,9 @@ export async function submitDay1CptFeedback(
     message:
       feedbackKind === "consultant_listing"
         ? "Thanks. We received your listing request and will review it before publishing anything."
-        : "Thanks. We received your note and will review it before it appears publicly."
+        : feedbackKind === "school_suggestion"
+          ? "Thanks. We received your school suggestion and will review it before adding it."
+          : "Thanks. We received your note and will review it before it appears publicly."
   };
 }
 

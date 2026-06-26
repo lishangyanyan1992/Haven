@@ -121,7 +121,7 @@ export const day1CptSchools: Day1CptSchool[] = [
       "Maintain F-1 status and follow session/semester renewal deadlines."
     ],
     caveats: [
-      "The next closest start date is very close to the current June 26, 2026 snapshot; late applicants should confirm feasibility.",
+      "Sessions start soon — late applicants should confirm feasibility with the DSO before depositing.",
       "Program-specific CPT availability and professional tuition category should be verified before deposit."
     ],
     sources: [
@@ -209,7 +209,7 @@ export const day1CptSchools: Day1CptSchool[] = [
       "Official M.S. Data Analytics page says the STEM-designated program offers Day-1 CPT for F-1 international students.",
     cptTiming: "Day-1 CPT for the M.S. Data Analytics program; confirm I-20 start and authorization date with the DSO.",
     nextCohort:
-      "Official graduate admissions page lists Summer 2026 Session II dates through August 16, 2026; third-party intake pages list Fall 2026 program start around August 2026, so confirm with McDaniel.",
+      "Summer 2026 Session II runs through August 16, 2026; a Fall 2026 start falls around August 2026 — confirm the exact date with McDaniel admissions.",
     tuition:
       "M.S. Data Analytics tuition is $700/credit, plus listed residency and practicum fees. Program page lists 30-36 credits total.",
     degrees: ["M.S. Data Analytics"],
@@ -219,7 +219,7 @@ export const day1CptSchools: Day1CptSchool[] = [
       "Confirm residency, practicum, and CPT paperwork deadlines before transferring SEVIS."
     ],
     caveats: [
-      "The official page confirms Day-1 CPT but does not expose every intake date in the public card text.",
+      "The official page confirms Day-1 CPT but not every intake date — confirm yours with admissions.",
       "Use McDaniel admissions/DSO for the actual nearest F-1 transfer deadline."
     ],
     sources: [
@@ -252,7 +252,7 @@ export const day1CptSchools: Day1CptSchool[] = [
       "Maintain full-time F-1 enrollment and school authorization."
     ],
     caveats: [
-      "The admissions page confirms first-day CPT eligibility but does not identify every eligible degree in the visible text.",
+      "The admissions page confirms first-day CPT eligibility but not every qualifying degree — confirm yours.",
       "Ask whether your prior F-1 history affects immediate CPT eligibility."
     ],
     sources: [
@@ -431,7 +431,7 @@ export const day1CptSchools: Day1CptSchool[] = [
       "CPT is requested/approved by the Executive Practicum instructor and authorized by International Programs."
     ],
     caveats: [
-      "Official pages confirm CPT is required but do not expose a specific Day-1 authorization date in the visible page copy.",
+      "Official pages confirm CPT is required but don't state a specific first-day date — confirm it with International Programs.",
       "Students should confirm whether July or August 2026 is the next open EMBA CPT cohort before relying on timing."
     ],
     sources: [
