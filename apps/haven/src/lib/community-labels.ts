@@ -1,4 +1,4 @@
-import type { ImmigrationProfile, PreferenceCategory, VisaType } from "@/types/domain";
+import type { Concern, ImmigrationProfile, PreferenceCategory, PrimaryGoal, VisaType } from "@/types/domain";
 
 type CommunityPostLike = {
   title: string;
@@ -8,8 +8,21 @@ type CommunityPostLike = {
 
 type CommunityAuthorContext = Pick<
   ImmigrationProfile,
-  "countryOfBirth" | "visaType" | "preferenceCategory" | "employmentStatus" | "permStage" | "i140Approved" | "i485Filed"
+  | "countryOfBirth"
+  | "visaType"
+  | "preferenceCategory"
+  | "employmentStatus"
+  | "permStage"
+  | "i140Approved"
+  | "i485Filed"
+  | "primaryGoal"
+  | "topConcerns"
 >;
+
+export type CommunityPostMatch = {
+  reasons: string[];
+  score: number;
+};
 
 type LabelDetector = {
   label: string;
@@ -138,6 +151,10 @@ function addLabel(labels: string[], label: string) {
   }
 }
 
+export function getCommunityProfileLabels(profile: Partial<CommunityAuthorContext>) {
+  return getConfirmedCommunityLabels({ title: "", body: "", tags: [] }, profile);
+}
+
 export function getConfirmedCommunityLabels(post: CommunityPostLike, authorContext?: Partial<CommunityAuthorContext>) {
   const labels: string[] = [];
   const normalizedTags = post.tags.map((tag) => tag.trim().toLowerCase());
@@ -187,6 +204,88 @@ export function getConfirmedCommunityLabels(post: CommunityPostLike, authorConte
   }
 
   return sortCommunityLabels(labels);
+}
+
+function addScore(
+  match: CommunityPostMatch,
+  condition: boolean,
+  points: number,
+  reason: string
+) {
+  if (!condition) {
+    return;
+  }
+
+  match.score += points;
+  if (!match.reasons.includes(reason)) {
+    match.reasons.push(reason);
+  }
+}
+
+function hasAny(labels: Set<string>, values: string[]) {
+  return values.some((value) => labels.has(value));
+}
+
+function concernLabels(concern: Concern) {
+  switch (concern) {
+    case "layoffs":
+      return ["Layoff", "Grace period", "B-2 bridge", "Job search"];
+    case "visa_expiry":
+      return ["Grace period", "H-1B", "F-1", "STEM OPT", "B-2 bridge"];
+    case "gc_timeline":
+      return ["EB-1", "EB-2", "EB-3", "EB-2 NIW", "PERM", "Approved I-140", "I-140", "I-485"];
+    case "job_change":
+      return ["Job change", "H-1B", "AC21", "Approved I-140"];
+    default:
+      return [];
+  }
+}
+
+function goalLabels(goal: PrimaryGoal) {
+  switch (goal) {
+    case "get_gc":
+      return ["EB-1", "EB-2", "EB-3", "EB-2 NIW", "PERM", "Approved I-140", "I-140", "I-485"];
+    case "job_stability":
+      return ["H-1B", "Layoff", "Grace period", "Job change", "Job search"];
+    case "explore_options":
+    case "stay_flexible":
+      return ["B-2 bridge", "H-4", "F-1", "STEM OPT", "O-1", "Job search"];
+    default:
+      return [];
+  }
+}
+
+export function scoreCommunityPostForProfile(
+  post: CommunityPostLike,
+  profile: Partial<CommunityAuthorContext>
+): CommunityPostMatch {
+  const postLabels = new Set(getConfirmedCommunityLabels(post));
+  const match: CommunityPostMatch = {
+    reasons: [],
+    score: 0
+  };
+  const visaLabel = profile.visaType ? canonicalVisaLabel(profile.visaType) : null;
+  const preferenceLabel = profile.preferenceCategory ? canonicalPreferenceLabel(profile.preferenceCategory) : null;
+
+  addScore(match, Boolean(visaLabel && postLabels.has(visaLabel)), 5, `Matches your ${visaLabel} status`);
+  addScore(match, Boolean(profile.countryOfBirth && postLabels.has(profile.countryOfBirth)), 3, `Matches your ${profile.countryOfBirth} queue`);
+  addScore(match, Boolean(preferenceLabel && postLabels.has(preferenceLabel)), 4, `Matches your ${preferenceLabel} category`);
+  addScore(match, Boolean(profile.i140Approved && postLabels.has("Approved I-140")), 4, "Matches your approved I-140 stage");
+  addScore(match, Boolean(profile.i485Filed && postLabels.has("I-485 filed")), 4, "Matches your I-485 stage");
+  addScore(match, Boolean(profile.permStage === "in_progress" && postLabels.has("PERM")), 3, "Matches your PERM stage");
+  addScore(match, Boolean(profile.permStage === "certified" && postLabels.has("PERM certified")), 3, "Matches your certified PERM stage");
+  addScore(match, Boolean(profile.employmentStatus === "laid_off" && postLabels.has("Layoff")), 5, "Matches your layoff situation");
+  addScore(match, Boolean(profile.employmentStatus === "actively_searching" && postLabels.has("Job search")), 4, "Matches your job search");
+
+  for (const concern of profile.topConcerns ?? []) {
+    addScore(match, hasAny(postLabels, concernLabels(concern)), 3, `Matches your ${concern.replace("_", " ")} concern`);
+  }
+
+  if (profile.primaryGoal) {
+    addScore(match, hasAny(postLabels, goalLabels(profile.primaryGoal)), 2, "Matches your current goal");
+  }
+
+  return match;
 }
 
 export function sortCommunityLabels(labels: string[]) {
