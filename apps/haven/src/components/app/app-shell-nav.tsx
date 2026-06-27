@@ -31,11 +31,13 @@ const navItems = [
 export function AppShellNav({
   activePath,
   advisorUsage,
+  communityUnreadCount = 0,
   crisisDayNumber,
   showPlanner
 }: {
   activePath: string;
   advisorUsage: AdvisorUsage;
+  communityUnreadCount?: number;
   crisisDayNumber?: number;
   showPlanner: boolean;
 }) {
@@ -104,7 +106,9 @@ export function AppShellNav({
             {!isPending && item.href === "/dashboard" && crisisDayNumber ? (
               <Badge variant="urgent">Day {crisisDayNumber} / 60</Badge>
             ) : null}
-            {!isPending && !isAdvisor && item.href === "/profile/community" ? <Badge variant="count">3</Badge> : null}
+            {!isPending && !isAdvisor && item.href === "/profile/community" && communityUnreadCount > 0 ? (
+              <Badge variant="count">{communityUnreadCount > 99 ? "99+" : communityUnreadCount}</Badge>
+            ) : null}
           </Link>
         );
       })}

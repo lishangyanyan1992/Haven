@@ -15,7 +15,7 @@ import type { CrisisState } from "@/lib/get-crisis-state";
 import { getSnapshot } from "@/lib/repositories/case-compass";
 import type { HavenWorkspaceSnapshot } from "@/types/domain";
 
-type AppShellSnapshot = Pick<HavenWorkspaceSnapshot, "profile" | "dashboard">;
+type AppShellSnapshot = Pick<HavenWorkspaceSnapshot, "communityUnreadCount" | "profile" | "dashboard">;
 const HAVEN_HOME_URL = "https://haven-h1b.com/";
 
 export async function AppShell({
@@ -29,7 +29,8 @@ export async function AppShell({
   crisisState?: CrisisState | null;
   snapshot?: AppShellSnapshot;
 }) {
-  const { profile, dashboard } = snapshot ?? await getSnapshot();
+  const shellSnapshot = snapshot ?? await getSnapshot();
+  const { profile, dashboard } = shellSnapshot;
   const advisorUsage = await getAdvisorUsage();
   const isCrisisActive = Boolean(crisisState);
   const crisisProgressWidth = crisisState ? `${Math.max((crisisState.dayNumber / 60) * 100, 2)}%` : "74%";
@@ -97,6 +98,7 @@ export async function AppShell({
           <AppShellNav
             activePath={activePath}
             advisorUsage={advisorUsage}
+            communityUnreadCount={shellSnapshot.communityUnreadCount ?? 0}
             crisisDayNumber={crisisState?.dayNumber}
             showPlanner={Boolean(crisisState) || activePath.startsWith("/planner")}
           />

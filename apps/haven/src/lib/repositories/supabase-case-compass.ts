@@ -41,6 +41,7 @@ type DocumentRow = Database["public"]["Tables"]["user_documents"]["Row"];
 type SnapshotContext = {
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>;
   userId: string | null;
+  communityUnreadCount: number;
   snapshot: HavenWorkspaceSnapshot;
   priorityDateIntelligence: PriorityDateIntelligence | null;
 };
@@ -339,9 +340,31 @@ function buildDocuments(rows: DocumentRow[]): UserDocument[] {
 
 function buildShellSnapshot(snapshot: HavenWorkspaceSnapshot) {
   return {
+    communityUnreadCount: snapshot.communityUnreadCount ?? 0,
     profile: snapshot.profile,
     dashboard: snapshot.dashboard
   };
+}
+
+async function countUnreadCommunityPosts(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  communityLastSeenAt: string | null
+) {
+  let query = supabase
+    .from("community_posts")
+    .select("id", { count: "exact", head: true });
+
+  if (communityLastSeenAt) {
+    query = query.gt("created_at", communityLastSeenAt);
+  }
+
+  const { count, error } = await query;
+
+  if (error) {
+    return 0;
+  }
+
+  return count ?? 0;
 }
 
 async function buildSnapshotContext(): Promise<SnapshotContext> {
@@ -354,6 +377,7 @@ async function buildSnapshotContext(): Promise<SnapshotContext> {
     return {
       supabase,
       userId: null,
+      communityUnreadCount: 0,
       snapshot: havenSnapshot,
       priorityDateIntelligence: null
     };
@@ -368,15 +392,21 @@ async function buildSnapshotContext(): Promise<SnapshotContext> {
     return {
       supabase,
       userId: user.id,
+      communityUnreadCount: 0,
       snapshot: havenSnapshot,
       priorityDateIntelligence: null
     };
   }
 
   const profile = mapProfileRow(profileRow);
+  const communityUnreadCount = await countUnreadCommunityPosts(supabase, profileRow.community_last_seen_at);
   const priorityDateIntelligence = await getPriorityDateIntelligence(profile);
   const priorityDateSignals = getPriorityDateSignalOverrides(priorityDateIntelligence);
   let snapshot = mergeSnapshotProfile(havenSnapshot, profile, priorityDateSignals);
+  snapshot = {
+    ...snapshot,
+    communityUnreadCount
+  };
 
   if (derivedSignalRow) {
     const mappedSignals = mapDerivedSignals(derivedSignalRow, profile, priorityDateSignals);
@@ -392,9 +422,26 @@ async function buildSnapshotContext(): Promise<SnapshotContext> {
   return {
     supabase,
     userId: user.id,
+    communityUnreadCount,
     snapshot,
     priorityDateIntelligence
   };
+}
+
+export async function markSupabaseCommunitySeen() {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return;
+  }
+
+  await supabase
+    .from("user_profiles")
+    .update({ community_last_seen_at: new Date().toISOString() })
+    .eq("id", user.id);
 }
 
 async function applyTimelineData(context: SnapshotContext, limit?: number) {

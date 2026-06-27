@@ -5,7 +5,7 @@ import { AppShell } from "@/components/app/app-shell";
 import { CommunityContributionCta } from "@/components/app/community-contribution-cta";
 import { CommunityFeed, CommunityIntro } from "@/components/app/community-feed";
 import { getCrisisState } from "@/lib/get-crisis-state";
-import { getSnapshot } from "@/lib/repositories/case-compass";
+import { getSnapshot, markCommunitySeen } from "@/lib/repositories/case-compass";
 
 export const metadata: Metadata = {
   title: "Private Community | Haven",
@@ -22,6 +22,7 @@ type ProfileCommunityPageProps = {
 export default async function ProfileCommunityPage({ searchParams }: ProfileCommunityPageProps) {
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const selectedLabel = resolvedSearchParams?.label?.trim() || "All";
+  await markCommunitySeen();
   const [snapshot, crisisState] = await Promise.all([getSnapshot(), getCrisisState()]);
   const { profile } = snapshot;
 

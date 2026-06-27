@@ -249,6 +249,7 @@ export interface DashboardSnapshot {
 }
 
 export interface HavenWorkspaceSnapshot {
+  communityUnreadCount?: number;
   profile: ImmigrationProfile;
   dashboard: DashboardSnapshot;
   onboardingSteps: OnboardingStep[];

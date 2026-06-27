@@ -6,6 +6,7 @@ import {
   getSupabaseCommunityPageData,
   getSupabaseDashboardPageData,
   getSupabaseInboxPageData,
+  markSupabaseCommunitySeen,
   getSupabasePlannerPageData,
   getSupabasePublicCommunityPageData,
   getSupabaseShellSnapshot,
@@ -15,7 +16,7 @@ import {
 } from "@/lib/repositories/supabase-case-compass";
 import type { HavenWorkspaceSnapshot, PriorityDateIntelligence } from "@/types/domain";
 
-export type AppShellSnapshot = Pick<HavenWorkspaceSnapshot, "profile" | "dashboard">;
+export type AppShellSnapshot = Pick<HavenWorkspaceSnapshot, "communityUnreadCount" | "profile" | "dashboard">;
 export type DashboardPageData = AppShellSnapshot & { priorityDateIntelligence: PriorityDateIntelligence | null };
 export type TimelinePageData = AppShellSnapshot & Pick<HavenWorkspaceSnapshot, "timelineEvents">;
 export type PlannerPageData = AppShellSnapshot & Pick<HavenWorkspaceSnapshot, "planner">;
@@ -27,6 +28,7 @@ export type InboxPageData = AppShellSnapshot &
 
 function shellFromMock(): AppShellSnapshot {
   return {
+    communityUnreadCount: 0,
     profile: havenSnapshot.profile,
     dashboard: havenSnapshot.dashboard
   };
@@ -196,3 +198,15 @@ export const getInboxPageData = cache(async (): Promise<InboxPageData> => {
     emailContacts: havenSnapshot.emailContacts
   };
 });
+
+export async function markCommunitySeen() {
+  if (!hasSupabaseEnv) {
+    return;
+  }
+
+  try {
+    await markSupabaseCommunitySeen();
+  } catch {
+    // Best-effort read marker; page rendering should not fail if this update is unavailable.
+  }
+}

@@ -1545,6 +1545,7 @@ export type Database = {
       user_profiles: {
         Row: {
           community_reply_email_notifications: boolean
+          community_last_seen_at: string | null
           country_of_birth: string
           created_at: string
           current_visa_expiry_date: string | null
@@ -1573,6 +1574,7 @@ export type Database = {
         }
         Insert: {
           community_reply_email_notifications?: boolean
+          community_last_seen_at?: string | null
           country_of_birth: string
           created_at?: string
           current_visa_expiry_date?: string | null
@@ -1601,6 +1603,7 @@ export type Database = {
         }
         Update: {
           community_reply_email_notifications?: boolean
+          community_last_seen_at?: string | null
           country_of_birth?: string
           created_at?: string
           current_visa_expiry_date?: string | null
