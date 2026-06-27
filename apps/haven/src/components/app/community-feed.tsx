@@ -48,7 +48,7 @@ function formatCommunityAuthorLabel(label: string, fallbackSeed: string) {
 function buildCommunityHref(
   basePath: string,
   params: {
-    label?: string;
+    labels?: string[];
     view?: CommunityFeedView;
   }
 ) {
@@ -58,12 +58,22 @@ function buildCommunityHref(
     searchParams.set("view", params.view);
   }
 
-  if (params.label && params.label !== "All") {
-    searchParams.set("label", params.label);
+  if (params.labels && params.labels.length > 0) {
+    searchParams.set("labels", params.labels.join(","));
   }
 
   const query = searchParams.toString();
   return query ? `${basePath}?${query}` : basePath;
+}
+
+function normalizeSelectedLabels(labels: string[]) {
+  return Array.from(new Set(labels.map((label) => label.trim()).filter(Boolean).filter((label) => label !== "All")));
+}
+
+function toggleSelectedLabel(selectedLabels: string[], label: string) {
+  return selectedLabels.includes(label)
+    ? selectedLabels.filter((selectedLabel) => selectedLabel !== label)
+    : [...selectedLabels, label];
 }
 
 function getCommunityPosts(data: CommunityData, profile?: CommunityFeedProfile): EnrichedCommunityPost[] {
@@ -105,16 +115,17 @@ export function CommunityFeed({
   basePath = "/community",
   data,
   profile,
-  selectedLabel,
+  selectedLabels = [],
   selectedView = profile ? "for-you" : "all"
 }: {
   basePath?: string;
   data: CommunityData;
   profile?: CommunityFeedProfile;
-  selectedLabel: string;
+  selectedLabels?: string[];
   selectedView?: CommunityFeedView;
 }) {
   const livePosts = getCommunityPosts(data, profile);
+  const activeLabels = normalizeSelectedLabels(selectedLabels);
   const personalizedPosts = [...livePosts]
     .filter((post) => post.match.score > 0)
     .sort((left, right) => {
@@ -130,12 +141,12 @@ export function CommunityFeed({
       : selectedView === "latest"
         ? livePosts.slice(0, 20)
         : livePosts;
-  const filterLabels = [
-    "All",
-    ...sortCommunityLabels(Array.from(new Set(livePosts.flatMap((post) => post.confirmedLabels))))
-  ];
+  const availableLabels = sortCommunityLabels(Array.from(new Set(livePosts.flatMap((post) => post.confirmedLabels))));
+  const filterLabels = profile ? availableLabels : ["All", ...availableLabels];
   const visiblePosts =
-    selectedLabel === "All" ? rankedPosts : rankedPosts.filter((post) => post.confirmedLabels.includes(selectedLabel));
+    activeLabels.length === 0
+      ? rankedPosts
+      : rankedPosts.filter((post) => activeLabels.every((label) => post.confirmedLabels.includes(label)));
 
   return (
     <>
@@ -145,7 +156,7 @@ export function CommunityFeed({
             <Link
               key={view.value}
               className={selectedView === view.value ? "tag tag-community" : "tag tag-pending"}
-              href={buildCommunityHref(basePath, { label: selectedLabel, view: view.value })}
+              href={buildCommunityHref(basePath, { labels: activeLabels, view: view.value })}
             >
               {view.label}
             </Link>
@@ -157,8 +168,15 @@ export function CommunityFeed({
         {filterLabels.map((label) => (
           <Link
             key={label}
-            className={selectedLabel === label ? "tag tag-community" : "tag tag-pending"}
-            href={buildCommunityHref(basePath, { label, view: profile ? selectedView : undefined })}
+            className={
+              (label === "All" && activeLabels.length === 0) || activeLabels.includes(label)
+                ? "tag tag-community"
+                : "tag tag-pending"
+            }
+            href={buildCommunityHref(basePath, {
+              labels: label === "All" ? [] : toggleSelectedLabel(activeLabels, label),
+              view: profile ? selectedView : undefined
+            })}
           >
             {label}
           </Link>

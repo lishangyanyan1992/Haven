@@ -16,16 +16,38 @@ export const metadata: Metadata = {
 };
 
 type ProfileCommunityPageProps = {
-  searchParams?: Promise<{ label?: string; view?: string }>;
+  searchParams?: Promise<{ label?: string | string[]; labels?: string | string[]; view?: string }>;
 };
 
 function parseCommunityView(value?: string): CommunityFeedView {
   return value === "latest" || value === "all" ? value : "for-you";
 }
 
+function parseSelectedLabels(primary?: string | string[], fallback?: string | string[]) {
+  const rawValues = Array.isArray(primary)
+    ? primary
+    : primary
+      ? [primary]
+      : Array.isArray(fallback)
+        ? fallback
+        : fallback
+          ? [fallback]
+          : [];
+
+  return Array.from(
+    new Set(
+      rawValues
+        .flatMap((value) => value.split(","))
+        .map((label) => label.trim())
+        .filter(Boolean)
+        .filter((label) => label !== "All")
+    )
+  );
+}
+
 export default async function ProfileCommunityPage({ searchParams }: ProfileCommunityPageProps) {
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
-  const selectedLabel = resolvedSearchParams?.label?.trim() || "All";
+  const selectedLabels = parseSelectedLabels(resolvedSearchParams?.labels, resolvedSearchParams?.label);
   const selectedView = parseCommunityView(resolvedSearchParams?.view);
   await markCommunitySeen();
   const [snapshot, crisisState] = await Promise.all([getSnapshot(), getCrisisState()]);
@@ -59,7 +81,7 @@ export default async function ProfileCommunityPage({ searchParams }: ProfileComm
             topConcerns: profile.topConcerns,
             visaType: profile.visaType
           }}
-          selectedLabel={selectedLabel}
+          selectedLabels={selectedLabels}
           selectedView={selectedView}
         />
       </div>

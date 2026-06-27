@@ -30,8 +30,30 @@ export const metadata: Metadata = {
 };
 
 type CommunityPageProps = {
-  searchParams?: Promise<{ label?: string }>;
+  searchParams?: Promise<{ label?: string | string[]; labels?: string | string[] }>;
 };
+
+function parseSelectedLabels(primary?: string | string[], fallback?: string | string[]) {
+  const rawValues = Array.isArray(primary)
+    ? primary
+    : primary
+      ? [primary]
+      : Array.isArray(fallback)
+        ? fallback
+        : fallback
+          ? [fallback]
+          : [];
+
+  return Array.from(
+    new Set(
+      rawValues
+        .flatMap((value) => value.split(","))
+        .map((label) => label.trim())
+        .filter(Boolean)
+        .filter((label) => label !== "All")
+    )
+  );
+}
 
 function PublicParticipationCta() {
   return (
@@ -117,7 +139,7 @@ function AiExpertVisual() {
 
 export default async function CommunityPage({ searchParams }: CommunityPageProps) {
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
-  const selectedLabel = resolvedSearchParams?.label?.trim() || "All";
+  const selectedLabels = parseSelectedLabels(resolvedSearchParams?.labels, resolvedSearchParams?.label);
   const publicCommunity = await getPublicCommunityPageData();
 
   return (
@@ -128,7 +150,7 @@ export default async function CommunityPage({ searchParams }: CommunityPageProps
           <CommunityIntro />
           <CommunityContributionCta />
           <PublicParticipationCta />
-          <CommunityFeed data={publicCommunity} selectedLabel={selectedLabel} />
+          <CommunityFeed data={publicCommunity} selectedLabels={selectedLabels} />
         </div>
       </main>
     </div>
