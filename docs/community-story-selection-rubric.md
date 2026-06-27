@@ -239,6 +239,19 @@ Prioritize stories with outcomes over unresolved questions. Outcome can mean app
 
 Unresolved questions may be pulled only when they expose a high-value H-1B layoff or sponsor-search pain point and include enough facts for Haven's AI expert to answer better.
 
+## SEO Rewrite Requirements
+
+When rewriting selected stories and comments for public community review, optimize the public draft for SEO without making it read like marketing copy.
+
+The rewritten post should:
+
+- Use a clear long-tail title that includes the visa status, problem, and decision point when accurate.
+- Include natural search phrases in the title and body, such as H-1B layoff, 60-day grace period, H-1B transfer, B-2 bridge, sponsor search, STEM OPT, LCA timing, I-140, PERM, priority date, or other terms directly supported by the source.
+- Preserve the lived-experience forum tone and first-person perspective.
+- Keep comments useful for search by retaining practical terms, warnings, timelines, and process names when accurate.
+- Avoid keyword stuffing, generic SEO filler, employer names, unsupported legal claims, or adding facts that were not in the source.
+- Prefer specific decision language over broad labels, such as "H-1B transfer while B-2 is pending after layoff" instead of only "H-1B question."
+
 ## Freshness Rules
 
 Use recent stories only.

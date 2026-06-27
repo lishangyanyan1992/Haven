@@ -219,6 +219,8 @@ async function generateDraft(openai, model, story, index, observability = {}) {
     "- Make it less identifiable than the source. Do not copy source phrasing.",
     "- Keep it concise and useful.",
     "- Rewrite comments so they preserve practical advice but do not read exactly like the originals.",
+    "- Optimize the title, body, tags, and comments for SEO using natural search language that matches the case, such as H-1B layoff, 60-day grace period, H-1B transfer, B-2 bridge, sponsor search, STEM OPT, LCA timing, I-140, PERM, or priority date when supported by the source.",
+    "- Put the strongest search phrase in the title when it is accurate, and include practical long-tail phrases in the body and comments without keyword stuffing.",
     "- If the source story has no comments, return an empty comments array.",
     "- Use calm, practical forum language.",
     "- Set publish_ready to false only if privacy risk or lack of clarity is too high for public posting.",

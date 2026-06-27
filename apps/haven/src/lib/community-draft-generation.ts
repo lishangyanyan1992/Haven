@@ -139,6 +139,8 @@ export async function generateCommunityDraft(params: GenerateCommunityDraftParam
               "- Make it less identifiable than the source. Do not copy source phrasing.",
               "- Do not mention source platforms, usernames, employers, or links.",
               "- Rewrite comments into useful non-verbatim community replies.",
+              "- Optimize the title, body, tags, and comments for SEO using natural search language that matches the case, such as H-1B layoff, 60-day grace period, H-1B transfer, B-2 bridge, sponsor search, STEM OPT, LCA timing, I-140, PERM, or priority date when supported by the source.",
+              "- Put the strongest search phrase in the title when it is accurate, and include practical long-tail phrases in the body and comments without keyword stuffing.",
               "- Use calm, practical forum language.",
               "- Set publish_ready to false if privacy risk or lack of clarity is too high.",
               "- Use only tags directly supported by the source.",

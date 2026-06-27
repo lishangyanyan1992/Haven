@@ -112,6 +112,7 @@ The generated draft must:
 - Preserve the key immigration facts, timeline logic, actions taken, outcome, and practical lessons.
 - Be less identifiable than the source.
 - Avoid copying source phrasing.
+- Optimize titles, bodies, tags, and comments for relevant search intent without keyword stuffing or adding unsupported facts.
 - Rewrite comments instead of quoting them.
 - Remove usernames, links, edit notes, and source-specific formatting unless there is a clear reason to keep a generalized fact.
 - Use calm, practical forum language.

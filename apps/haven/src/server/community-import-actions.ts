@@ -157,6 +157,8 @@ async function rewriteCommentBodiesWithAI(
     "- Keep the same number of comments and the same order.",
     "- Use 1 to 3 concise sentences per comment.",
     "- Keep key immigration facts, cautions, and advice.",
+    "- Use natural SEO-friendly immigration terms when accurate, such as H-1B layoff, 60-day grace period, H-1B transfer, B-2 bridge, sponsor search, STEM OPT, LCA, I-140, PERM, or priority date.",
+    "- Do not keyword-stuff or add facts that are not supported by the source comment.",
     "- Remove usernames, links, markdown, bullets, strike-throughs, and edit notes.",
     "- Do not quote the original wording.",
     "- Use calm, practical forum language.",
@@ -338,6 +340,8 @@ async function rewriteForumPostWithAI(params: {
     "- Keep the important immigration facts and the core ask.",
     "- Do not mention usernames, company-specific context, or any platform details.",
     "- Make the title and body read naturally for a public forum.",
+    "- Optimize for SEO by using accurate high-intent search phrases in the title and body, such as H-1B layoff, 60-day grace period, H-1B transfer, B-2 bridge, sponsor search, STEM OPT, LCA timing, I-140, PERM, or priority date when supported by the story.",
+    "- Prefer a clear long-tail title that states the visa status, problem, and decision point. Do not keyword-stuff or add unsupported facts.",
     "- Keep the body concise but complete.",
     "",
     JSON.stringify({
