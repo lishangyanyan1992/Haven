@@ -130,7 +130,7 @@ function PostCard({
 
       {post.comments.length > 0 && (
         <div className="mt-5 space-y-3 border-t border-[var(--color-border)] pt-4">
-          <p className="text-label">Imported comments</p>
+          <p className="text-label">Comments</p>
           {post.comments.map((comment) => (
             <div key={comment.id} className="rounded-[var(--radius-lg)] bg-[var(--haven-cream)] p-4">
               <p className="text-body-sm font-medium">{comment.authorLabel}</p>
