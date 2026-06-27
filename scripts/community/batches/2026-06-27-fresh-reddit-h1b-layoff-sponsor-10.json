@@ -1,0 +1,276 @@
+{
+  "source": "reddit",
+  "note": "Fresh Reddit review batch pulled on 2026-06-27 using the Community Story Selection Rubric. Source was explicitly specified by the user. Focus: H-1B layoffs and sponsor search. Freshness: newest first, preferred within 15 days and accepted within 30 days only when needed. This file is source-only review data and must be staged through /api/internal/community-import, not directly auto-published.",
+  "items": [
+    {
+      "source_story_id": "1u2d57j",
+      "language": "en",
+      "source_payload_private": {
+        "source_url": "https://www.reddit.com/r/h1b/comments/1u2d57j/h1b_b2_bridge_h1b_approved_in_2026_for_anyone/",
+        "source_created_at": "2026-06-26",
+        "author_name": "Reddit user",
+        "title": "H-1B to B-2 bridge followed by H-1B approval",
+        "rewritten_story_for_review": "After a layoff, an H-1B worker filed B-2 change of status within the grace period, later found a new sponsor, and had the employer file an H-1B transfer with premium processing. The case became stressful because the B-2 received a NOID and the H-1B also received an RFE. After responding with evidence and attorney support, both the B-2 and H-1B were approved. The strongest community value is the before-and-after timeline: layoff, B-2 bridge, sponsor found, government challenge, evidence response, approval.",
+        "meaningful_comment_insights": [
+          "A commenter with relevant experience warned that one approval does not make the B-2 bridge strategy generally safe.",
+          "Another reader raised a practical timing issue around whether a B-2 extension is needed when adjudication runs long."
+        ],
+        "case_brief": {
+          "priority_topics": ["h1b_layoff", "sponsor_search", "b2_bridge"],
+          "freshness_bucket": "0-15_days",
+          "audience": ["H-1B", "laid_off_worker", "new_sponsor"],
+          "excluded_topics_checked": ["family_based", "asylum", "citizenship", "humanitarian"],
+          "rubric_scores": {
+            "base_relevance_score": 19,
+            "prioritization_signal_score": 20,
+            "meaningful_comment_value_score": 8,
+            "final_review_score": 47
+          },
+          "score_reason": "High-fit layoff bridge case with a clear outcome, strong timeline, sponsor-search relevance, misconception correction, and meaningful cautionary comments."
+        }
+      }
+    },
+    {
+      "source_story_id": "1ub1jmb",
+      "language": "en",
+      "source_payload_private": {
+        "source_url": "https://www.reddit.com/r/USCIS/comments/1ub1jmb/laid_off_on_h1b_with_pending_gc_what_are_my/",
+        "source_created_at": "2026-06-25",
+        "author_name": "Reddit user",
+        "title": "Laid off on H-1B with pending EB-1C adjustment and travel pressure",
+        "rewritten_story_for_review": "A worker was laid off while on H-1B with a pending EB-1C adjustment case and a retrogressed priority date. The grace period was approaching, no new sponsor had been found yet, and the worker needed to understand whether leaving the U.S. would put the pending green card at risk without advance parole or a new H-1B approval. The story creates a strong decision fork: keep searching for a sponsor, wait for travel authorization, or leave and potentially complicate the green card path.",
+        "meaningful_comment_insights": [
+          "Several comments warned against international travel without advance parole or a valid H-1B route back.",
+          "Commenters emphasized the distinction between a pending adjustment case and having permission to travel."
+        ],
+        "case_brief": {
+          "priority_topics": ["h1b_layoff", "sponsor_search", "green_card_timing"],
+          "freshness_bucket": "0-15_days",
+          "audience": ["H-1B", "employment_based_green_card", "EB-1C"],
+          "excluded_topics_checked": ["family_based", "asylum", "citizenship", "humanitarian"],
+          "rubric_scores": {
+            "base_relevance_score": 17,
+            "prioritization_signal_score": 17,
+            "meaningful_comment_value_score": 8,
+            "final_review_score": 42
+          },
+          "score_reason": "Strong business relevance because it ties layoff, sponsor urgency, AOS risk, and travel decisions into one clear case."
+        }
+      }
+    },
+    {
+      "source_story_id": "1tuu1zd",
+      "language": "en",
+      "source_payload_private": {
+        "source_url": "https://www.reddit.com/r/h1b/comments/1tuu1zd/laid_off_with_25_years_left_on_h1b_priorities/",
+        "source_created_at": "2026-06-25",
+        "author_name": "Reddit user",
+        "title": "Laid off with 2.5 years left on H-1B and deciding how to prioritize the next sponsor",
+        "rewritten_story_for_review": "A Big Tech worker was laid off with about 2.5 years left on H-1B and no meaningful PERM progress. The worker still had an internal transition window before the official grace period started, but needed to choose the next employer carefully. The main questions were whether to prioritize full-time roles, contracting, employer willingness to start PERM quickly, or companies with a track record of supporting I-140 timing. This is a practical sponsor-search story because the immigration strategy directly changes the job-search strategy.",
+        "meaningful_comment_insights": [
+          "Comments discussed prioritizing employers that can start PERM quickly rather than choosing only by compensation or brand.",
+          "Some replies raised contracting and vendor relationships as possible but higher-risk paths."
+        ],
+        "case_brief": {
+          "priority_topics": ["h1b_layoff", "sponsor_search", "perm_timing"],
+          "freshness_bucket": "0-15_days",
+          "audience": ["H-1B", "India_or_China_backlog", "laid_off_worker"],
+          "excluded_topics_checked": ["family_based", "asylum", "citizenship", "humanitarian"],
+          "rubric_scores": {
+            "base_relevance_score": 18,
+            "prioritization_signal_score": 17,
+            "meaningful_comment_value_score": 7,
+            "final_review_score": 42
+          },
+          "score_reason": "Very useful for sponsor-search conversion because it translates immigration constraints into employer-selection criteria."
+        }
+      }
+    },
+    {
+      "source_story_id": "1u8i931",
+      "language": "en",
+      "source_payload_private": {
+        "source_url": "https://www.reddit.com/r/h1b/comments/1u8i931/what_happens_if_i_get_a_second_offer_when_my_h1b/",
+        "source_created_at": "2026-06-17",
+        "author_name": "Reddit user",
+        "title": "Second job offer while first H-1B transfer is pending after layoff",
+        "rewritten_story_for_review": "After a layoff, a worker filed B change of status, accepted a first job offer, and had the first employer file an H-1B transfer with premium processing while the B case was pending. The first H-1B transfer then received an RFE. Before the RFE was resolved, the worker received a stronger second offer and wanted to know whether the second employer could file its own H-1B petition independently or whether the worker was locked into the first transfer path.",
+        "meaningful_comment_insights": [
+          "Comments explained that multiple H-1B transfer filings can exist, but the worker should understand status and bridge implications.",
+          "Replies highlighted that employer counsel may differ on whether to file immediately or wait for the pending case."
+        ],
+        "case_brief": {
+          "priority_topics": ["h1b_layoff", "sponsor_search", "multiple_offers"],
+          "freshness_bucket": "0-15_days",
+          "audience": ["H-1B", "laid_off_worker", "new_sponsor"],
+          "excluded_topics_checked": ["family_based", "asylum", "citizenship", "humanitarian"],
+          "rubric_scores": {
+            "base_relevance_score": 17,
+            "prioritization_signal_score": 18,
+            "meaningful_comment_value_score": 7,
+            "final_review_score": 42
+          },
+          "score_reason": "Strong decision-fork story for users comparing sponsors while status recovery is still pending."
+        }
+      }
+    },
+    {
+      "source_story_id": "1udfwp5",
+      "language": "en",
+      "source_payload_private": {
+        "source_url": "https://www.reddit.com/r/h1b/comments/1udfwp5/h1b_filling_deadline_june_30_the_attorney_started/",
+        "source_created_at": "2026-06-26",
+        "author_name": "Reddit user",
+        "title": "H-1B selected but attorney may be too late before the June 30 filing deadline",
+        "rewritten_story_for_review": "A lottery-selected H-1B candidate was days away from the June 30 filing deadline, but the attorney was still gathering employer documents and it was unclear whether the LCA had even been filed. The worker wanted to know how much deadline risk existed and what could still be done. The case is valuable because it exposes an avoidable sponsor-process failure: selection alone is not enough if the employer and attorney do not move early enough.",
+        "meaningful_comment_insights": [
+          "Comments focused on LCA timing and the risk that a late LCA can make the H-1B package impossible to file on time.",
+          "Some replies pushed the worker to get immediate written status updates from employer counsel."
+        ],
+        "case_brief": {
+          "priority_topics": ["sponsor_search", "h1b_filing_deadline", "lca_timing"],
+          "freshness_bucket": "0-15_days",
+          "audience": ["F-1_OPT", "cap_subject_H-1B", "new_sponsor"],
+          "excluded_topics_checked": ["family_based", "asylum", "citizenship", "humanitarian"],
+          "rubric_scores": {
+            "base_relevance_score": 15,
+            "prioritization_signal_score": 16,
+            "meaningful_comment_value_score": 8,
+            "final_review_score": 39
+          },
+          "score_reason": "Good educational value because the comment thread adds practical sponsor-process warnings."
+        }
+      }
+    },
+    {
+      "source_story_id": "1u4bdvz",
+      "language": "en",
+      "source_payload_private": {
+        "source_url": "https://www.reddit.com/r/h1b/comments/1u4bdvz/advice_on_how_to_approach_pending_lca_and_h1b/",
+        "source_created_at": "2026-06-12",
+        "author_name": "Reddit user",
+        "title": "Pending LCA close to the H-1B grace-period deadline",
+        "rewritten_story_for_review": "A laid-off H-1B worker had a grace period ending June 23 and a startup offer in hand, but the LCA had only been filed on June 4 and the employer's HR/legal team had gone quiet. The worker wanted the H-1B transfer filed immediately after LCA certification and was worried that weekends and a holiday-shortened week would consume the remaining time. The case is a clear sponsor-execution story: getting an offer is not the same as getting the petition filed before the clock runs out.",
+        "meaningful_comment_insights": [
+          "Comments emphasized that LCA certification can become the bottleneck when the grace-period deadline is close.",
+          "Replies suggested pushing for concrete filing dates instead of accepting vague updates."
+        ],
+        "case_brief": {
+          "priority_topics": ["h1b_layoff", "sponsor_search", "lca_timing"],
+          "freshness_bucket": "0-15_days",
+          "audience": ["H-1B", "laid_off_worker", "startup_sponsor"],
+          "excluded_topics_checked": ["family_based", "asylum", "citizenship", "humanitarian"],
+          "rubric_scores": {
+            "base_relevance_score": 16,
+            "prioritization_signal_score": 17,
+            "meaningful_comment_value_score": 5,
+            "final_review_score": 38
+          },
+          "score_reason": "Useful deadline-pressure case with moderate comment value and high transferability."
+        }
+      }
+    },
+    {
+      "source_story_id": "1txx96p",
+      "language": "en",
+      "source_payload_private": {
+        "source_url": "https://www.reddit.com/r/immigration/comments/1txx96p/laid_off_on_h1b_company_a_filed_h1b_petition/",
+        "source_created_at": "2026-06-05",
+        "author_name": "Reddit user",
+        "title": "Company A filed H-1B transfer, then Company B made a better offer",
+        "rewritten_story_for_review": "A laid-off H-1B worker had a May 1 last day, an approved I-140, and a running grace-period clock. Company A filed an H-1B change-of-employer petition with premium processing. Then Company B offered a better role, and the worker wanted to know whether Company B could file independently during the grace period or whether the second filing depended on Company A's pending petition. The story is valuable because it reflects a common sponsor-search problem: speed versus fit.",
+        "meaningful_comment_insights": [],
+        "case_brief": {
+          "priority_topics": ["h1b_layoff", "sponsor_search", "multiple_offers"],
+          "freshness_bucket": "16-30_days",
+          "audience": ["H-1B", "approved_I-140", "laid_off_worker"],
+          "excluded_topics_checked": ["family_based", "asylum", "citizenship", "humanitarian"],
+          "rubric_scores": {
+            "base_relevance_score": 17,
+            "prioritization_signal_score": 18,
+            "meaningful_comment_value_score": 0,
+            "final_review_score": 35
+          },
+          "score_reason": "Good sponsor-search decision fork, but lower comment value and older than the preferred 15-day window."
+        }
+      }
+    },
+    {
+      "source_story_id": "1u73r3f",
+      "language": "en",
+      "source_payload_private": {
+        "source_url": "https://www.reddit.com/r/h1b/comments/1u73r3f/h1b_noid_after_specialty_occupation_rfe_day_1_cpt/",
+        "source_created_at": "2026-06-26",
+        "author_name": "Reddit user",
+        "title": "H-1B NOID after specialty-occupation RFE with Day 1 CPT backup questions",
+        "rewritten_story_for_review": "A STEM OPT worker had an H-1B petition pending after a specialty-occupation RFE response, then received a NOID that appeared to focus on wage-level issues from the job posting. With STEM OPT ending soon, the worker was considering Day 1 CPT as a backup while the H-1B case remained unresolved. The case is fresh and relevant, but it has limited comment value and no outcome yet.",
+        "meaningful_comment_insights": [
+          "A commenter asked for the exact role because wage-level and specialty-occupation analysis depends heavily on job duties."
+        ],
+        "case_brief": {
+          "priority_topics": ["sponsor_search", "h1b_rfe_noid", "opt_transition"],
+          "freshness_bucket": "0-15_days",
+          "audience": ["STEM_OPT", "cap_subject_H-1B"],
+          "excluded_topics_checked": ["family_based", "asylum", "citizenship", "humanitarian"],
+          "rubric_scores": {
+            "base_relevance_score": 16,
+            "prioritization_signal_score": 17,
+            "meaningful_comment_value_score": 1,
+            "final_review_score": 34
+          },
+          "score_reason": "Very fresh and relevant, but unresolved and light on expert comments."
+        }
+      }
+    },
+    {
+      "source_story_id": "1u8on9x",
+      "language": "en",
+      "source_payload_private": {
+        "source_url": "https://www.reddit.com/r/USCIS/comments/1u8on9x/laid_off_on_consular_h1b/",
+        "source_created_at": "2026-06-25",
+        "author_name": "Reddit user",
+        "title": "Laid off after consular H-1B approval while STEM OPT is ending",
+        "rewritten_story_for_review": "A worker had a prior employer file a consular H-1B petition that was approved but never stamped. The worker later joined a new employer on STEM OPT, then discovered the old I-129 had been revoked after layoff. With STEM OPT ending soon, the worker wanted to know whether the new employer could file a transfer or whether the revoked consular petition affected cap-counted status. This is a useful edge case for sponsor-search and OPT transition planning, though it lacks strong comments.",
+        "meaningful_comment_insights": [],
+        "case_brief": {
+          "priority_topics": ["sponsor_search", "opt_transition", "h1b_transfer"],
+          "freshness_bucket": "0-15_days",
+          "audience": ["STEM_OPT", "consular_H-1B", "new_sponsor"],
+          "excluded_topics_checked": ["family_based", "asylum", "citizenship", "humanitarian"],
+          "rubric_scores": {
+            "base_relevance_score": 16,
+            "prioritization_signal_score": 16,
+            "meaningful_comment_value_score": 0,
+            "final_review_score": 32
+          },
+          "score_reason": "Fresh, niche, and relevant to sponsor eligibility, but unresolved and without meaningful comments."
+        }
+      }
+    },
+    {
+      "source_story_id": "1u3jqo3",
+      "language": "en",
+      "source_payload_private": {
+        "source_url": "https://www.reddit.com/r/USCIS/comments/1u3jqo3/h1b_decision_pending_and_stem_opt_expiration_2026/",
+        "source_created_at": "2026-06-22",
+        "author_name": "Reddit user",
+        "title": "STEM OPT ending while H-1B decision is still pending",
+        "rewritten_story_for_review": "An H-1B lottery-selected worker had an RFE response submitted months earlier, but the case was still pending days before STEM OPT EAD expiration. The school said there would be no cap-gap extension without a decision, leaving the worker unsure about continued work authorization, status, and backup plans. This story is timely and relevant to OPT transitions, but it has no outcome and no meaningful comments, so it should be reviewed as a lower-confidence candidate.",
+        "meaningful_comment_insights": [],
+        "case_brief": {
+          "priority_topics": ["opt_transition", "sponsor_search", "h1b_pending"],
+          "freshness_bucket": "0-15_days",
+          "audience": ["STEM_OPT", "cap_subject_H-1B"],
+          "excluded_topics_checked": ["family_based", "asylum", "citizenship", "humanitarian"],
+          "rubric_scores": {
+            "base_relevance_score": 14,
+            "prioritization_signal_score": 14,
+            "meaningful_comment_value_score": 0,
+            "final_review_score": 28
+          },
+          "score_reason": "Fresh and on-topic, but weaker because it lacks an outcome and meaningful comments."
+        }
+      }
+    }
+  ]
+}

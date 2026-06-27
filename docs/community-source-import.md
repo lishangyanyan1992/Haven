@@ -1,5 +1,9 @@
 # Community Source Import
 
+For the full policy and required checklist for outside-source stories, read `docs/outside-source-story-policy.md` first. For business-fit criteria, read `docs/community-story-selection-rubric.md`. Both documents are mandatory whenever an agent or operator is asked to pull, collect, scrape, import, add, or publish community stories from outside sources.
+
+Agents and operators must not assume a source. The user must specify which source to use, such as Reddit or Rednote; if not, ask before collecting or importing stories.
+
 Haven owns public story generation, moderation, and publishing. External collectors should send source-only import payloads to the internal community import API, then Haven generates and stages a `publish_draft` in `community_import_items`.
 
 The import API must not publish directly to `community_posts`. Publishing stays behind admin review actions.
