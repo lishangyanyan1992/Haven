@@ -180,6 +180,32 @@ function trackStoryEvent(langfuse, params) {
   }
 }
 
+function scoreRubric(langfuse, params) {
+  if (!langfuse || !params.traceId) return;
+
+  const scores = [
+    { name: "rubric_base", value: params.base, max: 20, label: "Base" },
+    { name: "rubric_signal", value: params.signal, max: 20, label: "Signal" },
+    { name: "rubric_comment_value", value: params.commentValue, max: 10, label: "Comment value" },
+    { name: "rubric_total", value: params.total, max: 50, label: "Total" }
+  ];
+
+  for (const score of scores) {
+    if (typeof score.value !== "number" || !Number.isFinite(score.value)) continue;
+    try {
+      langfuse.score({
+        traceId: params.traceId,
+        name: score.name,
+        value: score.value,
+        dataType: "NUMERIC",
+        comment: `${score.label}: ${score.value}/${score.max}${params.tier ? ` (${params.tier})` : ""}`
+      });
+    } catch {
+      // Observability must never break imports.
+    }
+  }
+}
+
 function normalizeCommentBody(body) {
   return body
     .split("\n")
@@ -652,6 +678,20 @@ async function main() {
       source,
       traceId
     });
+
+    // Send rubric scores to Langfuse if present in batch JSON
+    if (story.rubric_scores) {
+      const rs = story.rubric_scores;
+      scoreRubric(langfuse, {
+        traceId,
+        base: rs.base_total,
+        signal: rs.signal_total,
+        commentValue: rs.comment_value,
+        total: rs.combined_total,
+        tier: rs.tier
+      });
+    }
+
     generated.push({
       langfuse_trace_id: traceId,
       source_story_id: story.source_story_id,

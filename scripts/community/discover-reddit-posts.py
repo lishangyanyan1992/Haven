@@ -13,6 +13,12 @@ Methodology (discovered 2026-06-29):
   Same RSS workaround as fetch-reddit-story.sh — Reddit's .rss endpoint
   works intermittently with retries. The JSON API and browser are blocked.
 
+Langfuse tracing:
+  Sends a "story-discovery" trace with events for each pipeline stage
+  (search, fetch, parse, filter). Requires LANGFUSE_BASE_URL,
+  LANGFUSE_STORY_PUBLIC_KEY, and LANGFUSE_STORY_SECRET_KEY env vars.
+  If not set, tracing is silently skipped.
+
 Output:
   A JSON array of posts, each with:
     - reddit_id (e.g. "1uivv8k")
@@ -29,10 +35,91 @@ import html
 import json
 import sys
 import time
+import uuid
 import subprocess
 import argparse
+import os
 from datetime import datetime
+from typing import Optional, Any
+from urllib.request import Request, urlopen
+from urllib.error import URLError, HTTPError
 
+
+# ---------------------------------------------------------------------------
+# Langfuse helpers
+# ---------------------------------------------------------------------------
+
+_LANGFUSE_TRACE_ID = None
+_LANGFUSE_BASE_URL = None
+_LANGFUSE_PUBLIC_KEY = None
+_LANGFUSE_SECRET_KEY = None
+
+
+def _init_langfuse():
+    """Initialize Langfuse tracing if env vars are present."""
+    global _LANGFUSE_TRACE_ID, _LANGFUSE_BASE_URL, _LANGFUSE_PUBLIC_KEY, _LANGFUSE_SECRET_KEY
+    _LANGFUSE_BASE_URL = os.environ.get("LANGFUSE_BASE_URL", "").rstrip("/")
+    _LANGFUSE_PUBLIC_KEY = os.environ.get("LANGFUSE_STORY_PUBLIC_KEY", "")
+    _LANGFUSE_SECRET_KEY = os.environ.get("LANGFUSE_STORY_SECRET_KEY", "")
+    if _LANGFUSE_BASE_URL and _LANGFUSE_PUBLIC_KEY and _LANGFUSE_SECRET_KEY:
+        _LANGFUSE_TRACE_ID = str(uuid.uuid4())
+    else:
+        _LANGFUSE_TRACE_ID = None
+
+
+def _langfuse_post(endpoint: str, payload: dict):
+    """Send a JSON event to Langfuse REST API. Silently fails."""
+    if not _LANGFUSE_TRACE_ID:
+        return
+    url = f"{_LANGFUSE_BASE_URL}/api/public/{endpoint}"
+    data = json.dumps(payload).encode("utf-8")
+    req = Request(url, data=data, method="POST")
+    req.add_header("Content-Type", "application/json")
+    import base64
+    credentials = base64.b64encode(
+        f"{_LANGFUSE_PUBLIC_KEY}:{_LANGFUSE_SECRET_KEY}".encode()
+    ).decode("utf-8")
+    req.add_header("Authorization", f"Basic {credentials}")
+    try:
+        urlopen(req, timeout=10)
+    except (URLError, HTTPError, OSError):
+        pass
+
+
+def langfuse_event(name: str, metadata: Optional[dict] = None, input_data: Optional[dict] = None, output_data: Optional[dict] = None):
+    """Send an event to the current Langfuse discovery trace."""
+    if not _LANGFUSE_TRACE_ID:
+        return
+    _langfuse_post("events", {
+        "traceId": _LANGFUSE_TRACE_ID,
+        "name": name,
+        "metadata": metadata or {},
+        "input": input_data,
+        "output": output_data,
+    })
+
+
+def langfuse_score(name: str, value: float, data_type: str = "NUMERIC", comment: str = ""):
+    """Send a score to the current Langfuse discovery trace."""
+    if not _LANGFUSE_TRACE_ID:
+        return
+    _langfuse_post("scores", {
+        "traceId": _LANGFUSE_TRACE_ID,
+        "name": name,
+        "value": value,
+        "dataType": data_type,
+        "comment": comment,
+    })
+
+
+def langfuse_flush():
+    """No-op for REST API mode — events are sent immediately."""
+    pass
+
+
+# ---------------------------------------------------------------------------
+# RSS fetching and parsing
+# ---------------------------------------------------------------------------
 
 def fetch_rss(subreddit: str, max_retries: int = 15, delay: int = 12) -> str:
     """Fetch a subreddit's RSS feed with retry logic."""
@@ -54,11 +141,20 @@ def fetch_rss(subreddit: str, max_retries: int = 15, delay: int = 12) -> str:
 
         if len(body) > 1000:
             print(f"  Attempt {i}: {len(body)} bytes — SUCCESS", file=sys.stderr)
+            langfuse_event("discovery.fetch_success", {
+                "subreddit": subreddit,
+                "attempt": i,
+                "bytes": len(body),
+            })
             return body
         else:
             print(f"  Attempt {i}: {len(body)} bytes (rate-limited)", file=sys.stderr)
             time.sleep(delay)
 
+    langfuse_event("discovery.fetch_failed", {
+        "subreddit": subreddit,
+        "max_retries": max_retries,
+    })
     raise RuntimeError(f"Failed to fetch RSS feed after {max_retries} attempts")
 
 
@@ -121,12 +217,43 @@ def main():
     parser.add_argument("--delay", type=int, default=12, help="Seconds between retries")
     args = parser.parse_args()
 
+    # Initialize Langfuse tracing
+    _init_langfuse()
+
+    # Stage 1: Search — record which subreddit we're scanning
+    langfuse_event("discovery.search_started", {
+        "subreddit": args.subreddit,
+        "max_retries": args.max_retries,
+        "delay": args.delay,
+    })
+
     print(f"Fetching r/{args.subreddit} RSS feed...", file=sys.stderr)
     xml = fetch_rss(args.subreddit, max_retries=args.max_retries, delay=args.delay)
 
+    # Stage 2: Parse
     print(f"Parsing posts...", file=sys.stderr)
     posts = parse_posts(xml)
     print(f"Found {len(posts)} posts", file=sys.stderr)
+
+    langfuse_event("discovery.parse_complete", {
+        "subreddit": args.subreddit,
+        "post_count": len(posts),
+    })
+
+    # Stage 3: Filter — basic relevance filtering
+    # Keep posts with non-empty selftext (actual discussion, not just link posts)
+    filtered = [p for p in posts if p.get("selftext", "").strip()]
+    skipped = len(posts) - len(filtered)
+
+    langfuse_event("discovery.filter_complete", {
+        "subreddit": args.subreddit,
+        "total_posts": len(posts),
+        "filtered_out": skipped,
+        "remaining": len(filtered),
+    })
+
+    # Record a discovery score: how many posts survived filtering
+    langfuse_score("discovery_yield", float(len(filtered)), comment=f"{len(filtered)}/{len(posts)} posts had discussion text")
 
     # Print summary table to stderr
     print(f"\n{'#':>3}  {'Reddit ID':<10}  {'Author':<25}  Title", file=sys.stderr)
@@ -139,6 +266,8 @@ def main():
         "subreddit": args.subreddit,
         "fetched_at": datetime.utcnow().isoformat() + "Z",
         "post_count": len(posts),
+        "filtered_count": len(filtered),
+        "langfuse_trace_id": _LANGFUSE_TRACE_ID,
         "posts": posts,
     }
 
@@ -149,6 +278,13 @@ def main():
         print(f"\nSaved to {args.output}", file=sys.stderr)
     else:
         print(output)
+
+    # Final event: discovery complete
+    langfuse_event("discovery.complete", {
+        "subreddit": args.subreddit,
+        "posts_discovered": len(posts),
+        "posts_filtered": len(filtered),
+    })
 
 
 if __name__ == "__main__":

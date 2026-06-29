@@ -51,12 +51,79 @@ OUTPUT_DIR="/tmp"
 RAW_XML="${OUTPUT_DIR}/reddit_comments_${POST_ID}.xml"
 OUTPUT_JSON="${OUTPUT_DIR}/reddit_story_${POST_ID}.json"
 
+# ---------------------------------------------------------------------------
+# Langfuse tracing (optional — silently skipped if env vars not set)
+# ---------------------------------------------------------------------------
+
+LANGFUSE_TRACE_ID=""
+if [ -n "${LANGFUSE_BASE_URL:-}" ] && [ -n "${LANGFUSE_STORY_PUBLIC_KEY:-}" ] && [ -n "${LANGFUSE_STORY_SECRET_KEY:-}" ]; then
+  LANGFUSE_TRACE_ID=$(python3 -c "import uuid; print(uuid.uuid4())")
+fi
+
+langfuse_event() {
+  # $1 = event name, $2 = JSON metadata string (optional)
+  if [ -z "$LANGFUSE_TRACE_ID" ]; then return; fi
+  local name="$1"
+  local metadata="${2:-{}}"
+  python3 - "$LANGFUSE_TRACE_ID" "$name" "$metadata" << 'PYEOF' 2>/dev/null || true
+import sys, json, base64, os
+from urllib.request import Request, urlopen
+
+trace_id, name, metadata = sys.argv[1], sys.argv[2], sys.argv[3]
+base_url = os.environ["LANGFUSE_BASE_URL"].rstrip("/")
+pk = os.environ["LANGFUSE_STORY_PUBLIC_KEY"]
+sk = os.environ["LANGFUSE_STORY_SECRET_KEY"]
+url = f"{base_url}/api/public/events"
+payload = json.dumps({"traceId": trace_id, "name": name, "metadata": json.loads(metadata)})
+req = Request(url, data=payload.encode(), method="POST")
+req.add_header("Content-Type", "application/json")
+creds = base64.b64encode(f"{pk}:{sk}".encode()).decode()
+req.add_header("Authorization", f"Basic {creds}")
+try:
+    urlopen(req, timeout=5)
+except Exception:
+    pass
+PYEOF
+}
+
+langfuse_score() {
+  # $1 = score name, $2 = value, $3 = comment (optional)
+  if [ -z "$LANGFUSE_TRACE_ID" ]; then return; fi
+  local name="$1"
+  local value="$2"
+  local comment="${3:-}"
+  python3 - "$LANGFUSE_TRACE_ID" "$name" "$value" "$comment" << 'PYEOF' 2>/dev/null || true
+import sys, json, base64, os
+from urllib.request import Request, urlopen
+
+trace_id, name, value, comment = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+base_url = os.environ["LANGFUSE_BASE_URL"].rstrip("/")
+pk = os.environ["LANGFUSE_STORY_PUBLIC_KEY"]
+sk = os.environ["LANGFUSE_STORY_SECRET_KEY"]
+url = f"{base_url}/api/public/scores"
+payload = json.dumps({"traceId": trace_id, "name": name, "value": float(value), "dataType": "NUMERIC", "comment": comment})
+req = Request(url, data=payload.encode(), method="POST")
+req.add_header("Content-Type", "application/json")
+creds = base64.b64encode(f"{pk}:{sk}".encode()).decode()
+req.add_header("Authorization", f"Basic {creds}")
+try:
+    urlopen(req, timeout=5)
+except Exception:
+    pass
+PYEOF
+}
+
 echo "============================================"
 echo " fetch-reddit-story.sh"
 echo " Subreddit: r/$SUBREDDIT"
 echo " Post ID:   $POST_ID"
+if [ -n "$LANGFUSE_TRACE_ID" ]; then
+  echo " Langfuse:  $LANGFUSE_TRACE_ID"
+fi
 echo "============================================"
 echo ""
+
+langfuse_event "fetch.started" "{\"subreddit\":\"$SUBREDDIT\",\"post_id\":\"$POST_ID\"}"
 
 # ─────────────────────────────────────────────
 # STEP 1: Fetch the comments RSS feed
@@ -80,6 +147,7 @@ for i in $(seq 1 $MAX_RETRIES); do
     echo "      Attempt $i: $SAVED_SIZE bytes — SUCCESS"
     echo "      Saved to $RAW_XML"
     SUCCESS=1
+    langfuse_event "fetch.comments_success" "{\"attempt\":$i,\"bytes\":$SAVED_SIZE}"
     break
   else
     echo "      Attempt $i: $SAVED_SIZE bytes (rate-limited)"
@@ -94,6 +162,7 @@ if [ "$SUCCESS" -eq 0 ]; then
   echo "ERROR: Failed to fetch comments RSS after $MAX_RETRIES attempts."
   echo "       Reddit may be heavily rate-limiting this IP."
   echo "       Try again later or from a different IP."
+  langfuse_event "fetch.comments_failed" "{\"max_retries\":$MAX_RETRIES}"
   exit 1
 fi
 
@@ -224,6 +293,20 @@ echo " Raw XML:  $RAW_XML"
 if [ -f "$SUBFEED_XML" ]; then
   echo " SubFeed:  $SUBFEED_XML"
 fi
+
+# Send Langfuse completion event with parsed results
+if [ -n "$LANGFUSE_TRACE_ID" ]; then
+  PARSED_STATS=$(python3 -c "
+import json
+with open('$OUTPUT_JSON') as f:
+    d = json.load(f)
+print(json.dumps({'post_found': bool(d.get('post')), 'comment_count': d.get('comment_count', 0)}))
+" 2>/dev/null || echo '{}')
+  langfuse_event "fetch.complete" "$PARSED_STATS"
+  COMMENT_COUNT=$(echo "$PARSED_STATS" | python3 -c "import sys,json; print(json.load(sys.stdin).get('comment_count',0))" 2>/dev/null || echo 0)
+  langfuse_score "fetch_comment_count" "$COMMENT_COUNT" "Top-level comments fetched"
+fi
+
 echo ""
 echo " To view the parsed JSON:"
 echo "   python3 -m json.tool $OUTPUT_JSON | head -60"
