@@ -5,7 +5,6 @@ import { createClient } from "@supabase/supabase-js";
 import { Langfuse } from "langfuse";
 import OpenAI from "openai";
 
-const SOURCE = "reddit";
 const LEGAL_CAVEAT = "Community experience only, not legal advice.";
 const STORY_DRAFT_GENERATION_PROMPT = "haven-story-draft-generation";
 const STORY_DRAFT_GENERATION_FALLBACK =
@@ -94,6 +93,60 @@ function summarizeStorySource(story) {
     title_hash: stableHash(readString(story.title)),
     title_length: readString(story.title).length
   };
+}
+
+async function findCrossBatchDuplicates(supabase, stories, source) {
+  const sourceStoryIds = stories.map((s) => s.source_story_id).filter(Boolean);
+  const sourceUrls = stories.map((s) => readString(s.source_url)).filter(Boolean);
+  const bodyHashes = stories.map((s) => stableHash(readString(s.body))).filter(Boolean);
+
+  const duplicates = new Set();
+
+  if (sourceStoryIds.length > 0) {
+    const { data, error } = await supabase
+      .from("community_import_items")
+      .select("source_story_id")
+      .eq("source", source)
+      .in("source_story_id", sourceStoryIds);
+    if (!error && data) {
+      for (const row of data) {
+        duplicates.add(row.source_story_id);
+      }
+    }
+  }
+
+  if (sourceUrls.length > 0 || bodyHashes.length > 0) {
+    const { data, error } = await supabase
+      .from("community_import_items")
+      .select("source_story_id, observability_metadata, source_payload_private")
+      .eq("source", source);
+    if (!error && data) {
+      for (const row of data) {
+        const obsMeta = readObject(row.observability_metadata);
+        const sourceSummary = readObject(obsMeta.source_summary);
+        const payload = readObject(row.source_payload_private);
+        const existingUrl = readString(payload.source_url);
+        const existingBodyHash = readString(sourceSummary.body_hash);
+        const existingStoryId = readString(row.source_story_id);
+
+        for (const story of stories) {
+          const storyUrl = readString(story.source_url);
+          const storyBodyHash = stableHash(readString(story.body));
+          if (existingStoryId && story.source_story_id === existingStoryId) {
+            duplicates.add(story.source_story_id);
+          }
+          if (storyUrl && existingUrl && storyUrl === existingUrl) {
+            duplicates.add(story.source_story_id);
+          }
+          if (storyBodyHash && existingBodyHash && storyBodyHash === existingBodyHash) {
+            duplicates.add(story.source_story_id);
+          }
+        }
+      }
+    }
+  }
+
+  return duplicates;
 }
 
 function trackStoryEvent(langfuse, params) {
@@ -238,7 +291,7 @@ async function generateDraft(openai, model, story, index, observability = {}) {
       source_story_id: story.source_story_id
     },
     name: "community-draft-generation",
-    tags: ["story-pipeline", observability.source ?? SOURCE]
+    tags: ["story-pipeline", observability.source ?? "unknown"]
   });
   const generation = trace?.generation({
     input: summarizeStorySource(story),
@@ -561,7 +614,10 @@ async function main() {
   });
   const openai = new OpenAI({ apiKey: openAiKey });
   const model = process.env.OPENAI_CHAT_MODEL ?? "gpt-4o-mini";
-  const source = readString(batch.source) || SOURCE;
+  const source = readString(batch.source);
+  if (!source) {
+    throw new Error(`Batch file ${batchPath} is missing a "source" field. Set "source": "reddit" or "source": "rednote" in the batch JSON.`);
+  }
   const note = readString(batch.note);
   const langfuse = getStoryLangfuseClient();
   const runTraceId = createTraceId();
@@ -579,9 +635,17 @@ async function main() {
     traceId: runTraceId
   });
 
+  const duplicateIds = await findCrossBatchDuplicates(supabase, batch.stories, source);
+  const storiesToImport = batch.stories.filter((story) => !duplicateIds.has(story.source_story_id));
+  const skippedDuplicates = batch.stories.filter((story) => duplicateIds.has(story.source_story_id));
+
+  if (skippedDuplicates.length > 0) {
+    console.log(`Cross-batch dedup: skipped ${skippedDuplicates.length} duplicate(s): ${skippedDuplicates.map((s) => s.source_story_id).join(", ")}`);
+  }
+
   const generated = [];
-  for (let index = 0; index < batch.stories.length; index += 1) {
-    const story = batch.stories[index];
+  for (let index = 0; index < storiesToImport.length; index += 1) {
+    const story = storiesToImport[index];
     const traceId = createTraceId();
     const publishDraft = await generateDraft(openai, model, story, index, {
       langfuse,
@@ -748,7 +812,7 @@ async function main() {
       inserted_count: generated.length,
       updated_count: 0,
       finished_at: new Date().toISOString(),
-      notes: note ? `${note} Imported ${generated.length} stories. Auto-approved ${published.length}. Left ${queued.length} in review.` : `Imported ${generated.length} stories. Auto-approved ${published.length}. Left ${queued.length} in review.`
+      notes: note ? `${note} Imported ${generated.length} stories. Auto-approved ${published.length}. Left ${queued.length} in review. Skipped ${skippedDuplicates.length} cross-batch duplicate(s).` : `Imported ${generated.length} stories. Auto-approved ${published.length}. Left ${queued.length} in review. Skipped ${skippedDuplicates.length} cross-batch duplicate(s).`
     })
     .eq("id", runRow.id);
 

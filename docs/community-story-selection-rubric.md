@@ -98,11 +98,11 @@ Examples:
 
 ## Scoring Rubric
 
-Score each candidate from 0 to 20. Prefer importing stories scoring 14 or higher. Consider 10 to 13 only when they fill a known gap. Skip below 10.
+Score each candidate from 0 to 20. Prefer importing stories scoring 16 or higher. Consider 13 to 15 only when they fill a known gap. Skip below 13.
 
 During the current operating period, a story should also match H-1B layoff or sponsor-search priorities. If it does not, skip it even if the general score is high.
 
-This score is for review prioritization, not automatic exclusion. Do not tighten the criteria too aggressively before Haven reviews the first pulled batches. Unless a story violates the outside-source policy, privacy rules, freshness rules, or current hard exclusions, keep borderline candidates in the review notes instead of silently discarding them.
+This score is for review prioritization, not automatic exclusion. Unless a story violates the outside-source policy, privacy rules, freshness rules, or current hard exclusions, keep borderline candidates in the review notes instead of silently discarding them.
 
 ### 1. Audience Fit: 0-4
 
@@ -203,9 +203,9 @@ Final review score = base score + prioritization signal score + meaningful comme
 Recommended final review priority:
 
 - 40-50: High priority
-- 32-39: Reviewable
-- 25-31: Borderline, include in notes if recent and on-priority
-- Below 25: Usually skip unless it fills a specific requested gap
+- 35-39: Reviewable
+- 30-34: Borderline, include in notes only if recent and on-priority
+- Below 30: Usually skip unless it fills a specific requested gap
 
 ## Minimum Required Fields
 
@@ -237,7 +237,7 @@ Prioritize stories with:
 
 Prioritize stories with outcomes over unresolved questions. Outcome can mean approved, denied, RFE/NOID received, transfer filed, sponsor found, status changed, departed, or still pending after a clear action.
 
-Unresolved questions may be pulled only when they expose a high-value H-1B layoff or sponsor-search pain point and include enough facts for Haven's AI expert to answer better.
+Unresolved questions may be pulled only when they expose a high-value H-1B layoff or sponsor-search pain point and include enough facts for Haven's AI expert to answer better. Even then, the story must include at least one concrete recommendation, idea, or proposed approach from the poster or a commenter. Do not pull stories that only pose an open-ended question with no ideas, suggestions, or proposed path forward.
 
 ## SEO Rewrite Requirements
 
@@ -334,6 +334,8 @@ Examples:
 
 For Rednote and other non-English sources, preserve the private source payload and generate the public draft in English only for now.
 
+For RedNote stories where comments are not available from the collector, do not disqualify the story solely for lacking comments. Instead, require that the story itself contains a clear outcome or at least one concrete recommendation or idea from the poster for dealing with the situation. Open-ended questions with no proposed path forward should be skipped.
+
 ## Source Learning
 
 Approved and prohibited source communities are not fixed yet. When exploring a source, learn which communities, keywords, or domains produce high-quality stories and record batch notes.
@@ -351,7 +353,8 @@ Until a source allowlist or blocklist exists:
 Skip a candidate if:
 
 - It fails the outside-source policy.
-- It scores below 10.
+- It scores below 13.
+- It has no outcome and no recommendations or ideas from the poster or commenters.
 - It is not clearly connected to Haven's target audience.
 - It is outside the 30-day freshness window without explicit approval.
 - It is family-based, asylum, citizenship, or humanitarian content during the current operating period.
@@ -382,12 +385,28 @@ Every reviewed batch should include a short note with:
 - Borderline candidates worth showing to Haven before tightening criteria
 - Any gaps the batch did not cover
 
+## Cross-Batch Deduplication
+
+Before importing a new batch, check every story against stories already imported in previous batches. A story is a duplicate if any of these match:
+
+- Same `source_story_id` (case-insensitive)
+- Same `source_url`
+- Same `body_hash` (SHA-256 of the normalized body text)
+
+When a duplicate is found:
+
+- Skip it. Do not re-import or re-publish.
+- Log the duplicate in the batch review notes with the original batch name and import run ID.
+- If the duplicate appeared in an older batch that lacked rubric scores or case briefs, do not re-import it as a "refresh." Instead, update the original `community_import_items` row in place if better data is available.
+
+The import script must query `community_import_items` before upserting to detect cross-batch duplicates by `source_story_id`, `source_url`, or `body_hash` in the `observability_metadata` field.
+
 ## Open Strategy Questions
 
 These questions should be answered by Haven leadership and then folded back into this rubric:
 
+- ~~What exact definition of "sponsor search" should govern story selection: employer discovery, recruiter conversations, LCA evidence, application strategy, or all of these?~~ **Resolved:** All of these count as "sponsor search" for pulling purposes: finding a sponsor (employer discovery), executing with a sponsor (LCA timing, filing deadlines), and comparing sponsors (multiple offers, PERM speed vs brand).
 - Are there specific communities, keywords, or source domains that are approved or prohibited?
-- What exact definition of "sponsor search" should govern story selection: employer discovery, recruiter conversations, LCA evidence, application strategy, or all of these?
 - Should Haven create separate story quotas for signup conversion, AI expert quality, and SEO?
 - Should there be a maximum unresolved-question percentage per batch?
 - Should there be a minimum batch size, or is "no qualifying stories found" acceptable for small source pulls?
