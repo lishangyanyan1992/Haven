@@ -1,26 +1,34 @@
 #!/bin/bash
-# Daily Reddit import cron script
-# Runs the full pipeline: discover -> fetch -> score -> import -> summary
-# Output (stdout) is delivered as the cron message
+# Daily Reddit import cron script — launches pipeline in background, writes summary
+# This script runs fast (<5s) — the pipeline continues after this script exits
 set -e
 
 export HOME=/Users/shangyanyanli
 HAVEN_ROOT="$HOME/Desktop/Haven"
+OUTPUT_DIR="/tmp/daily-reddit-import"
+LOG_FILE="$OUTPUT_DIR/cron.log"
+SUMMARY_FILE="$OUTPUT_DIR/daily_summary.txt"
+
+# Clean previous run
+rm -rf "$OUTPUT_DIR"
+mkdir -p "$OUTPUT_DIR"
 
 # Load environment variables
 set -a
 source "$HAVEN_ROOT/.env.local"
 set +a
 
+# Launch pipeline in background — nohup ensures it survives script exit
 cd "$HAVEN_ROOT"
-
-# Run the pipeline (non-dry-run, auto-publish, up to 10 stories, 24h window)
-python3 scripts/community/daily-reddit-import.py \
+nohup python3 scripts/community/daily-reddit-import.py \
   --max-stories 10 \
   --max-fetch 12 \
   --hours 24 \
-  --output-dir /tmp/daily-reddit-import
+  --output-dir "$OUTPUT_DIR" \
+  > "$LOG_FILE" 2>&1 &
 
-# Print the summary as the cron output
-echo ""
-cat /tmp/daily-reddit-import/daily_summary.txt 2>/dev/null || echo "No summary generated"
+PIPELINE_PID=$!
+echo "$PIPELINE_PID" > "$OUTPUT_DIR/pipeline.pid"
+echo "Pipeline launched (PID $PIPELINE_PID) at $(date)"
+echo "Log: $LOG_FILE"
+echo "Summary will be at: $SUMMARY_FILE"
