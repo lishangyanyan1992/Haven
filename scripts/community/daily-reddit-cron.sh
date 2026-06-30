@@ -23,7 +23,7 @@ cd "$HAVEN_ROOT"
 nohup python3 scripts/community/daily-reddit-import.py \
   --max-stories 10 \
   --max-fetch 12 \
-  --hours 24 \
+  --hours 336 \
   --output-dir "$OUTPUT_DIR" \
   > "$LOG_FILE" 2>&1 &
 

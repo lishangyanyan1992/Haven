@@ -3,16 +3,19 @@
 daily-reddit-import.py — Daily Reddit story discovery, scoring, and import pipeline
 
 Usage:
-  python3 daily-reddit-import.py [--dry-run] [--max-stories 10] [--output-dir /tmp]
+  python3 daily-reddit-import.py [--dry-run] [--max-stories 10] [--output-dir /tmp] [--hours 336]
 
 Orchestrates the full daily pipeline:
   1. Discover posts from 4 subreddits (RSS endpoint with retries)
-  2. Filter to posts from the last 24 hours
+  2. Filter to posts from the last N hours (default: 336 = 14 days)
   3. Pre-filter by immigration relevance keywords
   4. Fetch comments for top candidates (rate-limited, max ~12 fetches)
   5. Auto-score each story using OpenAI against the Haven rubric
-  6. Select qualifying stories (score >= 35, quality > quantity)
-  7. Build batch JSON with rubric scores embedded
+  6. Select qualifying stories via two paths:
+     a. Standard: score >= 35, has outcome OR recommendation
+     b. Fresh post: <48h old, few comments, base+signal >= 20, no outcome needed
+        (published with monitoring flag — monitor-reddit-comments.py tracks these)
+  7. Build batch JSON with rubric scores + monitoring flag
   8. Run import-curated-stories.mjs to publish
   9. Output a summary
 
@@ -24,9 +27,10 @@ Requires env vars from .env.local:
 Quality gates (from Haven Community Story Selection Rubric):
   - Per-component: prefer 16+, gap-fill 13-15, skip <13
   - Combined total: 40-50 HIGH, 35-39 REVIEWABLE, 30-34 BORDERLINE, <30 SKIP
-  - Must have an outcome OR at least one concrete recommendation/idea
+  - Standard path: must have an outcome OR at least one concrete recommendation/idea
+  - Fresh post path: base+signal >= 20, post <48h old, no outcome required
   - Cross-batch dedup via import script's existing Supabase check
-  - Quality > quantity: if not enough 35+ stories, publish fewer
+  - Quality > quantity: if not enough good stories, publish fewer
 """
 
 import json
@@ -53,10 +57,16 @@ HAVEN_ROOT = os.path.dirname(os.path.dirname(SCRIPT_DIR))
 
 SUBREDDITS = ["h1b", "F1Visa", "USCIS", "immigration"]
 MAX_FETCH_CANDIDATES = 12  # Max posts to fetch comments for (Reddit rate-limit safe zone)
-MIN_QUALIFYING_SCORE = 35  # Minimum combined score to publish
+MIN_QUALIFYING_SCORE = 35  # Minimum combined score to publish (standard path)
 MAX_STORIES = 10  # Maximum stories to publish per day
 FETCH_DELAY = 15  # Seconds between fetch calls (avoid Reddit rate-limit)
 POST_DISCOVERY_COOLDOWN = 30  # Seconds to wait after discovery before fetching comments
+
+# Fresh-post path: publish good new posts without comments, monitor for future comments
+FRESH_POST_MAX_AGE_HOURS = 48  # Posts younger than this can qualify as "fresh"
+FRESH_POST_MAX_COMMENTS = 2    # Posts with 0-2 comments are "fresh" (no rich discussion yet)
+FRESH_POST_MIN_BASE_SIGNAL = 20  # base_total + signal_total must be >= this for fresh posts
+DEFAULT_HOURS = 336  # 14 days lookback (was 24)
 
 # Immigration relevance keywords for pre-filtering
 RELEVANCE_KEYWORDS = [
@@ -384,11 +394,19 @@ Tier thresholds:
 - combined_total < 30: SKIP
 
 CRITICAL: Skip (set tier=SKIP) if:
-- No outcome AND no recommendations/ideas from poster or commenters
+- No outcome AND no recommendations/ideas from poster or commenters AND the post is NOT a fresh/unfolding situation (see below)
 - Family-based, asylum, citizenship, or humanitarian content
 - Mostly legal advice, not lived experience
 - Cannot be safely anonymized
 - Mainly names/criticizes a person, employer, school, or law firm
+
+FRESH POST EXCEPTION: If the post has 0-2 comments and no outcome yet, but:
+- The situation is clear and specific (status, timing, concrete question/decision)
+- The base score (audience_fit + decision_value + case_specificity + product_alignment + rewrite_safety) is strong (>=10)
+- The base_total + signal_total >= 20
+Then set tier to "BORDERLINE" (not SKIP) and set has_outcome=false, has_recommendation=false.
+The story will be published as a "monitoring" story and re-checked later for comments.
+Do NOT set skip_reason in this case.
 
 Return ONLY the JSON. No markdown, no explanation."""
 
@@ -495,23 +513,51 @@ def score_all_stories(fetched_stories, output_dir, force=False):
             has_outcome = scores.get("has_outcome", False)
             has_rec = scores.get("has_recommendation", False)
             skip_reason = scores.get("skip_reason", "")
+            base_total = scores.get("base_total", 0)
+            signal_total = scores.get("signal_total", 0)
+            comment_val = scores.get("comment_value", 0)
+            base_signal = base_total + signal_total
 
-            print(f"  Score: {combined}/50 ({tier}) outcome={has_outcome} rec={has_rec}", file=sys.stderr)
+            # Determine if this is a fresh post (young, few comments)
+            post_info = story_data.get("post", {})
+            post_age_hours = post_info.get("_age_hours")
+            num_comments = len(story_data.get("comments", []))
+            is_fresh = (
+                post_age_hours is not None
+                and post_age_hours <= FRESH_POST_MAX_AGE_HOURS
+                and num_comments <= FRESH_POST_MAX_COMMENTS
+            )
+
+            print(f"  Score: {combined}/50 ({tier}) outcome={has_outcome} rec={has_rec} "
+                  f"base+signal={base_signal} fresh={is_fresh} age={post_age_hours}h comments={num_comments}",
+                  file=sys.stderr)
             if skip_reason:
                 print(f"  Skip reason: {skip_reason}", file=sys.stderr)
 
             if force:
                 print(f"  -> FORCE (bypassing filters)", file=sys.stderr)
+                story_data["qualification_path"] = "force"
                 scored.append(story_data)
                 langfuse_score("daily_story_score", combined, f"{rid}: {tier}")
                 continue
 
-            # HARD FILTER: must have outcome OR recommendation
+            # Fresh-post path: good post, no comments/outcome yet, publish + monitor
+            if is_fresh and base_signal >= FRESH_POST_MIN_BASE_SIGNAL and not has_outcome and not has_rec:
+                print(f"  -> FRESH POST (base+signal={base_signal} >= {FRESH_POST_MIN_BASE_SIGNAL}, "
+                      f"will monitor for comments)", file=sys.stderr)
+                story_data["qualification_path"] = "fresh"
+                story_data["monitoring"] = True
+                scored.append(story_data)
+                langfuse_score("daily_story_score", combined, f"{rid}: FRESH")
+                continue
+
+            # Standard path: must have outcome OR recommendation
             if tier == "SKIP" or (not has_outcome and not has_rec):
                 print(f"  -> SKIP (tier or no outcome/rec)", file=sys.stderr)
                 continue
 
             if combined >= MIN_QUALIFYING_SCORE:
+                story_data["qualification_path"] = "standard"
                 scored.append(story_data)
                 langfuse_score("daily_story_score", combined, f"{rid}: {tier}")
             else:
@@ -519,9 +565,15 @@ def score_all_stories(fetched_stories, output_dir, force=False):
         else:
             print(f"  -> Scoring failed, skipping", file=sys.stderr)
 
-    # Sort by combined score descending
-    scored.sort(key=lambda s: s["rubric_scores"]["combined_total"], reverse=True)
-    print(f"\n[SCORE] {len(scored)} stories qualify (score >= {MIN_QUALIFYING_SCORE})", file=sys.stderr)
+    # Sort: standard posts first (by combined score desc), then fresh posts (by base+signal desc)
+    scored.sort(key=lambda s: (
+        0 if s.get("qualification_path") == "standard" else 1,
+        -(s["rubric_scores"]["combined_total"])
+    ))
+    fresh_count = sum(1 for s in scored if s.get("qualification_path") == "fresh")
+    standard_count = sum(1 for s in scored if s.get("qualification_path") == "standard")
+    print(f"\n[SCORE] {len(scored)} stories qualify "
+          f"({standard_count} standard, {fresh_count} fresh-post)", file=sys.stderr)
     return scored
 
 
@@ -575,6 +627,10 @@ def build_batch(scored_stories, output_path, max_stories=MAX_STORIES):
                 "tier": rs.get("tier", ""),
             },
         }
+        # Add monitoring flag for fresh posts
+        if sd.get("monitoring"):
+            story["monitoring"] = True
+            story["qualification_path"] = sd.get("qualification_path", "fresh")
         stories.append(story)
         print(f"  {rid}: {rs.get('combined_total', '?')}/50 ({rs.get('tier', '?')}) — {story['title'][:60]}", file=sys.stderr)
 
@@ -638,11 +694,14 @@ def build_summary(scored_stories, batch, import_result, output_path):
         lines.append("")
         lines.append("This is OK — quality > quantity. No stories were published.")
     else:
-        lines.append(f"PUBLISHED: {len(batch.get('stories', []))} stories")
+        published = batch.get('stories', [])
+        fresh_count = sum(1 for s in published if s.get("monitoring"))
+        standard_count = len(published) - fresh_count
+        lines.append(f"PUBLISHED: {len(published)} stories ({standard_count} standard, {fresh_count} fresh/monitoring)")
         lines.append("")
         lines.append("STORIES:")
         lines.append("-" * 80)
-        for i, sd in enumerate(scored_stories[:len(batch.get('stories', []))]):
+        for i, sd in enumerate(scored_stories[:len(published)]):
             post = sd.get("post", {})
             rid = post.get("reddit_id", "?")
             sr = sd.get("subreddit", "?")
@@ -652,8 +711,10 @@ def build_summary(scored_stories, batch, import_result, output_path):
             combined = rs.get("combined_total", "?")
             tier = rs.get("tier", "?")
             one_line = rs.get("one_line", "")
+            qpath = sd.get("qualification_path", "standard")
+            monitoring_tag = " [MONITORING]" if sd.get("monitoring") else ""
 
-            lines.append(f"  {i+1}. [{combined}/50 {tier}] r/{sr} {rid}")
+            lines.append(f"  {i+1}. [{combined}/50 {tier}]{monitoring_tag} r/{sr} {rid}")
             lines.append(f"     Title: {title}")
             lines.append(f"     Comments: {cc}")
             if one_line:
@@ -692,7 +753,7 @@ def main():
     parser.add_argument("--max-stories", type=int, default=MAX_STORIES, help="Max stories to publish")
     parser.add_argument("--max-fetch", type=int, default=MAX_FETCH_CANDIDATES, help="Max posts to fetch comments for")
     parser.add_argument("--output-dir", default="/tmp", help="Working directory for temp files")
-    parser.add_argument("--hours", type=int, default=24, help="Look back N hours for posts")
+    parser.add_argument("--hours", type=int, default=336, help="Look back N hours for posts (default: 336 = 14 days)")
     parser.add_argument("--min-score", type=int, default=35, help="Minimum combined score to qualify")
     parser.add_argument("--force", action="store_true", help="Bypass all filters (testing only)")
     args = parser.parse_args()

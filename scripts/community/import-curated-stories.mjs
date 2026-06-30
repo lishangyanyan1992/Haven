@@ -718,7 +718,9 @@ async function main() {
         source,
         source_story_id: story.source_story_id,
         source_summary: summarizeStorySource(story),
-        trace_id: traceId
+        trace_id: traceId,
+        monitoring: story.monitoring === true,
+        qualification_path: story.qualification_path ?? "standard"
       }
     });
   }
