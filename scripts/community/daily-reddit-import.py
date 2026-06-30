@@ -600,7 +600,7 @@ def run_import(batch_path, dry_run=False):
     """Run import-curated-stories.mjs to publish stories."""
     if dry_run:
         print("[IMPORT] Dry run — skipping import", file=sys.stderr)
-        return {"skipped": True}
+        return {"skipped": True, "reason": "dry run"}
 
     script = os.path.join(SCRIPT_DIR, "import-curated-stories.mjs")
     cmd = ["node", script, batch_path]
@@ -664,7 +664,8 @@ def build_summary(scored_stories, batch, import_result, output_path):
     if import_result.get("success"):
         lines.append("IMPORT: SUCCESS")
     elif import_result.get("skipped"):
-        lines.append("IMPORT: SKIPPED (dry run)")
+        reason = import_result.get("reason", "dry run")
+        lines.append(f"IMPORT: SKIPPED ({reason})")
     elif import_result.get("error"):
         lines.append(f"IMPORT: FAILED — {import_result.get('error', '')[:100]}")
     else:
