@@ -1,3 +1,4 @@
+import { h1bRenewalsRecordPaceFy2026Post } from "@/content/blog/posts/h1b-renewals-record-pace-fy2026";
 import { dhsAlienRegistrationFinalRuleH1b2026Post } from "@/content/blog/posts/dhs-alien-registration-final-rule-h1b-2026";
 import { sonderlingDolSecretaryNominationH1bPerm2026Post } from "@/content/blog/posts/sonderling-dol-secretary-nomination-h1b-perm-2026";
 import { texasH1bEnforcementGhostOffices2026Post } from "@/content/blog/posts/texas-h1b-enforcement-ghost-offices-2026";
@@ -95,6 +96,7 @@ const guideBlogPosts = guides.map(guideToBlogPost);
 
 // Add a new post import here and it will appear in the blog automatically.
 export const blogPosts = [
+  h1bRenewalsRecordPaceFy2026Post,
   dhsAlienRegistrationFinalRuleH1b2026Post,
   sonderlingDolSecretaryNominationH1bPerm2026Post,
   texasH1bEnforcementGhostOffices2026Post,
