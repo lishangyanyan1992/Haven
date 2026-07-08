@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { ArrowRight, CheckCircle, Clock, FileText, Shield } from 'lucide-react';
 import { HavenMark } from '@/components/branding/HavenMark';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { filingServices } from '@/lib/filings';
 
 const HAVEN_HOME_URL = 'https://haven-h1b.com/';
@@ -46,7 +45,7 @@ export default function Home() {
               </p>
             </div>
             <Badge variant="outline" className="border-[color:var(--amber-200)] bg-[color:var(--amber-50)] text-[color:var(--amber-700)]">
-              Free MVP
+              Beta
             </Badge>
           </div>
         </nav>
@@ -76,7 +75,7 @@ export default function Home() {
                 {filingServices.length} filing types in the shell
               </div>
               <div className="rounded-full border border-border bg-white px-4 py-2 shadow-[var(--shadow-xs)]">
-                Start my application on every filing card
+                Coming soon paths marked clearly
               </div>
             </div>
           </div>
@@ -114,7 +113,8 @@ export default function Home() {
               <h2 className="mt-2 text-4xl font-light text-foreground">The service lineup shell</h2>
             </div>
             <p className="max-w-xl text-sm leading-7 text-muted-foreground">
-              Every filing type now has a placeholder route and CTA path, so you can add service details incrementally.
+              The live workflow is available for Marriage Green Card via Adjustment of Status. Other filing paths are
+              marked coming soon while their workflows are prepared.
             </p>
           </div>
 
@@ -133,55 +133,62 @@ export default function Home() {
 
           <div className="grid gap-6 lg:grid-cols-2">
             {filingServices.map((filing) => (
-              <article
+              <Link
                 key={filing.slug}
-                className="flex h-full flex-col rounded-[1.75rem] border border-border bg-white p-6 shadow-[var(--shadow-md)] transition-[box-shadow,border-color] duration-[var(--duration-base)] ease-[var(--ease-out)] hover:border-[color:var(--border-strong)] hover:shadow-[var(--shadow-lg)]"
+                href={`/filings/${filing.slug}`}
+                className="group block h-full rounded-[1.75rem] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--ring-soft)]"
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <Badge
-                      variant="outline"
-                      className={
-                        filing.available
-                          ? 'border-transparent bg-[color:var(--success-tint)] text-[color:var(--success-ink)]'
-                          : 'border-transparent bg-[color:var(--warning-tint)] text-[color:var(--warning-foreground)]'
-                      }
-                    >
-                      {filing.status}
-                    </Badge>
-                    <h3 className="mt-4 text-3xl font-light text-foreground">{filing.title}</h3>
-                    <p className="mt-2 text-sm font-medium text-primary">{filing.subtitle}</p>
+                <article className="flex h-full flex-col rounded-[1.75rem] border border-border bg-white p-6 shadow-[var(--shadow-md)] transition-[box-shadow,border-color,transform] duration-[var(--duration-base)] ease-[var(--ease-out)] group-hover:-translate-y-0.5 group-hover:border-[color:var(--border-strong)] group-hover:shadow-[var(--shadow-lg)]">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <Badge
+                        variant="outline"
+                        className={
+                          filing.available
+                            ? 'border-transparent bg-[color:var(--success-tint)] text-[color:var(--success-ink)]'
+                            : 'border-transparent bg-[color:var(--warning-tint)] text-[color:var(--warning-foreground)]'
+                        }
+                      >
+                        {filing.status}
+                      </Badge>
+                      <h3 className="mt-4 text-3xl font-light text-foreground">{filing.title}</h3>
+                      <p className="mt-2 text-sm font-medium text-primary">{filing.subtitle}</p>
+                    </div>
+                    <div className="rounded-[var(--radius-lg-token)] bg-secondary px-3 py-2 text-right">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Forms</p>
+                      <p className="mt-1 text-sm font-semibold text-[color:var(--neutral-800)]">
+                        {filing.landingForms.length}
+                      </p>
+                    </div>
                   </div>
-                  <div className="rounded-[var(--radius-lg-token)] bg-secondary px-3 py-2 text-right">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Forms</p>
-                    <p className="mt-1 text-sm font-semibold text-[color:var(--neutral-800)]">
-                      {filing.landingForms.length}
+
+                  <p className="mt-5 text-sm leading-7 text-muted-foreground">{filing.description}</p>
+
+                  <div className="mt-6 rounded-[var(--radius-lg-token)] bg-secondary p-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                      Shell status
+                    </p>
+                    <p className="mt-3 text-sm leading-6 text-[color:var(--neutral-700)]">
+                      {filing.available
+                        ? 'This filing type already connects to a live intake flow.'
+                        : 'This filing type has a service shell page ready for you to fill in later.'}
                     </p>
                   </div>
-                </div>
 
-                <p className="mt-5 text-sm leading-7 text-muted-foreground">{filing.description}</p>
-
-                <div className="mt-6 rounded-[var(--radius-lg-token)] bg-secondary p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                    Shell status
-                  </p>
-                  <p className="mt-3 text-sm leading-6 text-[color:var(--neutral-700)]">
-                    {filing.available
-                      ? 'This filing type already connects to a live intake flow.'
-                      : 'This filing type has a service shell page ready for you to fill in later.'}
-                  </p>
-                </div>
-
-                <div className="mt-6 pt-2">
-                  <Link href={`/filings/${filing.slug}`}>
-                    <Button size="lg" className="h-12 w-full">
-                      Start my application
-                      <ArrowRight className="ml-1 h-4 w-4" />
-                    </Button>
-                  </Link>
-                </div>
-              </article>
+                  <div className="mt-6 pt-2">
+                    {filing.available ? (
+                      <span className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[var(--radius-md-token)] border border-transparent bg-primary px-5 text-[0.95rem] font-medium text-primary-foreground shadow-[var(--shadow-xs)] transition-[background-color,box-shadow] duration-[var(--duration-base)] ease-[var(--ease-out)] group-hover:bg-[var(--primary-hover)] group-hover:shadow-[var(--shadow-md)]">
+                        Start my application
+                        <ArrowRight className="ml-1 h-4 w-4" />
+                      </span>
+                    ) : (
+                      <span className="inline-flex h-12 w-full items-center justify-center rounded-[var(--radius-md-token)] border border-[color:var(--neutral-200)] bg-[color:var(--neutral-100)] px-5 text-[0.95rem] font-medium text-[color:var(--neutral-600)] shadow-none transition-[background-color,border-color,color] duration-[var(--duration-base)] ease-[var(--ease-out)] group-hover:border-[color:var(--neutral-300)] group-hover:bg-[color:var(--neutral-200)] group-hover:text-[color:var(--neutral-700)]">
+                        Coming soon
+                      </span>
+                    )}
+                  </div>
+                </article>
+              </Link>
             ))}
           </div>
         </section>

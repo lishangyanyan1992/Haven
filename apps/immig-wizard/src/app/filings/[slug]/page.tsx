@@ -115,8 +115,12 @@ export default async function FilingDetailPage({
                 </Button>
               </Link>
             ) : (
-              <Button size="lg" disabled className="mt-8 h-12 w-full">
-                Start my application
+              <Button
+                size="lg"
+                disabled
+                className="mt-8 h-12 w-full border-white/10 bg-white/15 text-white/75 shadow-none"
+              >
+                Coming soon
               </Button>
             )}
 
