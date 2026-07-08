@@ -520,7 +520,22 @@ def score_all_stories(fetched_stories, output_dir, force=False):
 
             # Determine if this is a fresh post (young, few comments)
             post_info = story_data.get("post", {})
-            post_age_hours = post_info.get("_age_hours")
+            discovery_meta = story_data.get("discovery_meta", {})
+            post_age_hours = post_info.get("_age_hours") or discovery_meta.get("_age_hours")
+            # Fallback: compute age from published timestamp
+            if post_age_hours is None:
+                pub = post_info.get("published", "") or discovery_meta.get("published", "")
+                if pub:
+                    try:
+                        if pub.endswith("Z"):
+                            dt = datetime.fromisoformat(pub.replace("Z", "+00:00"))
+                        else:
+                            dt = datetime.fromisoformat(pub)
+                        if dt.tzinfo is None:
+                            dt = dt.replace(tzinfo=timezone.utc)
+                        post_age_hours = round((datetime.now(timezone.utc) - dt).total_seconds() / 3600, 1)
+                    except (ValueError, TypeError):
+                        post_age_hours = None
             num_comments = len(story_data.get("comments", []))
             is_fresh = (
                 post_age_hours is not None
