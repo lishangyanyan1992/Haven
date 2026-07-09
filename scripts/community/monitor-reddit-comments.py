@@ -56,7 +56,11 @@ def supabase_request(url, service_key, method="GET", body=None):
     req = Request(url, data=data, method=method, headers=headers)
     try:
         with urlopen(req, timeout=30) as resp:
-            return json.loads(resp.read().decode())
+            body = resp.read().decode()
+            # DELETE and POST often return empty bodies (204/200 with no content)
+            if not body.strip():
+                return [] if method == "GET" else True
+            return json.loads(body)
     except (URLError, HTTPError, json.JSONDecodeError) as e:
         print(f"  [ERROR] Supabase request failed: {e}", file=sys.stderr)
         return None
