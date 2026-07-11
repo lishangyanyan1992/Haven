@@ -322,6 +322,7 @@ export interface AdvisorMessage {
   role: AdvisorMessageRole;
   content: string;
   createdAt: string;
+  traceId?: string;
   answerPayload?: AdvisorAnswerPayload;
 }
 

@@ -177,7 +177,7 @@ export function AdvisorWorkspace({ advisorUsage, welcomeMessage }: AdvisorWorksp
                     key={message.id}
                     isPending={message.id === streamingId}
                     message={message}
-                    traceId={conversationId}
+                    traceId={message.traceId ?? null}
                   />
                 ) : (
                   <UserMessageCard key={message.id} message={message} />

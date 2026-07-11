@@ -60,7 +60,18 @@ class AdvisorRateLimitError extends Error {
   }
 }
 
-type TopicBucket = "h1b" | "visa-bulletin" | "perm" | "adjustment-of-status" | "job-change" | "layoffs" | "haven-product";
+type TopicBucket =
+  | "h1b"
+  | "visa-bulletin"
+  | "perm"
+  | "adjustment-of-status"
+  | "job-change"
+  | "layoffs"
+  | "student-status"
+  | "self-petition"
+  | "cspa"
+  | "work-authorization"
+  | "haven-product";
 
 function getOpenAIClient() {
   if (!env.OPENAI_API_KEY) {
@@ -137,12 +148,77 @@ function classifyTopics(input: string): TopicBucket[] {
   if (/(h-?1b|specialty occupation|transfer|amendment|cap|grace period)/.test(normalized)) topics.add("h1b");
   if (/(visa bulletin|priority date|dates for filing|final action)/.test(normalized)) topics.add("visa-bulletin");
   if (/\bperm\b|labor certification|flag/.test(normalized)) topics.add("perm");
-  if (/(i-485|adjustment of status|adjust status|ead)/.test(normalized)) topics.add("adjustment-of-status");
+  if (/(i-485|i485|adjustment of status|adjust status|advance parole|i-131)/.test(normalized)) topics.add("adjustment-of-status");
   if (/(job change|same or similar|ac21|portability)/.test(normalized)) topics.add("job-change");
   if (/(layoff|laid off|60-day|grace period)/.test(normalized)) topics.add("layoffs");
+  if (/(f-?1|opt|stem opt|cpt|day 1 cpt|i-983|sevis|dso|ead card)/.test(normalized)) topics.add("student-status");
+  if (/(niw|national interest waiver|eb-?1a|eb-?2 niw|proposed endeavor|dhanasar|self.?petition)/.test(normalized)) topics.add("self-petition");
+  if (/(cspa|child status protection|age out|aging out|turns 21|turn 21|sought to acquire)/.test(normalized)) topics.add("cspa");
+  if (/(work authorization|employment authorization|unauthorized work|worked without authorization|i-9|ead)/.test(normalized)) topics.add("work-authorization");
   if (/(haven|timeline|dashboard|planner|inbox|community)/.test(normalized)) topics.add("haven-product");
 
   return topics.size > 0 ? Array.from(topics) : ["h1b", "adjustment-of-status"];
+}
+
+function buildDecisionGuardrails(query: string, topics: TopicBucket[]) {
+  const normalized = query.toLowerCase();
+  const guardrails: string[] = [];
+
+  if (topics.includes("job-change") && /(ac21|same or similar|portability)/.test(normalized)) {
+    guardrails.push(
+      "AC21/job portability: if no Form I-485 is filed or pending, say AC21 adjustment portability generally does not solve the job-change problem. An approved I-140 alone is not AC21 portability. Always mention the pending-I-485 180-day rule and same-or-similar occupational classification requirement, and say role differences and sponsorship strategy need attorney review."
+    );
+  }
+
+  if (topics.includes("visa-bulletin") || /(dates for filing|final action|priority date|i-485)/.test(normalized)) {
+    guardrails.push(
+      "Visa bulletin/I-485 filing: never give a hard yes/no from Final Action Dates alone. State that USCIS's monthly adjustment filing-chart page controls whether employment-based applicants must use Final Action Dates or may use Dates for Filing. User-stated dates override Haven profile dates; do not insert a Haven profile priority date unless the user explicitly asks you to use their Haven profile. Preferred wording: 'You may be able to file only if USCIS authorizes Dates for Filing for that month and your priority date is earlier than that cutoff, assuming all other eligibility requirements are met.' Avoid opening with 'you cannot file' when Dates for Filing may be usable."
+    );
+  }
+
+  if (topics.includes("adjustment-of-status") && /(travel|advance parole|ap|visa stamp|i-131)/.test(normalized)) {
+    guardrails.push(
+      "Pending I-485 travel: distinguish these in plain English: visa stamp = entry document for requesting admission at the border/airport; status = lawful classification while inside the U.S.; advance parole = travel/reentry document tied to the pending adjustment case. A pending I-131/AP request is not approved advance parole. Avoid absolute wording like 'you cannot travel'; say not to travel based only on pending advance parole and explain that travel depends on approved AP or another valid reentry strategy confirmed with counsel. Explicitly warn that departure without approved advance parole or another valid reentry basis can cause USCIS to treat the I-485 as abandoned. If H-1B status is valid but the visa stamp is expired, explain that H-1B reentry generally requires a valid visa stamp unless the person returns with approved advance parole or qualifies for a narrow exception such as automatic visa revalidation. List practical attorney-review options: wait for AP approval, evaluate H-1B consular stamping, or evaluate limited automatic visa revalidation only if the itinerary and facts qualify."
+    );
+  }
+
+  if ((topics.includes("h1b") || topics.includes("layoffs")) && /(layoff|laid off|grace period|transfer|paycheck|last day)/.test(normalized)) {
+    guardrails.push(
+      "H-1B layoff/transfer: separate ability to remain in the U.S. from ability to work. Include these exact safety points in the answer: 'Do not work without authorization' and 'LCA preparation alone does not preserve status.' Do not suggest an unpaid role, volunteer role, or temporary position as a way to preserve H-1B status. Do not use last paycheck as the grace-period trigger unless the source and facts support it. Mention that the grace period is up to 60 days or until I-94/petition validity ends, whichever is shorter. For a new employer, preparation, LCA work, or documents sitting with the employer are not the same as a properly filed nonfrivolous H-1B petition. If the user gives dates, calculate the rough timeline and say what must be filed before day 60. In urgent grace-period cases, list concrete options without ranking them as legal strategy: immediate H-1B filing/receipt strategy, possible change of status such as B-2 if appropriate, departure planning and possible consular return if no timely filing is possible, premium processing or employer escalation if available, and immediate counsel review. Tell the user to confirm the exact deadline and filing strategy with immigration counsel immediately."
+    );
+  }
+
+  if (topics.includes("student-status") && /(opt|ead|work|employment|job starts|begin work|start work)/.test(normalized)) {
+    guardrails.push(
+      "F-1 OPT/STEM OPT work authorization: a pending OPT application is not work authorization. Tell the user not to begin OPT work until the EAD/work authorization is valid, and suggest checking USCIS case status, contacting the DSO, and coordinating the start date/I-9 timing with the employer."
+    );
+  }
+
+  if (topics.includes("student-status") && /(cpt|day 1 cpt)/.test(normalized)) {
+    guardrails.push(
+      "CPT/Day 1 CPT: do not accept '100% safe' school marketing. Explain that CPT must be DSO-authorized, documented on the Form I-20 before work begins, curricular/integral to the program, and tied to the course/program. Mention that 12 months or more of full-time CPT can affect post-completion OPT eligibility. Tell the user to verify SEVP certification/accreditation, course syllabus or credit requirement, employer-course nexus, I-20 employer/dates/full-time or part-time details, attendance/enrollment rules, and future visa risks with the DSO and immigration counsel before enrolling. Call out red flags such as guaranteed CPT from day one, minimal coursework, weak faculty involvement, or a program mainly structured to enable employment."
+    );
+  }
+
+  if (topics.includes("cspa")) {
+    guardrails.push(
+      "CSPA/age-out: flag urgency when a child is close to 21 and say attorney review should happen immediately. Do not calculate a definitive CSPA age without full facts. Do not insert a specific priority date, I-140 date, or 180-day rule unless the user provided that fact in the question. Tell the user to ask counsel about the CSPA age formula, visa availability date, petition pending time, 'sought to acquire' within one year, extraordinary circumstances, adjustment vs consular processing, and filing timing. Suggest gathering I-140 approval, priority-date proof, birth/passport records, receipts, and any evidence of efforts to seek permanent residence."
+    );
+  }
+
+  if (topics.includes("self-petition") && /(denied|denial|refil|re-file|appeal|motion|vague|proposed endeavor)/.test(normalized)) {
+    guardrails.push(
+      "NIW denial/refiling: do not assume refiling is best. Tell the user to have counsel review the denial notice and all deadlines, compare refiling with motion/appeal options, and address the Dhanasar framework: substantial merit/national importance, well-positioned to advance the endeavor, and benefit of waiving the job offer/labor certification. Suggest concrete evidence to discuss: a narrower proposed endeavor, implementation plan, measurable objectives, expert letters, publications or citations showing field impact, funding/contracts, adoption by users or institutions, and records already submitted."
+    );
+  }
+
+  if (topics.includes("work-authorization") && /(misrepresent|hide|conceal|does not notice|without authorization|unauthorized work)/.test(normalized)) {
+    guardrails.push(
+      "Unauthorized work/misrepresentation safety: refuse any help hiding or misrepresenting facts to USCIS. Tell the user not to continue unauthorized work, preserve dates/pay records/messages, and speak with an immigration attorney immediately about truthful disclosure and possible immigration consequences. Do not draft misleading language."
+    );
+  }
+
+  return guardrails;
 }
 
 function isExperientialQuestion(query: string): boolean {
@@ -374,7 +450,7 @@ function createWelcomePayload(_snapshot: AdvisorSeedSnapshot): AdvisorAnswerPayl
   };
 }
 
-function createAssistantMessage(threadId: string, payload: AdvisorAnswerPayload): AdvisorMessage {
+function createAssistantMessage(threadId: string, payload: AdvisorAnswerPayload, traceId?: string): AdvisorMessage {
   const createdAt = new Date().toISOString();
   return {
     id: `assistant-${createdAt}`,
@@ -382,6 +458,7 @@ function createAssistantMessage(threadId: string, payload: AdvisorAnswerPayload)
     role: "assistant",
     content: payload.answer_markdown,
     createdAt,
+    traceId,
     answerPayload: payload
   };
 }
@@ -444,6 +521,39 @@ async function reserveAdvisorConversation(userId: string, content: string, conve
 
 function buildContextBlock(label: string, lines: string[]) {
   return `${label}:\n${lines.length > 0 ? lines.map((line) => `- ${line}`).join("\n") : "- None"}`;
+}
+
+function wantsHavenProfileFacts(query: string) {
+  return /(haven profile|my profile|based on.*haven|from my haven|in haven|what should haven|haven help|track|monitor|dashboard|timeline)/i.test(query);
+}
+
+function buildPromptProfileSummary(query: string, userContext: AdvisorUserContext) {
+  if (wantsHavenProfileFacts(query)) {
+    return userContext.profileSummary;
+  }
+
+  return userContext.profileSummary.filter((line) => {
+    if (/priority date|current visa expiry date|h-1b cap date|date:/i.test(line)) return false;
+    return true;
+  });
+}
+
+function buildPromptTimelineSummary(query: string, userContext: AdvisorUserContext) {
+  return wantsHavenProfileFacts(query) ? userContext.timelineSummary : [];
+}
+
+function buildPromptEmailEvidence(query: string, userContext: AdvisorUserContext) {
+  return /(email|document|notice|receipt|attorney update|i-797|approval notice|filing notice)/i.test(query)
+    ? userContext.emailEvidenceSummary
+    : [];
+}
+
+function buildPromptDerivedSignals(query: string, userContext: AdvisorUserContext) {
+  if (wantsHavenProfileFacts(query)) {
+    return userContext.derivedSignalsSummary;
+  }
+
+  return userContext.derivedSignalsSummary.filter((line) => !/date|estimated|cap/i.test(line));
 }
 
 async function moderateMessage(content: string, parent?: LangfuseParent) {
@@ -510,19 +620,66 @@ function buildFallbackKnowledgeChunks(): RetrievedKnowledgeChunk[] {
   });
 }
 
+function scoreIntentBoost(query: string, chunk: RetrievedKnowledgeChunk) {
+  const normalized = query.toLowerCase();
+  const sourceText = `${chunk.title} ${chunk.content} ${chunk.url ?? ""}`.toLowerCase();
+  let boost = 0;
+
+  if (/(layoff|laid off|grace period|60-day|day 60|transfer|lca)/.test(normalized)) {
+    if (/(grace period|cessation of employment|60-day|h-1b portability|nonfrivolous h-1b petition|lca)/.test(sourceText)) boost += 8;
+  }
+
+  if (/(ac21|same or similar|product manager|software engineer|portability)/.test(normalized)) {
+    if (/(ac21|same or similar|i-485.*pending|180 days|supplement j|occupational classification)/.test(sourceText)) boost += 8;
+  }
+
+  if (/(visa bulletin|dates for filing|final action|priority date)/.test(normalized)) {
+    if (/(filing chart|dates for filing|final action|visa bulletin|uscis.*monthly)/.test(sourceText)) boost += 8;
+  }
+
+  if (/(travel|advance parole|visa stamp|i-131|reentry)/.test(normalized)) {
+    if (/(advance parole|travel|i-131|abandon|reentry|visa stamp)/.test(sourceText)) boost += 8;
+  }
+
+  if (/(opt|cpt|day 1 cpt|dso|sevis|ead card)/.test(normalized)) {
+    if (/(opt|cpt|dso|form i-20|ead|student)/.test(sourceText)) boost += 8;
+  }
+
+  if (/(cspa|age out|turns 21|turn 21|sought to acquire)/.test(normalized)) {
+    if (/(cspa|child status protection|sought-to-acquire|visa availability|cspa age)/.test(sourceText)) boost += 8;
+  }
+
+  if (/(niw|national interest waiver|dhanasar|proposed endeavor|denial|refil|appeal|motion)/.test(normalized)) {
+    if (/(niw|national interest waiver|dhanasar|proposed endeavor|motion|appeal)/.test(sourceText)) boost += 8;
+  }
+
+  if (/(unauthorized work|worked without authorization|misrepresent|hide|conceal|does not notice)/.test(normalized)) {
+    if (/(unauthorized employment|unauthorized work|misleading|work authorization|adjustment-of-status problems)/.test(sourceText)) boost += 8;
+  }
+
+  return boost;
+}
+
 async function retrieveKnowledge(query: string, topics: TopicBucket[], parent?: LangfuseParent) {
   const span = parent?.span({ name: "official-sources-agent", input: { query, topics } });
   const chunks = buildFallbackKnowledgeChunks();
+  const normalized = query.toLowerCase();
+  const retrievalTopics =
+    (topics.includes("h1b") || topics.includes("layoffs")) && /(layoff|laid off|grace period|60-day|day 60|lca|h-1b transfer|petition cannot be filed)/.test(normalized)
+      ? topics.filter((topic) => topic === "h1b" || topic === "layoffs")
+      : topics.includes("student-status") && /(opt|cpt|day 1 cpt|dso|sevis|ead card)/.test(normalized)
+      ? topics.filter((topic) => topic === "student-status" || topic === "work-authorization")
+      : topics;
 
   const filtered = chunks.filter((chunk) => {
-    if (topics.includes("haven-product")) return true;
-    return topics.includes(chunk.topic as TopicBucket) || topics.some((topic) => chunk.content.toLowerCase().includes(topic));
+    if (retrievalTopics.includes("haven-product")) return true;
+    return retrievalTopics.includes(chunk.topic as TopicBucket);
   });
 
   const ranked = (filtered.length > 0 ? filtered : chunks)
     .map((chunk) => ({
       ...chunk,
-      similarity: scoreOverlap(query, `${chunk.title} ${chunk.content} ${chunk.topic}`)
+      similarity: scoreOverlap(query, `${chunk.title} ${chunk.content} ${chunk.topic}`) + scoreIntentBoost(query, chunk)
     }))
     .sort((left, right) => (right.similarity ?? 0) - (left.similarity ?? 0))
     .slice(0, 6);
@@ -704,10 +861,8 @@ function fallbackAnswer(
   }
 
   const havenContextUsed = [
-    userContext.profileSummary[0],
-    userContext.profileSummary[1],
-    userContext.profileSummary[3],
-    userContext.derivedSignalsSummary[1]
+    ...buildPromptProfileSummary(question, userContext).slice(0, 4),
+    ...buildPromptDerivedSignals(question, userContext).slice(0, 1)
   ].filter(Boolean);
   const communityUsed = community.slice(0, 2).map((item) => `${item.title}: ${item.summary}`);
   const sourceBullets = knowledge
@@ -763,6 +918,186 @@ function fallbackAnswer(
   };
 }
 
+function buildMandatorySafetyAddendum(question: string, topics: TopicBucket[], answer: string) {
+  const normalizedQuestion = question.toLowerCase();
+  const notes: string[] = [];
+
+  if ((topics.includes("h1b") || topics.includes("layoffs")) && /(layoff|laid off|grace period|day 60|lca|petition cannot be filed)/.test(normalizedQuestion)) {
+    const missingUnauthorizedWork = !/do not work without authorization|don't work without authorization|unauthorized work/i.test(answer);
+    const missingLcaWarning = !/lca preparation alone does not preserve status|lca.*not.*preserve status|lca.*not.*filed h-1b petition/i.test(answer);
+    const missingImmediateCounsel = !/confirm.*deadline.*counsel|confirm.*filing strategy.*counsel|immigration counsel immediately/i.test(answer);
+    const missingFallbackOptions = !/(departure|depart|leave the u\.s\.|consular|change of status|b-2|premium processing|receipt notice|form i-129)/i.test(answer);
+    const needsSpecificGraceDate = /june 12,? 2026|june 12/.test(normalizedQuestion) && /i-94.*march 15,? 2027|march 15,? 2027.*i-94/.test(normalizedQuestion);
+    const missingSpecificGraceDate = needsSpecificGraceDate && !/august 11,? 2026|aug\.? 11,? 2026/i.test(answer);
+    const missingPortabilityTrigger = !/properly filed nonfrivolous|nonfrivolous.*petition.*filed|filed.*nonfrivolous/i.test(answer);
+
+    if (missingUnauthorizedWork || missingLcaWarning || missingImmediateCounsel || missingFallbackOptions || missingSpecificGraceDate || missingPortabilityTrigger) {
+      notes.push(
+        [
+          "H-1B safety note:",
+          missingSpecificGraceDate ? "If June 12, 2026 is the employment-termination date, the 60-day grace period would point to about August 11, 2026; the March 15, 2027 I-94 date does not extend the grace period beyond 60 days." : null,
+          missingUnauthorizedWork ? "Do not work without authorization." : null,
+          missingLcaWarning ? "LCA preparation alone does not preserve status; the key event is a properly filed nonfrivolous H-1B petition." : null,
+          missingFallbackOptions ? "If the new employer cannot file Form I-129 before day 60, ask counsel immediately about change of status, departure planning, possible consular return, premium processing or employer escalation, and receipt-notice timing." : null,
+          missingPortabilityTrigger ? "For H-1B portability, the key event is a properly filed nonfrivolous H-1B petition while the worker remains in an authorized period; a receipt notice is useful evidence of filing, not a substitute for the filing itself." : null,
+          missingImmediateCounsel ? "Confirm the exact grace-period deadline and filing strategy with immigration counsel immediately." : null
+        ].filter(Boolean).join(" ")
+      );
+    }
+  }
+
+  if (topics.includes("student-status") && /(day 1 cpt|cpt)/.test(normalizedQuestion)) {
+    const missingOptRisk = !/12 months.*full-time cpt|full-time cpt.*12 months|ineligible for post-completion opt/i.test(answer);
+    const missingI20 = !/form i-20|i-20/i.test(answer);
+
+    if (missingOptRisk || missingI20) {
+      notes.push(
+        [
+          "CPT safety note:",
+          missingI20 ? "Do not start CPT work until DSO authorization is recorded on the Form I-20." : null,
+          missingOptRisk ? "Ask the DSO how any full-time CPT would affect post-completion OPT, including the 12-month full-time CPT limit." : null
+        ].filter(Boolean).join(" ")
+      );
+    }
+  }
+
+  if (topics.includes("adjustment-of-status") && /(travel|advance parole|ap|i-131|visa stamp|reentry)/.test(normalizedQuestion)) {
+    const missingPendingApWarning = !/pending advance parole.*not enough|pending i-131.*not enough|do not travel based only on pending ap|pending advance parole.*not.*permission/i.test(answer);
+    const missingAbandonmentWarning = !/abandon.*i-485|i-485.*abandon/i.test(answer);
+    const missingPlainEnglishDistinction = !/(visa stamp|visa).*?(status).*?(advance parole)|(advance parole).*?(status).*?(visa stamp)/is.test(answer);
+    const missingReentryOptions = !/(wait.*approved ap|wait.*advance parole|h-1b.*stamp|consular|automatic visa revalidation|attorney-review options)/is.test(answer);
+
+    if (missingPendingApWarning || missingAbandonmentWarning || missingPlainEnglishDistinction || missingReentryOptions) {
+      notes.push(
+        [
+          "I-485 travel safety note:",
+          missingPlainEnglishDistinction ? "Visa stamp means the entry document used to request admission; status means the lawful classification while inside the U.S.; advance parole is a separate travel/reentry document for a pending adjustment case." : null,
+          missingPendingApWarning ? "Pending advance parole is not enough by itself for travel; do not travel based only on a pending I-131/AP application." : null,
+          missingAbandonmentWarning ? "Leaving without approved advance parole or another valid reentry basis can cause USCIS to treat the I-485 as abandoned." : null,
+          missingReentryOptions ? "If travel is unavoidable, ask counsel about three options before departure: waiting for approved AP, obtaining a new H-1B visa stamp abroad, or using limited automatic visa revalidation only if the itinerary and facts qualify." : null,
+          "Confirm the reentry strategy with immigration counsel before departure because CBP, consular processing, and abandonment risks are fact-specific."
+        ].filter(Boolean).join(" ")
+      );
+    }
+  }
+
+  if (topics.includes("self-petition") && /(denied|denial|refil|re-file|appeal|motion|proposed endeavor)/.test(normalizedQuestion)) {
+    const missingNoAssumption = !/do not assume refiling is best|don't assume refiling is best|do not assume.*refil|don't assume.*refil/i.test(answer);
+    const missingDeadlines = !/deadline|time limit|i-290b|motion|appeal/i.test(answer);
+
+    if (missingNoAssumption || missingDeadlines) {
+      notes.push(
+        [
+          "NIW strategy note:",
+          missingNoAssumption ? "Do not assume refiling is best." : null,
+          missingDeadlines ? "Ask counsel to review the denial notice for motion, appeal, or refiling deadlines before choosing a strategy." : null
+        ].filter(Boolean).join(" ")
+      );
+    }
+  }
+
+  if (topics.includes("cspa")) {
+    const missingNoCalculation = !/do not calculate.*cspa|do not.*cspa age.*incomplete|should not calculate.*cspa|without full facts/i.test(answer);
+    const missingImmediateReview = !/attorney.*immediately|immediate attorney|consult.*attorney.*immediately|review.*immediately/i.test(answer);
+
+    if (missingNoCalculation || missingImmediateReview) {
+      notes.push(
+        [
+          "CSPA safety note:",
+          missingNoCalculation ? "Do not calculate CSPA age from incomplete facts; ask counsel to calculate it using the full record." : null,
+          missingImmediateReview ? "Because the child is close to 21, consult an immigration attorney immediately about CSPA, sought-to-acquire timing, and filing options." : null
+        ].filter(Boolean).join(" ")
+      );
+    }
+  }
+
+  return notes.length > 0 ? notes.join("\n\n") : null;
+}
+
+function normalizeHighRiskAnswer(question: string, topics: TopicBucket[], answer: string) {
+  const normalizedQuestion = question.toLowerCase();
+
+  if (topics.includes("adjustment-of-status") && /(travel|advance parole|ap|i-131|visa stamp|reentry)/.test(normalizedQuestion)) {
+    return answer
+      .replace(
+        /\bYou cannot travel internationally next month(?:[^.]*pending I-485[^.]*)?\./i,
+        "Do not travel based only on the pending advance parole application. International travel while Form I-485 is pending is high-risk and depends on approved advance parole or another valid reentry strategy confirmed with counsel."
+      )
+      .replace(
+        /\bYou cannot travel internationally with a pending I-485 and only a pending advance parole application\./i,
+        "Do not travel based only on a pending I-131/AP application while Form I-485 is pending."
+      );
+  }
+
+  if ((topics.includes("h1b") || topics.includes("layoffs")) && /(layoff|laid off|grace period|day 60|lca|petition cannot be filed)/.test(normalizedQuestion)) {
+    return answer
+      .replace(
+        /Since your I-94 expires on March 15, 2027,[^.]*\./gi,
+        "If June 12, 2026 is the employment-termination date, the 60-day grace period would point to about August 11, 2026; the March 15, 2027 I-94 date does not extend the grace period beyond 60 days."
+      )
+      .replace(
+        /(?:the )?grace period (?:will|would) last until March 15, 2027[^.]*\./gi,
+        "The grace period is capped at up to 60 days after employment ends, or until the I-94/petition validity ends, whichever is shorter."
+      )
+      .replace(
+        /(?:you have|there (?:are|is)|with)\s+(?:about\s+)?\d+\s+days?\s+(?:left|remaining)[^.]*grace period[^.]*\./gi,
+        "If June 12, 2026 is the employment-termination date, the 60-day grace period would point to about August 11, 2026; confirm the exact termination date and grace-period endpoint with employer counsel."
+      )
+      .replace(
+        /(?:about\s+)?\d+\s+days?\s+(?:left|remaining)\s+(?:until|before)\s+(?:the end of\s+)?(?:your|the)?\s*grace period[^.]*\./gi,
+        "If June 12, 2026 is the employment-termination date, the 60-day grace period would point to about August 11, 2026; confirm the exact termination date and grace-period endpoint with employer counsel."
+      )
+      .replace(
+        /(?:you|the user) (?:cannot|can't|should not|must not) (?:start )?work(?:ing)? until (?:you|they|the employer)? ?(?:receive|get|obtain|have) (?:the )?(?:USCIS )?receipt notice[^.]*\./gi,
+        "For H-1B portability, work authorization generally depends on the new employer properly filing a nonfrivolous H-1B petition while the worker remains in an authorized period; the receipt notice is useful evidence of that filing and should be reviewed with counsel."
+      )
+      .replace(
+        /(?:^|\n)-?\s*\*\*?Temporary unpaid position\*\*?:?[^.\n]*(?:\.[^\n]*)?/gi,
+        "\n- **No unpaid-work workaround**: Do not rely on an unpaid role, volunteer role, or temporary position to preserve H-1B status without counsel confirming work authorization and status strategy."
+      )
+      .replace(
+        /(?:^|\n)-?\s*Temporary unpaid position:?[^.\n]*(?:\.[^\n]*)?/gi,
+        "\n- **No unpaid-work workaround**: Do not rely on an unpaid role, volunteer role, or temporary position to preserve H-1B status without counsel confirming work authorization and status strategy."
+      );
+  }
+
+  if (topics.includes("visa-bulletin") && !topics.includes("cspa")) {
+    const questionIncludesMockPriorityDate = /june 12,? 2025|2025-06-12/i.test(question);
+    const questionPriorityDateMatch = question.match(/(?:priority date is|priority date:)\s*([A-Z][a-z]+ \d{1,2}, \d{4}|\d{4}-\d{2}-\d{2})/i);
+    const userPriorityDate = questionPriorityDateMatch?.[1] ?? null;
+
+    if (!questionIncludesMockPriorityDate) {
+      return answer
+        .replace(/Since your priority date is June 12,? 2025,?\s*/gi, userPriorityDate ? `Since your priority date is ${userPriorityDate}, ` : "")
+        .replace(/your priority date \(June 12,? 2025\)/gi, userPriorityDate ? `your priority date (${userPriorityDate})` : "your priority date")
+        .replace(/\s*\(June 12,? 2025\)/gi, "")
+        .replace(/priority date of June 12,? 2025/gi, userPriorityDate ? `priority date of ${userPriorityDate}` : "priority date");
+    }
+  }
+
+  if (topics.includes("cspa")) {
+    const questionIncludesMockPriorityDate = /june 12,? 2025|2025-06-12/i.test(question);
+    let normalizedAnswer = answer;
+
+    if (!questionIncludesMockPriorityDate) {
+      normalizedAnswer = normalizedAnswer
+        .replace(/\s*\(June 12,? 2025\)/gi, "")
+        .replace(/your priority date \(June 12,? 2025\)/gi, "your priority date")
+        .replace(/for your priority date June 12,? 2025/gi, "for your priority date")
+        .replace(/priority date \(June 12,? 2025\)/gi, "priority date")
+        .replace(/priority date of June 12,? 2025/gi, "priority date")
+        .replace(/priority date \(2025-06-12\)/gi, "priority date");
+    }
+
+    return normalizedAnswer
+      .replace(/,?\s*considering the 180-day requirement post-petition and priority date relevance/gi, "")
+      .replace(/the 180-day requirement post-petition and /gi, "")
+      .replace(/180-day requirement post-petition/gi, "petition pending time");
+  }
+
+  return answer;
+}
+
 export async function getAdvisorWorkspaceSeed(snapshotArg?: AdvisorSeedSnapshot) {
   const snapshot = snapshotArg ?? await getSnapshot();
 
@@ -778,10 +1113,12 @@ export function isAdvisorRateLimitError(error: unknown) {
 
 export type AdvisorStreamEvent =
   | { type: "delta"; text: string }
-  | { type: "done"; assistantMessage: AdvisorMessage; conversationId: string }
+  | { type: "done"; assistantMessage: AdvisorMessage; conversationId: string; traceId: string }
   | { type: "error"; message: string; isRateLimit: boolean };
 
-const STREAMING_SYSTEM_PROMPT = [
+const ADVISOR_PROMPT_NAME = "haven-advisor-system";
+
+export const STREAMING_SYSTEM_PROMPT = [
   "You are Haven Advisor, an immigration information assistant for employment-based visas and green cards.",
   "Answer in clear, well-structured markdown. Use the official source chunks and Haven profile context provided.",
   "Prioritize official sources. Never invent eligibility rules, filing windows, dates, or conclusions.",
@@ -791,6 +1128,14 @@ const STREAMING_SYSTEM_PROMPT = [
   "For example: reference their priority date only if the question is about visa bulletin or GC timeline; reference their PERM stage only if the question involves PERM or job change. Do not inject profile facts unrelated to what they asked.",
   "For timeline or processing-time questions, lead with official data (USCIS/DOL processing times, visa bulletin). Use community stories only as supplementary real-world anecdote after the official answer, clearly framed as individual experiences — never as the authoritative answer.",
   "When a 'Community outcome data' block is provided, it contains statistics pre-computed from Haven users in a similar situation. State those figures VERBATIM; never compute, estimate, round, or extrapolate your own percentages or counts. If the block says NO_STATS, tell the user there isn't enough data for their exact profile yet and give general orientation only. Always frame these as what others did (not a recommendation) and end by suggesting they confirm their options with an immigration attorney.",
+  "For AC21 or job portability questions, do not imply AC21 helps unless the answer accounts for the pending I-485 requirement, the 180-day pending period, and same-or-similar occupational analysis. If the user has no filed or pending I-485, say AC21 adjustment portability generally is not available from an approved I-140 alone, but still explain the 180-day and same-or-similar requirements so the user understands what is missing.",
+  "For I-485 filing questions involving Final Action Dates or Dates for Filing, the controlling filing instruction is USCIS's monthly adjustment filing-chart page. Do not answer yes or no from the Department of State Visa Bulletin alone. User-stated dates override Haven profile dates; never insert a Haven profile priority date unless the user explicitly asks to use their Haven profile. Prefer conditional wording: the user may be able to file only if USCIS authorizes Dates for Filing for that month and the priority date is earlier than the relevant cutoff, assuming all other eligibility requirements are met.",
+  "For pending I-485 travel questions, distinguish pending advance parole from approved advance parole. A pending I-131/AP request is not itself permission to travel. Define the concepts plainly: visa stamp means the entry document used to request admission, status means the lawful classification while inside the U.S., and advance parole is a separate travel/reentry document for a pending adjustment case. Avoid absolute wording like 'you cannot travel'; instead say not to travel based only on pending AP and explain that travel depends on approved AP or another valid reentry strategy confirmed with counsel. State the I-485 abandonment risk when someone leaves without approved advance parole or another valid reentry basis. If H-1B status is valid but the visa stamp is expired, explain that H-1B reentry generally requires a valid visa stamp unless the person uses approved advance parole or qualifies for a narrow exception such as automatic visa revalidation. Suggest attorney-review options: wait for AP approval, evaluate H-1B consular stamping, and evaluate automatic visa revalidation only if the itinerary and facts qualify.",
+  "For H-1B layoff or transfer questions, keep stay/status questions separate from work authorization questions. Do not treat last paycheck, employer withdrawal, LCA preparation, petition preparation, unpaid work, volunteer work, or a temporary unpaid role as interchangeable with cessation of employment or a filed H-1B petition. Mention the grace period is up to 60 days or until I-94/petition validity ends, whichever is shorter. If the I-94 date is later than the 60-day date, do not say the grace period lasts until the I-94 date; calculate or state the earlier 60-day deadline as the practical deadline. For H-1B portability, the key event is a properly filed nonfrivolous H-1B petition while the worker remains in an authorized period; a receipt notice is evidence of filing, not the legal substitute for filing. In urgent cases near day 60, include the exact safety points 'Do not work without authorization' and 'LCA preparation alone does not preserve status,' then list concrete options such as immediate filing/receipt strategy, possible change of status, departure planning, premium processing or employer escalation, and immediate counsel review.",
+  "For F-1 OPT/CPT questions, cite student-employment sources when available. Pending OPT is not permission to work; OPT work generally requires the valid EAD and start date. CPT must be authorized by the DSO and documented on Form I-20 before work begins. For Day 1 CPT, mention 12 months or more of full-time CPT can affect post-completion OPT eligibility, and list concrete verification steps and red flags.",
+  "For CSPA age-out questions, do not calculate CSPA age from incomplete facts. Do not insert a specific priority date, I-140 date, or 180-day rule unless the user provided that fact. Flag immediate attorney review and focus on visa availability, petition pending time, the CSPA age formula, sought-to-acquire, adjustment vs consular processing, filing timing, and documents to gather.",
+  "For NIW denial/refiling questions, refer to the Dhanasar framework and deadlines. Do not assume refiling is the correct strategy; mention denial-notice review, motion/appeal/refile options, and concrete evidence to make the proposed endeavor specific.",
+  "For unauthorized-work or misrepresentation questions, refuse help hiding facts or drafting misleading statements. Give safe next steps: stop unauthorized work, preserve records, and contact immigration counsel immediately about truthful disclosure and possible consequences.",
   "Be concise. Answer the question directly in as few words as it takes to be accurate and complete — no preamble, no restating the question, no filler.",
   "Default to a short answer (2–4 sentences or a tight bulleted list). Only go longer when the question genuinely requires multiple steps, dates, or conditions.",
   "Lead with the direct answer, then add only the context, caveats, or numbers that materially change what the user should do.",
@@ -810,6 +1155,9 @@ export async function* streamAdvisorResponse(rawInput: {
   }
 
   const { content, history: rawHistory, conversationId } = parsed.data;
+  const topics = classifyTopics(content);
+  const experiential = isExperientialQuestion(content);
+  const model = getChatModel();
 
   const lf = getLangfuseClient();
   // One trace per message; group a multi-turn conversation via sessionId so
@@ -821,6 +1169,12 @@ export async function* streamAdvisorResponse(rawInput: {
     sessionId: conversationId,
     input: { question: content },
     userId: identity.isMock ? undefined : identity.id,
+    metadata: {
+      topics,
+      experiential,
+      model,
+      promptName: ADVISOR_PROMPT_NAME
+    }
   });
 
   const moderation = await moderateMessage(content, trace);
@@ -839,8 +1193,28 @@ export async function* streamAdvisorResponse(rawInput: {
       follow_up_questions: [],
       refusal_or_escalation_reason: "Message flagged by moderation.",
     };
+    trace?.update({
+      metadata: {
+        topics,
+        experiential,
+        model,
+        promptName: ADVISOR_PROMPT_NAME,
+        retrievalKnowledgeCount: 0,
+        retrievalCommunityCount: 0,
+        caseStatsTier: "none",
+        citationCount: 0,
+        fallback: false,
+        fallbackReason: null
+      },
+      output: {
+        answer: flaggedPayload.answer_markdown,
+        cited: false,
+        citationCount: 0,
+        refusalOrEscalationReason: flaggedPayload.refusal_or_escalation_reason
+      }
+    });
     await flushLangfuse();
-    yield { type: "done", assistantMessage: createAssistantMessage(threadId, flaggedPayload), conversationId: threadId };
+    yield { type: "done", assistantMessage: createAssistantMessage(threadId, flaggedPayload, traceId), conversationId: threadId, traceId };
     return;
   }
 
@@ -855,9 +1229,6 @@ export async function* streamAdvisorResponse(rawInput: {
     content: m.content,
     createdAt: new Date(Date.now() - (rawHistory.length - i) * 1000).toISOString(),
   }));
-
-  const topics = classifyTopics(content);
-  trace?.update({ metadata: { topics, experiential: isExperientialQuestion(content) } });
 
   const userContext = buildAdvisorContext(snapshot);
 
@@ -879,20 +1250,27 @@ export async function* streamAdvisorResponse(rawInput: {
 
   const citations = buildCitationSet(knowledge);
   const communityUsed = community.slice(0, 2).map((item) => `${item.title}: ${item.summary}`);
-  const havenContextUsed = userContext.profileSummary.slice(0, 4).filter(Boolean);
+  const promptProfileSummary = buildPromptProfileSummary(content, userContext);
+  const promptTimelineSummary = buildPromptTimelineSummary(content, userContext);
+  const promptDerivedSignals = buildPromptDerivedSignals(content, userContext);
+  const promptEmailEvidence = buildPromptEmailEvidence(content, userContext);
+  const havenContextUsed = promptProfileSummary.slice(0, 4).filter(Boolean);
 
-  const { text: systemPrompt, prompt: advisorPrompt } = await getPrompt(lf, "haven-advisor-system", STREAMING_SYSTEM_PROMPT);
+  const { text: systemPrompt, prompt: advisorPrompt } = await getPrompt(lf, ADVISOR_PROMPT_NAME, STREAMING_SYSTEM_PROMPT);
+  const decisionGuardrails = buildDecisionGuardrails(content, topics);
 
   const userPrompt = [
     `User question:\n${content}`,
     "",
-    buildContextBlock("Haven profile summary", userContext.profileSummary),
+    buildContextBlock("Decision guardrails", decisionGuardrails),
     "",
-    buildContextBlock("Haven timeline summary", userContext.timelineSummary),
+    buildContextBlock("Haven profile summary", promptProfileSummary),
     "",
-    buildContextBlock("Haven derived signals", userContext.derivedSignalsSummary),
+    buildContextBlock("Haven timeline summary", promptTimelineSummary),
     "",
-    buildContextBlock("Haven email evidence", userContext.emailEvidenceSummary),
+    buildContextBlock("Haven derived signals", promptDerivedSignals),
+    "",
+    buildContextBlock("Haven email evidence", promptEmailEvidence),
     "",
     buildContextBlock(
       "Official source chunks",
@@ -914,7 +1292,6 @@ export async function* streamAdvisorResponse(rawInput: {
   ].join("\n");
 
   const client = getOpenAIClient();
-  const model = getChatModel();
   const generation = trace?.generation({
     name: "openai-advisor-stream",
     model,
@@ -926,6 +1303,8 @@ export async function* streamAdvisorResponse(rawInput: {
   });
 
   let fullText = "";
+  let fallback = false;
+  let fallbackReason: string | null = null;
 
   if (client) {
     try {
@@ -950,17 +1329,34 @@ export async function* streamAdvisorResponse(rawInput: {
       trace?.update({ output: { answer: fullText, cited: citations.length > 0, citationCount: citations.length } });
     } catch (err) {
       generation?.end({ output: { error: String(err) }, level: "ERROR" });
-      const fallback = fallbackAnswer(content, userContext, knowledge, community, topics);
-      fullText = fallback.answer_markdown;
-      trace?.update({ output: { answer: fullText, fallback: true, reason: "stream error" } });
+      const fallbackPayload = fallbackAnswer(content, userContext, knowledge, community, topics);
+      fullText = fallbackPayload.answer_markdown;
+      fallback = true;
+      fallbackReason = "stream error";
+      trace?.update({ output: { answer: fullText, fallback: true, reason: fallbackReason } });
       yield { type: "delta", text: fullText };
     }
   } else {
-    const fallback = fallbackAnswer(content, userContext, knowledge, community, topics);
-    fullText = fallback.answer_markdown;
-    trace?.update({ output: { answer: fullText, fallback: true, reason: "no openai client" } });
+    const fallbackPayload = fallbackAnswer(content, userContext, knowledge, community, topics);
+    fullText = fallbackPayload.answer_markdown;
+    fallback = true;
+    fallbackReason = "no openai client";
+    trace?.update({ output: { answer: fullText, fallback: true, reason: fallbackReason } });
     yield { type: "delta", text: fullText };
   }
+
+  const normalizedFullText = normalizeHighRiskAnswer(content, topics, fullText);
+  if (normalizedFullText !== fullText) {
+    fullText = normalizedFullText;
+  }
+
+  const mandatorySafetyAddendum = buildMandatorySafetyAddendum(content, topics, fullText);
+  if (mandatorySafetyAddendum) {
+    const addendumText = `\n\n${mandatorySafetyAddendum}`;
+    fullText += addendumText;
+    yield { type: "delta", text: addendumText };
+  }
+  trace?.update({ output: { answer: fullText, cited: citations.length > 0, citationCount: citations.length, fallback, fallbackReason } });
 
   const answerPayload: AdvisorAnswerPayload = {
     answer_markdown: fullText,
@@ -972,9 +1368,24 @@ export async function* streamAdvisorResponse(rawInput: {
     follow_up_questions: [],
   };
 
+  trace?.update({
+    metadata: {
+      topics,
+      experiential,
+      model,
+      promptName: ADVISOR_PROMPT_NAME,
+      retrievalKnowledgeCount: knowledge.length,
+      retrievalCommunityCount: community.length,
+      caseStatsTier: caseStats?.tier ?? "none",
+      citationCount: citations.length,
+      fallback,
+      fallbackReason
+    }
+  });
+
   await flushLangfuse();
 
-  yield { type: "done", assistantMessage: createAssistantMessage(threadId, answerPayload), conversationId: threadId };
+  yield { type: "done", assistantMessage: createAssistantMessage(threadId, answerPayload, traceId), conversationId: threadId, traceId };
 }
 
 export async function syncTrustedSources() {

@@ -8,7 +8,10 @@
     "build": "next build",
     "build:webpack": "next build --webpack",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "eval:advisor": "tsx --tsconfig tsconfig.json evals/advisor/run-local.ts",
+    "eval:advisor:smoke": "npm run eval:advisor -- --preset recommended10",
+    "eval:advisor:judge": "npm run eval:advisor -- --preset recommended10 --judge"
   },
   "dependencies": {
     "@haven/auth": "*",
