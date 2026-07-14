@@ -1,3 +1,4 @@
+import { dolComputerSystemsAnalystsJobZone4H1bPerm2026Post } from "@/content/blog/posts/dol-computer-systems-analysts-job-zone-4-h1b-perm-2026";
 import { ohioCourtBlocksUscisFreezeGreenCardEad2026Post } from "@/content/blog/posts/ohio-court-blocks-uscis-freeze-green-card-ead-2026";
 import { h1bCapExemptionThirdPartyReform2026Post } from "@/content/blog/posts/h1b-cap-exemption-third-party-reform-2026";
 import { prevailingWageIncrease2026H1bPermPost } from "@/content/blog/posts/prevailing-wage-increase-2026-h1b-perm";
@@ -100,6 +101,7 @@ const guideBlogPosts = guides.map(guideToBlogPost);
 
 // Add a new post import here and it will appear in the blog automatically.
 export const blogPosts = [
+  dolComputerSystemsAnalystsJobZone4H1bPerm2026Post,
   ohioCourtBlocksUscisFreezeGreenCardEad2026Post,
   h1bCapExemptionThirdPartyReform2026Post,
   prevailingWageIncrease2026H1bPermPost,
