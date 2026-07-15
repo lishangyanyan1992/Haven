@@ -20,6 +20,8 @@
     "typecheck:haven": "npm run typecheck --workspace @haven/app",
     "typecheck:wizard": "npm run typecheck --workspace @haven/immig-wizard",
     "test:wizard": "npm run test --workspace @haven/immig-wizard",
+    "seo:report": "node apps/haven/scripts/seo-loop/run.mjs",
+    "test:seo-loop": "node --test apps/haven/scripts/seo-loop/*.test.mjs",
     "supabase": "./scripts/supabase-cli.sh",
     "supabase:push": "./scripts/supabase-db-push.sh",
     "supabase:types": "./scripts/supabase-gen-types.sh",

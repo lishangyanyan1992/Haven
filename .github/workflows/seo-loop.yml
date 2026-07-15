@@ -1,0 +1,72 @@
+name: Weekly GSC SEO baseline
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 15 * * 1"
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: weekly-gsc-seo-baseline
+  cancel-in-progress: false
+
+jobs:
+  report:
+    name: Generate SEO report PR
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Check Search Console configuration
+        id: config
+        env:
+          GSC_CREDENTIALS_JSON: ${{ secrets.GSC_CREDENTIALS_JSON }}
+        run: |
+          if [ -z "$GSC_CREDENTIALS_JSON" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping SEO baseline until GSC_CREDENTIALS_JSON is configured."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate Search Console baseline
+        if: steps.config.outputs.configured == 'true'
+        id: seo
+        env:
+          GSC_CREDENTIALS_JSON: ${{ secrets.GSC_CREDENTIALS_JSON }}
+          GSC_SITE_URL: ${{ vars.GSC_SITE_URL || 'sc-domain:haven-h1b.com' }}
+        run: node apps/haven/scripts/seo-loop/run.mjs
+
+      - name: Open report pull request
+        if: steps.config.outputs.configured == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPORT_PATH: ${{ steps.seo.outputs.report_path }}
+          RUN_DATE: ${{ steps.seo.outputs.run_date }}
+          OPPORTUNITY_COUNT: ${{ steps.seo.outputs.opportunity_count }}
+        run: |
+          branch="seo-loop/report-${RUN_DATE}-${GITHUB_RUN_ID}"
+          git config user.name "haven-seo-loop[bot]"
+          git config user.email "haven-seo-loop[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add "reports/seo/${RUN_DATE}"
+          git commit -m "seo: add GSC baseline report for ${RUN_DATE}"
+          git push --set-upstream origin "$branch"
+          gh label create seo-loop --color 1D76DB --description "Weekly Google Search Console report" --force
+          gh pr create \
+            --base main \
+            --head "$branch" \
+            --title "SEO baseline report: ${RUN_DATE} (${OPPORTUNITY_COUNT} opportunities)" \
+            --body-file "$REPORT_PATH" \
+            --label seo-loop
