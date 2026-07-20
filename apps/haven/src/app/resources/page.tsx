@@ -1,13 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
 import { BlogCard } from "@/components/app/blog-card";
 import { PublicNavbar } from "@/components/app/public-navbar";
-import {
-  getAllResourcePosts,
-  getResourcePostsByCategory,
-  fromResourceCategorySlug
-} from "@/lib/blog";
+import { ResourcesExplorer } from "@/components/app/resources-explorer";
+import { getAllResourcePosts, getResourcePostsByCategory } from "@/lib/blog";
 import { absoluteUrl } from "@/lib/seo";
 import { getOrganizationStructuredData } from "@/lib/site";
 
@@ -40,38 +36,9 @@ export const metadata: Metadata = {
   }
 };
 
-type ResourcesIndexPageProps = {
-  searchParams?: Promise<{
-    category?: string | string[];
-    view?: string | string[];
-  }>;
-};
-
-function getSearchParamValue(value: string | string[] | undefined): string | undefined {
-  if (Array.isArray(value)) return value[0];
-  return value;
-}
-
-function getResourcesIndexHref(options: { view?: "category" | "date"; categorySlug?: string }): string {
-  const params = new URLSearchParams();
-  if (options.view === "date") params.set("view", "date");
-  if (options.view !== "date" && options.categorySlug) params.set("category", options.categorySlug);
-  const query = params.toString();
-  return query ? `/resources?${query}` : "/resources";
-}
-
-export default async function ResourcesIndexPage({ searchParams }: ResourcesIndexPageProps) {
-  const resolvedSearchParams = (await searchParams) ?? {};
+export default function ResourcesIndexPage() {
   const posts = getAllResourcePosts();
   const groupedPosts = getResourcePostsByCategory(posts);
-  const selectedView = getSearchParamValue(resolvedSearchParams.view);
-  const isDateView = selectedView === "date";
-  const selectedCategorySlug = getSearchParamValue(resolvedSearchParams.category);
-  const selectedCategory = !isDateView && selectedCategorySlug ? fromResourceCategorySlug(selectedCategorySlug, posts) : undefined;
-  const visibleGroups = selectedCategory
-    ? groupedPosts.filter((group) => group.category === selectedCategory)
-    : groupedPosts;
-  const visiblePostCount = visibleGroups.reduce((count, group) => count + group.posts.length, 0);
   const org = getOrganizationStructuredData();
 
   const collectionPageData = {
@@ -127,76 +94,17 @@ export default async function ResourcesIndexPage({ searchParams }: ResourcesInde
             </p>
           </div>
 
-          <div className="mt-12 rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)]/80 p-6 shadow-[0_8px_30px_-12px_rgba(44,54,48,0.08)]">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <p className="text-label">{isDateView ? "Browse by date" : "Browse by category"}</p>
-                <p className="text-body mt-2 max-w-[72ch]">
-                  {isDateView
-                    ? "See the full resource library in reverse chronological order."
-                    : "Browse the library through broader reference buckets, or switch to a simple date-based view."}
-                </p>
-              </div>
-              <p className="text-caption">
-                {isDateView
-                  ? `${posts.length} total resources`
-                  : selectedCategory
-                    ? `${visiblePostCount} resource${visiblePostCount === 1 ? "" : "s"} in ${selectedCategory}`
-                    : `${posts.length} total resources`}
-              </p>
-            </div>
-
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link
-                href={getResourcesIndexHref({ view: "category", categorySlug: selectedCategorySlug })}
-                className={isDateView ? "tag tag-pending" : "tag tag-active"}
-              >
-                By category
-              </Link>
-              <Link
-                href={getResourcesIndexHref({ view: "date" })}
-                className={isDateView ? "tag tag-active" : "tag tag-pending"}
-              >
-                By date
-              </Link>
-            </div>
-
-            {!isDateView ? (
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Link
-                  href={getResourcesIndexHref({ view: "category" })}
-                  className={selectedCategory ? "tag tag-pending" : "tag tag-active"}
-                >
-                  All resources
-                </Link>
-                {groupedPosts.map((group) => {
-                  const isSelected = group.category === selectedCategory;
-                  return (
-                    <Link
-                      key={group.category}
-                      href={getResourcesIndexHref({ view: "category", categorySlug: group.categorySlug })}
-                      className={isSelected ? "tag tag-active" : "tag tag-visa"}
-                    >
-                      {group.category} · {group.posts.length}
-                    </Link>
-                  );
-                })}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="mt-12 space-y-12">
-            {isDateView ? (
-              <section className="space-y-6">
-                <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                  {posts.map((post) => (
-                    <BlogCard key={post.slug} post={post} />
-                  ))}
-                </div>
-              </section>
-            ) : (
-              visibleGroups.map((group) => (
-                <section key={group.category} id={group.categorySlug} className="space-y-6">
+          <ResourcesExplorer
+            totalCount={posts.length}
+            categories={groupedPosts.map((group) => ({
+              category: group.category,
+              slug: group.categorySlug,
+              count: group.posts.length
+            }))}
+            groups={groupedPosts.map((group) => ({
+              slug: group.categorySlug,
+              node: (
+                <section id={group.categorySlug} className="space-y-6">
                   <div className="flex flex-col gap-3 border-b border-[var(--color-border)] pb-5 lg:flex-row lg:items-end lg:justify-between">
                     <div className="max-w-[76ch]">
                       <p className="text-label">{group.category}</p>
@@ -211,21 +119,18 @@ export default async function ResourcesIndexPage({ searchParams }: ResourcesInde
                     ))}
                   </div>
                 </section>
-              ))
-            )}
-
-            {!isDateView && visibleGroups.length === 0 ? (
-              <section className="rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-8">
-                <p className="text-h2">No resources match that category.</p>
-                <p className="text-body mt-3 max-w-[60ch]">Try another filter or return to the full resources index.</p>
-                <div className="mt-6">
-                  <Link href={getResourcesIndexHref({ view: "category" })} className="tag tag-active">
-                    View all resources
-                  </Link>
+              )
+            }))}
+            dateView={
+              <section className="space-y-6">
+                <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                  {posts.map((post) => (
+                    <BlogCard key={post.slug} post={post} />
+                  ))}
                 </div>
               </section>
-            ) : null}
-          </div>
+            }
+          />
         </section>
       </main>
     </div>

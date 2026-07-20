@@ -18,7 +18,7 @@ import { buildBreadcrumbStructuredData, siteIdentity } from "@/lib/site";
 // Existing 60 prerender; applied (DB-listed) firms render on demand. Revalidate
 // so a published claim/listing appears within a minute.
 export const dynamicParams = true;
-export const revalidate = 60;
+export const revalidate = 3600;
 
 type FirmPageProps = {
   params: Promise<{ firm: string }>;

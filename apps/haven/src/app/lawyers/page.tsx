@@ -17,7 +17,7 @@ import { buildBreadcrumbStructuredData, siteIdentity } from "@/lib/site";
 
 // Revalidate so a one-click status flip (pending -> claimed) in Supabase shows
 // up on the public site within a minute, without a redeploy.
-export const revalidate = 60;
+export const revalidate = 3600;
 
 export const metadata: Metadata = {
   title: "Immigration Lawyer Directory — Small Firms for F-1, OPT & H-1B Talent",
