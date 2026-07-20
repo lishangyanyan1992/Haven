@@ -88,18 +88,52 @@ function firmFromApplication(row: ClaimRow): LawFirm {
   };
 }
 
-async function fetchClaimedRows(): Promise<ClaimRow[]> {
-  const admin = createSupabaseAdminClient();
-  const { data, error } = await admin
-    .from("legal_firm_claims")
-    .select(
-      "claim_type, firm_id, firm_name, claimant_phone, evidence_bar_url, evidence_aila_url, evidence_specialist_url, evidence_website, profile, updated_at"
-    )
-    .eq("status", "claimed")
-    .order("updated_at", { ascending: false });
+const CLAIMS_FETCH_TIMEOUT_MS = 10_000;
+const CLAIMS_CACHE_TTL_MS = 30_000;
 
-  if (error || !data) return [];
-  return data as ClaimRow[];
+let claimedRowsCache: { at: number; promise: Promise<ClaimRow[]> } | null = null;
+
+async function queryClaimedRows(): Promise<ClaimRow[]> {
+  const admin = createSupabaseAdminClient();
+  try {
+    const { data, error } = await admin
+      .from("legal_firm_claims")
+      .select(
+        "claim_type, firm_id, firm_name, claimant_phone, evidence_bar_url, evidence_aila_url, evidence_specialist_url, evidence_website, profile, updated_at"
+      )
+      .eq("status", "claimed")
+      .order("updated_at", { ascending: false })
+      .abortSignal(AbortSignal.timeout(CLAIMS_FETCH_TIMEOUT_MS));
+
+    if (error || !data) return [];
+    return data as ClaimRow[];
+  } catch {
+    return [];
+  }
+}
+
+// An unreachable Supabase must not hang the 60s prerender window during
+// static builds, so builds skip the claim overlay entirely (ISR revalidation
+// restores it within a minute of deploy). At runtime the query races a hard
+// deadline and concurrent renders share one in-flight fetch; on timeout the
+// directory renders with base (unclaimed) data.
+function fetchClaimedRows(): Promise<ClaimRow[]> {
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return Promise.resolve([]);
+  }
+
+  if (!claimedRowsCache || Date.now() - claimedRowsCache.at > CLAIMS_CACHE_TTL_MS) {
+    claimedRowsCache = { at: Date.now(), promise: queryClaimedRows() };
+  }
+
+  const { promise } = claimedRowsCache;
+  return Promise.race([
+    promise,
+    new Promise<ClaimRow[]>((resolve) => {
+      const timer = setTimeout(() => resolve([]), CLAIMS_FETCH_TIMEOUT_MS + 1_000);
+      timer.unref?.();
+    })
+  ]);
 }
 
 // All directory firms = static Places base (with claims overlaid) + published
