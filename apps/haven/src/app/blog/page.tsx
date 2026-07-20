@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
 import { BlogCard } from "@/components/app/blog-card";
+import { BlogExplorer } from "@/components/app/blog-explorer";
 import { PublicNavbar } from "@/components/app/public-navbar";
-import { fromBlogCategorySlug, getAllBlogPosts, getBlogCategories, getFeaturedBlogPosts, toBlogCategorySlug } from "@/lib/blog";
+import { getAllBlogPosts, getBlogCategories, getFeaturedBlogPosts, toBlogCategorySlug } from "@/lib/blog";
 import { absoluteUrl } from "@/lib/seo";
 import { getOrganizationStructuredData } from "@/lib/site";
 
@@ -36,32 +36,10 @@ export const metadata: Metadata = {
   }
 };
 
-type BlogIndexPageProps = {
-  searchParams?: Promise<{
-    category?: string | string[];
-  }>;
-};
-
-function getSearchParamValue(value: string | string[] | undefined): string | undefined {
-  if (Array.isArray(value)) return value[0];
-  return value;
-}
-
-function getBlogIndexHref(options: { categorySlug?: string }): string {
-  const params = new URLSearchParams();
-  if (options.categorySlug) params.set("category", options.categorySlug);
-  const query = params.toString();
-  return query ? `/blog?${query}` : "/blog";
-}
-
-export default async function BlogIndexPage({ searchParams }: BlogIndexPageProps) {
-  const resolvedSearchParams = (await searchParams) ?? {};
+export default function BlogIndexPage() {
   const posts = getAllBlogPosts();
   const featuredPosts = getFeaturedBlogPosts();
   const blogCategories = getBlogCategories(posts);
-  const selectedCategorySlug = getSearchParamValue(resolvedSearchParams.category);
-  const selectedCategory = selectedCategorySlug ? fromBlogCategorySlug(selectedCategorySlug, posts) : undefined;
-  const visiblePosts = selectedCategory ? posts.filter((post) => post.category === selectedCategory) : posts;
   const org = getOrganizationStructuredData();
 
   const collectionPageData = {
@@ -132,77 +110,19 @@ export default async function BlogIndexPage({ searchParams }: BlogIndexPageProps
             </div>
           )}
 
-          {/* Filter panel */}
-          <div className="mt-12 rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)]/80 p-6 shadow-[0_8px_30px_-12px_rgba(44,54,48,0.08)]">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <p className="text-label">Browse by date</p>
-                <p className="text-body mt-2 max-w-[72ch]">
-                  The blog defaults to newest-first. Use the topic filters to narrow the stream without changing the layout.
-                </p>
-              </div>
-              <p className="text-caption">
-                {selectedCategory
-                  ? `${visiblePosts.length} article${visiblePosts.length === 1 ? "" : "s"} in ${selectedCategory}`
-                  : `${posts.length} total articles`}
-              </p>
-            </div>
-
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link href={getBlogIndexHref({})} className={selectedCategory ? "tag tag-pending" : "tag tag-active"}>
-                All articles
-              </Link>
-              {blogCategories.map((category) => {
-                const isSelected = category === selectedCategory;
-                const categoryCount = posts.filter((post) => post.category === category).length;
-
-                return (
-                  <Link
-                    key={category}
-                    href={getBlogIndexHref({ categorySlug: toBlogCategorySlug(category) })}
-                    className={isSelected ? "tag tag-active" : "tag tag-visa"}
-                  >
-                    {category} · {categoryCount}
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="mt-12 space-y-6">
-            <div className="flex flex-col gap-3 border-b border-[var(--color-border)] pb-5 lg:flex-row lg:items-end lg:justify-between">
-              <div className="max-w-[76ch]">
-                <p className="text-label">{selectedCategory ? selectedCategory : "Latest posts"}</p>
-                <h2 className="text-h1 mt-3">
-                  {selectedCategory ? `${selectedCategory} articles` : "Newest articles first"}
-                </h2>
-                <p className="text-body mt-3">
-                  {selectedCategory
-                    ? "Filtered by label, still sorted by publish date so the latest changes stay at the top."
-                    : "Every article in the blog stream, sorted by publish date with the newest posts first."}
-                </p>
-              </div>
-              <p className="text-caption">{visiblePosts.length} article{visiblePosts.length === 1 ? "" : "s"}</p>
-            </div>
-
-            {visiblePosts.length > 0 ? (
-              <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                {visiblePosts.map((post) => (
-                  <BlogCard key={post.slug} post={post} />
-                ))}
-              </div>
-            ) : (
-              <section className="rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-8">
-                <p className="text-h2">No articles match that category.</p>
-                <p className="text-body mt-3 max-w-[60ch]">Try another filter or return to the full blog index.</p>
-                <div className="mt-6">
-                  <Link href={getBlogIndexHref({})} className="tag tag-active">
-                    View all articles
-                  </Link>
-                </div>
-              </section>
-            )}
-          </div>
+          <BlogExplorer
+            totalCount={posts.length}
+            categories={blogCategories.map((category) => ({
+              category,
+              slug: toBlogCategorySlug(category),
+              count: posts.filter((post) => post.category === category).length
+            }))}
+            posts={posts.map((post) => ({
+              slug: post.slug,
+              categorySlug: toBlogCategorySlug(post.category),
+              node: <BlogCard post={post} />
+            }))}
+          />
         </section>
       </main>
     </div>
