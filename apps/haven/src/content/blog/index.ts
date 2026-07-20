@@ -1,3 +1,4 @@
+import { h1bFy2027CapReachedNoSecondLotteryPost } from "@/content/blog/posts/h1b-fy2027-cap-reached-no-second-lottery";
 import { dhsPublicChargeFinalRuleEbGreenCard2026Post } from "@/content/blog/posts/dhs-public-charge-final-rule-eb-green-card-2026";
 import { courtBlocksVisaDenialContentModerationResearchers2026Post } from "@/content/blog/posts/court-blocks-visa-denial-content-moderation-researchers-2026";
 import { dolOigProjectFirewallH1bPermFraudInvestigation2026Post } from "@/content/blog/posts/dol-oig-project-firewall-h1b-perm-fraud-investigation-2026";
@@ -104,6 +105,7 @@ const guideBlogPosts = guides.map(guideToBlogPost);
 
 // Add a new post import here and it will appear in the blog automatically.
 export const blogPosts = [
+  h1bFy2027CapReachedNoSecondLotteryPost,
   dhsPublicChargeFinalRuleEbGreenCard2026Post,
   courtBlocksVisaDenialContentModerationResearchers2026Post,
   dolOigProjectFirewallH1bPermFraudInvestigation2026Post,
