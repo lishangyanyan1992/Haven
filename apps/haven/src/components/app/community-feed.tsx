@@ -1,4 +1,6 @@
-import Link from "next/link";
+"use client";
+
+import { useMemo, useState } from "react";
 import { ArrowRight, Users } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -43,27 +45,6 @@ function formatCommunityAuthorLabel(label: string, fallbackSeed: string) {
   const explicitNumber = label.match(/\d+/)?.[0];
   const numeric = explicitNumber ? Number(explicitNumber) % 1000 : hashLabelToNumber(label || fallbackSeed);
   return `Haven_User_${String(numeric).padStart(3, "0")}`;
-}
-
-function buildCommunityHref(
-  basePath: string,
-  params: {
-    labels?: string[];
-    view?: CommunityFeedView;
-  }
-) {
-  const searchParams = new URLSearchParams();
-
-  if (params.view) {
-    searchParams.set("view", params.view);
-  }
-
-  if (params.labels && params.labels.length > 0) {
-    searchParams.set("labels", params.labels.join(","));
-  }
-
-  const query = searchParams.toString();
-  return query ? `${basePath}?${query}` : basePath;
 }
 
 function normalizeSelectedLabels(labels: string[]) {
@@ -112,19 +93,19 @@ export function CommunityIntro() {
 }
 
 export function CommunityFeed({
-  basePath = "/community",
   data,
   profile,
-  selectedLabels = [],
-  selectedView = profile ? "for-you" : "all"
+  initialLabels = [],
+  initialView = profile ? "for-you" : "all"
 }: {
-  basePath?: string;
   data: CommunityData;
   profile?: CommunityFeedProfile;
-  selectedLabels?: string[];
-  selectedView?: CommunityFeedView;
+  initialLabels?: string[];
+  initialView?: CommunityFeedView;
 }) {
-  const livePosts = getCommunityPosts(data, profile);
+  const [selectedLabels, setSelectedLabels] = useState(initialLabels);
+  const [selectedView, setSelectedView] = useState(initialView);
+  const livePosts = useMemo(() => getCommunityPosts(data, profile), [data, profile]);
   const activeLabels = normalizeSelectedLabels(selectedLabels);
   const personalizedPosts = [...livePosts]
     .filter((post) => post.match.score > 0)
@@ -153,33 +134,34 @@ export function CommunityFeed({
       {profile ? (
         <div className="flex flex-wrap gap-2">
           {feedViews.map((view) => (
-            <Link
+            <button
               key={view.value}
+              type="button"
               className={selectedView === view.value ? "tag tag-community" : "tag tag-pending"}
-              href={buildCommunityHref(basePath, { labels: activeLabels, view: view.value })}
+              onClick={() => setSelectedView(view.value)}
             >
               {view.label}
-            </Link>
+            </button>
           ))}
         </div>
       ) : null}
 
       <div className="flex flex-wrap gap-2">
         {filterLabels.map((label) => (
-          <Link
+          <button
             key={label}
+            type="button"
             className={
               (label === "All" && activeLabels.length === 0) || activeLabels.includes(label)
                 ? "tag tag-community"
                 : "tag tag-pending"
             }
-            href={buildCommunityHref(basePath, {
-              labels: label === "All" ? [] : toggleSelectedLabel(activeLabels, label),
-              view: profile ? selectedView : undefined
-            })}
+            onClick={() =>
+              setSelectedLabels(label === "All" ? [] : toggleSelectedLabel(activeLabels, label))
+            }
           >
             {label}
-          </Link>
+          </button>
         ))}
       </div>
 

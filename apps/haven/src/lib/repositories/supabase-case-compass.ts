@@ -2,6 +2,7 @@ import { getPriorityDateIntelligence, getPriorityDateSignalOverrides } from "@/l
 import type { HavenRepository } from "@/lib/repositories/contracts";
 import { computeDerivedSignals, mergeSnapshotProfile } from "@/lib/haven";
 import { havenSnapshot } from "@/lib/repositories/mock-data";
+import { createSupabasePublicClient } from "@/lib/supabase/public";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type {
   CommunityMember,
@@ -613,17 +614,31 @@ export async function getSupabaseCommunityPageData() {
   };
 }
 
+const PUBLIC_COMMUNITY_POST_LIMIT = 100;
+
 export async function getSupabasePublicCommunityPageData(): Promise<Pick<HavenWorkspaceSnapshot, "cohorts" | "warRoom">> {
-  const supabase = await createSupabaseServerClient();
+  // Cookie-less client so /community can render statically (ISR).
+  const supabase = createSupabasePublicClient();
   const [
     { data: communitySpaceRows, error: communitySpaceRowsError },
-    { data: postRows, error: postRowsError },
-    { data: commentRows, error: commentRowsError }
+    { data: postRows, error: postRowsError }
   ] = await Promise.all([
     supabase.from("community_spaces").select("id, space_type, name, summary"),
-    supabase.from("community_posts").select("id, space_id, author_label, title, body, created_at, tags"),
-    supabase.from("community_post_comments").select("id, post_id, author_label, body, sort_order, created_at")
+    supabase
+      .from("community_posts")
+      .select("id, space_id, author_label, title, body, created_at, tags")
+      .order("created_at", { ascending: false })
+      .limit(PUBLIC_COMMUNITY_POST_LIMIT)
   ]);
+
+  const postIds = (postRows ?? []).map((post) => post.id);
+  const { data: commentRows, error: commentRowsError } =
+    postIds.length > 0
+      ? await supabase
+          .from("community_post_comments")
+          .select("id, post_id, author_label, body, sort_order, created_at")
+          .in("post_id", postIds)
+      : { data: [], error: null };
 
   const safeCommentRows = isMissingCommunityPostCommentsTable(commentRowsError) ? [] : commentRows;
 

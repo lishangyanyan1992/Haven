@@ -9,6 +9,10 @@ import { buttonVariants } from "@/components/ui/button";
 import { getPublicCommunityPageData } from "@/lib/repositories/case-compass";
 import { absoluteUrl } from "@/lib/seo";
 
+// Serve a cached page and refresh in the background; label filtering happens
+// client-side, so per-request rendering (and its Supabase egress) is unnecessary.
+export const revalidate = 300;
+
 export const metadata: Metadata = {
   title: "Haven Community",
   description:
@@ -28,32 +32,6 @@ export const metadata: Metadata = {
       "Read moderated immigration community conversations organized by confirmed case details, including H-1B layoffs, grace periods, RFEs, and green card timing."
   }
 };
-
-type CommunityPageProps = {
-  searchParams?: Promise<{ label?: string | string[]; labels?: string | string[] }>;
-};
-
-function parseSelectedLabels(primary?: string | string[], fallback?: string | string[]) {
-  const rawValues = Array.isArray(primary)
-    ? primary
-    : primary
-      ? [primary]
-      : Array.isArray(fallback)
-        ? fallback
-        : fallback
-          ? [fallback]
-          : [];
-
-  return Array.from(
-    new Set(
-      rawValues
-        .flatMap((value) => value.split(","))
-        .map((label) => label.trim())
-        .filter(Boolean)
-        .filter((label) => label !== "All")
-    )
-  );
-}
 
 function PublicParticipationCta() {
   return (
@@ -137,9 +115,7 @@ function AiExpertVisual() {
   );
 }
 
-export default async function CommunityPage({ searchParams }: CommunityPageProps) {
-  const resolvedSearchParams = searchParams ? await searchParams : undefined;
-  const selectedLabels = parseSelectedLabels(resolvedSearchParams?.labels, resolvedSearchParams?.label);
+export default async function CommunityPage() {
   const publicCommunity = await getPublicCommunityPageData();
 
   return (
@@ -150,7 +126,7 @@ export default async function CommunityPage({ searchParams }: CommunityPageProps
           <CommunityIntro />
           <CommunityContributionCta />
           <PublicParticipationCta />
-          <CommunityFeed data={publicCommunity} selectedLabels={selectedLabels} />
+          <CommunityFeed data={publicCommunity} />
         </div>
       </main>
     </div>
