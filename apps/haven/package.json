@@ -54,7 +54,7 @@
     "eslint": "latest",
     "eslint-config-next": "latest",
     "postcss": "latest",
-    "supabase": "^2.84.5",
+    "supabase": "^2.109.1",
     "tailwindcss": "latest",
     "typescript": "latest"
   }
