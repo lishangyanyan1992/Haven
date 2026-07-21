@@ -8,6 +8,11 @@ updates:
       time: "05:00"
       timezone: "America/Chicago"
     open-pull-requests-limit: 10
+    ignore:
+      # Next.js 16's build-time type checking still requires TypeScript's
+      # JavaScript API, which is no longer exposed by TypeScript 7.
+      - dependency-name: "typescript"
+        versions: [">=7.0.0"]
     groups:
       npm-security:
         applies-to: "security-updates"
