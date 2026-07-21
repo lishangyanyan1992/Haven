@@ -29,5 +29,10 @@
   },
   "devDependencies": {
     "vercel": "^52.0.0"
+  },
+  "overrides": {
+    "@vercel/fun": {
+      "tar": "7.5.20"
+    }
   }
 }
