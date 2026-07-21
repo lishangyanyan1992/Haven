@@ -11,8 +11,8 @@
     "./redirects": "./src/redirects.ts"
   },
   "dependencies": {
-    "@supabase/ssr": "latest",
-    "@supabase/supabase-js": "latest",
-    "zod": "latest"
+    "@supabase/ssr": "^0.12.3",
+    "@supabase/supabase-js": "*",
+    "zod": "^4.4.3"
   }
 }
