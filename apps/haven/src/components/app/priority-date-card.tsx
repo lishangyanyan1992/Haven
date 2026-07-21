@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { ArrowUpRight, TrendingUp } from "lucide-react";
 import {
   Area,
@@ -41,8 +42,12 @@ function formatTooltipValue(value: ValueType | undefined) {
   return String(value ?? "");
 }
 
-function formatTooltipLabel(label: string | number) {
-  return String(label);
+function formatTooltipLabel(label: ReactNode) {
+  if (typeof label === "string" || typeof label === "number" || typeof label === "bigint") {
+    return String(label);
+  }
+
+  return "";
 }
 
 function formatSourcePulledAt(value?: string) {
@@ -151,7 +156,7 @@ export function PriorityDateCard({ intelligence }: PriorityDateCardProps) {
                       />
                       <Tooltip
                         formatter={(value) => formatTooltipValue(value)}
-                        labelFormatter={(label) => formatTooltipLabel(label ?? "")}
+                        labelFormatter={formatTooltipLabel}
                         contentStyle={{
                           borderRadius: "16px",
                           border: "1px solid var(--color-border)",
