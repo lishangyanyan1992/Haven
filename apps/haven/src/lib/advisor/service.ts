@@ -694,6 +694,47 @@ async function retrieveKnowledge(query: string, topics: TopicBucket[], parent?: 
   return ranked;
 }
 
+// Completeness checkpoint: the vector path is only worth an embedding call if
+// the summaries table actually has rows. It sat empty in production for weeks
+// while every question paid for an embedding and silently fell back to the
+// static corpus. Cached per process with a TTL so the check costs one tiny
+// query every few minutes, not one per question.
+let adviceSummariesCheck: { populated: boolean; checkedAt: number } | null = null;
+let adviceSummariesEmptyReported = false;
+const ADVICE_SUMMARIES_CHECK_TTL_MS = 10 * 60 * 1000;
+
+async function hasCommunityAdviceSummaries(): Promise<boolean> {
+  if (adviceSummariesCheck && Date.now() - adviceSummariesCheck.checkedAt < ADVICE_SUMMARIES_CHECK_TTL_MS) {
+    return adviceSummariesCheck.populated;
+  }
+
+  try {
+    const admin = createSupabaseAdminClient();
+    const { count, error } = await admin
+      .from("community_advice_summaries")
+      .select("id", { count: "exact", head: true });
+    if (error) {
+      return adviceSummariesCheck?.populated ?? true; // unknown — don't block the vector path
+    }
+
+    const populated = (count ?? 0) > 0;
+    adviceSummariesCheck = { populated, checkedAt: Date.now() };
+
+    if (!populated && !adviceSummariesEmptyReported) {
+      adviceSummariesEmptyReported = true;
+      const Sentry = await import("@sentry/nextjs");
+      Sentry.captureMessage(
+        "advisor vector retrieval short-circuited: community_advice_summaries is empty (run the summaries sync)",
+        "warning"
+      );
+    }
+
+    return populated;
+  } catch {
+    return adviceSummariesCheck?.populated ?? true;
+  }
+}
+
 async function retrieveCommunity(
   query: string,
   topics: TopicBucket[],
@@ -708,7 +749,7 @@ async function retrieveCommunity(
   const span = parent?.span({ name: "community-story-agent", input: { query, topics, experiential: true } });
 
   // Vector search path
-  if (hasSupabaseEnv) {
+  if (hasSupabaseEnv && (await hasCommunityAdviceSummaries())) {
     const embedding = await embedQuery(query, span);
 
     if (embedding) {
