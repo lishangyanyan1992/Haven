@@ -19,17 +19,19 @@ const EMPTY_STATE_MARKER = "No posts match this filter yet";
 const POST_MARKER = "Haven_User_";
 
 export async function GET(request: Request) {
+  // When CRON_SECRET is configured, Vercel attaches it to cron invocations and
+  // we enforce it. Without it we still run: this check is read-only, returns
+  // only information visible on the public page anyway, and a health check
+  // that 503s until someone configures a secret is exactly the kind of silent
+  // failure it exists to catch.
   const expectedSecret = process.env.CRON_SECRET;
+  if (expectedSecret) {
+    const authHeader = request.headers.get("authorization");
+    const providedSecret = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
 
-  if (!expectedSecret) {
-    return NextResponse.json({ error: "endpoint_not_configured" }, { status: 503 });
-  }
-
-  const authHeader = request.headers.get("authorization");
-  const providedSecret = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-
-  if (!providedSecret || providedSecret !== expectedSecret) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!providedSecret || providedSecret !== expectedSecret) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
   }
 
   try {
