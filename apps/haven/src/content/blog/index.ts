@@ -1,3 +1,4 @@
+import { firstCircuitDeniesStay100kH1bFeeJuly2026Post } from "@/content/blog/posts/first-circuit-denies-stay-100k-h1b-fee-july-2026";
 import { metaH1bAiLayoffLawsuitVisaHolders2026Post } from "@/content/blog/posts/meta-h1b-ai-layoff-lawsuit-visa-holders-2026";
 import { august2026VisaBulletinEb1IndiaUnavailableWarningPost } from "@/content/blog/posts/august-2026-visa-bulletin-eb1-india-unavailable-warning";
 import { h1bFy2027CapReachedNoSecondLotteryPost } from "@/content/blog/posts/h1b-fy2027-cap-reached-no-second-lottery";
@@ -107,6 +108,7 @@ const guideBlogPosts = guides.map(guideToBlogPost);
 
 // Add a new post import here and it will appear in the blog automatically.
 export const blogPosts = [
+  firstCircuitDeniesStay100kH1bFeeJuly2026Post,
   metaH1bAiLayoffLawsuitVisaHolders2026Post,
   august2026VisaBulletinEb1IndiaUnavailableWarningPost,
   h1bFy2027CapReachedNoSecondLotteryPost,
