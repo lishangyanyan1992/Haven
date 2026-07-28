@@ -235,12 +235,13 @@ export async function fetchSearchConsoleDataset({
   inspectionLimit = 2000,
   fetchImpl = fetch,
   sleepImpl,
-  inspectionIntervalMs = 150
+  inspectionIntervalMs = 150,
+  tokenImpl = mintSearchConsoleAccessToken
 }) {
   const credentials = parseServiceAccountCredentials(credentialsJson);
-  const accessToken = await mintSearchConsoleAccessToken(credentials, { fetchImpl });
+  const accessToken = await tokenImpl(credentials, { fetchImpl });
 
-  const [currentRows, previousRows, sitemap] = await Promise.all([
+  const [currentRows, previousRows, sitemapResult] = await Promise.all([
     querySearchAnalytics({
       accessToken,
       siteUrl,
@@ -258,10 +259,31 @@ export async function fetchSearchConsoleDataset({
     fetchSitemapEntries({
       sitemapUrl,
       fetchImpl,
+      sleepImpl,
       maxUrls: inspectionLimit
     })
+      .then((sitemap) => ({ sitemap }))
+      .catch((error) => ({
+        error: error instanceof Error ? error.message : String(error)
+      }))
   ]);
 
+  if (sitemapResult.error) {
+    return {
+      currentRows,
+      previousRows,
+      indexingRows: [],
+      sitemap: {
+        sitemapUrl,
+        sitemapCount: 0,
+        truncated: false,
+        entries: [],
+        error: sitemapResult.error
+      }
+    };
+  }
+
+  const { sitemap } = sitemapResult;
   const indexingRows = await inspectSitemapUrls({
     accessToken,
     siteUrl,

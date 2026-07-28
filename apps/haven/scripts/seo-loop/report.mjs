@@ -63,7 +63,9 @@ function indexingEvidence(opportunity) {
 
 function buildIndexingSection({ indexingSummary, indexingOpportunities, sitemap }) {
   if (!indexingSummary?.inspected) {
-    return "No sitemap URLs were inspected in this run.";
+    return sitemap?.error
+      ? `No sitemap URLs were inspected because the sitemap could not be read: ${markdownCell(sitemap.error)}`
+      : "No sitemap URLs were inspected in this run.";
   }
 
   const rows = indexingOpportunities.length

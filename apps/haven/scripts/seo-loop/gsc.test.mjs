@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  fetchSearchConsoleDataset,
   inspectSitemapUrls,
   normalizeUrlInspectionResult,
   queryUrlInspection
@@ -97,4 +98,36 @@ test("keeps a per-URL error in the report and continues inspecting", async () =>
 
   assert.match(result[0].inspectionError, /temporary failure/);
   assert.equal(result[1].verdict, "PASS");
+});
+
+test("keeps the performance report alive when the sitemap is temporarily unavailable", async () => {
+  let requests = 0;
+  const fetchImpl = async (url) => {
+    requests += 1;
+    if (String(url).includes("searchAnalytics/query")) {
+      return Response.json({ rows: [] });
+    }
+    return new Response("slow down", { status: 429 });
+  };
+
+  const result = await fetchSearchConsoleDataset({
+    credentialsJson: JSON.stringify({
+      client_email: "test@example.com",
+      private_key: "unused in this test"
+    }),
+    siteUrl: "sc-domain:haven-h1b.com",
+    windows: {
+      current: { startDate: "2026-06-01", endDate: "2026-06-28" },
+      previous: { startDate: "2026-05-04", endDate: "2026-05-31" }
+    },
+    sitemapUrl: "https://haven-h1b.com/sitemap.xml",
+    fetchImpl,
+    sleepImpl: async () => {},
+    tokenImpl: async () => "test-token"
+  });
+
+  assert.equal(result.currentRows.length, 0);
+  assert.equal(result.indexingRows.length, 0);
+  assert.match(result.sitemap.error, /429/);
+  assert.equal(requests, 7);
 });

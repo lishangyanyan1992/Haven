@@ -91,3 +91,28 @@ test("rejects cross-origin child sitemaps", async () => {
     /different origin/
   );
 });
+
+test("retries temporary sitemap throttling with bounded backoff", async () => {
+  let requests = 0;
+  const delays = [];
+  const fetchImpl = async () => {
+    requests += 1;
+    if (requests < 3) {
+      return new Response("slow down", {
+        status: 429,
+        headers: { "retry-after": "1" }
+      });
+    }
+    return new Response(`<urlset><url><loc>https://haven-h1b.com/about</loc></url></urlset>`);
+  };
+
+  const result = await fetchSitemapEntries({
+    sitemapUrl: "https://haven-h1b.com/sitemap.xml",
+    fetchImpl,
+    sleepImpl: async (milliseconds) => delays.push(milliseconds)
+  });
+
+  assert.equal(requests, 3);
+  assert.deepEqual(delays, [1000, 1000]);
+  assert.equal(result.entries[0].url, "https://haven-h1b.com/about");
+});
