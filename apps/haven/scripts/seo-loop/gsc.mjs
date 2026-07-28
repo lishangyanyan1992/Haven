@@ -1,7 +1,10 @@
 import { createSign } from "node:crypto";
 
+import { fetchSitemapEntries } from "./sitemap.mjs";
+
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const SEARCH_CONSOLE_SCOPE = "https://www.googleapis.com/auth/webmasters.readonly";
+const URL_INSPECTION_ENDPOINT = "https://searchconsole.googleapis.com/v1/urlInspection/index:inspect";
 
 function toBase64Url(value) {
   return Buffer.from(value).toString("base64url");
@@ -99,6 +102,107 @@ export async function querySearchAnalytics({ accessToken, siteUrl, startDate, en
   return normalizeSearchAnalyticsRows(body.rows);
 }
 
+export function normalizeUrlInspectionResult(entry, responseBody) {
+  const result = responseBody?.inspectionResult?.indexStatusResult ?? {};
+  return {
+    url: entry.url,
+    sourceSitemap: entry.sourceSitemap ?? null,
+    lastModified: entry.lastModified ?? null,
+    changeFrequency: entry.changeFrequency ?? null,
+    sitemapPriority: entry.priority ?? null,
+    verdict: result.verdict ?? "VERDICT_UNSPECIFIED",
+    coverageState: result.coverageState ?? "",
+    robotsTxtState: result.robotsTxtState ?? "ROBOTS_TXT_STATE_UNSPECIFIED",
+    indexingState: result.indexingState ?? "INDEXING_STATE_UNSPECIFIED",
+    pageFetchState: result.pageFetchState ?? "PAGE_FETCH_STATE_UNSPECIFIED",
+    googleCanonical: result.googleCanonical ?? "",
+    userCanonical: result.userCanonical ?? "",
+    lastCrawlTime: result.lastCrawlTime ?? null,
+    crawledAs: result.crawledAs ?? "CRAWLING_USER_AGENT_UNSPECIFIED",
+    referringUrls: Array.isArray(result.referringUrls) ? result.referringUrls : [],
+    sitemaps: Array.isArray(result.sitemap) ? result.sitemap : []
+  };
+}
+
+export async function queryUrlInspection({ accessToken, siteUrl, entry, fetchImpl = fetch }) {
+  const response = await fetchImpl(URL_INSPECTION_ENDPOINT, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      inspectionUrl: entry.url,
+      siteUrl,
+      languageCode: "en-US"
+    })
+  });
+
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(`URL Inspection failed (${response.status}) for ${entry.url}: ${body.error?.message ?? "unknown error"}`);
+    error.status = response.status;
+    throw error;
+  }
+
+  return normalizeUrlInspectionResult(entry, body);
+}
+
+function wait(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function inspectWithRetry({ accessToken, siteUrl, entry, fetchImpl, sleepImpl, maxRetries }) {
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    try {
+      return await queryUrlInspection({ accessToken, siteUrl, entry, fetchImpl });
+    } catch (error) {
+      const retryable = error?.status === 429 || error?.status >= 500;
+      if (!retryable || attempt === maxRetries) throw error;
+      await sleepImpl(500 * 2 ** attempt);
+    }
+  }
+  throw new Error(`URL Inspection retries exhausted for ${entry.url}`);
+}
+
+export async function inspectSitemapUrls({
+  accessToken,
+  siteUrl,
+  entries,
+  fetchImpl = fetch,
+  sleepImpl = wait,
+  intervalMs = 150,
+  maxRetries = 2
+}) {
+  const results = [];
+
+  for (let index = 0; index < entries.length; index += 1) {
+    if (index > 0 && intervalMs > 0) await sleepImpl(intervalMs);
+    const entry = entries[index];
+
+    try {
+      results.push(
+        await inspectWithRetry({
+          accessToken,
+          siteUrl,
+          entry,
+          fetchImpl,
+          sleepImpl,
+          maxRetries
+        })
+      );
+    } catch (error) {
+      if (error?.status === 401 || error?.status === 403) throw error;
+      results.push({
+        ...normalizeUrlInspectionResult(entry, {}),
+        inspectionError: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }
+
+  return results;
+}
+
 export async function fetchSearchConsoleComparison({ credentialsJson, siteUrl, windows, fetchImpl = fetch }) {
   const credentials = parseServiceAccountCredentials(credentialsJson);
   const accessToken = await mintSearchConsoleAccessToken(credentials, { fetchImpl });
@@ -121,4 +225,51 @@ export async function fetchSearchConsoleComparison({ credentialsJson, siteUrl, w
   ]);
 
   return { currentRows, previousRows };
+}
+
+export async function fetchSearchConsoleDataset({
+  credentialsJson,
+  siteUrl,
+  windows,
+  sitemapUrl,
+  inspectionLimit = 2000,
+  fetchImpl = fetch,
+  sleepImpl,
+  inspectionIntervalMs = 150
+}) {
+  const credentials = parseServiceAccountCredentials(credentialsJson);
+  const accessToken = await mintSearchConsoleAccessToken(credentials, { fetchImpl });
+
+  const [currentRows, previousRows, sitemap] = await Promise.all([
+    querySearchAnalytics({
+      accessToken,
+      siteUrl,
+      startDate: windows.current.startDate,
+      endDate: windows.current.endDate,
+      fetchImpl
+    }),
+    querySearchAnalytics({
+      accessToken,
+      siteUrl,
+      startDate: windows.previous.startDate,
+      endDate: windows.previous.endDate,
+      fetchImpl
+    }),
+    fetchSitemapEntries({
+      sitemapUrl,
+      fetchImpl,
+      maxUrls: inspectionLimit
+    })
+  ]);
+
+  const indexingRows = await inspectSitemapUrls({
+    accessToken,
+    siteUrl,
+    entries: sitemap.entries.slice(0, inspectionLimit),
+    fetchImpl,
+    sleepImpl,
+    intervalMs: inspectionIntervalMs
+  });
+
+  return { currentRows, previousRows, indexingRows, sitemap };
 }
