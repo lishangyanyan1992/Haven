@@ -68,24 +68,45 @@ function validateSitemapUrl(value, expectedOrigin) {
   return url;
 }
 
-async function fetchSitemapDocument(url, fetchImpl) {
-  const response = await fetchImpl(url, {
-    headers: {
-      Accept: "application/xml,text/xml;q=0.9,*/*;q=0.1",
-      "User-Agent": "Haven-SEO-Monitor/1.0"
-    }
-  });
+function wait(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
 
-  if (!response.ok) {
-    throw new Error(`Sitemap request failed (${response.status}) for ${url}`);
+function retryDelay(response, attempt) {
+  const retryAfter = Number(response.headers?.get?.("retry-after"));
+  if (Number.isFinite(retryAfter) && retryAfter > 0) {
+    return Math.min(retryAfter * 1000, 30_000);
+  }
+  return 1000 * 2 ** attempt;
+}
+
+async function fetchSitemapDocument(url, fetchImpl, sleepImpl, maxRetries) {
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    const response = await fetchImpl(url, {
+      headers: {
+        Accept: "application/xml,text/xml;q=0.9,*/*;q=0.1",
+        "User-Agent": "Mozilla/5.0 (compatible; Haven-SEO-Monitor/1.0; +https://haven-h1b.com/)"
+      }
+    });
+
+    if (response.ok) return response.text();
+
+    const retryable = response.status === 429 || response.status >= 500;
+    if (!retryable || attempt === maxRetries) {
+      throw new Error(`Sitemap request failed (${response.status}) for ${url}`);
+    }
+
+    await sleepImpl(retryDelay(response, attempt));
   }
 
-  return response.text();
+  throw new Error(`Sitemap request retries exhausted for ${url}`);
 }
 
 export async function fetchSitemapEntries({
   sitemapUrl,
   fetchImpl = fetch,
+  sleepImpl = wait,
+  maxRetries = 4,
   maxSitemaps = 50,
   maxUrls = 2000
 }) {
@@ -99,7 +120,7 @@ export async function fetchSitemapEntries({
     if (visitedSitemaps.has(current)) continue;
     visitedSitemaps.add(current);
 
-    const xml = await fetchSitemapDocument(current, fetchImpl);
+    const xml = await fetchSitemapDocument(current, fetchImpl, sleepImpl, maxRetries);
     const parsed = parseSitemapXml(xml);
 
     if (parsed.type === "index") {
