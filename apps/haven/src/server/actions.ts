@@ -11,6 +11,7 @@ import { createSupabaseServerClient } from "@haven/auth/server";
 import { ONBOARDING_OVERRIDE_COOKIE } from "@/lib/profile-sync";
 import { persistProfileDraft } from "@/lib/profile-sync";
 import { env } from "@/lib/env";
+import { captureSignupCompleted } from "@/lib/posthog-server";
 
 const EMAIL_INGEST_DOMAIN = env.EMAIL_INGEST_DOMAIN ?? "import.haven-h1b.com";
 import {
@@ -205,6 +206,10 @@ export async function signUpAction(formData: FormData) {
   // Auth user already existed but no profile (edge case: profile was deleted)
   if (data.user && (!data.user.identities || data.user.identities.length === 0)) {
     redirect(`/login?email=${encodeURIComponent(email)}&message=incomplete_onboarding&progress=0`);
+  }
+
+  if (data.user) {
+    await captureSignupCompleted(data.user.id);
   }
 
   if (data.session && data.user) {

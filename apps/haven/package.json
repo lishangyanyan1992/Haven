@@ -37,6 +37,7 @@
     "next": "^16.2.10",
     "openai": "^6.48.0",
     "pg": "^8.22.0",
+    "posthog-node": "^5.47.2",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-hook-form": "^7.82.0",
