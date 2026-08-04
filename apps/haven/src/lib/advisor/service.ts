@@ -81,8 +81,15 @@ function getOpenAIClient() {
   return new OpenAI({ apiKey: env.OPENAI_API_KEY });
 }
 
+export const ADVISOR_DEFAULT_MODEL = "gpt-5-mini";
+
+// OPENAI_ADVISOR_MODEL first: OPENAI_CHAT_MODEL is shared with email extraction
+// and community drafting, which deliberately run a cheaper model. Reading only
+// the shared variable meant that setting it for those features silently moved
+// the advisor off its intended model — which is exactly what local .env.local
+// was doing, so every local eval measured a different model than production.
 function getChatModel() {
-  return env.OPENAI_CHAT_MODEL ?? "gpt-5-mini";
+  return env.OPENAI_ADVISOR_MODEL ?? env.OPENAI_CHAT_MODEL ?? ADVISOR_DEFAULT_MODEL;
 }
 
 function getEmbeddingModel() {

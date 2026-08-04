@@ -286,7 +286,7 @@ function loadOpenAIEnv() {
     path.join(workspaceRoot, ".env.local"),
     path.join(appRoot, ".env.local")
   ];
-  const allowedKeys = ["OPENAI_API_KEY", "OPENAI_CHAT_MODEL", "OPENAI_EMBEDDING_MODEL"];
+  const allowedKeys = ["OPENAI_API_KEY", "OPENAI_ADVISOR_MODEL", "OPENAI_CHAT_MODEL", "OPENAI_EMBEDDING_MODEL"];
 
   for (const key of allowedKeys) {
     if (process.env[key]) continue;
@@ -997,7 +997,9 @@ function buildRunReport(params: {
     advisor: {
       promptName: "haven-advisor-system",
       langfuseProductionVersion: getStringArg(params.args, "prompt-version") ?? process.env.LANGFUSE_ADVISOR_PROMPT_VERSION ?? null,
-      chatModel: process.env.OPENAI_CHAT_MODEL ?? "gpt-5-mini"
+      // Must mirror getChatModel() in lib/advisor/service.ts, or reports label
+      // runs with a model the advisor did not actually use.
+      chatModel: process.env.OPENAI_ADVISOR_MODEL ?? process.env.OPENAI_CHAT_MODEL ?? "gpt-5-mini"
     },
     runsPerCase: params.runsPerCase,
     summary: params.summary,

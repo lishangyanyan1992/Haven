@@ -12,6 +12,11 @@ const envSchema = z.object({
   AUTH_COOKIE_DOMAIN: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_CHAT_MODEL: z.string().optional(),
+  // The advisor needs its own knob. OPENAI_CHAT_MODEL is shared with email
+  // extraction and community drafting, which intentionally run a cheaper model,
+  // so setting it would silently change the advisor too. See getChatModel() in
+  // lib/advisor/service.ts.
+  OPENAI_ADVISOR_MODEL: z.string().optional(),
   OPENAI_EMBEDDING_MODEL: z.string().optional(),
   ADVISOR_SOURCE_SYNC_SECRET: z.string().optional(),
   COMMUNITY_IMPORT_SECRET: z.string().optional(),
@@ -49,6 +54,7 @@ export const env = envSchema.parse({
   AUTH_COOKIE_DOMAIN: process.env.AUTH_COOKIE_DOMAIN,
   OPENAI_API_KEY: process.env.OPENAI_API_KEY,
   OPENAI_CHAT_MODEL: process.env.OPENAI_CHAT_MODEL,
+  OPENAI_ADVISOR_MODEL: process.env.OPENAI_ADVISOR_MODEL,
   OPENAI_EMBEDDING_MODEL: process.env.OPENAI_EMBEDDING_MODEL,
   ADVISOR_SOURCE_SYNC_SECRET: process.env.ADVISOR_SOURCE_SYNC_SECRET,
   COMMUNITY_IMPORT_SECRET: process.env.COMMUNITY_IMPORT_SECRET,
