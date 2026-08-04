@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bot, ExternalLink, RotateCcw, SendHorizonal, ThumbsDown, ThumbsUp, User2 } from "lucide-react";
+import { Bot, ExternalLink, RotateCcw, SendHorizonal, Square, ThumbsDown, ThumbsUp, User2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,14 +17,33 @@ type AdvisorWorkspaceProps = {
   welcomeMessage: AdvisorAnswerPayload;
 };
 
-export function AdvisorWorkspace({ advisorUsage, welcomeMessage }: AdvisorWorkspaceProps) {
+// Server-side limits, mirrored so the user learns about them before pressing send
+// rather than after. advisorRespondSchema rejects (not truncates) more than
+// HISTORY_LIMIT history entries, so sending the whole thread made the advisor
+// hard-fail after ~6 exchanges with a misleading validation error.
+const MESSAGE_CHAR_LIMIT = 4000;
+const HISTORY_LIMIT = 12;
+
+export function AdvisorWorkspace({ advisorUsage, suggestedPrompts, welcomeMessage }: AdvisorWorkspaceProps) {
   const [messages, setMessages] = useState<AdvisorMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
   const [streamingId, setStreamingId] = useState<string | null>(null);
+  const [stoppedIds, setStoppedIds] = useState<string[]>([]);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const draftLength = draft.trim().length;
+  const overLimit = draftLength > MESSAGE_CHAR_LIMIT;
+  const nearLimit = draftLength > MESSAGE_CHAR_LIMIT * 0.8;
+  const historyTrimmed = messages.length > HISTORY_LIMIT;
+
+  function stopAnswer() {
+    abortRef.current?.abort();
+    abortRef.current = null;
+  }
 
   useEffect(() => {
     const element = scrollerRef.current;
@@ -35,6 +54,13 @@ export function AdvisorWorkspace({ advisorUsage, welcomeMessage }: AdvisorWorksp
   async function sendMessage(rawMessage?: string) {
     const content = (rawMessage ?? draft).trim();
     if (!content || isPending) return;
+
+    if (content.length > MESSAGE_CHAR_LIMIT) {
+      setError(
+        `That message is ${content.length.toLocaleString()} characters and the limit is ${MESSAGE_CHAR_LIMIT.toLocaleString()}. Your text is still here — try sending the most important part first, then add the rest as a follow-up.`
+      );
+      return;
+    }
 
     setError(null);
     setDraft("");
@@ -64,14 +90,20 @@ export function AdvisorWorkspace({ advisorUsage, welcomeMessage }: AdvisorWorksp
       }]);
     }, 0);
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
       const response = await fetch("/api/advisor/respond", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           content,
           conversationId: conversationId ?? undefined,
-          history: nextMessages.map((m) => ({
+          // Only the most recent turns: the server rejects longer histories
+          // outright, which used to break the thread entirely.
+          history: nextMessages.slice(-HISTORY_LIMIT).map((m) => ({
             role: m.role,
             content: m.answerPayload?.answer_markdown ?? m.content,
           })),
@@ -126,10 +158,23 @@ export function AdvisorWorkspace({ advisorUsage, welcomeMessage }: AdvisorWorksp
         }
       }
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "Unable to send advisor message.");
-      setMessages(nextMessages);
-      setStreamingId(null);
+      // A user-initiated stop is not an error: keep whatever streamed, mark it
+      // incomplete, and leave the disclaimer in place (CD-1.15).
+      if (caughtError instanceof DOMException && caughtError.name === "AbortError") {
+        setStoppedIds((previous) => [...previous, sid]);
+        setStreamingId(null);
+      } else {
+        const raw = caughtError instanceof Error ? caughtError.message : "";
+        setError(
+          raw && !/^Unable to send message\.?$/i.test(raw)
+            ? raw
+            : "Haven couldn't reach the advisor just now. Your question wasn't sent — try again in a moment, and if it keeps happening, reload the page."
+        );
+        setMessages(nextMessages);
+        setStreamingId(null);
+      }
     } finally {
+      abortRef.current = null;
       setIsPending(false);
     }
   }
@@ -177,6 +222,8 @@ export function AdvisorWorkspace({ advisorUsage, welcomeMessage }: AdvisorWorksp
                     key={message.id}
                     isPending={message.id === streamingId}
                     message={message}
+                    onFollowUp={(question) => void sendMessage(question)}
+                    stopped={stoppedIds.includes(message.id)}
                     traceId={message.traceId ?? null}
                   />
                 ) : (
@@ -192,22 +239,62 @@ export function AdvisorWorkspace({ advisorUsage, welcomeMessage }: AdvisorWorksp
             </div>
           )}
 
+          {messages.length === 0 && suggestedPrompts.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-caption text-[var(--color-text-secondary)]">Not sure where to start?</p>
+              <div className="flex flex-wrap gap-2">
+                {suggestedPrompts.map((prompt) => (
+                  <button
+                    key={prompt}
+                    className="rounded-full border border-[var(--color-border)] bg-[var(--haven-white)] px-3 py-1.5 text-left text-caption transition-colors hover:border-[var(--haven-sage-mid)] hover:bg-[var(--haven-sage-light)] disabled:opacity-50"
+                    disabled={isPending}
+                    onClick={() => void sendMessage(prompt)}
+                    type="button"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {historyTrimmed && (
+            <p className="text-caption text-[var(--color-text-secondary)]">
+              Only the last {HISTORY_LIMIT} messages of this conversation are sent with each question. If something you
+              said earlier still matters, mention it again.
+            </p>
+          )}
+
           <div className="rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-sand)] p-4">
             <Textarea
               className="min-h-[120px] bg-[var(--haven-white)]"
-              disabled={isPending}
               onChange={(event) => setDraft(event.target.value)}
               placeholder="Ask about H-1B, PERM, I-140, I-485, the visa bulletin, or how your Haven timeline fits those rules."
               value={draft}
             />
-            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mt-2 flex items-center justify-end">
+              {nearLimit && (
+                <p className={`text-caption ${overLimit ? "text-[var(--haven-blush-ink)]" : "text-[var(--color-text-secondary)]"}`}>
+                  {draftLength.toLocaleString()} / {MESSAGE_CHAR_LIMIT.toLocaleString()} characters
+                  {overLimit ? " — too long to send" : ""}
+                </p>
+              )}
+            </div>
+            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-caption">
                 Haven uses official sources first, then your current Haven profile, then community context as anecdotal backup.
               </p>
-              <Button disabled={isPending} onClick={() => void sendMessage()} size="sm">
-                <SendHorizonal className="h-4 w-4" />
-                Ask Haven
-              </Button>
+              {isPending ? (
+                <Button onClick={stopAnswer} size="sm" variant="outline">
+                  <Square className="h-3.5 w-3.5" />
+                  Stop
+                </Button>
+              ) : (
+                <Button disabled={overLimit || draftLength === 0} onClick={() => void sendMessage()} size="sm">
+                  <SendHorizonal className="h-4 w-4" />
+                  Ask Haven
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>
@@ -240,10 +327,14 @@ function AdvisorAnswerCard({
   message,
   isPending,
   traceId,
+  stopped = false,
+  onFollowUp,
 }: {
   message: AdvisorMessage;
   isPending: boolean;
   traceId: string | null;
+  stopped?: boolean;
+  onFollowUp?: (question: string) => void;
 }) {
   const [feedback, setFeedback] = useState<"up" | "down" | null>(null);
   const [feedbackSent, setFeedbackSent] = useState(false);
@@ -350,7 +441,22 @@ function AdvisorAnswerCard({
           )}
         </div>
 
-        {message.answerPayload && !isPending && (
+        {/* An interrupted answer must never read as a finished one, and the legal
+            disclaimer has to survive the interruption (CD-1.12, CD-1.15). */}
+        {stopped && (
+          <div className="mt-3 space-y-2 rounded-[var(--radius-lg)] border border-[var(--haven-blush)] bg-[var(--haven-blush-light)] px-4 py-3">
+            <p className="text-body-sm text-[var(--haven-blush-ink)]">
+              You stopped this answer, so it is incomplete and may be missing safety guidance. Ask again to get the
+              full response.
+            </p>
+            <p className="text-caption text-[var(--haven-blush-ink)]">
+              Haven provides information, not legal advice. Check a qualified immigration attorney before making
+              decisions.
+            </p>
+          </div>
+        )}
+
+        {message.answerPayload && !isPending && !stopped && (
           <div className="mt-4 space-y-3">
             {message.answerPayload.refusal_or_escalation_reason && (
               <div className="flex flex-wrap gap-2">
@@ -361,6 +467,24 @@ function AdvisorAnswerCard({
             {sourcesPanel}
 
             <p className="text-caption">{message.answerPayload.disclaimer}</p>
+
+            {onFollowUp && message.answerPayload.follow_up_questions.length > 0 && (
+              <div className="space-y-2 pt-1">
+                <p className="text-caption text-[var(--color-text-secondary)]">Ask next</p>
+                <div className="flex flex-wrap gap-2">
+                  {message.answerPayload.follow_up_questions.map((question) => (
+                    <button
+                      key={question}
+                      className="rounded-full border border-[var(--color-border)] bg-[var(--haven-sand)] px-3 py-1.5 text-left text-caption transition-colors hover:border-[var(--haven-sage-mid)] hover:bg-[var(--haven-sage-light)]"
+                      onClick={() => onFollowUp(question)}
+                      type="button"
+                    >
+                      {question}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {traceId && (
               <div className="flex items-center gap-3 pt-1">

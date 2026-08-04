@@ -269,6 +269,84 @@ function buildDecisionGuardrails(query: string, topics: TopicBucket[]) {
   return guardrails;
 }
 
+// Follow-ups were declared in the payload but never populated, so the UI had
+// nothing to show. They are built deterministically rather than with a second
+// model call: the advisor already runs ~20s, and a follow-up that invents a
+// premise is worse than none. They double as the cheapest repair affordance
+// (CD-2.8) and as models of a fact-rich question (CD-3.3), so each one names the
+// fact it needs rather than being a bare topic label.
+const FOLLOW_UPS_BY_TOPIC: Partial<Record<TopicBucket, string[]>> = {
+  layoffs: [
+    "My last day of employment was [date] — what is my exact deadline?",
+    "What has to be filed before day 60, and who files it?",
+    "What should I ask an immigration attorney about my options this week?"
+  ],
+  h1b: [
+    "What does a new employer have to file, and by when?",
+    "How do I tell the difference between staying in status and being allowed to work?"
+  ],
+  "visa-bulletin": [
+    "How do Final Action Dates and Dates for Filing differ for my category?",
+    "Where do I check which chart USCIS is accepting this month?"
+  ],
+  "adjustment-of-status": [
+    "What are my options if I need to travel before advance parole is approved?",
+    "What is the difference between my visa stamp, my status, and advance parole?"
+  ],
+  "job-change": [
+    "What does AC21 portability actually require in my situation?",
+    "What counts as a same-or-similar role?"
+  ],
+  "student-status": [
+    "When exactly am I allowed to start working?",
+    "What should I confirm with my DSO before I accept this offer?"
+  ],
+  "self-petition": [
+    "What should I ask counsel to review in the denial notice?",
+    "What evidence would make a proposed endeavor more specific?"
+  ],
+  cspa: [
+    "What documents should I gather before speaking to an attorney?",
+    "Which dates does a CSPA age calculation depend on?"
+  ],
+  "work-authorization": [
+    "What are the safe next steps to take right now?",
+    "What should I disclose to an attorney, and how soon?"
+  ],
+  "haven-product": [
+    "What should I add to my Haven profile to get a sharper answer?",
+    "Which dates in my Haven timeline matter most in the next six months?"
+  ]
+};
+
+const GENERIC_FOLLOW_UPS = [
+  "What information do you still need to answer this more precisely?",
+  "What should I confirm with an immigration attorney about this?"
+];
+
+function buildFollowUpQuestions(topics: TopicBucket[]): string[] {
+  const seen = new Set<string>();
+  const questions: string[] = [];
+
+  for (const topic of topics) {
+    for (const question of FOLLOW_UPS_BY_TOPIC[topic] ?? []) {
+      if (seen.has(question)) continue;
+      seen.add(question);
+      questions.push(question);
+      if (questions.length >= 3) return questions;
+    }
+  }
+
+  for (const question of GENERIC_FOLLOW_UPS) {
+    if (questions.length >= 3) break;
+    if (seen.has(question)) continue;
+    seen.add(question);
+    questions.push(question);
+  }
+
+  return questions;
+}
+
 function isExperientialQuestion(query: string): boolean {
   const normalized = query.toLowerCase();
   if (/(how long|processing time|still waiting|how much time|took|delay|stuck|pending|timeline|how fast|when will|when did|how soon|months|weeks|days to)/.test(normalized)) return true;
@@ -1454,7 +1532,7 @@ export async function* streamAdvisorResponse(rawInput: {
     external_citations: citations,
     haven_context_used: havenContextUsed,
     community_context_used: communityUsed,
-    follow_up_questions: [],
+    follow_up_questions: buildFollowUpQuestions(topics),
   };
 
   trace?.update({
