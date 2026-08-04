@@ -141,6 +141,47 @@ function scoreOverlap(query: string, text: string) {
   return score;
 }
 
+// Users describe losing a job many ways, and most of ours are not writing in a
+// first language. Gating the layoff path on "laid off" alone silently dropped the
+// guardrails, the safety addendum, the grace-period math, the community stats AND
+// the official-source retrieval for anyone who wrote "terminated", "made
+// redundant", or "let go" — the phrasings standard in Indian and British English,
+// which is most of the user base. See CD-4.1..4.6 in
+// docs/advisor-chatbot/conversation-design-requirements.md.
+//
+// Every layoff gate derives from this one pattern so they cannot drift apart
+// again. Over-triggering is the intended failure mode: an extra safety warning
+// costs a few tokens, a missing one can cost someone their status.
+const JOB_LOSS_TERMS = [
+  "laid[- ]?off",
+  "layoffs?",
+  "terminat(ed|ion)",
+  "let (me|him|her|them|us) go",
+  "\\bfired\\b",
+  "made redundant",
+  "redundanc(y|ies)",
+  "retrench(ed|ment)",
+  "(position|role|job|team)s? (was |were |been )?(eliminated|cut)",
+  "\\brifs?\\b",
+  "riffed",
+  "reduction in force",
+  "severance",
+  "(lost|losing) (my|his|her|their) job",
+  "job loss",
+  "downsiz(ed|ing)",
+  "no longer employed",
+  "employment (ended|was terminated)",
+  "end of employment",
+  "contract (ended|expired|was terminated)",
+  "separated from (my |the )?(company|employer)"
+];
+
+const JOB_LOSS_PATTERN = new RegExp(`(${JOB_LOSS_TERMS.join("|")})`);
+
+function mentionsJobLoss(normalized: string) {
+  return JOB_LOSS_PATTERN.test(normalized);
+}
+
 function classifyTopics(input: string): TopicBucket[] {
   const normalized = input.toLowerCase();
   const topics = new Set<TopicBucket>();
@@ -150,7 +191,7 @@ function classifyTopics(input: string): TopicBucket[] {
   if (/\bperm\b|labor certification|flag/.test(normalized)) topics.add("perm");
   if (/(i-485|i485|adjustment of status|adjust status|advance parole|i-131)/.test(normalized)) topics.add("adjustment-of-status");
   if (/(job change|same or similar|ac21|portability)/.test(normalized)) topics.add("job-change");
-  if (/(layoff|laid off|60-day|grace period)/.test(normalized)) topics.add("layoffs");
+  if (mentionsJobLoss(normalized) || /(60-day|grace period)/.test(normalized)) topics.add("layoffs");
   if (/(f-?1|opt|stem opt|cpt|day 1 cpt|i-983|sevis|dso|ead card)/.test(normalized)) topics.add("student-status");
   if (/(niw|national interest waiver|eb-?1a|eb-?2 niw|proposed endeavor|dhanasar|self.?petition)/.test(normalized)) topics.add("self-petition");
   if (/(cspa|child status protection|age out|aging out|turns 21|turn 21|sought to acquire)/.test(normalized)) topics.add("cspa");
@@ -182,7 +223,7 @@ function buildDecisionGuardrails(query: string, topics: TopicBucket[]) {
     );
   }
 
-  if ((topics.includes("h1b") || topics.includes("layoffs")) && /(layoff|laid off|grace period|transfer|paycheck|last day)/.test(normalized)) {
+  if ((topics.includes("h1b") || topics.includes("layoffs")) && (mentionsJobLoss(normalized) || /(grace period|transfer|paycheck|last day)/.test(normalized))) {
     guardrails.push(
       "H-1B layoff/transfer: separate ability to remain in the U.S. from ability to work. Include these exact safety points in the answer: 'Do not work without authorization' and 'LCA preparation alone does not preserve status.' Do not suggest an unpaid role, volunteer role, or temporary position as a way to preserve H-1B status. Do not use last paycheck as the grace-period trigger unless the source and facts support it. Mention that the grace period is up to 60 days or until I-94/petition validity ends, whichever is shorter. For a new employer, preparation, LCA work, or documents sitting with the employer are not the same as a properly filed nonfrivolous H-1B petition. If the user gives dates, calculate the rough timeline and say what must be filed before day 60. In urgent grace-period cases, list concrete options without ranking them as legal strategy: immediate H-1B filing/receipt strategy, possible change of status such as B-2 if appropriate, departure planning and possible consular return if no timely filing is possible, premium processing or employer escalation if available, and immediate counsel review. Tell the user to confirm the exact deadline and filing strategy with immigration counsel immediately."
     );
@@ -625,7 +666,7 @@ function scoreIntentBoost(query: string, chunk: RetrievedKnowledgeChunk) {
   const sourceText = `${chunk.title} ${chunk.content} ${chunk.url ?? ""}`.toLowerCase();
   let boost = 0;
 
-  if (/(layoff|laid off|grace period|60-day|day 60|transfer|lca)/.test(normalized)) {
+  if (mentionsJobLoss(normalized) || /(grace period|60-day|day 60|transfer|lca)/.test(normalized)) {
     if (/(grace period|cessation of employment|60-day|h-1b portability|nonfrivolous h-1b petition|lca)/.test(sourceText)) boost += 8;
   }
 
@@ -665,7 +706,7 @@ async function retrieveKnowledge(query: string, topics: TopicBucket[], parent?: 
   const chunks = buildFallbackKnowledgeChunks();
   const normalized = query.toLowerCase();
   const retrievalTopics =
-    (topics.includes("h1b") || topics.includes("layoffs")) && /(layoff|laid off|grace period|60-day|day 60|lca|h-1b transfer|petition cannot be filed)/.test(normalized)
+    (topics.includes("h1b") || topics.includes("layoffs")) && (mentionsJobLoss(normalized) || /(grace period|60-day|day 60|lca|h-1b transfer|petition cannot be filed)/.test(normalized))
       ? topics.filter((topic) => topic === "h1b" || topic === "layoffs")
       : topics.includes("student-status") && /(opt|cpt|day 1 cpt|dso|sevis|ead card)/.test(normalized)
       ? topics.filter((topic) => topic === "student-status" || topic === "work-authorization")
@@ -963,7 +1004,7 @@ function buildMandatorySafetyAddendum(question: string, topics: TopicBucket[], a
   const normalizedQuestion = question.toLowerCase();
   const notes: string[] = [];
 
-  if ((topics.includes("h1b") || topics.includes("layoffs")) && /(layoff|laid off|grace period|day 60|lca|petition cannot be filed)/.test(normalizedQuestion)) {
+  if ((topics.includes("h1b") || topics.includes("layoffs")) && (mentionsJobLoss(normalizedQuestion) || /(grace period|day 60|lca|petition cannot be filed)/.test(normalizedQuestion))) {
     const missingUnauthorizedWork = !/do not work without authorization|don't work without authorization|unauthorized work/i.test(answer);
     const missingLcaWarning = !/lca preparation alone does not preserve status|lca.*not.*preserve status|lca.*not.*filed h-1b petition/i.test(answer);
     const missingImmediateCounsel = !/confirm.*deadline.*counsel|confirm.*filing strategy.*counsel|immigration counsel immediately/i.test(answer);
@@ -1070,7 +1111,7 @@ function normalizeHighRiskAnswer(question: string, topics: TopicBucket[], answer
       );
   }
 
-  if ((topics.includes("h1b") || topics.includes("layoffs")) && /(layoff|laid off|grace period|day 60|lca|petition cannot be filed)/.test(normalizedQuestion)) {
+  if ((topics.includes("h1b") || topics.includes("layoffs")) && (mentionsJobLoss(normalizedQuestion) || /(grace period|day 60|lca|petition cannot be filed)/.test(normalizedQuestion))) {
     return answer
       .replace(
         /Since your I-94 expires on March 15, 2027,[^.]*\./gi,
