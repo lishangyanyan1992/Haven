@@ -45,6 +45,93 @@ type JudgeResult = {
   issues: string[];
 };
 
+type Citation = { label: string; url?: string; quote?: string };
+
+/**
+ * Token accounting is estimated locally (chars/4) rather than read back from the
+ * API, because the advisor stream does not surface usage. It deliberately covers
+ * only the inputs a prompt change actually moves — system prompt, question,
+ * history — plus the answer. Retrieved chunks and profile context are excluded:
+ * they are roughly constant across prompt versions, so leaving them out keeps the
+ * version-to-version delta clean. Treat these as comparable, not as billing truth.
+ */
+type TokenUsage = {
+  systemPromptTokens: number;
+  questionTokens: number;
+  historyTokens: number;
+  answerTokens: number;
+  totalTokens: number;
+};
+
+/**
+ * "Prompt compliance" — how often the advisor had to be patched after generation.
+ *
+ * `buildMandatorySafetyAddendum` in the advisor service staples required safety
+ * language onto an answer that omitted it. Every fire means the system prompt
+ * failed to produce that language on its own and the regex caught it. Detected
+ * from the answer text via the note markers the addendum prefixes, so this needs
+ * no change to the service.
+ *
+ * Lower is better. A note that reaches a 0% fire rate across a decent sample is a
+ * candidate for deleting the corresponding patch.
+ */
+const SAFETY_ADDENDUM_MARKERS: Array<{ key: string; marker: string }> = [
+  { key: "h1b-layoff", marker: "H-1B safety note:" },
+  { key: "cpt", marker: "CPT safety note:" },
+  { key: "i485-travel", marker: "I-485 travel safety note:" },
+  { key: "niw", marker: "NIW strategy note:" },
+  { key: "cspa", marker: "CSPA safety note:" }
+];
+
+type SafetyPatch = {
+  fired: boolean;
+  notes: string[];
+};
+
+type SafetyPatchSummary = {
+  runs: number;
+  firedRuns: number;
+  fireRate: number;
+  notes: string[];
+};
+
+type PromptCompliance = {
+  description: string;
+  sampledAnswers: number;
+  patchedAnswers: number;
+  fireRate: number;
+  byNote: Record<string, number>;
+};
+
+type RunSample = {
+  run: number;
+  status: "pass" | "warn" | "fail";
+  checks: CheckResult[];
+  judge: JudgeResult | null;
+  answerText: string;
+  citations: Citation[];
+  elapsedMs: number | null;
+  traceId: string | null;
+  usage: TokenUsage | null;
+  safetyPatch: SafetyPatch | null;
+};
+
+type CheckStability = {
+  name: string;
+  observedRuns: number;
+  passes: number;
+  passRate: number;
+  flaky: boolean;
+};
+
+type Consistency = {
+  runs: number;
+  statusCounts: { pass: number; warn: number; fail: number };
+  stable: boolean;
+  flakyChecks: string[];
+  checkStability: CheckStability[];
+};
+
 type EvalResult = {
   id: string;
   category: string;
@@ -54,10 +141,14 @@ type EvalResult = {
   checks: CheckResult[];
   judge: JudgeResult | null;
   answerText: string;
-  citations: Array<{ label: string; url?: string; quote?: string }>;
+  citations: Citation[];
   elapsedMs: number | null;
   preview: string;
   traceId: string | null;
+  usage: TokenUsage | null;
+  consistency: Consistency | null;
+  samples: RunSample[] | null;
+  safetyPatch: SafetyPatchSummary | null;
 };
 
 type EvalRunReport = {
@@ -80,13 +171,26 @@ type EvalRunReport = {
     langfuseProductionVersion: string | null;
     chatModel: string | null;
   };
+  runsPerCase: number;
   summary: {
     total: number;
     passed: number;
     warned: number;
     failed: number;
+    flaky: number;
   };
+  cost: EvalCostSummary;
+  promptCompliance: PromptCompliance;
   results: EvalResult[];
+};
+
+type EvalCostSummary = {
+  method: string;
+  systemPromptTokens: number | null;
+  meanAnswerTokens: number | null;
+  meanTotalTokens: number | null;
+  totalTokens: number;
+  sampledAnswers: number;
 };
 
 type EvalHistoryEntry = {
@@ -97,7 +201,10 @@ type EvalHistoryEntry = {
   selectionKey: string;
   semanticJudge: EvalRunReport["semanticJudge"];
   advisor: EvalRunReport["advisor"];
+  runsPerCase: number;
   summary: EvalRunReport["summary"];
+  cost: EvalCostSummary;
+  promptCompliance: PromptCompliance;
   reportPaths: {
     jsonPath?: string;
     markdownPath?: string;
@@ -110,6 +217,8 @@ type EvalHistoryEntry = {
     traceId: string | null;
     elapsedMs: number | null;
     scores: JudgeResult["scores"] | null;
+    stable: boolean | null;
+    totalTokens: number | null;
   }>;
 };
 
@@ -291,6 +400,17 @@ function runChecks(testCase: EvalCase, answerText: string, answerPayload: any): 
 
   checks.push(...runCaseSpecificChecks(testCase, combinedText));
 
+  // Informational only: the patched answer is safe, so this must not fail the case.
+  // It measures whether the prompt produced the safety language unaided.
+  const safetyPatch = detectSafetyPatch(answerText);
+  checks.push({
+    name: "safety-addendum",
+    status: "info",
+    detail: safetyPatch.fired
+      ? `Prompt did NOT produce required safety language unaided; addendum patched it (${safetyPatch.notes.join(", ")}).`
+      : "Prompt produced required safety language unaided; no addendum needed."
+  });
+
   checks.push({
     name: "semantic-judge",
     status: "info",
@@ -298,6 +418,14 @@ function runChecks(testCase: EvalCase, answerText: string, answerPayload: any): 
   });
 
   return checks;
+}
+
+function detectSafetyPatch(answerText: string): SafetyPatch {
+  const notes = SAFETY_ADDENDUM_MARKERS
+    .filter((entry) => answerText.includes(entry.marker))
+    .map((entry) => entry.key);
+
+  return { fired: notes.length > 0, notes };
 }
 
 function runCaseSpecificChecks(testCase: EvalCase, combinedText: string): CheckResult[] {
@@ -383,11 +511,22 @@ function printUsage() {
   npm run eval:advisor -- --preset recommended10 --judge --report
   npm run eval:advisor -- --preset recommended10 --judge --report --prompt-version 4
   npm run eval:advisor -- --preset recommended10 --judge --report --history --prompt-version 4
+
+Consistency (repeat each case; status is the worst run, flaky checks are reported):
+  npm run eval:advisor -- --preset recommended10 --runs 5
+  npm run eval:advisor -- --preset recommended10 --runs 3 --judge            # judges run 1 only
+  npm run eval:advisor -- --preset recommended10 --runs 3 --judge --judge-all-runs
+
+Flags:
+  --runs N            repeat each case N times (1-10, default 1)
+  --judge-all-runs    judge every repeat instead of only the first
 `);
 }
 
 async function collectAdvisorAnswer(testCase: EvalCase) {
-  const { streamAdvisorResponse } = await import("../../src/lib/advisor/service");
+  const advisorModule = await import("../../src/lib/advisor/service");
+  const { streamAdvisorResponse } = advisorModule;
+  const systemPrompt = (advisorModule as { STREAMING_SYSTEM_PROMPT?: string }).STREAMING_SYSTEM_PROMPT ?? "";
   let answerText = "";
   let doneEvent: any = null;
 
@@ -408,8 +547,260 @@ async function collectAdvisorAnswer(testCase: EvalCase) {
   return {
     answerText: answerPayload?.answer_markdown ?? answerText,
     answerPayload,
-    traceId: doneEvent?.traceId ?? null
+    traceId: doneEvent?.traceId ?? null,
+    systemPrompt
   };
+}
+
+function estimateTokens(text: string) {
+  const trimmed = text?.trim() ?? "";
+  return trimmed.length === 0 ? 0 : Math.ceil(trimmed.length / 4);
+}
+
+function buildUsage(testCase: EvalCase, systemPrompt: string, answerText: string): TokenUsage {
+  const historyText = (testCase.history ?? []).map((message) => message.content).join(" ");
+  const systemPromptTokens = estimateTokens(systemPrompt);
+  const questionTokens = estimateTokens(testCase.question);
+  const historyTokens = estimateTokens(historyText);
+  const answerTokens = estimateTokens(answerText);
+
+  return {
+    systemPromptTokens,
+    questionTokens,
+    historyTokens,
+    answerTokens,
+    totalTokens: systemPromptTokens + questionTokens + historyTokens + answerTokens
+  };
+}
+
+function meanUsage(usages: TokenUsage[]): TokenUsage | null {
+  if (usages.length === 0) return null;
+  const mean = (pick: (usage: TokenUsage) => number) =>
+    Math.round(usages.reduce((total, usage) => total + pick(usage), 0) / usages.length);
+
+  return {
+    systemPromptTokens: mean((usage) => usage.systemPromptTokens),
+    questionTokens: mean((usage) => usage.questionTokens),
+    historyTokens: mean((usage) => usage.historyTokens),
+    answerTokens: mean((usage) => usage.answerTokens),
+    totalTokens: mean((usage) => usage.totalTokens)
+  };
+}
+
+function toCitations(answerPayload: any): Citation[] {
+  return (answerPayload?.external_citations ?? []).map((citation: any) => ({
+    label: String(citation.label ?? ""),
+    url: citation.url ? String(citation.url) : undefined,
+    quote: citation.quote ? String(citation.quote) : undefined
+  }));
+}
+
+async function executeRun(
+  testCase: EvalCase,
+  run: number,
+  options: { runJudge: boolean; judgeAllRuns: boolean }
+): Promise<RunSample> {
+  const startedAt = Date.now();
+  const suffix = options.judgeAllRuns || run > 1 ? ` (run ${run})` : "";
+
+  try {
+    const answer = await withRetry(`advisor answer for ${testCase.id}${suffix}`, () => collectAdvisorAnswer(testCase));
+    const checks = runChecks(testCase, answer.answerText, answer.answerPayload);
+    const baseStatus = summarizeStatus(stripSemanticInfo(checks)) as "pass" | "warn" | "fail";
+    // Judging every repeat multiplies cost; by default only the first run is judged.
+    const shouldJudge = options.runJudge && baseStatus !== "fail" && (options.judgeAllRuns || run === 1);
+    const judge = shouldJudge
+      ? await withRetry(`judge for ${testCase.id}${suffix}`, () => judgeAnswer(testCase, answer.answerText, answer.answerPayload))
+      : null;
+
+    return {
+      run,
+      status: applyJudgeStatus(baseStatus, judge),
+      checks,
+      judge,
+      answerText: answer.answerText,
+      citations: toCitations(answer.answerPayload),
+      elapsedMs: Date.now() - startedAt,
+      traceId: answer.traceId,
+      usage: buildUsage(testCase, answer.systemPrompt, answer.answerText),
+      safetyPatch: detectSafetyPatch(answer.answerText)
+    };
+  } catch (error) {
+    return {
+      run,
+      status: "fail",
+      checks: [{ name: "runner-error", status: "fail", detail: error instanceof Error ? error.message : String(error) }],
+      judge: null,
+      answerText: "",
+      citations: [],
+      elapsedMs: null,
+      traceId: null,
+      usage: null,
+      safetyPatch: null
+    };
+  }
+}
+
+function buildCheckStability(samples: RunSample[]): CheckStability[] {
+  const tallies = new Map<string, { observedRuns: number; passes: number }>();
+
+  for (const sample of samples) {
+    for (const check of sample.checks) {
+      if (check.status === "info") continue;
+      const tally = tallies.get(check.name) ?? { observedRuns: 0, passes: 0 };
+      tally.observedRuns += 1;
+      if (check.status === "pass") tally.passes += 1;
+      tallies.set(check.name, tally);
+    }
+  }
+
+  return Array.from(tallies.entries())
+    .map(([name, tally]) => {
+      const passRate = tally.observedRuns > 0 ? tally.passes / tally.observedRuns : 0;
+      return {
+        name,
+        observedRuns: tally.observedRuns,
+        passes: tally.passes,
+        passRate,
+        flaky: passRate > 0 && passRate < 1
+      };
+    })
+    .sort((left, right) => left.passRate - right.passRate);
+}
+
+/**
+ * Aggregates repeated runs of one case. Status is the worst observed across runs:
+ * a safety check that fires only some of the time is a failure, not a coin flip.
+ * The reported answer and checks come from that worst run so the detail explains
+ * the verdict.
+ */
+function aggregateSamples(testCase: EvalCase, samples: RunSample[], runsPerCase: number): EvalResult {
+  const statusCounts = { pass: 0, warn: 0, fail: 0 };
+  for (const sample of samples) statusCounts[sample.status] += 1;
+
+  const representative =
+    samples.find((sample) => sample.status === "fail")
+    ?? samples.find((sample) => sample.status === "warn")
+    ?? samples[0];
+
+  const status: "pass" | "warn" | "fail" =
+    statusCounts.fail > 0 ? "fail" : statusCounts.warn > 0 ? "warn" : "pass";
+
+  const elapsedValues = samples.map((sample) => sample.elapsedMs).filter((value): value is number => value != null);
+  const meanElapsed = elapsedValues.length > 0
+    ? Math.round(elapsedValues.reduce((total, value) => total + value, 0) / elapsedValues.length)
+    : null;
+
+  const checkStability = buildCheckStability(samples);
+
+  return {
+    id: testCase.id,
+    category: testCase.category,
+    riskLevel: testCase.riskLevel,
+    question: testCase.question,
+    status,
+    checks: representative.checks,
+    judge: samples.find((sample) => sample.judge)?.judge ?? null,
+    answerText: representative.answerText,
+    citations: representative.citations,
+    elapsedMs: meanElapsed,
+    preview: representative.answerText.replace(/\s+/g, " ").slice(0, 180),
+    traceId: representative.traceId,
+    usage: meanUsage(samples.map((sample) => sample.usage).filter((usage): usage is TokenUsage => usage != null)),
+    consistency: runsPerCase > 1
+      ? {
+          runs: runsPerCase,
+          statusCounts,
+          stable: new Set(samples.map((sample) => sample.status)).size === 1,
+          flakyChecks: checkStability.filter((check) => check.flaky).map((check) => check.name),
+          checkStability
+        }
+      : null,
+    samples: runsPerCase > 1 ? samples : null,
+    safetyPatch: summarizeSafetyPatch(samples)
+  };
+}
+
+function summarizeSafetyPatch(samples: RunSample[]): SafetyPatchSummary | null {
+  const observed = samples.map((sample) => sample.safetyPatch).filter((patch): patch is SafetyPatch => patch != null);
+  if (observed.length === 0) return null;
+
+  const firedRuns = observed.filter((patch) => patch.fired).length;
+  const notes = Array.from(new Set(observed.flatMap((patch) => patch.notes)));
+
+  return {
+    runs: observed.length,
+    firedRuns,
+    fireRate: firedRuns / observed.length,
+    notes
+  };
+}
+
+function buildPromptCompliance(results: EvalResult[]): PromptCompliance {
+  const patches = results.flatMap((result) =>
+    result.samples
+      ? result.samples.map((sample) => sample.safetyPatch).filter((patch): patch is SafetyPatch => patch != null)
+      : result.safetyPatch
+      ? [{ fired: result.safetyPatch.firedRuns > 0, notes: result.safetyPatch.notes }]
+      : []
+  );
+
+  const byNote: Record<string, number> = {};
+  for (const patch of patches) {
+    for (const note of patch.notes) {
+      byNote[note] = (byNote[note] ?? 0) + 1;
+    }
+  }
+
+  const patchedAnswers = patches.filter((patch) => patch.fired).length;
+
+  return {
+    description:
+      "Share of answers where the post-generation safety addendum had to staple on required language. Each fire means the system prompt did not produce it unaided. Lower is better; 0% for a note means its patch is a candidate for removal.",
+    sampledAnswers: patches.length,
+    patchedAnswers,
+    fireRate: patches.length > 0 ? patchedAnswers / patches.length : 0,
+    byNote
+  };
+}
+
+function formatPercent(value: number) {
+  return `${(value * 100).toFixed(0)}%`;
+}
+
+function buildCostSummary(results: EvalResult[]): EvalCostSummary {
+  const usages = results.flatMap((result) =>
+    result.samples
+      ? result.samples.map((sample) => sample.usage).filter((usage): usage is TokenUsage => usage != null)
+      : result.usage
+      ? [result.usage]
+      : []
+  );
+
+  const totalTokens = usages.reduce((total, usage) => total + usage.totalTokens, 0);
+  const mean = (pick: (usage: TokenUsage) => number) =>
+    usages.length > 0 ? Math.round(usages.reduce((total, usage) => total + pick(usage), 0) / usages.length) : null;
+
+  return {
+    method: "estimated (chars/4); system prompt + question + history + answer. Excludes retrieved chunks and profile context, which are ~constant across prompt versions.",
+    systemPromptTokens: usages[0]?.systemPromptTokens ?? null,
+    meanAnswerTokens: mean((usage) => usage.answerTokens),
+    meanTotalTokens: mean((usage) => usage.totalTokens),
+    totalTokens,
+    sampledAnswers: usages.length
+  };
+}
+
+function parseRunsPerCase(args: Map<string, string | boolean>) {
+  const raw = getStringArg(args, "runs");
+  if (!raw) return 1;
+
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed < 1 || parsed > 10) {
+    throw new Error("--runs must be an integer between 1 and 10.");
+  }
+
+  return parsed;
 }
 
 function isRetryableError(error: unknown) {
@@ -584,6 +975,7 @@ function buildRunReport(params: {
   args: Map<string, string | boolean>;
   dataset: Dataset;
   runJudge: boolean;
+  runsPerCase: number;
   summary: EvalRunReport["summary"];
   results: EvalResult[];
 }): EvalRunReport {
@@ -607,7 +999,10 @@ function buildRunReport(params: {
       langfuseProductionVersion: getStringArg(params.args, "prompt-version") ?? process.env.LANGFUSE_ADVISOR_PROMPT_VERSION ?? null,
       chatModel: process.env.OPENAI_CHAT_MODEL ?? "gpt-5-mini"
     },
+    runsPerCase: params.runsPerCase,
     summary: params.summary,
+    cost: buildCostSummary(params.results),
+    promptCompliance: buildPromptCompliance(params.results),
     results: params.results
   };
 }
@@ -626,6 +1021,7 @@ function formatMarkdownReport(report: EvalRunReport) {
     `Advisor prompt: ${report.advisor.promptName}${report.advisor.langfuseProductionVersion ? ` production v${report.advisor.langfuseProductionVersion}` : ""}`,
     `Advisor model: ${report.advisor.chatModel ?? "unknown"}`,
     `Judge: ${report.semanticJudge.enabled ? report.semanticJudge.model : "not run"}`,
+    `Runs per case: ${report.runsPerCase}`,
     "",
     `## Summary`,
     "",
@@ -633,6 +1029,32 @@ function formatMarkdownReport(report: EvalRunReport) {
     `Warnings: ${report.summary.warned}`,
     `Failed: ${report.summary.failed}`,
     `Total: ${report.summary.total}`,
+    ...(report.runsPerCase > 1 ? [`Flaky (status varied across runs): ${report.summary.flaky}`] : []),
+    "",
+    `## Cost (estimated tokens)`,
+    "",
+    `System prompt: ${report.cost.systemPromptTokens ?? "n/a"}`,
+    `Mean answer: ${report.cost.meanAnswerTokens ?? "n/a"}`,
+    `Mean total per answer: ${report.cost.meanTotalTokens ?? "n/a"}`,
+    `Total across ${report.cost.sampledAnswers} answer(s): ${report.cost.totalTokens}`,
+    "",
+    `_${report.cost.method}_`,
+    "",
+    `## Prompt compliance (safety-addendum fire rate)`,
+    "",
+    `Answers needing a safety patch: ${report.promptCompliance.patchedAnswers}/${report.promptCompliance.sampledAnswers} (${formatPercent(report.promptCompliance.fireRate)})`,
+    "",
+    ...(Object.keys(report.promptCompliance.byNote).length > 0
+      ? [
+          "| Note | Times fired |",
+          "|---|---|",
+          ...Object.entries(report.promptCompliance.byNote)
+            .sort((left, right) => right[1] - left[1])
+            .map(([note, count]) => `| ${note} | ${count} |`),
+          ""
+        ]
+      : ["No safety patches fired.", ""]),
+    `_${report.promptCompliance.description}_`,
     ""
   ];
 
@@ -642,8 +1064,27 @@ function formatMarkdownReport(report: EvalRunReport) {
     lines.push(`Category: ${result.category}`);
     lines.push(`Risk: ${result.riskLevel}`);
     if (result.traceId) lines.push(`Trace: ${result.traceId}`);
-    if (result.elapsedMs != null) lines.push(`Elapsed: ${result.elapsedMs}ms`);
+    if (result.elapsedMs != null) {
+      lines.push(`Elapsed: ${result.elapsedMs}ms${report.runsPerCase > 1 ? " (mean)" : ""}`);
+    }
+    if (result.usage) {
+      lines.push(`Tokens (est.): ${result.usage.totalTokens} total, ${result.usage.answerTokens} answer`);
+    }
     lines.push("");
+
+    if (result.consistency) {
+      const { statusCounts, stable, checkStability, runs } = result.consistency;
+      lines.push(`### Consistency (${runs} runs)`);
+      lines.push("");
+      lines.push(`Status: ${statusCounts.pass} pass / ${statusCounts.warn} warn / ${statusCounts.fail} fail — ${stable ? "stable" : "UNSTABLE"}`);
+      lines.push("");
+      lines.push("| Check | Pass rate | Flaky |");
+      lines.push("|---|---|---|");
+      for (const check of checkStability) {
+        lines.push(`| ${check.name} | ${check.passes}/${check.observedRuns} | ${check.flaky ? "**yes**" : "no"} |`);
+      }
+      lines.push("");
+    }
     lines.push(`### Question`);
     lines.push("");
     lines.push(result.question);
@@ -733,7 +1174,10 @@ function buildHistoryEntry(report: EvalRunReport, reportPaths: ReturnType<typeof
     selectionKey,
     semanticJudge: report.semanticJudge,
     advisor: report.advisor,
+    runsPerCase: report.runsPerCase,
     summary: report.summary,
+    cost: report.cost,
+    promptCompliance: report.promptCompliance,
     reportPaths: {
       jsonPath: reportPaths?.jsonPath,
       markdownPath: reportPaths?.markdownPath
@@ -745,7 +1189,9 @@ function buildHistoryEntry(report: EvalRunReport, reportPaths: ReturnType<typeof
       status: result.status,
       traceId: result.traceId,
       elapsedMs: result.elapsedMs,
-      scores: result.judge?.scores ?? null
+      scores: result.judge?.scores ?? null,
+      stable: result.consistency?.stable ?? null,
+      totalTokens: result.usage?.totalTokens ?? null
     }))
   };
 }
@@ -781,6 +1227,28 @@ function summarizeHistoryComparison(current: EvalHistoryEntry, previous: EvalHis
     `History comparison: previous run ${previous.runId}`,
     `Summary delta: passed ${current.summary.passed - previous.summary.passed}, warnings ${current.summary.warned - previous.summary.warned}, failed ${current.summary.failed - previous.summary.failed}`
   ];
+
+  const currentMeanTokens = current.cost?.meanTotalTokens ?? null;
+  const previousMeanTokens = previous.cost?.meanTotalTokens ?? null;
+  if (currentMeanTokens != null && previousMeanTokens != null) {
+    const delta = currentMeanTokens - previousMeanTokens;
+    lines.push(
+      `Cost delta: mean tokens/answer ${previousMeanTokens} -> ${currentMeanTokens} (${delta > 0 ? "+" : ""}${delta})`
+    );
+  }
+
+  if (current.runsPerCase > 1) {
+    lines.push(`Flaky cases this run: ${current.summary.flaky}/${current.summary.total} (${current.runsPerCase} runs each)`);
+  }
+
+  const currentFireRate = current.promptCompliance?.fireRate ?? null;
+  const previousFireRate = previous.promptCompliance?.fireRate ?? null;
+  if (currentFireRate != null && previousFireRate != null) {
+    const delta = currentFireRate - previousFireRate;
+    lines.push(
+      `Prompt compliance delta: safety-addendum fire rate ${formatPercent(previousFireRate)} -> ${formatPercent(currentFireRate)} (${delta > 0 ? "+" : ""}${(delta * 100).toFixed(0)}pp, lower is better)`
+    );
+  }
 
   for (const currentCase of current.cases) {
     const previousCase = previousById.get(currentCase.id);
@@ -834,6 +1302,8 @@ async function main() {
 
   loadOpenAIEnv();
   const runJudge = args.has("judge");
+  const runsPerCase = parseRunsPerCase(args);
+  const judgeAllRuns = args.has("judge-all-runs");
 
   const dataset = loadDataset();
   const selectedCases = selectCases(dataset, args);
@@ -844,8 +1314,9 @@ async function main() {
 
   console.log(`Advisor local eval: ${dataset.datasetName} v${dataset.version}`);
   console.log(`Cases selected: ${selectedCases.length}`);
+  console.log(`Runs per case: ${runsPerCase}${runsPerCase > 1 ? " (consistency mode)" : ""}`);
   console.log(`OpenAI API: ${process.env.OPENAI_API_KEY ? "configured" : "not configured; Advisor will use fallback answers"}`);
-  console.log(`Semantic judge: ${runJudge ? "enabled" : "not run"}`);
+  console.log(`Semantic judge: ${runJudge ? `enabled${runsPerCase > 1 ? judgeAllRuns ? ", every run" : ", first run only" : ""}` : "not run"}`);
   console.log("");
 
   const results: EvalResult[] = [];
@@ -854,71 +1325,50 @@ async function main() {
     const label = `${index + 1}/${selectedCases.length} ${testCase.id}`;
     process.stdout.write(`${label} ... `);
 
-    try {
-      const startedAt = Date.now();
-      const answer = await withRetry(`advisor answer for ${testCase.id}`, () => collectAdvisorAnswer(testCase));
-      const checks = runChecks(testCase, answer.answerText, answer.answerPayload);
-      const baseStatus = summarizeStatus(stripSemanticInfo(checks)) as "pass" | "warn" | "fail";
-      const judge = runJudge && baseStatus !== "fail"
-        ? await withRetry(`judge for ${testCase.id}`, () => judgeAnswer(testCase, answer.answerText, answer.answerPayload))
-        : null;
-      const status = applyJudgeStatus(baseStatus, judge);
-      const elapsed = Date.now() - startedAt;
-      const preview = answer.answerText.replace(/\s+/g, " ").slice(0, 180);
-      const citations = (answer.answerPayload?.external_citations ?? []).map((citation: any) => ({
-        label: String(citation.label ?? ""),
-        url: citation.url ? String(citation.url) : undefined,
-        quote: citation.quote ? String(citation.quote) : undefined
-      }));
-
-      results.push({
-        id: testCase.id,
-        category: testCase.category,
-        riskLevel: testCase.riskLevel,
-        question: testCase.question,
-        status,
-        checks,
-        judge,
-        answerText: answer.answerText,
-        citations,
-        elapsedMs: elapsed,
-        preview,
-        traceId: answer.traceId
-      });
-      console.log(`${status.toUpperCase()} (${elapsed}ms)`);
-    } catch (error) {
-      results.push({
-        id: testCase.id,
-        category: testCase.category,
-        riskLevel: testCase.riskLevel,
-        question: testCase.question,
-        status: "fail",
-        checks: [{ name: "runner-error", status: "fail", detail: error instanceof Error ? error.message : String(error) }],
-        judge: null,
-        answerText: "",
-        citations: [],
-        elapsedMs: null,
-        preview: "",
-        traceId: null
-      });
-      console.log("FAIL");
+    const samples: RunSample[] = [];
+    for (let run = 1; run <= runsPerCase; run += 1) {
+      samples.push(await executeRun(testCase, run, { runJudge, judgeAllRuns }));
+      if (runsPerCase > 1) process.stdout.write(samples[samples.length - 1].status === "pass" ? "." : "x");
     }
+
+    const result = aggregateSamples(testCase, samples, runsPerCase);
+    results.push(result);
+
+    const timing = result.elapsedMs != null ? `${result.elapsedMs}ms${runsPerCase > 1 ? " mean" : ""}` : "no timing";
+    const stability = result.consistency
+      ? result.consistency.stable
+        ? ", stable"
+        : `, UNSTABLE ${result.consistency.statusCounts.fail}/${runsPerCase} failed`
+      : "";
+    console.log(`${runsPerCase > 1 ? " " : ""}${result.status.toUpperCase()} (${timing}${stability})`);
   }
 
   const passed = results.filter((item) => item.status === "pass").length;
   const warned = results.filter((item) => item.status === "warn").length;
   const failed = results.filter((item) => item.status === "fail").length;
+  const flaky = results.filter((item) => item.consistency != null && !item.consistency.stable).length;
 
   console.log("");
-  console.log(`Summary: ${passed} passed, ${warned} warning, ${failed} failed`);
+  console.log(`Summary: ${passed} passed, ${warned} warning, ${failed} failed${runsPerCase > 1 ? `, ${flaky} flaky` : ""}`);
 
   const report = buildRunReport({
     args,
     dataset,
     runJudge,
-    summary: { total: results.length, passed, warned, failed },
+    runsPerCase,
+    summary: { total: results.length, passed, warned, failed, flaky },
     results
   });
+
+  console.log(
+    `Tokens (est.): ${report.cost.meanTotalTokens ?? "n/a"} mean/answer (${report.cost.systemPromptTokens ?? "n/a"} system prompt + ${report.cost.meanAnswerTokens ?? "n/a"} answer), ${report.cost.totalTokens} total`
+  );
+  console.log(
+    `Prompt compliance: safety addendum fired on ${report.promptCompliance.patchedAnswers}/${report.promptCompliance.sampledAnswers} answers (${formatPercent(report.promptCompliance.fireRate)}) — lower is better`
+  );
+  for (const [note, count] of Object.entries(report.promptCompliance.byNote).sort((left, right) => right[1] - left[1])) {
+    console.log(`  patched ${note}: ${count}`);
+  }
   const reportPaths = writeReport(report, args);
   if (reportPaths) {
     console.log("");
@@ -939,6 +1389,20 @@ async function main() {
     console.log("");
     console.log(`${result.status.toUpperCase()} ${result.id}${result.traceId ? ` trace=${result.traceId}` : ""}`);
     if (result.preview) console.log(`  Preview: ${result.preview}`);
+
+    if (result.consistency) {
+      const { statusCounts, stable, checkStability, runs } = result.consistency;
+      console.log(
+        `  CONSISTENCY ${runs} runs: ${statusCounts.pass} pass / ${statusCounts.warn} warn / ${statusCounts.fail} fail — ${stable ? "stable" : "UNSTABLE"}`
+      );
+      for (const check of checkStability.filter((item) => item.flaky)) {
+        console.log(`  FLAKY ${check.name}: passed ${check.passes}/${check.observedRuns} runs`);
+      }
+    }
+
+    if (result.usage) {
+      console.log(`  TOKENS (est.) total=${result.usage.totalTokens} answer=${result.usage.answerTokens}`);
+    }
 
     if (result.judge) {
       console.log(
