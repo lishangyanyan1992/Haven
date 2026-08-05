@@ -732,7 +732,26 @@ This compounds the "silence reads as clearance" problem in §7.5: an answer that
 
 **On winning the argument with data.** The book's anecdote resolves when the designer shows hang-up data. Haven now has the equivalent instrumentation — token counts, latency, addendum fire rate, and thumbs-down. Any future fight about answer length should be settled by measuring, not asserted.
 
-### 10.3 Requirements
+### 10.3 Cue types and confirmation
+
+**Six cue types** exist: open-ended, menu, yes-or-no, location, quantifying, and instruction. Three warnings attach: never mash types together ("Do you have any symptoms: cough, fever, or nausea?" reads as both yes-or-no and menu); **the cue must come last**, because people answer the moment they hear it; and never write rhetorical questions, which send a false cue.
+
+Haven mostly uses open-ended cues, whose known failure is leaving users adrift at the start — and whose recommended mitigation is naming examples first. That is exactly what the suggested-prompt chips do, so the fix shipped in `4fc6f6e` is the textbook remedy rather than a guess.
+
+**But we now have competing cues.** The answer block runs: answer → sources → disclaimer → follow-up chips → "Was this helpful?" Two different requests for the user's turn sit next to each other, and the *last* one asks for feedback rather than for the conversation to continue. The continuation cue should be last, since that is the turn we actually want.
+
+**Confirmation is the more valuable idea, because Haven already computes the input for it.** The book distinguishes:
+
+- **Implicit confirmation** — reflect the understanding back while moving forward ("For your two adult tickets, what seating?"). Fast, no extra turn, but leaves the user to figure out how to correct a mistake.
+- **Explicit confirmation** — a yes-or-no gate before proceeding. Accurate, gives the user agency, but costs a whole turn, and overuse makes a bot tiresome.
+
+The selector between them is the system's **confidence value**: high confidence → move on, medium → implicit, low → explicit.
+
+Haven's answer payload already carries `confidence` (low/medium/high, derived from citation count), and today it is only *displayed*. It should **drive behaviour**. That also gives CD-2.2's assumption-declaring its proper name — it is implicit confirmation — and sharpens CD-2.3's vague "material and unsafe" test into the book's actual rule: **explicit confirmation before anything hard to reverse.**
+
+In this domain that test bites hard. Departing on a pending advance parole can abandon an I-485; missing day 60 ends status; starting work early is unauthorized employment. None of it is undoable. So where a misread fact would send someone toward an irreversible action, the Advisor should confirm the fact *before* answering on it, rather than answering and hoping the caveat is read.
+
+### 10.4 Requirements
 
 - **CD-10.1** Every Advisor turn that expects a reply ends with a **cue** — a question or an instruction — not with a disclaimer.
 - **CD-10.2** The legal disclaimer is persistent chrome, not the closing line of dialog. It must remain visible without being the last thing read.
@@ -740,8 +759,13 @@ This compounds the "silence reads as clearance" problem in §7.5: an answer that
 - **CD-10.4** Haven's prewritten prompts are a designed set, not incidental strings: welcome, pending status, stopped answer, history truncation, rate limit, errors, empty states. They are inventoried, written to the §7 character, and reviewed like any other copy.
 - **CD-10.5** Length rules are stated as a bound on *content* ("one answerable thing per turn"), never as a sentence count the model will silently ignore.
 - **CD-10.6** Disagreements about length or wording are settled with measurement — fire rate, thumbs-down, tokens, latency — not with opinion.
+- **CD-10.7** **`confidence` drives confirmation behaviour, not just display.** High → proceed; medium → implicit confirmation (state the reading, move on); low → explicit confirmation before answering on the contested fact.
+- **CD-10.8** **Explicit confirmation before irreversible actions.** Where a misread fact points toward travel on pending advance parole, a grace-period deadline, or starting work, confirm the fact first rather than answering and trusting the caveat to be read.
+- **CD-10.9** One cue per turn, and it comes last. The continuation cue (follow-ups) must sit after the feedback control, not before it — the turn we want back is the conversation, not a rating.
+- **CD-10.10** Never mash cue types in a single question, and never write rhetorical questions — both send false or ambiguous signals about whose turn it is.
+- **CD-10.11** Open-ended cues always ship with examples of what can be asked (the suggested-prompt pattern), so users are never left guessing at scope.
 
-### 10.4 Open questions
+### 10.5 Open questions
 
 - Which prewritten prompts exist today, verbatim? CD-10.4 needs an actual inventory before it can be acted on; the list in 10.2 was assembled by reading the component, not from any register.
 - Does moving the disclaimer out of the answer block create a legal problem? It stays visible either way, but this needs a real answer before shipping (§4 escalation rule: ask counsel, don't judge it internally).
