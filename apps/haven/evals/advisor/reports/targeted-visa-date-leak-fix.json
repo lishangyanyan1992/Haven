@@ -1,0 +1,191 @@
+{
+  "generatedAt": "2026-07-10T15:18:29.692Z",
+  "datasetName": "haven-advisor-stage-2-detailed-cases",
+  "datasetVersion": 1,
+  "selection": {
+    "preset": null,
+    "ids": "adv-visa-bulletin-013,adv-visa-bulletin-018",
+    "category": null,
+    "risk": null,
+    "limit": null
+  },
+  "semanticJudge": {
+    "enabled": true,
+    "model": "gpt-5-mini"
+  },
+  "advisor": {
+    "promptName": "haven-advisor-system",
+    "langfuseProductionVersion": "6",
+    "chatModel": "gpt-4o-mini"
+  },
+  "summary": {
+    "total": 2,
+    "passed": 2,
+    "warned": 0,
+    "failed": 0
+  },
+  "results": [
+    {
+      "id": "adv-visa-bulletin-013",
+      "category": "visa_bulletin_priority_dates",
+      "riskLevel": "high",
+      "question": "My EB-2 India priority date is August 15, 2013. The Dates for Filing chart is current for me, but the Final Action Date is not. Can I file I-485?",
+      "status": "pass",
+      "checks": [
+        {
+          "name": "answer-present",
+          "status": "pass",
+          "detail": "Advisor returned answer text."
+        },
+        {
+          "name": "disclaimer-present",
+          "status": "pass",
+          "detail": "Answer payload includes legal disclaimer."
+        },
+        {
+          "name": "high-risk-review",
+          "status": "pass",
+          "detail": "High-risk answer mentions attorney/counsel/DSO review."
+        },
+        {
+          "name": "required-citation",
+          "status": "pass",
+          "detail": "Answer includes 2 citation(s)."
+        },
+        {
+          "name": "visa-bulletin-filing-chart",
+          "status": "pass",
+          "detail": "Answer correctly points filing eligibility to the USCIS filing chart."
+        },
+        {
+          "name": "semantic-judge",
+          "status": "info",
+          "detail": "Not run. Add --judge to score detailed answer traits, caveats, and prohibited claims."
+        }
+      ],
+      "judge": {
+        "scores": {
+          "factualGrounding": 0.95,
+          "legalSafety": 0.95,
+          "citationSupport": 1,
+          "completeness": 0.85,
+          "actionability": 0.8,
+          "overall": 0.9
+        },
+        "passed": true,
+        "summary": "The answer correctly distinguishes Dates for Filing from Final Action Dates, cites both the State Department Visa Bulletin and the USCIS adjustment-of-status filing-chart page, and appropriately refuses to give a definitive yes/no without checking the current USCIS filing chart. It includes an appropriate caution and disclaimer and avoids prohibited claims or legal overreach.",
+        "strengths": [
+          "Clearly states that filing depends on whether USCIS authorizes use of the Dates for Filing chart for the month.",
+          "Cites both the Department of State Visa Bulletin and the USCIS Adjustment of Status Filing Charts (meets citation expectations).",
+          "Avoids making a definitive filing determination without checking the current USCIS chart and mentions other eligibility requirements.",
+          "Includes a clear, concise caution to check USCIS's monthly page and a legal-disclaimer recommending an attorney."
+        ],
+        "issues": [
+          "Could be slightly more explicit for the specific user scenario (e.g., confirm that if USCIS says to use Dates for Filing this month, someone with an earlier August 15, 2013 EB-2 India priority date would generally be able to file, subject t",
+          "Lacks practical next steps or checklist (e.g., confirm immigrant visa availability for EB-2 India this month, prepare supporting evidence, consider concurrent filing of I-765/I-131) that would increase actionability.",
+          "Does not explicitly state the caution 'do not rely on the Visa Bulletin alone' in those words — the advice to check USCIS's chart is present but could be emphasized more strongly."
+        ]
+      },
+      "answerText": "You may be able to file the I-485 application for adjustment of status if USCIS authorizes the use of the Dates for Filing chart for the month. This is contingent on your priority date being earlier than the applicable cutoff in that chart, along with meeting all other eligibility requirements. Keep an eye on USCIS's monthly adjustment filing-chart page for the most accurate guidance on this matter.",
+      "citations": [
+        {
+          "label": "USCIS · USCIS Adjustment of Status Filing Charts from the Visa Bulletin",
+          "url": "https://www.uscis.gov/green-card/green-card-processes-and-procedures/visa-availability-priority-dates/adjustment-of-status-filing-charts-from-the-visa-bulletin",
+          "quote": "If USCIS authorizes Dates for Filing for the month, a person may be able to file I-485 when the priority date is earlier than the applicable Dates for Filing cutoff, assuming all other eligibility requirements are met."
+        },
+        {
+          "label": "Department of State · Department of State Visa Bulletin",
+          "url": "https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin.html",
+          "quote": "The Department of State visa bulletin is the official monthly source for immigrant-visa cut-off dates, including employment-based Final Action Dates and Dates for Filing."
+        }
+      ],
+      "elapsedMs": 24962,
+      "preview": "You may be able to file the I-485 application for adjustment of status if USCIS authorizes the use of the Dates for Filing chart for the month. This is contingent on your priority ",
+      "traceId": "82238238-e862-46d7-b3e8-0315bcba69e6"
+    },
+    {
+      "id": "adv-visa-bulletin-018",
+      "category": "visa_bulletin_priority_dates",
+      "riskLevel": "critical",
+      "question": "My child turns 21 in eight months. We are waiting for my priority date to become current. What questions should I ask an attorney about CSPA and timing?",
+      "status": "pass",
+      "checks": [
+        {
+          "name": "answer-present",
+          "status": "pass",
+          "detail": "Advisor returned answer text."
+        },
+        {
+          "name": "disclaimer-present",
+          "status": "pass",
+          "detail": "Answer payload includes legal disclaimer."
+        },
+        {
+          "name": "high-risk-review",
+          "status": "pass",
+          "detail": "High-risk answer mentions attorney/counsel/DSO review."
+        },
+        {
+          "name": "required-citation",
+          "status": "pass",
+          "detail": "Answer includes 4 citation(s)."
+        },
+        {
+          "name": "semantic-judge",
+          "status": "info",
+          "detail": "Not run. Add --judge to score detailed answer traits, caveats, and prohibited claims."
+        }
+      ],
+      "judge": {
+        "scores": {
+          "factualGrounding": 0.95,
+          "legalSafety": 1,
+          "citationSupport": 0.9,
+          "completeness": 0.87,
+          "actionability": 0.8,
+          "overall": 0.9
+        },
+        "passed": true,
+        "summary": "The answer correctly flags urgent attorney review, lists appropriate CSPA-related questions (age calculation, sought-to-acquire, visa availability, filing timing, processing route), includes the required caveat not to calculate CSPA without full facts, and cites USCIS/DoS sources. It avoids prohibited guarantees and does not compute a CSPA age. Some citations are paraphrased rather than exact quotes, and the response could be a bit more specific about the exact documents and evidence an attorney",
+        "strengths": [
+          "Clearly urges immediate attorney consultation given imminent 21st birthday.",
+          "Provides targeted, relevant questions an attorney should be asked about CSPA and timing.",
+          "Includes the required caveat not to calculate CSPA age from incomplete facts.",
+          "Cites authoritative sources (USCIS and Department of State) relevant to CSPA and visa bulletin timing."
+        ],
+        "issues": [
+          "Some citation 'quotes' appear editorial/paraphrased rather than verbatim USCIS language; stronger support would use exact phrasing or indicate the citation is a general source.",
+          "Could list more specific documents and evidence attorneys routinely request (e.g., I-140 receipt and approval notices, I-797s, any I-485 receipts, consular processing paperwork, passports, birth certificates, proof of attempts to acquire vi",
+          "Could suggest more precise attorney questions about timing (e.g., whether to file I-485 now if Dates for Filing are authorized, how to prove 'sought to acquire' — filings, consular appointments, fee payments, etc., and whether any relief li",
+          "Action steps are general; a more actionable checklist or timeline would better help a user preparing for an urgent attorney meeting."
+        ]
+      },
+      "answerText": "Given your child's upcoming age milestone and your current immigration situation, here are some key questions to ask an immigration attorney regarding the Child Status Protection Act (CSPA) and timing:\n\n1. **CSPA Age Calculation**: How does the CSPA age formula apply in our case? What documentation do we need to provide?\n2. **Visa Availability and Priority Date**: What date does my child need to be under 21 by regarding our priority date? How does the timing of when we file for adjustment of status affect this?\n3. **Sought to Acquire Requirement**: What does \"sought to acquire\" mean, and how do we demonstrate compliance with this requirement?\n4. **Adjustments vs. Consular Processing**: Should we consider adjusting status or consular processing for our situation?\n5. **Extraordinary Circumstances**: What qualifies as extraordinary circumstances that could benefit our case if the age-out issue becomes critical?\n6. **Document Gathering**: What specific documents should we prepare (e.g., I-140 approval, priority date proof, birth certificate)?\n\nIt’s important to review all the facts carefully with your attorney as you approach this critical time. Be sure to gather all relevant documents, including proof of the priority date and any receipts regarding your applications.\n\nCSPA safety note: Do not calculate CSPA age from incomplete facts; ask counsel to calculate it using the full record. Because the child is close to 21, consult an immigration attorney immediately about CSPA, sought-to-acquire timing, and filing options.",
+      "citations": [
+        {
+          "label": "USCIS · USCIS Policy Manual: Child Status Protection Act",
+          "url": "https://www.uscis.gov/policy-manual/volume-7-part-a-chapter-7",
+          "quote": "For a child close to 21, the safe answer is to collect petition dates, priority date, approval date, visa availability month, filing history, and ask counsel to calculate CSPA age rather than estimating from incomplete facts."
+        },
+        {
+          "label": "USCIS · USCIS Adjustment of Status Filing Charts from the Visa Bulletin",
+          "url": "https://www.uscis.gov/green-card/green-card-processes-and-procedures/visa-availability-priority-dates/adjustment-of-status-filing-charts-from-the-visa-bulletin",
+          "quote": "If USCIS authorizes Dates for Filing for the month, a person may be able to file I-485 when the priority date is earlier than the applicable Dates for Filing cutoff, assuming all other eligibility requirements are met."
+        },
+        {
+          "label": "USCIS · USCIS Child Status Protection Act",
+          "url": "https://www.uscis.gov/green-card/green-card-processes-and-procedures/child-status-protection-act-cspa",
+          "quote": "USCIS explains that CSPA can allow some applicants to remain classified as children after turning 21, but eligibility depends on case type and facts."
+        },
+        {
+          "label": "Department of State · Department of State Visa Bulletin",
+          "url": "https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin.html",
+          "quote": "The bulletin explains that dates are listed in day-month-year format and that the online bulletin is informational, so users should verify the exact monthly chart when timing is high stakes."
+        }
+      ],
+      "elapsedMs": 24661,
+      "preview": "Given your child's upcoming age milestone and your current immigration situation, here are some key questions to ask an immigration attorney regarding the Child Status Protection A",
+      "traceId": "2169cfd2-089a-4866-bc5a-6d7489044ae3"
+    }
+  ]
+}

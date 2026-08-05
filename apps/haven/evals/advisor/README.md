@@ -43,6 +43,28 @@ Record the run in the persistent local history index:
 npm run eval:advisor -- --preset recommended10 --judge --report --history --prompt-version 4
 ```
 
+## Baselines are tracked in git
+
+`reports/` and `history/` are committed, not local scratch. A baseline is only
+useful if it survives a machine change and if the run-book and PRD can point at
+it, so treat these as the record of how each prompt version and model actually
+behaved.
+
+Current reference points:
+
+| Report | What it captures |
+|---|---|
+| `gpt-5-mini-production-baseline` | The production model (2 runs/case). 60% safety-addendum fire rate, ~2,471 mean tokens/answer, ~21.3s mean and ~31.4s p95 latency against a 15s PRD target. |
+| `recommended-10-v4..v8-baseline` | Earlier prompt versions. |
+
+Two cautions when reading older reports: runs before the `OPENAI_ADVISOR_MODEL`
+split may have been measured on `gpt-4o-mini` rather than the production model,
+and reports created before consistency runs existed are single-sample, so small
+differences in them are not meaningful.
+
+`history/runs.jsonl` is the append-only index that `--history` compares against.
+Do not rewrite it; a new run appends a new line.
+
 ## Consistency runs
 
 The advisor sets no `temperature` or `seed`, so output is stochastic and a single
