@@ -179,8 +179,29 @@ const JOB_LOSS_TERMS = [
   "no longer employed",
   "employment (ended|was terminated)",
   "end of employment",
-  "contract (ended|expired|was terminated)",
-  "separated from (my |the )?(company|employer)"
+  "contract (ended|expired|was terminated|is not being renewed|not renewed)",
+  "separated from (my |the )?(company|employer)",
+  // Added after a review found the first pass still missed the phrasings most
+  // common among the largest user segment. "Benched" and "put down (my) papers"
+  // are standard Indian-English/IT-consultancy usage, and missing them meant the
+  // people most likely to need the layoff guardrails were the least likely to get
+  // them.
+  "furlough(ed|ing)?",
+  "benched",
+  "on the bench",
+  "put down (my |the )?papers",
+  "pink slip",
+  "warn notice",
+  "(visa|h-?1b|petition) (was |been )?(revoked|withdrawn)",
+  "(revoked|withdrew) (my |the )?(h-?1b|petition|visa)",
+  "last working day",
+  // Resignation is not a phrasing variant but a category gap: a voluntary or
+  // pressured exit starts the same 60-day clock and carries the same
+  // unauthorized-work exposure, and previously got no guardrails at all.
+  "resign(ed|ing|ation)?",
+  "(i |we )?quit (my|the) job",
+  "stepping down",
+  "notice period"
 ];
 
 const JOB_LOSS_PATTERN = new RegExp(`(${JOB_LOSS_TERMS.join("|")})`);
@@ -277,7 +298,9 @@ function buildDecisionGuardrails(query: string, topics: TopicBucket[]) {
 // fact it needs rather than being a bare topic label.
 const FOLLOW_UPS_BY_TOPIC: Partial<Record<TopicBucket, string[]>> = {
   layoffs: [
-    "My last day of employment was [date] — what is my exact deadline?",
+    // These are sent verbatim when tapped, so they can never contain a placeholder
+    // for the user to fill in — a chip reading "[date]" ships "[date]" to the model.
+    "How do I work out my exact deadline?",
     "What has to be filed before day 60, and who files it?",
     "What should I ask an immigration attorney about my options this week?"
   ],
@@ -1094,15 +1117,21 @@ function buildMandatorySafetyAddendum(question: string, topics: TopicBucket[], a
     const missingLcaWarning = !/lca preparation alone does not preserve status|lca.*not.*preserve status|lca.*not.*filed h-1b petition/i.test(answer);
     const missingImmediateCounsel = !/confirm.*deadline.*counsel|confirm.*filing strategy.*counsel|immigration counsel immediately/i.test(answer);
     const missingFallbackOptions = !/(departure|depart|leave the u\.s\.|consular|change of status|b-2|premium processing|receipt notice|form i-129)/i.test(answer);
-    const needsSpecificGraceDate = /june 12,? 2026|june 12/.test(normalizedQuestion) && /i-94.*march 15,? 2027|march 15,? 2027.*i-94/.test(normalizedQuestion);
-    const missingSpecificGraceDate = needsSpecificGraceDate && !/august 11,? 2026|aug\.? 11,? 2026/i.test(answer);
+    // Previously this checked for one eval fixture's dates and, when absent, asserted
+    // them. It fired only for that fixture, so real users got no correction at all
+    // while the eval suite reported the check as working. The general form: if the
+    // answer treats the I-94 date as the grace-period endpoint, say the rule instead
+    // of naming any date.
+    const treatsI94AsGraceEnd = /grace period[^.]*(until|through|to)[^.]*i-94|i-94[^.]*grace period (?:ends|lasts|runs)/i.test(answer);
+    const statesWhicheverIsShorter = /whichever (?:is|comes) (?:shorter|first|earlier)/i.test(answer);
+    const missingGraceCap = treatsI94AsGraceEnd && !statesWhicheverIsShorter;
     const missingPortabilityTrigger = !/properly filed nonfrivolous|nonfrivolous.*petition.*filed|filed.*nonfrivolous/i.test(answer);
 
-    if (missingUnauthorizedWork || missingLcaWarning || missingImmediateCounsel || missingFallbackOptions || missingSpecificGraceDate || missingPortabilityTrigger) {
+    if (missingUnauthorizedWork || missingLcaWarning || missingImmediateCounsel || missingFallbackOptions || missingGraceCap || missingPortabilityTrigger) {
       notes.push(
         [
           "H-1B safety note:",
-          missingSpecificGraceDate ? "If June 12, 2026 is the employment-termination date, the 60-day grace period would point to about August 11, 2026; the March 15, 2027 I-94 date does not extend the grace period beyond 60 days." : null,
+          missingGraceCap ? "The grace period is capped at up to 60 days from the employment-termination date, or the end of I-94 or petition validity, whichever comes first — a later I-94 date does not extend it." : null,
           missingUnauthorizedWork ? "Do not work without authorization." : null,
           missingLcaWarning ? "LCA preparation alone does not preserve status; the key event is a properly filed nonfrivolous H-1B petition." : null,
           missingFallbackOptions ? "If the new employer cannot file Form I-129 before day 60, ask counsel immediately about change of status, departure planning, possible consular return, premium processing or employer escalation, and receipt-notice timing." : null,
@@ -1181,7 +1210,50 @@ function buildMandatorySafetyAddendum(question: string, topics: TopicBucket[], a
   return notes.length > 0 ? notes.join("\n\n") : null;
 }
 
-function normalizeHighRiskAnswer(question: string, topics: TopicBucket[], answer: string) {
+// Date-free. The grace-period endpoint depends on facts only the user has, so a
+// correction states the rule and hands the arithmetic back rather than guessing.
+const GRACE_PERIOD_CORRECTION =
+  "The grace period runs up to 60 days from the employment-termination date, or until the I-94 or petition validity ends, whichever comes first. Confirm the exact termination date and the resulting deadline with immigration counsel before relying on it.";
+
+// Escape a date so it can be matched literally inside a constructed RegExp.
+function escapeForRegExp(input: string) {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Strip a priority date the user never mentioned.
+ *
+ * The model sometimes echoes the profile's priority date into answers to
+ * hypothetical questions. This used to be handled by scrubbing the literal string
+ * "June 12, 2025" — the demo profile's date. But that is an entirely ordinary real
+ * EB-2 date, so any real user who happened to share it would have their own date
+ * deleted from their own answer.
+ *
+ * Scrubbing by provenance instead fixes both halves: it works for every user's
+ * profile date rather than one hardcoded value, and it never touches a date the
+ * user supplied themselves.
+ */
+function stripUnrequestedPriorityDate(question: string, answer: string, profilePriorityDate: string | null) {
+  if (!profilePriorityDate) return answer;
+  if (question.toLowerCase().includes(profilePriorityDate.toLowerCase())) return answer;
+
+  const stated = question.match(/(?:priority date is|priority date:)\s*([A-Z][a-z]+ \d{1,2}, \d{4}|\d{4}-\d{2}-\d{2})/i)?.[1] ?? null;
+  const date = escapeForRegExp(profilePriorityDate);
+
+  return answer
+    .replace(new RegExp(`Since your priority date is ${date},?\\s*`, "gi"), stated ? `Since your priority date is ${stated}, ` : "")
+    .replace(new RegExp(`your priority date \\(${date}\\)`, "gi"), stated ? `your priority date (${stated})` : "your priority date")
+    .replace(new RegExp(`priority date of ${date}`, "gi"), stated ? `priority date of ${stated}` : "priority date")
+    .replace(new RegExp(`for your priority date ${date}`, "gi"), "for your priority date")
+    .replace(new RegExp(`\\s*\\(${date}\\)`, "gi"), "");
+}
+
+function normalizeHighRiskAnswer(
+  question: string,
+  topics: TopicBucket[],
+  answer: string,
+  profilePriorityDate: string | null = null
+) {
   const normalizedQuestion = question.toLowerCase();
 
   if (topics.includes("adjustment-of-status") && /(travel|advance parole|ap|i-131|visa stamp|reentry)/.test(normalizedQuestion)) {
@@ -1198,21 +1270,22 @@ function normalizeHighRiskAnswer(question: string, topics: TopicBucket[], answer
 
   if ((topics.includes("h1b") || topics.includes("layoffs")) && (mentionsJobLoss(normalizedQuestion) || /(grace period|day 60|lca|petition cannot be filed)/.test(normalizedQuestion))) {
     return answer
+      // These corrections must never assert a date. An earlier version substituted
+      // dates taken from an eval fixture, so a user whose grace period actually ended
+      // in March was told "about August 11, 2026" — a fabricated deadline, five months
+      // late, printed beside their own correct date. A correction that introduces a
+      // fact the user never supplied is more dangerous than the sentence it replaces.
       .replace(
-        /Since your I-94 expires on March 15, 2027,[^.]*\./gi,
-        "If June 12, 2026 is the employment-termination date, the 60-day grace period would point to about August 11, 2026; the March 15, 2027 I-94 date does not extend the grace period beyond 60 days."
-      )
-      .replace(
-        /(?:the )?grace period (?:will|would) last until March 15, 2027[^.]*\./gi,
-        "The grace period is capped at up to 60 days after employment ends, or until the I-94/petition validity ends, whichever is shorter."
+        /(?:the )?grace period (?:will|would) last until (?:your |the )?I-94[^.]*\./gi,
+        GRACE_PERIOD_CORRECTION
       )
       .replace(
         /(?:you have|there (?:are|is)|with)\s+(?:about\s+)?\d+\s+days?\s+(?:left|remaining)[^.]*grace period[^.]*\./gi,
-        "If June 12, 2026 is the employment-termination date, the 60-day grace period would point to about August 11, 2026; confirm the exact termination date and grace-period endpoint with employer counsel."
+        GRACE_PERIOD_CORRECTION
       )
       .replace(
         /(?:about\s+)?\d+\s+days?\s+(?:left|remaining)\s+(?:until|before)\s+(?:the end of\s+)?(?:your|the)?\s*grace period[^.]*\./gi,
-        "If June 12, 2026 is the employment-termination date, the 60-day grace period would point to about August 11, 2026; confirm the exact termination date and grace-period endpoint with employer counsel."
+        GRACE_PERIOD_CORRECTION
       )
       .replace(
         /(?:you|the user) (?:cannot|can't|should not|must not) (?:start )?work(?:ing)? until (?:you|they|the employer)? ?(?:receive|get|obtain|have) (?:the )?(?:USCIS )?receipt notice[^.]*\./gi,
@@ -1229,32 +1302,11 @@ function normalizeHighRiskAnswer(question: string, topics: TopicBucket[], answer
   }
 
   if (topics.includes("visa-bulletin") && !topics.includes("cspa")) {
-    const questionIncludesMockPriorityDate = /june 12,? 2025|2025-06-12/i.test(question);
-    const questionPriorityDateMatch = question.match(/(?:priority date is|priority date:)\s*([A-Z][a-z]+ \d{1,2}, \d{4}|\d{4}-\d{2}-\d{2})/i);
-    const userPriorityDate = questionPriorityDateMatch?.[1] ?? null;
-
-    if (!questionIncludesMockPriorityDate) {
-      return answer
-        .replace(/Since your priority date is June 12,? 2025,?\s*/gi, userPriorityDate ? `Since your priority date is ${userPriorityDate}, ` : "")
-        .replace(/your priority date \(June 12,? 2025\)/gi, userPriorityDate ? `your priority date (${userPriorityDate})` : "your priority date")
-        .replace(/\s*\(June 12,? 2025\)/gi, "")
-        .replace(/priority date of June 12,? 2025/gi, userPriorityDate ? `priority date of ${userPriorityDate}` : "priority date");
-    }
+    return stripUnrequestedPriorityDate(question, answer, profilePriorityDate);
   }
 
   if (topics.includes("cspa")) {
-    const questionIncludesMockPriorityDate = /june 12,? 2025|2025-06-12/i.test(question);
-    let normalizedAnswer = answer;
-
-    if (!questionIncludesMockPriorityDate) {
-      normalizedAnswer = normalizedAnswer
-        .replace(/\s*\(June 12,? 2025\)/gi, "")
-        .replace(/your priority date \(June 12,? 2025\)/gi, "your priority date")
-        .replace(/for your priority date June 12,? 2025/gi, "for your priority date")
-        .replace(/priority date \(June 12,? 2025\)/gi, "priority date")
-        .replace(/priority date of June 12,? 2025/gi, "priority date")
-        .replace(/priority date \(2025-06-12\)/gi, "priority date");
-    }
+    let normalizedAnswer = stripUnrequestedPriorityDate(question, answer, profilePriorityDate);
 
     return normalizedAnswer
       .replace(/,?\s*considering the 180-day requirement post-petition and priority date relevance/gi, "")
@@ -1512,7 +1564,7 @@ export async function* streamAdvisorResponse(rawInput: {
     yield { type: "delta", text: fullText };
   }
 
-  const normalizedFullText = normalizeHighRiskAnswer(content, topics, fullText);
+  const normalizedFullText = normalizeHighRiskAnswer(content, topics, fullText, snapshot.profile.priorityDate ?? null);
   if (normalizedFullText !== fullText) {
     fullText = normalizedFullText;
   }

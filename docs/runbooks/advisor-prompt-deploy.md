@@ -29,7 +29,7 @@
 | Propagation delay | 60s (`cacheTtlSeconds: 60` in `src/lib/langfuse.ts`) |
 | In-code fallback prompt | `STREAMING_SYSTEM_PROMPT` in `src/lib/advisor/service.ts` |
 | Fallback behavior | **Silent** — if Langfuse errors or the prompt is missing, the code prompt is used with no alert |
-| Model env var | `OPENAI_CHAT_MODEL` (Vercel; defaults to `gpt-5-mini`) |
+| Model env var | `OPENAI_ADVISOR_MODEL` first, then `OPENAI_CHAT_MODEL`, then the `gpt-5-mini` default. **Use `OPENAI_ADVISOR_MODEL`** — `OPENAI_CHAT_MODEL` is shared with email extraction and community drafting, so setting it moves those too. Both are unset in production today. |
 | Langfuse project | `haven-advisor` (US region) |
 | Eval baselines | `apps/haven/evals/advisor/reports/` |
 
@@ -47,7 +47,7 @@ Consequence: the procedure below promotes first and validates immediately, accep
 
 ### 2.1 Prepare
 
-1. **Record current state** in the change log (§7): current production prompt version number, current `OPENAI_CHAT_MODEL` value, today's date.
+1. **Record current state** in the change log (§7): current production prompt version number, the resolved advisor model (`OPENAI_ADVISOR_MODEL` → `OPENAI_CHAT_MODEL` → `gpt-5-mini`), today's date.
 
 2. **Capture a baseline on the current prompt, before changing anything.** Without it you cannot distinguish a new regression from a pre-existing failure.
 
@@ -71,7 +71,7 @@ Note the report path under `evals/advisor/reports/`.
 
 3. **Start the clock.** Changes reach users within 60 seconds. Validation (§3) begins now, not later.
 
-4. **For model changes instead:** update `OPENAI_CHAT_MODEL` in Vercel and redeploy. Test in a preview deployment first — unlike prompts, this one *can* be staged.
+4. **For model changes instead:** set `OPENAI_ADVISOR_MODEL` in Vercel and redeploy. Do not use `OPENAI_CHAT_MODEL` for this — it would move email extraction and community drafting onto the advisor's model as a side effect. Test in a preview deployment first; unlike prompts, this one *can* be staged.
 
 ---
 
@@ -135,7 +135,7 @@ Haven is a single-operator project, so escalation means **stop**, not "page the 
 
 **5.2 Model rollback**
 
-Restore the previous `OPENAI_CHAT_MODEL` value in Vercel and redeploy.
+Restore the previous `OPENAI_ADVISOR_MODEL` value in Vercel (or unset it to fall back to the `gpt-5-mini` default) and redeploy.
 
 **5.3 What rollback cannot undo**
 
