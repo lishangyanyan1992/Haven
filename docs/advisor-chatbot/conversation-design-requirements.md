@@ -267,7 +267,7 @@ Three concrete mechanisms follow:
 - What proxies "facts volunteered" for CD-3.7 — count of extractable entities (dates, statuses, categories) per user message?
 - Does a warmer persona risk reading as minimizing to someone in crisis? Needs testing specifically with laid-off users, not general users.
 - Should the placeholder adapt by profile or topic (layoff versus bulletin), or stay one strong default?
-- CD-3.4 and CD-3.6 pull against each other — precise legal vocabulary versus plain language. Likely resolution: introduce the precise term once with a plain gloss, then reuse it.
+- ~~CD-3.4 and CD-3.6 pull against each other — precise legal vocabulary versus plain language.~~ **Resolved in CD-10.13:** keep the precise term, define it plainly on first meaningful use, then reuse.
 
 ---
 
@@ -751,7 +751,21 @@ Haven's answer payload already carries `confidence` (low/medium/high, derived fr
 
 In this domain that test bites hard. Departing on a pending advance parole can abandon an I-485; missing day 60 ends status; starting work early is unauthorized employment. None of it is undoable. So where a misread fact would send someone toward an irreversible action, the Advisor should confirm the fact *before* answering on it, rather than answering and hoping the caveat is read.
 
-### 10.4 Requirements
+### 10.4 Precision, jargon, and ordering
+
+**Clarity beats brevity.** "Ready?" is maximally concise and useless — ready for what? Over-trimming crops out the words that carried the meaning. The test is whether people stall or answer with a clarifying question of their own.
+
+**The idiom warning is the dialect bug pointed the other way.** §4 was about Haven failing to understand users' English; this is about Haven's own words failing users. The book's case: an Ohio hospital's warm, colloquial "I can help take that off your plate" — written for Midwestern congeniality, delivered to a population including recent East African immigrants who had left food shortages behind. Not merely unclear: *vaguely threatening*, the exact opposite of the intent. It was caught only because someone close to that community reviewed it.
+
+Haven's population is precisely the at-risk one — overwhelmingly writing and reading in a second language, usually under stress. And immigration copy attracts exactly this kind of phrasing: *buy yourself time, in the clear, on the hook, run out the clock, wiggle room, heads up, off the table.* "Buy yourself time" next to a 60-day deadline is not a stylistic problem; it is a misreadable instruction about a date that ends someone's status.
+
+**Jargon has a real answer here, and it closes an open question.** §3.5 flagged that CD-3.4 (model precise vocabulary so users mirror terms the classifier can use) pulls against CD-3.6 (plain language). The book resolves it: use specialized terms when the audience genuinely uses them, and **when a specialized term is necessary, define it in simple language.** Immigration terminology is not optional — I-94, advance parole, priority date, nonfrivolous petition are the actual legal objects — so the rule is to introduce each with a plain gloss the first time it matters, then reuse it. As Winters puts it: *"It's not dumbing down. It's opening up."*
+
+**Ordering.** Present actions in the order they must be carried out; lead with context; end with the actionable part, because the most recent thing read is remembered best; keep subject and verb together. For a layoff answer this means chronological steps, not importance-ranked ones — what happens first, then what must be filed, then by when.
+
+**Parallel structure and discourse markers** both lower load cheaply. Lists should share a part of speech, and transitions ("first," "then," "finally," "also") let a reader track where they are — useful in exactly the multi-step deadline answers Haven produces.
+
+### 10.5 Requirements
 
 - **CD-10.1** Every Advisor turn that expects a reply ends with a **cue** — a question or an instruction — not with a disclaimer.
 - **CD-10.2** The legal disclaimer is persistent chrome, not the closing line of dialog. It must remain visible without being the last thing read.
@@ -764,8 +778,13 @@ In this domain that test bites hard. Departing on a pending advance parole can a
 - **CD-10.9** One cue per turn, and it comes last. The continuation cue (follow-ups) must sit after the feedback control, not before it — the turn we want back is the conversation, not a rating.
 - **CD-10.10** Never mash cue types in a single question, and never write rhetorical questions — both send false or ambiguous signals about whose turn it is.
 - **CD-10.11** Open-ended cues always ship with examples of what can be asked (the suggested-prompt pattern), so users are never left guessing at scope.
+- **CD-10.12** **No idioms, slang, or figurative language.** Ban the deadline-adjacent ones outright: *buy yourself time, in the clear, on the hook, run out the clock, wiggle room, off the table, heads up.* Most users read English as a second language, and a misread idiom next to a date is a misread instruction.
+- **CD-10.13** **Define specialized terms in plain language on first meaningful use**, then reuse them. This is how CD-3.4 and CD-3.6 coexist: the precise term is kept, the barrier is removed.
+- **CD-10.14** Precision outranks concision. A shorter prompt that leaves the user unsure what they are agreeing to is a worse prompt.
+- **CD-10.15** Order multi-step guidance by the sequence of action, not by importance; lead with context, end with the actionable part.
+- **CD-10.16** Lists use parallel structure, and multi-step answers use discourse markers ("first," "then," "finally") so readers can track position.
 
-### 10.5 Open questions
+### 10.6 Open questions
 
 - Which prewritten prompts exist today, verbatim? CD-10.4 needs an actual inventory before it can be acted on; the list in 10.2 was assembled by reading the component, not from any register.
 - Does moving the disclaimer out of the answer block create a legal problem? It stays visible either way, but this needs a real answer before shipping (§4 escalation rule: ask counsel, don't judge it internally).
