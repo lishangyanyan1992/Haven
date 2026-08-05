@@ -808,6 +808,47 @@ Haven's population is precisely the at-risk one — overwhelmingly writing and r
 
 ---
 
+## 11. Hostile and Distressed Input
+
+**Source:** *Conversations with Things* — prompts to discourage sexual harassment.
+
+### 11.1 What the research says
+
+People harass conversational systems at volumes teams do not anticipate: Robin Labs found ~5% of interactions clearly sexually explicit, Mitsuku's creators put off-topic, abusive, romantic, or sexual input at up to 30%. Abuse concentrates on female-presenting bots.
+
+The instructive failure is the *response*. Siri's "I'd blush if I could" and similar jokey deflections drew criticism in 2017 for **gamifying the abuse** — a funny reply is a reply worth screenshotting and showing a friend, which rewards the behaviour. By 2020 the industry had converged on two strategies: a flat refusal ("No.", "I won't respond to that.") or simply disengaging, as Alexa does by going dark. Cortana's designer put the rule plainly: never turn harassment into a game; state clearly that this is not a place where the assistant will engage.
+
+### 11.2 How it applies to Haven
+
+**The harassment risk is genuinely lower here, and mostly by construction.** Haven has no persona name, no "I", no gender presentation (§7.4, CD-8.4), which removes the target the research identifies. Access is authenticated rather than anonymous, questions are rate-limited, and the domain is not a toy. Crucially, the trap the industry fell into is already closed: CD-7.4 bans jokes outright, so there is no jokey-deflection path to write by accident.
+
+**But the underlying lesson does transfer, and Haven's version of it is more dangerous.** The point is not "plan for sexual harassment" — it is *plan for the input you assume you will not receive*. Haven's population is not idly poking a smart speaker; it is people facing job loss, family separation, and forced departure from the country they live in. The out-of-band input this product should expect is **distress**: hopelessness, panic, and self-harm ideation.
+
+**And that path is currently mishandled.** Every message runs through OpenAI moderation, but `moderateMessage` keeps only the `flagged` boolean and discards the categories — including `self-harm` and `self-harm/intent`. Any flagged message, whatever the reason, receives the same reply:
+
+> "I can help with work visa and green card questions, but I can't continue with this message as written. Rephrase it as a factual immigration or Haven-product question and I'll answer from official sources."
+
+A user disclosing suicidal ideation is told to rephrase their question. That is the Siri-joke failure in a graver key: a response tuned for the wrong category, delivered at the moment it matters most. The research's own remedy applies — decide the behaviour deliberately rather than letting a generic path answer for you.
+
+This is not a conversation-design nicety. It is the one place in the product where a wrong reply could contribute to someone being harmed, and it should be handled with crisis-resource routing designed with someone qualified, not drafted from intuition.
+
+### 11.3 Requirements
+
+- **CD-11.1** **Moderation categories must be read, not just the flag.** Different categories get different behaviour; a single generic refusal for all of them is a design failure.
+- **CD-11.2** **Self-harm signals get a purpose-written response**, including crisis resources appropriate to the user's country, and never "rephrase your question." The wording is reviewed by someone qualified in crisis response before it ships.
+- **CD-11.3** Distress that is *not* a moderation flag — panic, hopelessness, "I have nothing left" — still gets acknowledged as a person before the answer is given. Steady is not the same as cold (§7.6).
+- **CD-11.4** Harassment and abuse get a flat refusal or silent disengagement. Never a joke, never a wink, never a clever line — those reward and spread the behaviour.
+- **CD-11.5** Never mirror hostility, moralise, or lecture. The character holds (§7.8).
+- **CD-11.6** Off-band input volumes are measured rather than assumed. Track flagged-message categories in Langfuse so the real distribution is known.
+
+### 11.4 Open questions
+
+- Which crisis resources, for which countries? Haven's users are global by definition, and a US-only hotline is close to useless for someone who has already left.
+- Should a self-harm response still answer the immigration question underneath it, or only route to support? Answering may be what the person actually came for; ignoring it may read as dismissal.
+- Does authenticated, rate-limited access actually suppress harassment volume, or merely our visibility of it? CD-11.6 answers this.
+
+---
+
 ## Backlog — sections to add
 
 - **Error and refusal copy** — declining out-of-scope and adversarial requests without sounding evasive or robotic; the specific wording that expresses §7's character (builds on CD-2.7, CD-2.9, CD-7.2)
