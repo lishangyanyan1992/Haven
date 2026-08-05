@@ -1,3 +1,4 @@
+import { openaiPermSettlementDojDiscrimination2026Post } from "@/content/blog/posts/openai-perm-settlement-doj-discrimination-2026";
 import { dhs911FeeH1bL1ExtensionFinalRule2026Post } from "@/content/blog/posts/dhs-911-fee-h1b-l1-extension-final-rule-2026";
 import { uscisBlocksH1bB2StatusChangeLayoffs2026Post } from "@/content/blog/posts/uscis-blocks-h1b-b2-status-change-layoffs-2026";
 import { firstCircuitDeniesStay100kH1bFeeJuly2026Post } from "@/content/blog/posts/first-circuit-denies-stay-100k-h1b-fee-july-2026";
@@ -110,6 +111,7 @@ const guideBlogPosts = guides.map(guideToBlogPost);
 
 // Add a new post import here and it will appear in the blog automatically.
 export const blogPosts = [
+  openaiPermSettlementDojDiscrimination2026Post,
   dhs911FeeH1bL1ExtensionFinalRule2026Post,
   uscisBlocksH1bB2StatusChangeLayoffs2026Post,
   firstCircuitDeniesStay100kH1bFeeJuly2026Post,
