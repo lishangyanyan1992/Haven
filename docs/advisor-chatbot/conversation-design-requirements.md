@@ -704,6 +704,51 @@ The same applies to the family-based redirect: pointing someone to ImmigWizard i
 
 ---
 
+## 10. Prompt Craft (the words the Advisor says)
+
+**Source:** *Conversations with Things* — designing prompts; the weight of words; anatomy of a prompt.
+
+> **Terminology clash.** In this literature a **prompt** is *a line the bot says* — one turn of dialog. Everywhere else in Haven's docs "prompt" means the LLM system instructions. This section uses the book's sense: the Advisor's own utterances.
+
+### 10.1 What the research says
+
+The chapter opens on an argument Haven has already had internally: a PM wants every option stated in the greeting, legal wants the disclaimer up front, and the designer argues that a wall of text is exactly what makes people leave. The resolution is not to win the argument but to **chunk** — conversational writing is bounded by what a person can process in one turn, unlike a poster or a mailer where everything can sit in one organized block.
+
+Three warnings follow. Everyone who can hold a conversation feels qualified to write dialog, because language is learned intuitively — but fluency is not the same as understanding how language works. Conversational chunking is genuinely different from other writing. And prompt-writing looks deceptively like copy-tweaking, when it actually requires deciding, per line: what must this accomplish, what tactic communicates it, how concise is right, and what vocabulary fits this population.
+
+**Anatomy.** A prompt carries some mix of rapport, facts, and navigational guidance — and then, whenever a response is expected, it **must end with a cue**: a question or an instruction. The compressed rule: *up to three sentences, keep it trim, end with a cue.*
+
+Most commercial bots are hybrids: prewritten prompts selected by the system, sometimes with generated slots. Pure natural-language generation "can get a little weird and tip its hand."
+
+### 10.2 How it applies to Haven
+
+**Haven is a hybrid and only half of it has been designed.** The answers are generated; everything around them is prewritten — the welcome line, the pending status, error copy, the rate-limit notice, the stopped-answer warning, the history-truncation notice, the empty states in the sources panel. That prewritten half is the Advisor's dialog too, and until now it has been written ad hoc, line by line, with no owner and no review. §7.8 specifies *what* should happen in each situation; it does not specify the words.
+
+**The Advisor never ends a turn with a cue.** Generated answers end with whatever the model wrote, or with a stapled safety note. The legal disclaimer then sits at the end of the block — and a disclaimer is the least turn-yielding sentence in English. It reads as a full stop, closing the conversation rather than handing it back. The follow-up chips added in `4fc6f6e` now supply a cue at the UI level, which is the right instinct, but the dialog itself still doesn't.
+
+This compounds the "silence reads as clearance" problem in §7.5: an answer that ends on a liability notice signals *finished*, when what we want to signal is *there is more here, ask me*.
+
+**"Up to three sentences" is not literally Haven's rule**, and pretending otherwise is how the current system prompt ended up demanding "2–4 sentences" while production emits ~750 tokens. The principle that transfers is the bound, not the number: **a turn should carry one answerable thing, and the rest should be offered rather than delivered.** A layoff answer does not need the deadline, the filing checklist, the options list, and the attorney guidance in a single turn — it needs the deadline, then an offer of the checklist. Chunking is available to us precisely because this is a conversation, not a mailer.
+
+**On winning the argument with data.** The book's anecdote resolves when the designer shows hang-up data. Haven now has the equivalent instrumentation — token counts, latency, addendum fire rate, and thumbs-down. Any future fight about answer length should be settled by measuring, not asserted.
+
+### 10.3 Requirements
+
+- **CD-10.1** Every Advisor turn that expects a reply ends with a **cue** — a question or an instruction — not with a disclaimer.
+- **CD-10.2** The legal disclaimer is persistent chrome, not the closing line of dialog. It must remain visible without being the last thing read.
+- **CD-10.3** **Offer depth rather than delivering it.** A turn carries the direct answer plus what is required for safety; checklists, option lists, and elaboration are offered as follow-ups.
+- **CD-10.4** Haven's prewritten prompts are a designed set, not incidental strings: welcome, pending status, stopped answer, history truncation, rate limit, errors, empty states. They are inventoried, written to the §7 character, and reviewed like any other copy.
+- **CD-10.5** Length rules are stated as a bound on *content* ("one answerable thing per turn"), never as a sentence count the model will silently ignore.
+- **CD-10.6** Disagreements about length or wording are settled with measurement — fire rate, thumbs-down, tokens, latency — not with opinion.
+
+### 10.4 Open questions
+
+- Which prewritten prompts exist today, verbatim? CD-10.4 needs an actual inventory before it can be acted on; the list in 10.2 was assembled by reading the component, not from any register.
+- Does moving the disclaimer out of the answer block create a legal problem? It stays visible either way, but this needs a real answer before shipping (§4 escalation rule: ask counsel, don't judge it internally).
+- Does "offer depth" reduce the safety-addendum fire rate, or raise it by shortening answers below what the guardrails require? Testable, and worth knowing before the v2 prompt ships.
+
+---
+
 ## Backlog — sections to add
 
 - **Error and refusal copy** — declining out-of-scope and adversarial requests without sounding evasive or robotic; the specific wording that expresses §7's character (builds on CD-2.7, CD-2.9, CD-7.2)
