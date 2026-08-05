@@ -765,7 +765,19 @@ Haven's population is precisely the at-risk one — overwhelmingly writing and r
 
 **Parallel structure and discourse markers** both lower load cheaply. Lists should share a part of speech, and transitions ("first," "then," "finally," "also") let a reader track where they are — useful in exactly the multi-step deadline answers Haven produces.
 
-### 10.5 Requirements
+### 10.5 Lists, pacing, and scope-setting
+
+**The rule of three.** Lists beyond three items exceed what a person holds at once. The allowance scales with how easy the items are: five is fine for single words in a familiar pattern ("extra small, small, medium, large, extra-large"); three is the ceiling for phrases; complex options should be fewer still.
+
+**Haven violates this in its highest-stakes answer.** The layoff guardrail instructs the model to list *five* complex options — immediate filing/receipt strategy, change of status such as B-2, departure planning and possible consular return, premium processing or employer escalation, and immediate counsel review. Each is a multi-clause idea with its own conditions, delivered to someone who has just lost their job and is counting days. That is the overload case almost exactly, and it is the moment a person can least afford to stop reading. This is the concrete argument for CD-10.3: lead with the two that matter for their facts, offer the rest.
+
+**Read it aloud.** The book's test for pacing transfers straight to text: a sentence you run out of breath reading is a sentence to split. Its worked example turns one 40-word clause-pile into four short sentences without losing content — the same rewrite Haven's longer answers need. Prosody proper (pitch, timbre, SSML) is voice-only and does not apply.
+
+**Say what the bot cannot do, not just what it can.** The greeting should match the system's actual breadth: a narrow bot names its one job, a broad one asks openly. The failure mode is a bot that implies more range than it has and drops users into refusals. Haven's current welcome — "Ask me about work visa and green card questions." — states the domain but never the boundary, so users only discover that family-based questions are out of scope by being turned away. Stating the edge up front is cheaper than a refusal, and it is the same principle as CD-12: never let an omission do the work of a statement.
+
+**"The best surprise is efficiency."** Small talk suits high personification; Haven is medium (§7.4), the domain is stressful, and the book's own advice for small talk — avoid depressing topics — rules out nearly everything Haven discusses. This closes the question rather than reopening it. What earns loyalty is being fast and accurate, which is worth remembering while the latency problem is open: no amount of warmth compensates for a 30-second answer.
+
+### 10.6 Requirements
 
 - **CD-10.1** Every Advisor turn that expects a reply ends with a **cue** — a question or an instruction — not with a disclaimer.
 - **CD-10.2** The legal disclaimer is persistent chrome, not the closing line of dialog. It must remain visible without being the last thing read.
@@ -783,8 +795,12 @@ Haven's population is precisely the at-risk one — overwhelmingly writing and r
 - **CD-10.14** Precision outranks concision. A shorter prompt that leaves the user unsure what they are agreeing to is a worse prompt.
 - **CD-10.15** Order multi-step guidance by the sequence of action, not by importance; lead with context, end with the actionable part.
 - **CD-10.16** Lists use parallel structure, and multi-step answers use discourse markers ("first," "then," "finally") so readers can track position.
+- **CD-10.17** **Three options maximum in a single turn** when the options are phrases or carry conditions. More than three are offered, not listed. This applies directly to the layoff guardrail's five-option list.
+- **CD-10.18** Split any sentence that cannot be read aloud in one breath. Long clause-piles become short sentences.
+- **CD-10.19** **The welcome states the boundary as well as the domain**, so users learn what is out of scope before a refusal teaches them.
+- **CD-10.20** No small talk, jokes, or personality flourishes. Efficiency and accuracy are what earn trust here; charm never compensates for a slow or hedged answer.
 
-### 10.6 Open questions
+### 10.7 Open questions
 
 - Which prewritten prompts exist today, verbatim? CD-10.4 needs an actual inventory before it can be acted on; the list in 10.2 was assembled by reading the component, not from any register.
 - Does moving the disclaimer out of the answer block create a legal problem? It stays visible either way, but this needs a real answer before shipping (§4 escalation rule: ask counsel, don't judge it internally).
