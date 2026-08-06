@@ -888,7 +888,38 @@ An unrecognised question is not flagged as unrecognised; it is *assigned two top
 
 **`confidence` does not measure confidence.** It is `citations.length >= 2 ? "high" : …` — a count of retrieved sources, not a measure of how well the question was understood. §10.3 wants confidence to select confirmation behaviour; it cannot do that while it measures the wrong thing.
 
-### 12.3 Requirements
+### 12.3 Granularity, utility intents, and tuning discipline
+
+**"Billing" is a topic, not an intent — and this explains Haven's answer length.** The book's example takes "hours of operation," which sounds atomic, and finds five distinct intents inside it: *what are the hours / when does it open / is it open right now / is it closed / does it close soon*. Each needs a different answer, and giving the generic one to a specific question ("Are we too late?" → "We're open 10am to 2am daily") reads as evasive or passive-aggressive.
+
+Haven's `layoffs` bucket is exactly this. Inside it: *what is my deadline / can I still work / what are my options / what did people like me do / can I stay in the country*. There is one guardrail for the bucket, instructing the model to cover deadline math, the no-unauthorized-work rule, the LCA caution, portability, and five fallback options — **so every layoff question gets the answer to all five intents.** That is the causal explanation for the 750-token answers I have been treating as a prompt-length problem. It is not verbosity; it is a granularity problem wearing verbosity's clothes. Splitting the bucket lets each answer be short *and* complete.
+
+The counterweight the book is careful about: **more intents are not better.** Excess intents degrade the accuracy of the necessary ones, so this is a split-where-the-answers-differ exercise, not a proliferation exercise.
+
+**Four utility intents Haven has none of.** These come up in nearly every conversational product:
+
+| Intent | Utterances | Haven today |
+|---|---|---|
+| **Help** | "help", "what can you do?", "I'm lost" | Nothing |
+| **Escalate** | "talk to a human", "this isn't working", "I need a real person" | Nothing — the Advisor recommends an attorney but never links to `/lawyers` or `/resources` |
+| **Navigation** | "start over", "go back", "repeat that" | Reset exists as a button, not as something you can say |
+| **More information** | "tell me more", "what does that mean?", "go on" | Nothing |
+
+The last one is a dependency I missed. **CD-10.3 says to offer depth rather than deliver it — that is unshippable until the Advisor understands the acceptance.** Offering "want the filing checklist?" and then not recognising "yes, tell me more" would be worse than the wall of text it replaces.
+
+Escalate matters most at tier 4: a user who has decided the bot cannot help them should not have to hunt for the exit (gate G6).
+
+**Three data lanes — and why this would have prevented the fixture bug.** The book separates:
+
+1. **Training data** — what the system is tuned against, version-controlled.
+2. **Regression data** — utterances deliberately *not* in the training set, each with a known correct outcome, re-run after every change.
+3. **New data** — fresh real traffic, to find what neither set covers.
+
+Haven's fixtures currently serve all three roles at once. The guardrails were tuned against the fixtures, and then verified against the same fixtures — which is precisely how a safety patch keyed to `adv-h1b-layoff-001`'s dates passed as working while protecting nobody else. **The overfit was not a lapse in care; it was structurally invited by collapsing the lanes.** Keeping a regression set that never feeds tuning makes that class of bug visible instead of self-confirming.
+
+**And when something fails, the training data is not always the culprit.** The book's warning applies directly to the safety-addendum fire rate: the reflex when a guardrail misses is to widen the guardrail, but the prompt or the answer shape may be the actual problem. Look at both, and at their relationship, before adding rules.
+
+### 12.4 Requirements
 
 - **CD-12.1** **Derive the topic taxonomy from a real corpus.** Mine Langfuse traces and community posts, sort by meaning, and check the result against the current buckets rather than extending them by intuition.
 - **CD-12.2** **Keyword presence is not intent.** Where one term serves several needs with different risk profiles, separate them — especially when guardrail selection depends on the distinction.
@@ -897,8 +928,13 @@ An unrecognised question is not flagged as unrecognised; it is *assigned two top
 - **CD-12.5** **Do not automate the taxonomy work.** Clustering may assist, but a human decides the buckets; the failures are exactly the ones clustering cannot see.
 - **CD-12.6** **`confidence` must measure interpretation confidence**, not citation count, if it is to drive confirmation behaviour (CD-10.7).
 - **CD-12.7** Treat human-to-human corpora as approximations. People write differently to a bot than to a person, so mined utterances are a starting draft to be validated against real Advisor traffic.
+- **CD-12.8** **Split a topic wherever the right answers differ.** One guardrail covering five sub-intents produces answers that address all five. Split where answers diverge — and stop there, because surplus intents degrade the ones that matter.
+- **CD-12.9** **Ship the four utility intents**: help, escalate to a human, navigation ("start over"), and more-information. Escalate must reach an actual destination, not just a recommendation.
+- **CD-12.10** **"Tell me more" is a prerequisite for CD-10.3.** Offering depth without handling its acceptance is worse than not offering it.
+- **CD-12.11** **Keep regression fixtures out of the tuning set.** A held-out set with known expected outcomes, never used to tune, is what makes overfitting visible rather than self-confirming.
+- **CD-12.12** When a guardrail misses, check the prompt and the answer shape before widening the guardrail. Adding rules is the reflex; it is not always the fix.
 
-### 12.4 Open questions
+### 12.5 Open questions
 
 - What does the Langfuse corpus actually contain? Nobody has looked. A first sort would answer CD-12.1, CD-12.2 and CD-12.3 at once, and would size the unspecified pile.
 - Should slot extraction be a separate cheap model call, a structured-output field on the main call, or regex with confirmation? The first two cost latency the product cannot spare (§3.3).
