@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Bot, ExternalLink, RotateCcw, SendHorizonal, Square, ThumbsDown, ThumbsUp, User2 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -427,8 +429,23 @@ function AdvisorAnswerCard({
           </div>
         </div>
 
-        <div className="whitespace-pre-wrap text-body-sm leading-7">
-          {displayText}
+        {/* The system prompt asks for markdown, so it has to be rendered — otherwise
+            users read literal ** and ### characters. This matters most on the safety
+            addenda, which are themselves emitted with **bold** markers, so the most
+            important sentences were the ones displaying raw syntax. react-markdown
+            does not render embedded HTML by default, which is what we want for text
+            that originates from a model. */}
+        <div className="text-body-sm leading-7 [&_a]:underline [&_a]:underline-offset-2 [&_code]:rounded [&_code]:bg-[var(--haven-sand)] [&_code]:px-1 [&_h1]:mb-2 [&_h1]:mt-4 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:mt-4 [&_h2]:text-base [&_h2]:font-semibold [&_h3]:mb-1 [&_h3]:mt-3 [&_h3]:font-semibold [&_li]:my-1 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_strong]:font-semibold [&_table]:my-2 [&_table]:block [&_table]:overflow-x-auto [&_td]:border [&_td]:border-[var(--color-border)] [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-[var(--color-border)] [&_th]:px-2 [&_th]:py-1 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5">
+          {displayText && (
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                a: ({ ...props }) => <a {...props} rel="noreferrer" target="_blank" />
+              }}
+            >
+              {displayText}
+            </ReactMarkdown>
+          )}
           {isPending && !displayText && (
             <span className="flex gap-1.5 py-1">
               <span className="h-2 w-2 animate-bounce rounded-full bg-[var(--haven-sage-mid)] [animation-delay:0ms]" />
