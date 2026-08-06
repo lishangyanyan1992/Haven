@@ -163,7 +163,15 @@ const JOB_LOSS_TERMS = [
   "laid[- ]?off",
   "layoffs?",
   "terminat(ed|ion)",
+  // Object pronoun is optional and the verb may be passive or progressive. The
+  // earlier form required "let ME go", so the active voice matched while
+  // "I have been let go" and "they are letting me go" did not -- and the passive
+  // is the commoner way people say it. The dialect fixture used the one form that
+  // matched, so the test certified coverage that was not there.
   "let (me|him|her|them|us) go",
+  "(been|being|was|were|got) let go",
+  "letting (me|him|her|them|us) go",
+  "let go (from|by|of)",
   "\\bfired\\b",
   "made redundant",
   "redundanc(y|ies)",
@@ -173,7 +181,12 @@ const JOB_LOSS_TERMS = [
   "riffed",
   "reduction in force",
   "severance",
-  "(lost|losing) (my|his|her|their) job",
+  // Allow words between the possessive and "job" ("lost my H-1B job") and cover
+  // the plural. adv-h1b-layoff-005 -- one of the ten regression cases -- missed
+  // the gate entirely because of the intervening "H-1B", and survived only via
+  // the incidental word "LCA" in a secondary keyword list.
+  "(lost|losing|lose) (my|his|her|their|our)( [a-z0-9-]+){0,3} jobs?",
+  "(lost|losing) (my|his|her|their|our) (position|role|employment)",
   "job loss",
   "downsiz(ed|ing)",
   "no longer employed",
@@ -195,6 +208,11 @@ const JOB_LOSS_TERMS = [
   "(visa|h-?1b|petition) (was |been )?(revoked|withdrawn)",
   "(revoked|withdrew) (my |the )?(h-?1b|petition|visa)",
   "last working day",
+  "last day (at|of|with|on the job)",
+  "(company|employer|office|team|site) (is |are |was |were )?(shutting down|closing|winding down|dissolved)",
+  "asked (me |him |her |them )?to (leave|resign)",
+  "services are no longer (required|needed)",
+  "role (is|was|has been) (going away|eliminated|made redundant)",
   // Resignation is not a phrasing variant but a category gap: a voluntary or
   // pressured exit starts the same 60-day clock and carries the same
   // unauthorized-work exposure, and previously got no guardrails at all.
@@ -210,7 +228,10 @@ function mentionsJobLoss(normalized: string) {
   return JOB_LOSS_PATTERN.test(normalized);
 }
 
-function classifyTopics(input: string): TopicBucket[] {
+// Split from classifyTopics so callers can tell "matched nothing" apart from
+// "matched the default". Without that distinction a follow-up that matches no
+// pattern looks identical to a genuine h1b + adjustment-of-status question.
+function detectTopics(input: string): Set<TopicBucket> {
   const normalized = input.toLowerCase();
   const topics = new Set<TopicBucket>();
 
@@ -226,7 +247,41 @@ function classifyTopics(input: string): TopicBucket[] {
   if (/(work authorization|employment authorization|unauthorized work|worked without authorization|i-9|ead)/.test(normalized)) topics.add("work-authorization");
   if (/(haven|timeline|dashboard|planner|inbox|community)/.test(normalized)) topics.add("haven-product");
 
-  return topics.size > 0 ? Array.from(topics) : ["h1b", "adjustment-of-status"];
+  return topics;
+}
+
+const DEFAULT_TOPICS: TopicBucket[] = ["h1b", "adjustment-of-status"];
+
+function classifyTopics(input: string): TopicBucket[] {
+  const topics = detectTopics(input);
+  return topics.size > 0 ? Array.from(topics) : DEFAULT_TOPICS;
+}
+
+/**
+ * Classify a turn in the context of the one before it.
+ *
+ * Guardrails, retrieval, case stats and the safety addendum all key off `topics`,
+ * and `classifyTopics` only ever read the current message. A follow-up rarely
+ * repeats the signal that classified the original question -- our own layoff
+ * chips ("What has to be filed before day 60, and who files it?") match no
+ * pattern at all, so tapping one silently dropped every layoff guardrail on the
+ * highest-risk question in the product. Note how close it was: the classifier
+ * matches "60-day" and the chip says "day 60".
+ *
+ * Looking back one user turn fixes that without accumulating every topic a long
+ * thread has touched. Over-triggering is the intended failure mode here: an extra
+ * guardrail costs tokens, a missing one can cost someone their status.
+ */
+function classifyTopicsWithContext(
+  content: string,
+  history: Array<{ role: "user" | "assistant"; content: string }>
+): TopicBucket[] {
+  const current = detectTopics(content);
+  const previousUserTurn = [...history].reverse().find((m) => m.role === "user");
+  const carried = previousUserTurn ? detectTopics(previousUserTurn.content) : new Set<TopicBucket>();
+
+  const merged = new Set<TopicBucket>([...current, ...carried]);
+  return merged.size > 0 ? Array.from(merged) : DEFAULT_TOPICS;
 }
 
 function buildDecisionGuardrails(query: string, topics: TopicBucket[]) {
@@ -1341,9 +1396,9 @@ export function isAdvisorRateLimitError(error: unknown) {
 }
 
 export type AdvisorStreamEvent =
-  | { type: "start"; conversationId: string }
+  | { type: "start"; conversationId: string | null }
   | { type: "delta"; text: string }
-  | { type: "done"; assistantMessage: AdvisorMessage; conversationId: string; traceId: string }
+  | { type: "done"; assistantMessage: AdvisorMessage; conversationId: string | null; traceId: string }
   | { type: "error"; message: string; isRateLimit: boolean };
 
 const ADVISOR_PROMPT_NAME = "haven-advisor-system";
@@ -1385,7 +1440,7 @@ export async function* streamAdvisorResponse(rawInput: {
   }
 
   const { content, history: rawHistory, conversationId } = parsed.data;
-  const topics = classifyTopics(content);
+  const topics = classifyTopicsWithContext(content, rawHistory);
   const experiential = isExperientialQuestion(content);
   const model = getChatModel();
 
@@ -1411,7 +1466,14 @@ export async function* streamAdvisorResponse(rawInput: {
   const snapshot = await getSnapshot();
 
   if (moderation.flagged) {
-    const threadId = conversationId ?? "session";
+    // Only ever hand back a real thread id. This previously fell back to the
+    // literal "session", the client stored it, and the next request failed
+    // advisorRespondSchema's .uuid() check — surfacing as "Message content is
+    // required." So a single flagged message left the Advisor permanently broken
+    // for that session, with an error that named the wrong field. It landed
+    // hardest on distressed users: told to rephrase, then told their message was
+    // empty, every time after.
+    const threadId = conversationId ?? null;
     const flaggedPayload: AdvisorAnswerPayload = {
       answer_markdown:
         "I can help with work visa and green card questions, but I can't continue with this message as written. Rephrase it as a factual immigration or Haven-product question and I'll answer from official sources.",
@@ -1448,12 +1510,20 @@ export async function* streamAdvisorResponse(rawInput: {
       }
     });
     await flushLangfuse();
-    yield { type: "done", assistantMessage: createAssistantMessage(threadId, flaggedPayload, traceId), conversationId: threadId, traceId };
+    yield {
+      type: "done",
+      assistantMessage: createAssistantMessage(threadId ?? "pending", flaggedPayload, traceId),
+      conversationId: threadId,
+      traceId
+    };
     return;
   }
 
+  // Same rule on the mock path: a sentinel that isn't a UUID would fail schema
+  // validation on the next request, so emit null and let the client open a fresh
+  // thread instead of sending an id the server will reject.
   const threadId = identity.isMock
-    ? conversationId ?? "session"
+    ? conversationId ?? null
     : await reserveAdvisorConversation(identity.id, content, conversationId);
 
   // The thread row is created here, before generation, and it counts against the
@@ -1463,9 +1533,13 @@ export async function* streamAdvisorResponse(rawInput: {
   // opened a second thread and silently burned another of the five.
   yield { type: "start", conversationId: threadId };
 
+  // Display-only id on in-memory message objects; the wire value stays null so
+  // the client never stores a non-UUID conversation id.
+  const displayThreadId = threadId ?? "pending";
+
   const history: AdvisorMessage[] = rawHistory.map((m, i) => ({
     id: `history-${i}`,
-    threadId,
+    threadId: displayThreadId,
     role: m.role,
     content: m.content,
     createdAt: new Date(Date.now() - (rawHistory.length - i) * 1000).toISOString(),
@@ -1626,7 +1700,7 @@ export async function* streamAdvisorResponse(rawInput: {
 
   await flushLangfuse();
 
-  yield { type: "done", assistantMessage: createAssistantMessage(threadId, answerPayload, traceId), conversationId: threadId, traceId };
+  yield { type: "done", assistantMessage: createAssistantMessage(displayThreadId, answerPayload, traceId), conversationId: threadId, traceId };
 }
 
 export async function syncTrustedSources() {
