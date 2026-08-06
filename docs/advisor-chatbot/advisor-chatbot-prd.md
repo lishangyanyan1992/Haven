@@ -163,7 +163,7 @@ The two canonical chatbot failures — dispensing illegal advice and being talke
 - **[Eng]** Live retrieval (P2.1): scheduled scrape vs. on-demand fetch with cache? Serverless timeouts and Supabase egress both push toward scheduled ingestion.
 - **[Product]** Should conversation history count against the rate limit differently than new threads (follow-ups in an existing thread are currently free)? Validate against cost data.
 - **[Legal — non-blocking]** Does the disclaimer + refusal architecture need attorney review before any paid tier ships? (Informational-tool posture is standard, but paid changes the risk profile.)
-- **[Product]** Off-topic redirect to ImmigWizard for family-based questions: hard redirect or soft cross-promo?
+- ~~**[Product]** Off-topic redirect to ImmigWizard for family-based questions: hard redirect or soft cross-promo?~~ **Answered 2026-08-06** by a corpus sort of real user questions (`docs/advisor-chatbot/intent-corpus-sort-2026-08.md`): it's not one policy. Half of real marriage-based questions come from users with a stated F-1/OPT/J-1 background — Haven's own population weighing marriage-based AOS as an alternative or bridge to their employment-based path. For them: soft cross-promo — a short honest answer on how it interacts with their current status/timeline, then hand off to ImmigWizard for the specifics. For questions with no employment-track connection at all: hard redirect, no invented guidance. The boundary is the person's visa track, not the keyword "marriage." See CD-8.2 correction below.
 
 ## 9. Timeline Considerations
 

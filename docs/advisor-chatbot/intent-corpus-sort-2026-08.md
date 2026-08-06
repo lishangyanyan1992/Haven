@@ -35,7 +35,18 @@ Raw corpus + full sort: `apps/haven/evals/advisor/fixtures/corpus/` (see below).
 
 **The knowledge corpus is thin exactly where demand is highest.** `source-corpus.ts` has **1 document tagged `layoffs`** against the largest cluster in real traffic by a wide margin. This triangulates independently with the design review's finding of the same gap from reading the code — now confirmed from the demand side.
 
-**The out-of-scope estimate is no longer a guess.** ~14% of this corpus is family-based (marriage AOS, I-751, K-3/consular spouse). CD-1.19/CD-10.19 already call for stating the boundary in the welcome message; this is the first real number for how often that boundary would be hit — high enough that a stated boundary and a clean redirect to ImmigWizard are worth prioritizing, not deferring.
+**The out-of-scope estimate needs a correction: "marriage-based" is not one bucket.** ~14% of this corpus mentions marriage-based AOS, but reading each item's stated background splits it exactly in half:
+
+| | n | Examples |
+|---|---|---|
+| **Employment-track-adjacent** — F-1/OPT/J-1 background, marriage-based AOS is an *alternative or bridge path for someone already in Haven's population* | 5 | "F1 OPT spouse asks how the new AOS memo affects marriage adjustment"; three F-1-beneficiary marriage-AOS timelines; one J-1-to-marriage timeline |
+| **No employment-track signal** — nothing in the post ties the person to F-1/OPT/H-1B/J-1 | 5 | DC/VA marriage GC, consular spouse (K-3/I-130), LA F2A (spouse of LPR), two more marriage-AOS trackers with no stated visa background |
+
+This matters because Haven's own positioning already treats this exact case: ImmigWizard is *"a separate broader-audience family-based product, intentionally cross-promoted"* — not walled off. Someone who arrived on F-1 or OPT and is now weighing marriage-based AOS against their employment-based options **is Haven's user**, mid-decision between two paths Haven and ImmigWizard each own a piece of. Refusing that question outright (the original AC-5.2 framing — "declines or redirects") would turn away exactly the person the product is for.
+
+**Corrected scope rule:** the boundary is the *person's track*, not the *keyword "marriage."* If the question shows an employment/student-visa background (F-1, OPT, CPT, J-1, H-1B) and marriage-based AOS comes up as an option or a bridge, Haven should give a short, honest answer about how it interacts with their current status and timeline, then bridge to ImmigWizard for the marriage-AOS specifics — an informed handoff, not a refusal. Only decline outright when nothing ties the question to the employment-track population at all.
+
+This also reduces the real out-of-scope estimate: not ~14%, but closer to ~7% (the no-employment-track-signal half), with the other ~7% correctly handled as an in-scope bridge rather than a redirect.
 
 ## New findings — real, recurring, zero coverage
 
@@ -58,7 +69,8 @@ Three intents appear repeatedly in real user data and have **no topic bucket, no
 - [ ] Add I-751 as a minimal topic + one knowledge document.
 - [ ] Expand the `layoffs` knowledge corpus specifically for B2/H4 bridge mechanics — currently 1 document standing in for the largest real-world cluster.
 - [ ] Resolve the grace-period start-date ambiguity explicitly in the guardrail: notice date vs. last work day vs. last payroll, with garden leave named.
-- [ ] Ship the scope-boundary line in the welcome message (already recommended) — now backed by a real ~14% hit-rate estimate.
+- [ ] Ship the scope-boundary line in the welcome message (already recommended) — but write it as a *track* boundary ("employment-based visas and green cards"), not a *topic* exclusion, since half of real marriage-AOS questions come from Haven's own F-1/OPT/J-1 population.
+- [ ] Correct AC-5.2 and CD-1.19's framing from "decline family-based questions" to "bridge family-based questions to ImmigWizard when the user's own background is employment/student-track; decline only when it isn't." See the split above.
 - [ ] **Do not treat this sort as final.** It's 73 items from one external forum. Validate cluster boundaries and sizes against actual Langfuse Advisor traces before rebuilding guardrails around it (CD-12.1, CD-12.7) — Reddit posters write differently than people typing into Haven's own chat box.
 
 ## Files
