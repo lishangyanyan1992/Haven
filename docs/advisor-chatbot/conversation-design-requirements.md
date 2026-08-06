@@ -936,7 +936,7 @@ Haven's fixtures currently serve all three roles at once. The guardrails were tu
 
 ### 12.5 Open questions
 
-- What does the Langfuse corpus actually contain? Nobody has looked. A first sort would answer CD-12.1, CD-12.2 and CD-12.3 at once, and would size the unspecified pile.
+- ~~What does the Langfuse corpus actually contain?~~ **Partially answered:** a first sort was run against the existing r/h1b community corpus (73 real threads, not Haven's own traffic) — see [intent-corpus-sort-2026-08.md](intent-corpus-sort-2026-08.md). It found the `layoffs` bucket collapses ~60% of the corpus into one guardrail, confirmed the knowledge corpus is thinnest exactly where demand is highest (1 `layoffs` document), found three real recurring intents with zero coverage (240-day rule, $100k fee, I-751), and put a real number (~14%) on out-of-scope family-based traffic. Still open: the actual Langfuse trace corpus — Haven's own users, not Reddit's — has not been sorted, and should be before any guardrail is rebuilt around this draft.
 - Should slot extraction be a separate cheap model call, a structured-output field on the main call, or regex with confirmation? The first two cost latency the product cannot spare (§3.3).
 - How should a disambiguation question avoid becoming an extra turn for everyone? Probably gate it on the fallback path only, where today's behaviour is a guess.
 
