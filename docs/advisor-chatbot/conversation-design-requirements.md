@@ -849,7 +849,60 @@ This is not a conversation-design nicety. It is the one place in the product whe
 
 ---
 
-## Backlog — sections to add
+## 12. Intents, Utterances, and Slots
+
+**Source:** *Conversations with Things* — defining user intent; feeding the algorithm; building a set of intents.
+
+### 12.1 What the research says
+
+Three terms. An **intent** is a bucket for requests that mean the same thing. An **utterance** is what a user actually said. A **slot** is the variable part of an utterance — the size in "order a ___ soda", the artist in "play ___ by ___".
+
+The chapter opens on a bank bot that fails three times while a user progressively dumbs down her question until she resorts to "MARCH" — search-query style. The diagnosis: *"the system is on computer terms instead of human ones,"* and users come to feel there is a hidden set of magic words. Or as Abi Jones puts it, the AI "does what you asked it to do, not what you want it to do."
+
+The method for building an intent set is corpus-first: take real transcripts, strip them to verbatim user queries, and sort them into buckets — essentially card-sorting. Two things fall out of that sort. Clean groups, and an **"unspecified" pile** of utterances too ambiguous to classify ("I need access", "I can't get into my account"). The unspecified pile is not a failure of sorting; it is the set of cases that need a **disambiguation question** rather than a guess.
+
+And a warning: **don't automate the sorting.** Machine grouping misses both directions —
+
+- Same words, different meanings: *"How do I find my bill?" / "I didn't get my bill." / "My bill is overdue." / "Where do I send my bill payment?"* — one keyword, four different answers.
+- Different words, same meaning: *"Change my password" / "Update the log-in code."*
+
+Corpus data is also only an approximation, because people type differently to bots than to humans, and differently into a search bar than a chat window.
+
+### 12.2 How it applies to Haven
+
+Haven has no classic NLU layer — an LLM does the answering — but it *does* have an intent classifier in `classifyTopics`, and that classifier selects the guardrails. So intent modelling is not optional here; it is load-bearing for safety.
+
+**The topic taxonomy was guessed, not derived.** The eleven `TopicBucket` values are a reasonable hand-written list, but no corpus produced them. Haven now has real corpora it has never mined for this: every question ever asked is in Langfuse, and the community and Reddit imports hold thousands of real immigrant questions. The dialect bug and the follow-on gaps ("furlough", "benched", "put down papers") were both found by *guessing harder* rather than by looking at data. The method in §12.1 would have found them systematically — and will find the next set.
+
+**Same keyword, different need — Haven does exactly the bank-bill failure.** "I-485" routes everything to `adjustment-of-status`, but *"when can I file my I-485"*, *"can I travel with a pending I-485"*, *"my I-485 was denied"*, and *"I-485 processing times"* are four different needs with four different risk profiles. Only travel gets separated, and only by a second regex. Keyword presence is being used as a proxy for intent, and the guardrails ride on it.
+
+**There is no unspecified pile — ambiguity is silently resolved.** `classifyTopics` ends:
+
+```ts
+return topics.size > 0 ? Array.from(topics) : ["h1b", "adjustment-of-status"];
+```
+
+An unrecognised question is not flagged as unrecognised; it is *assigned two topics* and answered confidently with their retrieval and their guardrails. "What should I do?", "am I okay?", "is my situation normal?" — genuinely ambiguous, genuinely common from people in distress — all land here. The book's remedy is a disambiguation question, and Haven asks none.
+
+**Slots are the missing abstraction, and their absence caused a real bug.** The dates that decide Haven's highest-stakes answers — termination date, I-94 expiry, priority date, preference category — are slots in everything but name. Because they were never extracted as values, the system tried to correct the model's arithmetic *after the fact* with string surgery, which is how a fixture's dates ended up being injected into real users' answers (fixed in `e5365a3`). Extracting the termination date as a slot, computing day 60 deterministically, and passing it in as a fact would have made that class of bug impossible rather than patchable.
+
+**`confidence` does not measure confidence.** It is `citations.length >= 2 ? "high" : …` — a count of retrieved sources, not a measure of how well the question was understood. §10.3 wants confidence to select confirmation behaviour; it cannot do that while it measures the wrong thing.
+
+### 12.3 Requirements
+
+- **CD-12.1** **Derive the topic taxonomy from a real corpus.** Mine Langfuse traces and community posts, sort by meaning, and check the result against the current buckets rather than extending them by intuition.
+- **CD-12.2** **Keyword presence is not intent.** Where one term serves several needs with different risk profiles, separate them — especially when guardrail selection depends on the distinction.
+- **CD-12.3** **Keep an unspecified bucket and ask.** Unrecognised input gets a disambiguation question, never a silent default to a plausible-looking topic.
+- **CD-12.4** **Extract decision-critical facts as explicit slots** — termination date, I-94 expiry, priority date, category — and compute from them deterministically. Never repair the model's arithmetic with output rewriting.
+- **CD-12.5** **Do not automate the taxonomy work.** Clustering may assist, but a human decides the buckets; the failures are exactly the ones clustering cannot see.
+- **CD-12.6** **`confidence` must measure interpretation confidence**, not citation count, if it is to drive confirmation behaviour (CD-10.7).
+- **CD-12.7** Treat human-to-human corpora as approximations. People write differently to a bot than to a person, so mined utterances are a starting draft to be validated against real Advisor traffic.
+
+### 12.4 Open questions
+
+- What does the Langfuse corpus actually contain? Nobody has looked. A first sort would answer CD-12.1, CD-12.2 and CD-12.3 at once, and would size the unspecified pile.
+- Should slot extraction be a separate cheap model call, a structured-output field on the main call, or regex with confirmation? The first two cost latency the product cannot spare (§3.3).
+- How should a disambiguation question avoid becoming an extra turn for everyone? Probably gate it on the fallback path only, where today's behaviour is a guess.
 
 - **Error and refusal copy** — declining out-of-scope and adversarial requests without sounding evasive or robotic; the specific wording that expresses §7's character (builds on CD-2.7, CD-2.9, CD-7.2)
 - **Onboarding the first turn** — the opening message, suggested prompts, and setting scope expectations before the first question (intersects CD-1.21, CD-3.2, CD-3.3)
