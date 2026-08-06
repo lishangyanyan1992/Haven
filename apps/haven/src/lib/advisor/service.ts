@@ -720,12 +720,22 @@ async function moderateMessage(content: string, parent?: LangfuseParent) {
       input: content
     });
 
-    const flagged = moderation.results?.[0]?.flagged ?? false;
-    span?.end({ output: { flagged } });
+    const result = moderation.results?.[0];
+    const flagged = result?.flagged ?? false;
+    // Categories are recorded but do not yet change behaviour. Today every flagged
+    // message gets the same scope refusal, which is wrong for self-harm disclosure
+    // in particular — see CD-11.1/11.2. Designing that response needs to start from
+    // the real distribution rather than a guess, so log first and branch once the
+    // crisis copy has been written by someone qualified.
+    const categories = result?.categories
+      ? Object.entries(result.categories).filter(([, hit]) => hit).map(([name]) => name)
+      : [];
 
-    return { flagged };
+    span?.end({ output: { flagged, categories } });
+
+    return { flagged, categories };
   } catch {
-    return { flagged: false };
+    return { flagged: false, categories: [] as string[] };
   }
 }
 
@@ -1423,7 +1433,11 @@ export async function* streamAdvisorResponse(rawInput: {
         caseStatsTier: "none",
         citationCount: 0,
         fallback: false,
-        fallbackReason: null
+        fallbackReason: null,
+        // Surfaced on the trace so the category mix is filterable in Langfuse.
+        // Until the crisis path exists, this is how we learn what share of flagged
+        // traffic is distress rather than abuse.
+        moderationCategories: moderation.categories
       },
       output: {
         answer: flaggedPayload.answer_markdown,
