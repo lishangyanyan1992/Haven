@@ -1341,6 +1341,7 @@ export function isAdvisorRateLimitError(error: unknown) {
 }
 
 export type AdvisorStreamEvent =
+  | { type: "start"; conversationId: string }
   | { type: "delta"; text: string }
   | { type: "done"; assistantMessage: AdvisorMessage; conversationId: string; traceId: string }
   | { type: "error"; message: string; isRateLimit: boolean };
@@ -1454,6 +1455,13 @@ export async function* streamAdvisorResponse(rawInput: {
   const threadId = identity.isMock
     ? conversationId ?? "session"
     : await reserveAdvisorConversation(identity.id, content, conversationId);
+
+  // The thread row is created here, before generation, and it counts against the
+  // user's daily allowance from this moment. Announcing the id now rather than at
+  // `done` means a stopped, errored, or abandoned answer still leaves the client
+  // holding the conversation it already paid for — otherwise the next question
+  // opened a second thread and silently burned another of the five.
+  yield { type: "start", conversationId: threadId };
 
   const history: AdvisorMessage[] = rawHistory.map((m, i) => ({
     id: `history-${i}`,

@@ -21,9 +21,21 @@ export async function POST(request: Request) {
 
       try {
         for await (const event of streamAdvisorResponse(body)) {
+          // The client's Stop button aborts the fetch, which fires this signal.
+          // Without checking it the generator ran to completion regardless: tokens
+          // kept being billed for an answer nobody would see, and Langfuse recorded
+          // it as delivered — quietly polluting the quality data we use to judge
+          // prompt changes. Breaking here lets the generator's finally block run,
+          // so the trace still flushes and is marked for what it was.
+          if (request.signal.aborted) break;
           send(event);
         }
       } catch (error) {
+        if (request.signal.aborted) {
+          controller.close();
+          return;
+        }
+
         console.error("[advisor/respond] error:", error);
         send({
           type: "error",

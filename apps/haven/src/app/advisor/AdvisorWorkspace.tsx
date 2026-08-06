@@ -139,7 +139,12 @@ export function AdvisorWorkspace({ advisorUsage, suggestedPrompts, welcomeMessag
           let event: AdvisorStreamEvent;
           try { event = JSON.parse(raw); } catch { continue; }
 
-          if (event.type === "delta") {
+          if (event.type === "start") {
+            // Claim the thread as soon as the server reserves it. If the user stops
+            // this answer or it errors, the next question continues this conversation
+            // instead of opening a second one against their daily limit.
+            setConversationId(event.conversationId);
+          } else if (event.type === "delta") {
             streamText += event.text;
             setMessages([...nextMessages, {
               id: sid,
@@ -303,8 +308,12 @@ export function AdvisorWorkspace({ advisorUsage, suggestedPrompts, welcomeMessag
       </Card>
 
       <div className="px-1">
+        {/* Counts conversations, not questions — follow-ups within a thread are
+            unlimited and free. Saying "questions" both undersells the product and
+            hides what Reset actually costs. */}
         <p className="text-caption text-[var(--color-text-secondary)]">
-          {advisorUsage.remaining} of {advisorUsage.limit} questions left today · {advisorUsage.renewalLabel}
+          {advisorUsage.remaining} of {advisorUsage.limit} conversations left · {advisorUsage.renewalLabel} · follow-up
+          questions in this conversation are unlimited
         </p>
       </div>
     </div>
