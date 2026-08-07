@@ -114,6 +114,14 @@ export interface PriorityDateIntelligence {
   latestCutoffDate?: string;
   sourceUrl: string;
   sourcePulledAt?: string;
+  /** Age of the newest held bulletin, measured from the first of its month. */
+  bulletinAgeDays: number;
+  /**
+   * The bulletin feed has not delivered a recent bulletin. Every surface that
+   * renders these figures must disclose it rather than presenting the numbers
+   * as current — computed here so no consumer invents its own rule.
+   */
+  isStale: boolean;
   isCurrent: boolean;
   gapLabel?: string;
   estimateLabel?: string;
