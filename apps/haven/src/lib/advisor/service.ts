@@ -31,6 +31,12 @@ import type { TopicBucket } from "@/lib/advisor/topics";
 import { guardrailText, resolveGuardrails } from "@/lib/advisor/guardrail-registry";
 import { buildThreadState, type ThreadState } from "@/lib/advisor/thread-state";
 import { renderLayoffOptionsForPrompt } from "@/lib/advisor/layoff-options";
+import {
+  getLiveBulletinSnapshot,
+  renderBulletinFreshnessForPrompt,
+  renderBulletinPositionForPrompt,
+  type LiveBulletinSnapshot
+} from "@/lib/advisor/bulletin-live";
 
 type RetrievedKnowledgeChunk = KnowledgeChunk & { documentId?: string };
 type RetrievedCommunitySummary = CommunityAdviceSummary;
@@ -1044,10 +1050,26 @@ function buildSnapshotCommunitySummaries(snapshot: Awaited<ReturnType<typeof get
   return [...cohortSummaries, ...warRoomSummaries];
 }
 
-function buildCitationSet(knowledge: RetrievedKnowledgeChunk[]): AdvisorCitation[] {
+function buildCitationSet(
+  knowledge: RetrievedKnowledgeChunk[],
+  liveBulletin: LiveBulletinSnapshot | null
+): AdvisorCitation[] {
   const deduped = new Map<string, AdvisorCitation>();
 
-  knowledge.forEach((chunk, index) => {
+  // Live bulletin leads when present: it is the most current thing we hold, and
+  // pinning the month into a citation means the user sees which bulletin the
+  // answer rests on without depending on the model to mention it.
+  if (liveBulletin) {
+    deduped.set("live-bulletin", {
+      kind: "external",
+      label: `Department of State · Visa Bulletin ${liveBulletin.bulletinLabel}`,
+      url: liveBulletin.sourceUrl ?? undefined,
+      quote: `Bulletin month: ${liveBulletin.bulletinLabel} (${liveBulletin.ageDays} days old).`,
+      citationIndex: 0
+    });
+  }
+
+  knowledge.forEach((chunk) => {
     const key = `${chunk.title}:${chunk.url}`;
     if (deduped.has(key)) return;
 
@@ -1056,32 +1078,91 @@ function buildCitationSet(knowledge: RetrievedKnowledgeChunk[]): AdvisorCitation
       label: `${chunk.agency} · ${chunk.title}`,
       url: chunk.url,
       quote: chunk.content,
-      citationIndex: deduped.size + index
+      citationIndex: deduped.size
     });
   });
 
   return Array.from(deduped.values()).slice(0, 4);
 }
 
-function detectStaleBulletin(knowledge: RetrievedKnowledgeChunk[], topics: TopicBucket[]) {
+/** Effective date of the newest bulletin document in the hardcoded corpus. */
+function newestCorpusBulletinDate(): string | null {
+  return (
+    trustedKnowledgeDocuments
+      .filter((document) => document.topic === "visa-bulletin" && document.effectiveDate)
+      .map((document) => document.effectiveDate as string)
+      .sort()
+      .at(-1) ?? null
+  );
+}
+
+/**
+ * Whether bulletin material on hand is too old to support month-specific
+ * conclusions.
+ *
+ * Staleness is measured against the newest bulletin we actually hold. When the
+ * weekly sync has live data, that is the live bulletin month; the hardcoded
+ * corpus date is only a fallback for when the live table is unavailable. The
+ * previous version read the corpus constant unconditionally, so a fresh live
+ * bulletin could not clear the gate and a redeploy was the only way to reset it.
+ */
+function detectStaleBulletin(
+  knowledge: RetrievedKnowledgeChunk[],
+  topics: TopicBucket[],
+  liveBulletin: LiveBulletinSnapshot | null
+) {
   if (!topics.includes("visa-bulletin")) {
     return false;
   }
 
-  const bulletinDocs = trustedKnowledgeDocuments.filter((document) => document.topic === "visa-bulletin" && document.effectiveDate);
-  const newest = bulletinDocs
-    .map((document) => document.effectiveDate as string)
-    .sort()
-    .at(-1);
+  if (liveBulletin) {
+    // Live data present: the bulletin month itself is the freshness signal.
+    // No dependency on retrieved chunks — the live table is the source now.
+    return liveBulletin.ageDays > 45;
+  }
 
+  const newest = newestCorpusBulletinDate();
   if (!newest) {
     return true;
   }
 
-  const ageMs = Date.now() - new Date(newest).getTime();
-  const ageDays = ageMs / (1000 * 60 * 60 * 24);
+  const ageDays = (Date.now() - new Date(newest).getTime()) / (1000 * 60 * 60 * 24);
 
   return ageDays > 45 && knowledge.some((chunk) => chunk.topic === "visa-bulletin");
+}
+
+const STALE_BULLETIN_MARKER = "Note on bulletin data:";
+
+/**
+ * Deterministic disclosure appended to bulletin answers when our data is old.
+ *
+ * Returns null when the bulletin material is current, when the question is not
+ * a bulletin question, or when the answer already carries the marker (so a
+ * regenerated or fallback answer is not annotated twice).
+ */
+export function buildStaleBulletinNotice(
+  topics: TopicBucket[],
+  knowledge: RetrievedKnowledgeChunk[],
+  liveBulletin: LiveBulletinSnapshot | null,
+  answer: string
+): string | null {
+  if (!detectStaleBulletin(knowledge, topics, liveBulletin)) {
+    return null;
+  }
+  if (answer.includes(STALE_BULLETIN_MARKER)) {
+    return null;
+  }
+
+  const held = liveBulletin
+    ? `the most recent Visa Bulletin Haven holds is **${liveBulletin.bulletinLabel}**, which is ${liveBulletin.ageDays} days old`
+    : "Haven currently has no live Visa Bulletin data";
+
+  return (
+    `${STALE_BULLETIN_MARKER} ${held}. A newer bulletin has almost certainly been published since. ` +
+    "Treat any month-specific cutoff or filing conclusion above as unverified, and confirm against the " +
+    "[official Visa Bulletin](https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin.html) " +
+    "and the USCIS filing-chart page before you act on it."
+  );
 }
 
 function fallbackAnswer(
@@ -1089,14 +1170,21 @@ function fallbackAnswer(
   userContext: AdvisorUserContext,
   knowledge: RetrievedKnowledgeChunk[],
   community: RetrievedCommunitySummary[],
-  topics: TopicBucket[]
+  topics: TopicBucket[],
+  liveBulletin: LiveBulletinSnapshot | null
 ): AdvisorAnswerPayload {
-  const citations = buildCitationSet(knowledge);
+  const citations = buildCitationSet(knowledge, liveBulletin);
 
-  if (detectStaleBulletin(knowledge, topics)) {
+  if (detectStaleBulletin(knowledge, topics, liveBulletin)) {
+    // Name what we hold and how old it is. "May be stale" with no date is the
+    // vagueness this refusal exists to prevent.
+    const heldLine = liveBulletin
+      ? `The most recent bulletin Haven holds is ${liveBulletin.bulletinLabel}, which is ${liveBulletin.ageDays} days old.`
+      : "Haven currently has no live visa bulletin data.";
+
     return {
       answer_markdown:
-        "I can explain how the visa bulletin works, but I should not give a month-specific filing conclusion until Haven refreshes the latest bulletin and filing-chart data.\n\nUse the official Visa Bulletin and USCIS monthly filing-chart page before acting on timing-sensitive filing decisions.",
+        `I can explain how the visa bulletin works, but I should not give a month-specific filing conclusion right now.\n\n${heldLine} Check the official Visa Bulletin and the USCIS monthly filing-chart page before acting on any timing-sensitive filing decision.`,
       confidence: "low",
       disclaimer: guardrailText("MSG_DISCLAIMER"),
       external_citations: citations,
@@ -1106,7 +1194,9 @@ function fallbackAnswer(
         "Do you want a plain-language explanation of Final Action Dates vs. Dates for Filing?",
         "Do you want me to focus on how your priority date fits into the monthly chart logic?"
       ],
-      refusal_or_escalation_reason: "Monthly bulletin data may be stale."
+      refusal_or_escalation_reason: liveBulletin
+        ? `Newest bulletin held (${liveBulletin.bulletinLabel}) is ${liveBulletin.ageDays} days old.`
+        : "No live visa bulletin data available."
     };
   }
 
@@ -1653,15 +1743,26 @@ export async function* streamAdvisorResponse(rawInput: {
   const caseStats = wantsCaseOutcomeStats(content, topics)
     ? await getCaseOutcomeStats(buildCaseSegmentFilters(snapshot.profile), retrievalSpan)
     : null;
+
+  // Live bulletin: only fetched for bulletin questions, so an OPT or layoff
+  // answer never carries a bulletin citation it did not use.
+  const isBulletinQuestion = topics.includes("visa-bulletin");
+  const liveBulletin = isBulletinQuestion ? await getLiveBulletinSnapshot() : null;
+  const bulletinPosition =
+    isBulletinQuestion && liveBulletin ? await renderBulletinPositionForPrompt(snapshot.profile) : null;
+
   retrievalSpan?.end({
     output: {
       knowledgeCount: knowledge.length,
       communityCount: community.length,
-      caseStatsTier: caseStats?.tier ?? "none"
+      caseStatsTier: caseStats?.tier ?? "none",
+      liveBulletin: liveBulletin?.bulletinLabel ?? "none",
+      liveBulletinAgeDays: liveBulletin?.ageDays ?? null,
+      bulletinPositionResolved: Boolean(bulletinPosition)
     }
   });
 
-  const citations = buildCitationSet(knowledge);
+  const citations = buildCitationSet(knowledge, liveBulletin);
   const communityUsed = community.slice(0, 2).map((item) => `${item.title}: ${item.summary}`);
   const promptProfileSummary = buildPromptProfileSummary(content, userContext);
   const promptTimelineSummary = buildPromptTimelineSummary(content, userContext);
@@ -1699,6 +1800,19 @@ export async function* streamAdvisorResponse(rawInput: {
     buildContextBlock("Haven derived signals", promptDerivedSignals),
     "",
     buildContextBlock("Haven email evidence", promptEmailEvidence),
+    "",
+    ...(isBulletinQuestion
+      ? [
+          "",
+          buildContextBlock(
+            "Live visa bulletin (authoritative; overrides any bulletin date in the source chunks below)",
+            renderBulletinFreshnessForPrompt(liveBulletin, newestCorpusBulletinDate())
+          )
+        ]
+      : []),
+    ...(bulletinPosition
+      ? ["", buildContextBlock("This user's bulletin position (state verbatim; never compute your own dates)", bulletinPosition)]
+      : []),
     "",
     buildContextBlock(
       "Official source chunks",
@@ -1757,7 +1871,7 @@ export async function* streamAdvisorResponse(rawInput: {
       trace?.update({ output: { answer: fullText, cited: citations.length > 0, citationCount: citations.length } });
     } catch (err) {
       generation?.end({ output: { error: String(err) }, level: "ERROR" });
-      const fallbackPayload = fallbackAnswer(content, userContext, knowledge, community, topics);
+      const fallbackPayload = fallbackAnswer(content, userContext, knowledge, community, topics, liveBulletin);
       fullText = fallbackPayload.answer_markdown;
       fallback = true;
       fallbackReason = "stream error";
@@ -1765,7 +1879,7 @@ export async function* streamAdvisorResponse(rawInput: {
       yield { type: "delta", text: fullText };
     }
   } else {
-    const fallbackPayload = fallbackAnswer(content, userContext, knowledge, community, topics);
+    const fallbackPayload = fallbackAnswer(content, userContext, knowledge, community, topics, liveBulletin);
     fullText = fallbackPayload.answer_markdown;
     fallback = true;
     fallbackReason = "no openai client";
@@ -1784,7 +1898,29 @@ export async function* streamAdvisorResponse(rawInput: {
     fullText += addendumText;
     yield { type: "delta", text: addendumText };
   }
-  trace?.update({ output: { answer: fullText, cited: citations.length > 0, citationCount: citations.length, fallback, fallbackReason } });
+
+  // Stale-bulletin disclosure. detectStaleBulletin used to be consulted only
+  // inside fallbackAnswer, which runs when generation fails — so on the normal
+  // path, the path every real user takes, a stale bulletin produced no warning
+  // at all. Applied here it covers every answer, deterministically, rather than
+  // depending on the model to volunteer it.
+  const staleNotice = buildStaleBulletinNotice(topics, knowledge, liveBulletin, fullText);
+  if (staleNotice) {
+    const noticeText = `\n\n${staleNotice}`;
+    fullText += noticeText;
+    yield { type: "delta", text: noticeText };
+  }
+
+  trace?.update({
+    output: {
+      answer: fullText,
+      cited: citations.length > 0,
+      citationCount: citations.length,
+      fallback,
+      fallbackReason,
+      staleBulletinNotice: Boolean(staleNotice)
+    }
+  });
 
   const answerPayload: AdvisorAnswerPayload = {
     answer_markdown: fullText,
@@ -1884,7 +2020,11 @@ export async function syncTrustedSources() {
         topic: document.topic,
         version_label: document.versionLabel,
         effective_date: document.effectiveDate ?? null,
-        fetched_at: new Date().toISOString(),
+        // These documents are compiled into the bundle, not fetched from the
+        // agency. Stamping "now" here claimed a freshness the content does not
+        // have and made a stale corpus look current in the database. The
+        // document's own effective date is the only honest signal we have.
+        fetched_at: document.effectiveDate ? new Date(`${document.effectiveDate}T00:00:00Z`).toISOString() : null,
         content_hash: getSourceHash(document.bodyMarkdown),
         is_current: true,
         body_markdown: document.bodyMarkdown,

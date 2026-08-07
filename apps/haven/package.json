@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "check:guardrails": "tsx --tsconfig tsconfig.json evals/advisor/check-guardrails.ts",
     "eval:advisor": "tsx --tsconfig tsconfig.json evals/advisor/run-local.ts",
+    "check:stale-bulletin": "tsx --tsconfig tsconfig.json evals/advisor/stale-bulletin.check.ts",
     "eval:advisor:smoke": "npm run eval:advisor -- --preset recommended10",
     "eval:advisor:judge": "npm run eval:advisor -- --preset recommended10 --judge"
   },
