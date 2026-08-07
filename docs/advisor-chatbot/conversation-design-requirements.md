@@ -5,7 +5,7 @@
 | **Product** | Haven Advisor — haven-h1b.com/advisor |
 | **Related** | [PRD](advisor-chatbot-prd.md) · [UAT Plan](advisor-uat-plan.md) |
 | **Status** | Living document — sections added as design research accumulates |
-| **Last updated** | 2026-08-03 |
+| **Last updated** | 2026-08-07 |
 
 ---
 
@@ -941,6 +941,77 @@ Haven's fixtures currently serve all three roles at once. The guardrails were tu
 - ~~What does the Langfuse corpus actually contain?~~ **Partially answered:** a first sort was run against the existing r/h1b community corpus (73 real threads, not Haven's own traffic) — see [intent-corpus-sort-2026-08.md](intent-corpus-sort-2026-08.md). It found the `layoffs` bucket collapses ~60% of the corpus into one guardrail, confirmed the knowledge corpus is thinnest exactly where demand is highest (1 `layoffs` document), found three real recurring intents with zero coverage (240-day rule, $100k fee, I-751), and put a real number (~14%) on out-of-scope family-based traffic. Still open: the actual Langfuse trace corpus — Haven's own users, not Reddit's — has not been sorted, and should be before any guardrail is rebuilt around this draft.
 - Should slot extraction be a separate cheap model call, a structured-output field on the main call, or regex with confirmation? The first two cost latency the product cannot spare (§3.3).
 - How should a disambiguation question avoid becoming an extra turn for everyone? Probably gate it on the fallback path only, where today's behaviour is a guess.
+
+---
+
+## 13. Documenting Conversational Pathways
+
+**Source:** *Conversations with Things* — sample scripting; flow diagrams; slots and logic in the flow; navigation and repair patterns; formalizing flows with labels; components; storyboarding; choosing the artifact for the audience.
+
+### 13.1 What the research says
+
+The chapter is about how to write a conversation down. Start with **sample scripts** — single pathways, disposable, written before anything is built, because they surface dozens of small decisions while they are still cheap to change. Expand into **flow diagrams**, which are three things at once: a thinking tool for the designer, a discussion tool for the team, and eventually a build spec.
+
+Prompts branch differently by cue type (yes/no, menu, open-ended); **logic** branches on state (new vs. returning, authenticated vs. not, stored payment vs. none); **slots** branch on how much the user volunteered, and when a slot matrix gets unwieldy a **table beats a flow** — the chapter's coffee example, utterances as rows and slots as columns, replaced "pages and pages" of diagrams.
+
+Navigation gets a section of its own, and the interesting cases are implicit: *"Oh, what about 32905?"* revises a previously-filled slot without any explicit command, and *"how spicy is that?"* is an information-gathering detour that only works if every item carries a stored attribute to answer from.
+
+Repair is treated as normal, not exceptional — the happy path is "basically a myth." Three failure classes: the system can't parse the input; the system has a candidate but low confidence and should confirm; the system understood perfectly and **cannot comply**, which calls for a logic check that offers an alternative ("sold out of roses → daisies?"). Every repair loop needs a **max-attempt exit**: after N consecutive failures, change tack — escalate to a person, offer a menu, switch channels — rather than loop.
+
+Then formalization. Swap full prompt text in the diagram for **labels**, and keep the copy in a **master list** mapping label → text → intent. The reason is blunt: copy trapped inside diagram boxes cannot be edited, exported, or kept in sync, and *"Legal needs a complete list of everything the bot says"* is a request you must be able to satisfy.
+
+Finally, zoom out. Group turns into **components** (phases), diagram how a user moves between them, and ask specifically how the design changes as users **cycle** through the same component more than once — because that is where interactions start to feel like they "reset." **Storyboards** put the user back in space and time. And choose the artifact by audience: component diagrams for stakeholders, formal flows for engineers, scripts for design discussion.
+
+### 13.2 How it applies to Haven
+
+**Most of the flow apparatus does not transfer, and forcing it would do harm.** Haven has no dialogue manager; an LLM answers free text. There is no branch structure to draw for the conversation itself, and the chapter's own criticism — that flows push designers toward linear, constrained pathways — is a sharper risk here than for an IVR team, because a drawn flow invites someone to build prompt-level branching and make the Advisor feel exactly as robotic as §7 is trying to avoid.
+
+**But the safety scaffold is a flow, and it was undocumented.** `detectTopics(current)` → merge with the previous user turn → `DEFAULT_TOPICS` if empty → guardrail selection → answer-shape repair → safety addendum → citations → confidence. That is deterministic, branching, and load-bearing for safety. Drawing it makes two things visible that prose kept hiding: the empty-match branch has no user-visible marker, and the chip-vs-classifier near miss already documented in `service.ts` ("60-day" vs "day 60") is the kind of thing a diagram shows as a dangling arrow.
+
+**Haven had the label problem in a different host.** The chapter warns against copy living inside diagram boxes. Haven's copy lived inside a 1,889-line TypeScript service — nine guardrail strings, every safety-addendum fragment, every answer-repair replacement, the disclaimer, and the moderation refusal. The consequences were the ones the chapter predicts: an immigration attorney could not review the Advisor's safety wording without reading code; the model card and ethics audit restate that wording by hand and will drift from it; and fixtures could only assert on English substrings, which is precisely how a patch keyed to one fixture's phrasing passed while protecting nobody.
+
+**Implicit slot revision is a live correctness risk.** *"Actually my last day was the 12th, not the 5th"* is the ZIP-code case, and it lands on the highest-stakes arithmetic in the product. `classifyTopicsWithContext` carries *topics* forward, never *values*, so the revised turn reaches the model with a history containing both dates and no signal about which is current. Once CD-12.4 extracts the termination date as a slot, revision must invalidate everything derived from the old one — the loop-back arrow in the book is a cache-invalidation requirement here.
+
+**The soup question is a hallucination surface.** The layoff guardrail listed five options and explicitly declined to rank them. The predictable follow-up — *"which is fastest?"*, *"what does premium processing cost?"* — had nothing behind it: `trustedKnowledgeDocuments` contains **zero** documents in the `layoffs` topic (its single `layoffs` entry is a community summary). The model answered from parametric memory, with numbers, inside a 60-day decision.
+
+**Two of the three repair classes were missing.** Parse failure mostly does not apply (text, no ASR; the analog is the non-English and dialect gap in §4.2). Low-confidence confirmation is blocked on CD-12.6, since `confidence` still counts citations. And "understood, cannot comply" — Haven's *dominant* repair mode, covering out-of-scope, attorney-only, and facts-not-given — carried no destination at all: `/lawyers` appeared nowhere in the service. Worse, there was no max-attempt exit: the empty-match branch could fire on every turn of a thread indefinitely, each time producing a confident `h1b` + `adjustment-of-status` answer, with no counter and no trace field. Note that `fallback` in the code means *infrastructure* fallback (stream error, no client) and never meant this.
+
+**Component cycling is the second cause of the length problem.** §12.3 diagnosed the 750-token layoff answers as a granularity problem. This is an independent second cause: guardrail selection was stateless, so the full guardrail — including the five-option menu — was re-injected on turn 1, turn 4, and turn 9, and the model dutifully restated it each time. Splitting the bucket shortens the first answer; component state is what stops turn 6 repeating turn 2.
+
+### 13.3 What we do today
+
+Shipped with this section (commit accompanying CD-13.1–13.4):
+
+- `src/lib/advisor/guardrail-registry.ts` — 36 labeled entries: 10 model-facing guardrails, 26 user-facing repair and message strings. Each carries `intent`, `audience`, `repeat`, and a `lastReviewedBy` field that is currently `null` for all 36.
+- `src/lib/advisor/thread-state.ts` — derives consecutive classification misses and already-delivered guardrail ids from the history the request already carries. No schema change.
+- `src/lib/advisor/layoff-options.ts` — the five post-layoff options with per-attribute provenance: sourced statements cite a real document slug, unsourced ones record why no answer exists.
+- `evals/advisor/check-guardrails.ts` (`npm run check:guardrails`) — registry integrity, option-attribute provenance, and eight behavioural assertions written against guardrail **ids**, deliberately held out of the tuning fixtures per CD-12.11.
+
+Still absent: slot extraction and therefore slot revision (CD-12.4), interpretation-based confidence (CD-12.6), the help and more-information utility intents (CD-12.9, CD-12.10), and any component-level document.
+
+### 13.4 Requirements
+
+- **CD-13.1** **Safety copy lives in a labeled registry, not in code.** Every line the Advisor is instructed to say or that is appended to an answer has a stable id, a stated intent, an audience, and a review field. Selection logic references ids; it never inlines prose. Traces record which ids fired, and regression assertions are written against ids rather than English phrases a prompt edit can silently reword. *Shipped.*
+- **CD-13.2** **Never answer a question that did not classify.** A turn matching no topic pattern, with no matched previous turn, gets a disambiguation question — not a default topic set and a confident answer. A second consecutive miss stops asking and hands off to a real destination (`/lawyers`, `/community`, `/resources`). Both paths return before the model call. The classification outcome and miss count are on the trace, and are distinct from infrastructure fallback. *Shipped.*
+- **CD-13.3** **Do not offer an option the corpus cannot describe.** Every option the Advisor presents carries attributes that are either sourced to a document or explicitly recorded as unsourced with a reason. Unsourced attributes are injected as prohibitions, so a follow-up produces a hedge rather than an invented figure. The gap is reported, not hidden. *Shipped; the underlying corpus gap remains — zero official `layoffs` documents.*
+- **CD-13.4** **Orientation fires once per thread; hard safety lines fire every turn.** Guardrails declare `repeat: always | once-per-thread`. Option menus and orientation are once; the non-negotiable rules are always. Suppression is recorded on the trace so a missing line is never invisible. *Shipped.*
+
+Method guidance, deliberately unnumbered — these are practices, and numbering a practice invites the illusion that writing it down completed it:
+
+- Sample scripts precede taxonomy changes. Before splitting a bucket (CD-12.8), write one script per candidate sub-intent; the split will justify itself or won't, in an hour rather than a refactor. Those scripts then graduate into the held-out regression lane.
+- Diagram the deterministic scaffold only. The free-text conversation is explicitly not flowed.
+- Use a slot × utterance table, not a flow, for CD-12.4. Rows: real layoff utterances from the corpus sort. Columns: termination date, I-94 expiry, petition filed, priority date, category. The cells answer which facts are asked for, which are computed, and which come from the Haven profile.
+- Match artifact to audience: component diagram for stakeholders, registry and scaffold flow for engineers, scripts for design review, model card and ethics audit for sign-off.
+
+### 13.5 Open questions
+
+- The 36 registry entries have had no immigration-counsel review. The registry makes that review possible for the first time; scheduling it is the next step, and the check script reports the count until it happens.
+- Slot revision (§13.2) has no defense yet and cannot get one until CD-12.4 lands. Until then, a mid-thread date correction relies entirely on the model reading its own history correctly. Worth a fixture that fails, so the gap is visible rather than assumed.
+- `deliveredWhen` for `GR_LAYOFF_OPTION_MENU` recognises the menu by shape (three of five routes present). That is a heuristic; it will occasionally suppress a menu the user would have wanted repeated. The suppression is on the trace, so the error rate is measurable — check it before extending the pattern to other entries.
+- Is two misses the right escalation threshold? It was chosen by analogy to the book's "> 2 attempts", not from data. The trace now carries `consecutiveMisses`, so this becomes an empirical question rather than a guess.
+- Component state is currently derived from history text. If the 12-message history cap (§backlog, CD-1.19) truncates the turn where a guardrail was delivered, it will fire again. Acceptable for now — the failure mode is repetition, not a missing warning — but it argues for storing fired ids on the message row.
+
+---
 
 - **Error and refusal copy** — declining out-of-scope and adversarial requests without sounding evasive or robotic; the specific wording that expresses §7's character (builds on CD-2.7, CD-2.9, CD-7.2)
 - **Onboarding the first turn** — the opening message, suggested prompts, and setting scope expectations before the first question (intersects CD-1.21, CD-3.2, CD-3.3)

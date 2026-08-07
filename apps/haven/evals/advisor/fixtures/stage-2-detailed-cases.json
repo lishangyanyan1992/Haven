@@ -1984,7 +1984,7 @@
         "work-authorization",
         "dialect"
       ],
-      "question": "My employer let me go on June 12, 2026. My H-1B I-94 expires March 15, 2027. What happens to my status and what do I need to do before day 60?",
+      "question": "I have been let go from my job as of June 12, 2026. My H-1B I-94 expires March 15, 2027. What happens to my status and what do I need to do before day 60?",
       "history": [],
       "profileSnapshot": {
         "currentStatus": "H-1B",
@@ -1994,7 +1994,7 @@
       },
       "expected": {
         "answerTraits": [
-          "treats \"let go\" as a layoff and applies the same H-1B grace-period analysis as \"laid off\"",
+          "treats the passive \"I have been let go\" as a layoff and applies the same H-1B grace-period analysis as \"laid off\" (the active form was already covered; the passive was not)",
           "distinguishes staying in the U.S. from work authorization",
           "explains the H-1B grace period cautiously"
         ],
