@@ -29,7 +29,7 @@
     "supabase:migrations": "./scripts/supabase-migration-list.sh"
   },
   "devDependencies": {
-    "vercel": "^52.0.0"
+    "vercel": "^58.4.4"
   },
   "overrides": {
     "@vercel/fun": {
