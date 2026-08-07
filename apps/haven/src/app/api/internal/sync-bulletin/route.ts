@@ -107,6 +107,18 @@ export async function GET(request: Request) {
       emailNotifications: notificationResult
     });
   } catch (error) {
+    // This is where a failed scrape lands — and it was the one failure path
+    // that did not report. The quality checks above alert on defective data,
+    // but a fetch that throws (travel.state.gov began returning 403 behind
+    // Cloudflare in April 2026) returned a 500 to a cron nobody reads. The
+    // outage stayed invisible for four months. Alert loudly here too.
+    Sentry.captureException(error, {
+      level: "error",
+      tags: { job: "sync-bulletin" },
+      extra: { note: "Visa bulletin sync failed; visa_bulletin_entries is not being updated." }
+    });
+    await Sentry.flush(2000);
+
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to sync the visa bulletin." },
       { status: 500 }

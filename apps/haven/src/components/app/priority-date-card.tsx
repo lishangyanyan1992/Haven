@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ArrowUpRight, TrendingUp } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, TrendingUp } from "lucide-react";
 import {
   Area,
   AreaChart,
@@ -91,15 +91,45 @@ export function PriorityDateCard({ intelligence }: PriorityDateCardProps) {
       <CardContent className="space-y-4">
         {intelligence ? (
           <>
+            {intelligence.isStale ? (
+              <div
+                role="alert"
+                className="flex gap-3 rounded-[var(--radius-lg)] border border-[var(--haven-blush)] bg-[var(--haven-blush-light)] p-4"
+              >
+                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-[var(--haven-blush-ink)]" aria-hidden />
+                <div>
+                  <p className="text-label text-[var(--haven-blush-ink)]">Out-of-date bulletin data</p>
+                  <p className="mt-2 text-body-sm">
+                    The newest bulletin Haven has is {intelligence.latestBulletinLabel} ({intelligence.bulletinAgeDays} days
+                    old). At least one newer bulletin has been published since. Treat the figures below as out of date and
+                    check the{" "}
+                    <a
+                      className="underline"
+                      href="https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin.html"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      official Visa Bulletin
+                    </a>{" "}
+                    before acting on them.
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
             <div className="rounded-[var(--radius-lg)] bg-[var(--haven-white)] p-4">
               <p className="text-label">Source</p>
-              <p className="mt-2 text-body-sm">Weekly sync from the official U.S. Department of State Visa Bulletin.</p>
+              <p className="mt-2 text-body-sm">
+                {intelligence.isStale
+                  ? "Official U.S. Department of State Visa Bulletin. Automatic updates are not currently arriving."
+                  : "Weekly sync from the official U.S. Department of State Visa Bulletin."}
+              </p>
               {sourcePulledAt ? <p className="mt-2 text-caption">Last pulled {sourcePulledAt}</p> : null}
             </div>
 
             <div className="rounded-[var(--radius-lg)] bg-[var(--haven-white)] p-4">
               <p className="text-label">
-                Current {intelligence.category} {intelligence.country} cutoff
+                {intelligence.isStale ? "Latest published" : "Current"} {intelligence.category} {intelligence.country} cutoff
               </p>
               <p className="mt-2 text-h3">{intelligence.latestCutoffLabel}</p>
               <p className="mt-2 text-body-sm text-[var(--color-text-secondary)]">

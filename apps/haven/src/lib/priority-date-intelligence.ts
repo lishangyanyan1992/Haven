@@ -17,6 +17,33 @@ const FALLBACK_VELOCITY_DAYS_PER_MONTH: Record<string, { label: string; days: nu
   "EB-3:India": { label: "~3 weeks/month", days: 21 }
 };
 
+/**
+ * A bulletin older than this can no longer be presented as the current one.
+ *
+ * The Visa Bulletin is monthly, so anything past ~45 days means at least one
+ * newer bulletin exists that we have not ingested.
+ *
+ * NOTE: the Advisor applies the same 45-day rule in its own bulletin module.
+ * These two constants should be unified once PR #43 lands; until then they must
+ * be changed together.
+ */
+export const BULLETIN_STALE_AFTER_DAYS = 45;
+
+/**
+ * Age of a bulletin, measured from the first of its month — a bulletin is "for"
+ * August, so on August 20 the August bulletin is 19 days old.
+ */
+function bulletinAgeInDays(year: number, month: number) {
+  const start = Date.UTC(year, month - 1, 1);
+  return Math.max(Math.floor((Date.now() - start) / (1000 * 60 * 60 * 24)), 0);
+}
+
+/** Prefix a bulletin claim with its staleness, so the caveat travels with it. */
+function withStalenessCaveat(position: string, isStale: boolean, bulletinLabel: string, ageDays: number) {
+  if (!isStale) return position;
+  return `${position} (Source data is stale: the newest bulletin Haven holds is ${bulletinLabel}, ${ageDays} days old. Treat this as unverified and confirm against the official Visa Bulletin.)`;
+}
+
 function mapPreferenceCategory(category: ImmigrationProfile["preferenceCategory"]): BulletinPreferenceCategory | null {
   if (category === "EB-2 NIW") return "EB-2";
   if (category === "EB-1" || category === "EB-2" || category === "EB-3") return category;
@@ -216,6 +243,8 @@ export async function getPriorityDateIntelligence(
     };
 
   const latestBulletinLabel = monthLabel(latest.bulletin_year, latest.bulletin_month);
+  const bulletinAgeDays = bulletinAgeInDays(latest.bulletin_year, latest.bulletin_month);
+  const isStale = bulletinAgeDays > BULLETIN_STALE_AFTER_DAYS;
   const latestCutoffLabel =
     latest.cutoff_label === "C"
       ? "Current"
@@ -232,11 +261,20 @@ export async function getPriorityDateIntelligence(
       latestCutoffDate: latest.cutoff_date ?? undefined,
       sourceUrl: latest.source_url,
       sourcePulledAt: latest.created_at ?? undefined,
+      bulletinAgeDays,
+      isStale,
       isCurrent: true,
       velocityLabel: velocity.label,
       historyPoints,
-      visaBulletinPosition: `${category} ${country} is current under the latest final action dates bulletin.`,
-      estimateLabel: "Your priority date is already current under final action dates.",
+      visaBulletinPosition: withStalenessCaveat(
+        `${category} ${country} is current under the ${latestBulletinLabel} final action dates bulletin.`,
+        isStale,
+        latestBulletinLabel,
+        bulletinAgeDays
+      ),
+      estimateLabel: isStale
+        ? `Your priority date was current under the ${latestBulletinLabel} bulletin. Confirm against the latest bulletin before acting.`
+        : "Your priority date is already current under final action dates.",
       estimateDetails: ["No projection is needed because the latest official cutoff already covers your priority date."]
     };
   }
@@ -249,10 +287,17 @@ export async function getPriorityDateIntelligence(
       latestCutoffLabel,
       sourceUrl: latest.source_url,
       sourcePulledAt: latest.created_at ?? undefined,
+      bulletinAgeDays,
+      isStale,
       isCurrent: false,
       velocityLabel: velocity.label,
       historyPoints,
-      visaBulletinPosition: `Latest ${category} ${country} final action label is ${latestCutoffLabel}. Haven needs a dated cutoff before it can estimate queue depth.`
+      visaBulletinPosition: withStalenessCaveat(
+        `Latest ${category} ${country} final action label is ${latestCutoffLabel}. Haven needs a dated cutoff before it can estimate queue depth.`,
+        isStale,
+        latestBulletinLabel,
+        bulletinAgeDays
+      )
     };
   }
 
@@ -275,17 +320,37 @@ export async function getPriorityDateIntelligence(
     latestCutoffDate: latest.cutoff_date ?? undefined,
     sourceUrl: latest.source_url,
     sourcePulledAt: latest.created_at ?? undefined,
+    bulletinAgeDays,
+    isStale,
     isCurrent: false,
     gapLabel,
     velocityLabel: velocity.label,
-    estimatedGreenCardDateRange,
-    estimateLabel: `At ${velocity.label} average pace, current around ${estimatedGreenCardDateRange}.`,
+    // The projection is anchored to the newest bulletin we hold. When that
+    // anchor is months old the range is measured from the wrong starting point,
+    // so the caveat has to travel with the value — this string is also injected
+    // into the Advisor's prompt as a derived signal.
+    estimatedGreenCardDateRange: isStale
+      ? `${estimatedGreenCardDateRange} (projected from the ${latestBulletinLabel} bulletin, ${bulletinAgeDays} days old)`
+      : estimatedGreenCardDateRange,
+    estimateLabel: isStale
+      ? `At ${velocity.label} average pace, current around ${estimatedGreenCardDateRange} — but this projects from the ${latestBulletinLabel} bulletin, which is ${bulletinAgeDays} days old.`
+      : `At ${velocity.label} average pace, current around ${estimatedGreenCardDateRange}.`,
     estimateDetails: [
-      `Haven starts with the latest ${latestBulletinLabel} final action bulletin and the current cutoff of ${latestCutoffLabel}. That places today's queue about ${queueDepthLabel} deep.`,
+      ...(isStale
+        ? [
+            `Haven has not ingested a bulletin since ${latestBulletinLabel}. Newer bulletins have been published, so the starting point below is out of date and the projection may be materially wrong.`
+          ]
+        : []),
+      `Haven starts with the ${latestBulletinLabel} final action bulletin and its cutoff of ${latestCutoffLabel}. That places the queue at that time about ${queueDepthLabel} deep.`,
       `It then uses the recent bulletin movement average of ${velocity.label} to project how long it may take for the cutoff to reach your priority date.`,
       `The ${estimatedGreenCardDateRange} range is intentionally wide because bulletin movement can speed up, stall, or retrogress from month to month.`
     ],
-    visaBulletinPosition: `Current ${category} ${country} cutoff is ${latestCutoffLabel}. You are ${gapLabel}.`,
+    visaBulletinPosition: withStalenessCaveat(
+      `${category} ${country} cutoff is ${latestCutoffLabel} as of the ${latestBulletinLabel} bulletin. You are ${gapLabel}.`,
+      isStale,
+      latestBulletinLabel,
+      bulletinAgeDays
+    ),
     historyPoints
   };
 }
