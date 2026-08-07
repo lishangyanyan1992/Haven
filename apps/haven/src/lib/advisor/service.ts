@@ -27,6 +27,10 @@ import {
   trustedKnowledgeDocuments,
   trustedKnowledgeSources
 } from "@/lib/advisor/source-corpus";
+import type { TopicBucket } from "@/lib/advisor/topics";
+import { guardrailText, resolveGuardrails } from "@/lib/advisor/guardrail-registry";
+import { buildThreadState, type ThreadState } from "@/lib/advisor/thread-state";
+import { renderLayoffOptionsForPrompt } from "@/lib/advisor/layoff-options";
 
 type RetrievedKnowledgeChunk = KnowledgeChunk & { documentId?: string };
 type RetrievedCommunitySummary = CommunityAdviceSummary;
@@ -59,19 +63,6 @@ class AdvisorRateLimitError extends Error {
     this.name = "AdvisorRateLimitError";
   }
 }
-
-type TopicBucket =
-  | "h1b"
-  | "visa-bulletin"
-  | "perm"
-  | "adjustment-of-status"
-  | "job-change"
-  | "layoffs"
-  | "student-status"
-  | "self-petition"
-  | "cspa"
-  | "work-authorization"
-  | "haven-product";
 
 function getOpenAIClient() {
   if (!env.OPENAI_API_KEY) {
@@ -252,16 +243,14 @@ function detectTopics(input: string): Set<TopicBucket> {
 
 const DEFAULT_TOPICS: TopicBucket[] = ["h1b", "adjustment-of-status"];
 
-function classifyTopics(input: string): TopicBucket[] {
-  const topics = detectTopics(input);
-  return topics.size > 0 ? Array.from(topics) : DEFAULT_TOPICS;
-}
-
 /**
  * Classify a turn in the context of the one before it.
  *
  * Guardrails, retrieval, case stats and the safety addendum all key off `topics`,
- * and `classifyTopics` only ever read the current message. A follow-up rarely
+ * and the original single-message classifier only ever read the current message.
+ * (That version has been removed: it returned the default without telling the
+ * caller it had, which is the CD-13.2 bug, and leaving it next to this one was an
+ * invitation to reintroduce it.) A follow-up rarely
  * repeats the signal that classified the original question -- our own layoff
  * chips ("What has to be filed before day 60, and who files it?") match no
  * pattern at all, so tapping one silently dropped every layoff guardrail on the
@@ -275,74 +264,80 @@ function classifyTopics(input: string): TopicBucket[] {
 function classifyTopicsWithContext(
   content: string,
   history: Array<{ role: "user" | "assistant"; content: string }>
-): TopicBucket[] {
+): { topics: TopicBucket[]; currentMatched: boolean; previousMatched: boolean } {
   const current = detectTopics(content);
   const previousUserTurn = [...history].reverse().find((m) => m.role === "user");
   const carried = previousUserTurn ? detectTopics(previousUserTurn.content) : new Set<TopicBucket>();
 
   const merged = new Set<TopicBucket>([...current, ...carried]);
-  return merged.size > 0 ? Array.from(merged) : DEFAULT_TOPICS;
+
+  // The default is still returned so retrieval has something to work with, but the
+  // caller now knows it is a default. Before this, an unrecognised question was
+  // indistinguishable from a genuine h1b + adjustment-of-status one, and got the
+  // same confident answer (CD-13.2).
+  return {
+    topics: merged.size > 0 ? Array.from(merged) : DEFAULT_TOPICS,
+    currentMatched: current.size > 0,
+    previousMatched: carried.size > 0
+  };
 }
 
-function buildDecisionGuardrails(query: string, topics: TopicBucket[]) {
+/** Does this text match any topic pattern at all? Used for the miss counter. */
+function matchesAnyTopic(text: string): boolean {
+  return detectTopics(text).size > 0;
+}
+
+/**
+ * Choose which guardrails apply to this question.
+ *
+ * Returns registry ids rather than prose (CD-13.1). The selection logic is
+ * unchanged; what moved is the copy. Keeping ids here means a trace records
+ * *which* rule fired, and a fixture can assert on that instead of grepping the
+ * answer for an English phrase that a prompt edit will quietly change.
+ */
+function selectGuardrailIds(query: string, topics: TopicBucket[]): string[] {
   const normalized = query.toLowerCase();
-  const guardrails: string[] = [];
+  const ids: string[] = [];
 
   if (topics.includes("job-change") && /(ac21|same or similar|portability)/.test(normalized)) {
-    guardrails.push(
-      "AC21/job portability: if no Form I-485 is filed or pending, say AC21 adjustment portability generally does not solve the job-change problem. An approved I-140 alone is not AC21 portability. Always mention the pending-I-485 180-day rule and same-or-similar occupational classification requirement, and say role differences and sponsorship strategy need attorney review."
-    );
+    ids.push("GR_AC21_PORTABILITY");
   }
 
   if (topics.includes("visa-bulletin") || /(dates for filing|final action|priority date|i-485)/.test(normalized)) {
-    guardrails.push(
-      "Visa bulletin/I-485 filing: never give a hard yes/no from Final Action Dates alone. State that USCIS's monthly adjustment filing-chart page controls whether employment-based applicants must use Final Action Dates or may use Dates for Filing. User-stated dates override Haven profile dates; do not insert a Haven profile priority date unless the user explicitly asks you to use their Haven profile. Preferred wording: 'You may be able to file only if USCIS authorizes Dates for Filing for that month and your priority date is earlier than that cutoff, assuming all other eligibility requirements are met.' Avoid opening with 'you cannot file' when Dates for Filing may be usable."
-    );
+    ids.push("GR_VISA_BULLETIN_FILING_CHART");
   }
 
   if (topics.includes("adjustment-of-status") && /(travel|advance parole|ap|visa stamp|i-131)/.test(normalized)) {
-    guardrails.push(
-      "Pending I-485 travel: distinguish these in plain English: visa stamp = entry document for requesting admission at the border/airport; status = lawful classification while inside the U.S.; advance parole = travel/reentry document tied to the pending adjustment case. A pending I-131/AP request is not approved advance parole. Avoid absolute wording like 'you cannot travel'; say not to travel based only on pending advance parole and explain that travel depends on approved AP or another valid reentry strategy confirmed with counsel. Explicitly warn that departure without approved advance parole or another valid reentry basis can cause USCIS to treat the I-485 as abandoned. If H-1B status is valid but the visa stamp is expired, explain that H-1B reentry generally requires a valid visa stamp unless the person returns with approved advance parole or qualifies for a narrow exception such as automatic visa revalidation. List practical attorney-review options: wait for AP approval, evaluate H-1B consular stamping, or evaluate limited automatic visa revalidation only if the itinerary and facts qualify."
-    );
+    ids.push("GR_I485_TRAVEL");
   }
 
   if ((topics.includes("h1b") || topics.includes("layoffs")) && (mentionsJobLoss(normalized) || /(grace period|transfer|paycheck|last day)/.test(normalized))) {
-    guardrails.push(
-      "H-1B layoff/transfer: separate ability to remain in the U.S. from ability to work. Include these exact safety points in the answer: 'Do not work without authorization' and 'LCA preparation alone does not preserve status.' Do not suggest an unpaid role, volunteer role, or temporary position as a way to preserve H-1B status. Do not use last paycheck as the grace-period trigger unless the source and facts support it. Mention that the grace period is up to 60 days or until I-94/petition validity ends, whichever is shorter. For a new employer, preparation, LCA work, or documents sitting with the employer are not the same as a properly filed nonfrivolous H-1B petition. If the user gives dates, calculate the rough timeline and say what must be filed before day 60. In urgent grace-period cases, list concrete options without ranking them as legal strategy: immediate H-1B filing/receipt strategy, possible change of status such as B-2 if appropriate, departure planning and possible consular return if no timely filing is possible, premium processing or employer escalation if available, and immediate counsel review. Tell the user to confirm the exact deadline and filing strategy with immigration counsel immediately."
-    );
+    // The hard rules and the option menu were one guardrail. Split so the rules can
+    // repeat on every layoff turn while the menu is delivered once (CD-13.4).
+    ids.push("GR_LAYOFF_SAFETY_RULES", "GR_LAYOFF_OPTION_MENU");
   }
 
   if (topics.includes("student-status") && /(opt|ead|work|employment|job starts|begin work|start work)/.test(normalized)) {
-    guardrails.push(
-      "F-1 OPT/STEM OPT work authorization: a pending OPT application is not work authorization. Tell the user not to begin OPT work until the EAD/work authorization is valid, and suggest checking USCIS case status, contacting the DSO, and coordinating the start date/I-9 timing with the employer."
-    );
+    ids.push("GR_OPT_WORK_AUTHORIZATION");
   }
 
   if (topics.includes("student-status") && /(cpt|day 1 cpt)/.test(normalized)) {
-    guardrails.push(
-      "CPT/Day 1 CPT: do not accept '100% safe' school marketing. Explain that CPT must be DSO-authorized, documented on the Form I-20 before work begins, curricular/integral to the program, and tied to the course/program. Mention that 12 months or more of full-time CPT can affect post-completion OPT eligibility. Tell the user to verify SEVP certification/accreditation, course syllabus or credit requirement, employer-course nexus, I-20 employer/dates/full-time or part-time details, attendance/enrollment rules, and future visa risks with the DSO and immigration counsel before enrolling. Call out red flags such as guaranteed CPT from day one, minimal coursework, weak faculty involvement, or a program mainly structured to enable employment."
-    );
+    ids.push("GR_CPT_DAY1");
   }
 
   if (topics.includes("cspa")) {
-    guardrails.push(
-      "CSPA/age-out: flag urgency when a child is close to 21 and say attorney review should happen immediately. Do not calculate a definitive CSPA age without full facts. Do not insert a specific priority date, I-140 date, or 180-day rule unless the user provided that fact in the question. Tell the user to ask counsel about the CSPA age formula, visa availability date, petition pending time, 'sought to acquire' within one year, extraordinary circumstances, adjustment vs consular processing, and filing timing. Suggest gathering I-140 approval, priority-date proof, birth/passport records, receipts, and any evidence of efforts to seek permanent residence."
-    );
+    ids.push("GR_CSPA_AGE_OUT");
   }
 
   if (topics.includes("self-petition") && /(denied|denial|refil|re-file|appeal|motion|vague|proposed endeavor)/.test(normalized)) {
-    guardrails.push(
-      "NIW denial/refiling: do not assume refiling is best. Tell the user to have counsel review the denial notice and all deadlines, compare refiling with motion/appeal options, and address the Dhanasar framework: substantial merit/national importance, well-positioned to advance the endeavor, and benefit of waiving the job offer/labor certification. Suggest concrete evidence to discuss: a narrower proposed endeavor, implementation plan, measurable objectives, expert letters, publications or citations showing field impact, funding/contracts, adoption by users or institutions, and records already submitted."
-    );
+    ids.push("GR_NIW_DENIAL");
   }
 
   if (topics.includes("work-authorization") && /(misrepresent|hide|conceal|does not notice|without authorization|unauthorized work)/.test(normalized)) {
-    guardrails.push(
-      "Unauthorized work/misrepresentation safety: refuse any help hiding or misrepresenting facts to USCIS. Tell the user not to continue unauthorized work, preserve dates/pay records/messages, and speak with an immigration attorney immediately about truthful disclosure and possible immigration consequences. Do not draft misleading language."
-    );
+    ids.push("GR_UNAUTHORIZED_WORK");
   }
 
-  return guardrails;
+  return ids;
 }
 
 // Follow-ups were declared in the payload but never populated, so the UI had
@@ -646,7 +641,7 @@ function createWelcomePayload(_snapshot: AdvisorSeedSnapshot): AdvisorAnswerPayl
   return {
     answer_markdown: "Ask me about work visa and green card questions.",
     confidence: "medium",
-    disclaimer: "Haven provides information, not legal advice. Check a qualified immigration attorney before making decisions.",
+    disclaimer: guardrailText("MSG_DISCLAIMER"),
     external_citations: [],
     haven_context_used: [],
     community_context_used: [],
@@ -1103,7 +1098,7 @@ function fallbackAnswer(
       answer_markdown:
         "I can explain how the visa bulletin works, but I should not give a month-specific filing conclusion until Haven refreshes the latest bulletin and filing-chart data.\n\nUse the official Visa Bulletin and USCIS monthly filing-chart page before acting on timing-sensitive filing decisions.",
       confidence: "low",
-      disclaimer: "Haven provides information, not legal advice. Check a qualified immigration attorney before making decisions.",
+      disclaimer: guardrailText("MSG_DISCLAIMER"),
       external_citations: citations,
       haven_context_used: [],
       community_context_used: [],
@@ -1161,7 +1156,7 @@ function fallbackAnswer(
   return {
     answer_markdown: answerLines.join("\n"),
     confidence: citations.length >= 2 ? "medium" : "low",
-    disclaimer: "Haven provides information, not legal advice. Check a qualified immigration attorney before making decisions.",
+    disclaimer: guardrailText("MSG_DISCLAIMER"),
     external_citations: citations,
     haven_context_used: havenContextUsed,
     community_context_used: communityUsed,
@@ -1173,9 +1168,35 @@ function fallbackAnswer(
   };
 }
 
-function buildMandatorySafetyAddendum(question: string, topics: TopicBucket[], answer: string) {
+/**
+ * Check the generated answer for mandatory content and append what is missing.
+ *
+ * The copy now comes from the guardrail registry (CD-13.1) so the sentences a user
+ * actually reads can be reviewed in one place. `delivered` carries the ids this
+ * thread has already seen; `once-per-thread` fixes are skipped when they are in it
+ * (CD-13.4), while every hard safety line still fires on every turn.
+ *
+ * Returns both the text and the ids used, so the trace records which fired.
+ */
+function buildMandatorySafetyAddendum(
+  question: string,
+  topics: TopicBucket[],
+  answer: string,
+  delivered: ReadonlySet<string> = new Set()
+): { text: string | null; fired: string[]; suppressed: string[] } {
   const normalizedQuestion = question.toLowerCase();
   const notes: string[] = [];
+  const firedIds: string[] = [];
+  const suppressedIds: string[] = [];
+
+  // Resolve a set of candidate ids to their text, honouring once-per-thread.
+  const take = (ids: Array<string | null>) => {
+    const requested = ids.filter((id): id is string => Boolean(id));
+    const { fired, suppressed, texts } = resolveGuardrails(requested, delivered);
+    firedIds.push(...fired);
+    suppressedIds.push(...suppressed);
+    return texts;
+  };
 
   if ((topics.includes("h1b") || topics.includes("layoffs")) && (mentionsJobLoss(normalizedQuestion) || /(grace period|day 60|lca|petition cannot be filed)/.test(normalizedQuestion))) {
     const missingUnauthorizedWork = !/do not work without authorization|don't work without authorization|unauthorized work/i.test(answer);
@@ -1193,17 +1214,18 @@ function buildMandatorySafetyAddendum(question: string, topics: TopicBucket[], a
     const missingPortabilityTrigger = !/properly filed nonfrivolous|nonfrivolous.*petition.*filed|filed.*nonfrivolous/i.test(answer);
 
     if (missingUnauthorizedWork || missingLcaWarning || missingImmediateCounsel || missingFallbackOptions || missingGraceCap || missingPortabilityTrigger) {
-      notes.push(
-        [
-          "H-1B safety note:",
-          missingGraceCap ? "The grace period is capped at up to 60 days from the employment-termination date, or the end of I-94 or petition validity, whichever comes first — a later I-94 date does not extend it." : null,
-          missingUnauthorizedWork ? "Do not work without authorization." : null,
-          missingLcaWarning ? "LCA preparation alone does not preserve status; the key event is a properly filed nonfrivolous H-1B petition." : null,
-          missingFallbackOptions ? "If the new employer cannot file Form I-129 before day 60, ask counsel immediately about change of status, departure planning, possible consular return, premium processing or employer escalation, and receipt-notice timing." : null,
-          missingPortabilityTrigger ? "For H-1B portability, the key event is a properly filed nonfrivolous H-1B petition while the worker remains in an authorized period; a receipt notice is useful evidence of filing, not a substitute for the filing itself." : null,
-          missingImmediateCounsel ? "Confirm the exact grace-period deadline and filing strategy with immigration counsel immediately." : null
-        ].filter(Boolean).join(" ")
-      );
+      const texts = take([
+        missingGraceCap ? "FIX_GRACE_PERIOD_CAP" : null,
+        missingUnauthorizedWork ? "FIX_NO_UNAUTHORIZED_WORK" : null,
+        missingLcaWarning ? "FIX_LCA_NOT_PROTECTION" : null,
+        missingFallbackOptions ? "FIX_FALLBACK_OPTIONS" : null,
+        missingPortabilityTrigger ? "FIX_PORTABILITY_TRIGGER" : null,
+        missingImmediateCounsel ? "FIX_IMMEDIATE_COUNSEL" : null
+      ]);
+
+      if (texts.length > 0) {
+        notes.push(["H-1B safety note:", ...texts].join(" "));
+      }
     }
   }
 
@@ -1212,13 +1234,10 @@ function buildMandatorySafetyAddendum(question: string, topics: TopicBucket[], a
     const missingI20 = !/form i-20|i-20/i.test(answer);
 
     if (missingOptRisk || missingI20) {
-      notes.push(
-        [
-          "CPT safety note:",
-          missingI20 ? "Do not start CPT work until DSO authorization is recorded on the Form I-20." : null,
-          missingOptRisk ? "Ask the DSO how any full-time CPT would affect post-completion OPT, including the 12-month full-time CPT limit." : null
-        ].filter(Boolean).join(" ")
-      );
+      const texts = take([missingI20 ? "FIX_CPT_I20" : null, missingOptRisk ? "FIX_CPT_OPT_RISK" : null]);
+      if (texts.length > 0) {
+        notes.push(["CPT safety note:", ...texts].join(" "));
+      }
     }
   }
 
@@ -1229,16 +1248,17 @@ function buildMandatorySafetyAddendum(question: string, topics: TopicBucket[], a
     const missingReentryOptions = !/(wait.*approved ap|wait.*advance parole|h-1b.*stamp|consular|automatic visa revalidation|attorney-review options)/is.test(answer);
 
     if (missingPendingApWarning || missingAbandonmentWarning || missingPlainEnglishDistinction || missingReentryOptions) {
-      notes.push(
-        [
-          "I-485 travel safety note:",
-          missingPlainEnglishDistinction ? "Visa stamp means the entry document used to request admission; status means the lawful classification while inside the U.S.; advance parole is a separate travel/reentry document for a pending adjustment case." : null,
-          missingPendingApWarning ? "Pending advance parole is not enough by itself for travel; do not travel based only on a pending I-131/AP application." : null,
-          missingAbandonmentWarning ? "Leaving without approved advance parole or another valid reentry basis can cause USCIS to treat the I-485 as abandoned." : null,
-          missingReentryOptions ? "If travel is unavoidable, ask counsel about three options before departure: waiting for approved AP, obtaining a new H-1B visa stamp abroad, or using limited automatic visa revalidation only if the itinerary and facts qualify." : null,
-          "Confirm the reentry strategy with immigration counsel before departure because CBP, consular processing, and abandonment risks are fact-specific."
-        ].filter(Boolean).join(" ")
-      );
+      const texts = take([
+        missingPlainEnglishDistinction ? "FIX_AP_DISTINCTION" : null,
+        missingPendingApWarning ? "FIX_PENDING_AP" : null,
+        missingAbandonmentWarning ? "FIX_I485_ABANDONMENT" : null,
+        missingReentryOptions ? "FIX_REENTRY_OPTIONS" : null,
+        "FIX_REENTRY_COUNSEL"
+      ]);
+
+      if (texts.length > 0) {
+        notes.push(["I-485 travel safety note:", ...texts].join(" "));
+      }
     }
   }
 
@@ -1247,13 +1267,13 @@ function buildMandatorySafetyAddendum(question: string, topics: TopicBucket[], a
     const missingDeadlines = !/deadline|time limit|i-290b|motion|appeal/i.test(answer);
 
     if (missingNoAssumption || missingDeadlines) {
-      notes.push(
-        [
-          "NIW strategy note:",
-          missingNoAssumption ? "Do not assume refiling is best." : null,
-          missingDeadlines ? "Ask counsel to review the denial notice for motion, appeal, or refiling deadlines before choosing a strategy." : null
-        ].filter(Boolean).join(" ")
-      );
+      const texts = take([
+        missingNoAssumption ? "FIX_NIW_NO_ASSUMPTION" : null,
+        missingDeadlines ? "FIX_NIW_DEADLINES" : null
+      ]);
+      if (texts.length > 0) {
+        notes.push(["NIW strategy note:", ...texts].join(" "));
+      }
     }
   }
 
@@ -1262,23 +1282,26 @@ function buildMandatorySafetyAddendum(question: string, topics: TopicBucket[], a
     const missingImmediateReview = !/attorney.*immediately|immediate attorney|consult.*attorney.*immediately|review.*immediately/i.test(answer);
 
     if (missingNoCalculation || missingImmediateReview) {
-      notes.push(
-        [
-          "CSPA safety note:",
-          missingNoCalculation ? "Do not calculate CSPA age from incomplete facts; ask counsel to calculate it using the full record." : null,
-          missingImmediateReview ? "Because the child is close to 21, consult an immigration attorney immediately about CSPA, sought-to-acquire timing, and filing options." : null
-        ].filter(Boolean).join(" ")
-      );
+      const texts = take([
+        missingNoCalculation ? "FIX_CSPA_NO_CALCULATION" : null,
+        missingImmediateReview ? "FIX_CSPA_IMMEDIATE_REVIEW" : null
+      ]);
+      if (texts.length > 0) {
+        notes.push(["CSPA safety note:", ...texts].join(" "));
+      }
     }
   }
 
-  return notes.length > 0 ? notes.join("\n\n") : null;
+  return {
+    text: notes.length > 0 ? notes.join("\n\n") : null,
+    fired: firedIds,
+    suppressed: suppressedIds
+  };
 }
 
 // Date-free. The grace-period endpoint depends on facts only the user has, so a
 // correction states the rule and hands the arithmetic back rather than guessing.
-const GRACE_PERIOD_CORRECTION =
-  "The grace period runs up to 60 days from the employment-termination date, or until the I-94 or petition validity ends, whichever comes first. Confirm the exact termination date and the resulting deadline with immigration counsel before relying on it.";
+const GRACE_PERIOD_CORRECTION = guardrailText("FIX_GRACE_PERIOD_DATE_FREE");
 
 // Escape a date so it can be matched literally inside a constructed RegExp.
 function escapeForRegExp(input: string) {
@@ -1325,11 +1348,11 @@ function normalizeHighRiskAnswer(
     return answer
       .replace(
         /\bYou cannot travel internationally next month(?:[^.]*pending I-485[^.]*)?\./i,
-        "Do not travel based only on the pending advance parole application. International travel while Form I-485 is pending is high-risk and depends on approved advance parole or another valid reentry strategy confirmed with counsel."
+        guardrailText("FIX_AP_TRAVEL_HEDGE")
       )
       .replace(
         /\bYou cannot travel internationally with a pending I-485 and only a pending advance parole application\./i,
-        "Do not travel based only on a pending I-131/AP application while Form I-485 is pending."
+        guardrailText("FIX_AP_TRAVEL_HEDGE_SHORT")
       );
   }
 
@@ -1354,15 +1377,15 @@ function normalizeHighRiskAnswer(
       )
       .replace(
         /(?:you|the user) (?:cannot|can't|should not|must not) (?:start )?work(?:ing)? until (?:you|they|the employer)? ?(?:receive|get|obtain|have) (?:the )?(?:USCIS )?receipt notice[^.]*\./gi,
-        "For H-1B portability, work authorization generally depends on the new employer properly filing a nonfrivolous H-1B petition while the worker remains in an authorized period; the receipt notice is useful evidence of that filing and should be reviewed with counsel."
+        guardrailText("FIX_PORTABILITY_RECEIPT_NOTICE")
       )
       .replace(
         /(?:^|\n)-?\s*\*\*?Temporary unpaid position\*\*?:?[^.\n]*(?:\.[^\n]*)?/gi,
-        "\n- **No unpaid-work workaround**: Do not rely on an unpaid role, volunteer role, or temporary position to preserve H-1B status without counsel confirming work authorization and status strategy."
+        guardrailText("FIX_NO_UNPAID_WORKAROUND")
       )
       .replace(
         /(?:^|\n)-?\s*Temporary unpaid position:?[^.\n]*(?:\.[^\n]*)?/gi,
-        "\n- **No unpaid-work workaround**: Do not rely on an unpaid role, volunteer role, or temporary position to preserve H-1B status without counsel confirming work authorization and status strategy."
+        guardrailText("FIX_NO_UNPAID_WORKAROUND")
       );
   }
 
@@ -1440,7 +1463,14 @@ export async function* streamAdvisorResponse(rawInput: {
   }
 
   const { content, history: rawHistory, conversationId } = parsed.data;
-  const topics = classifyTopicsWithContext(content, rawHistory);
+  const classification = classifyTopicsWithContext(content, rawHistory);
+  const topics = classification.topics;
+  const threadState = buildThreadState({
+    currentMatched: classification.currentMatched,
+    previousMatched: classification.previousMatched,
+    history: rawHistory,
+    matches: matchesAnyTopic
+  });
   const experiential = isExperientialQuestion(content);
   const model = getChatModel();
 
@@ -1458,7 +1488,12 @@ export async function* streamAdvisorResponse(rawInput: {
       topics,
       experiential,
       model,
-      promptName: ADVISOR_PROMPT_NAME
+      promptName: ADVISOR_PROMPT_NAME,
+      // CD-13.2: a guessed classification must be visible in the trace. Without
+      // this, an answer built on DEFAULT_TOPICS looked exactly like one built on a
+      // real match, and nobody could count how often it happened.
+      classification: threadState.resolution,
+      consecutiveMisses: threadState.consecutiveMisses
     }
   });
 
@@ -1475,10 +1510,9 @@ export async function* streamAdvisorResponse(rawInput: {
     // empty, every time after.
     const threadId = conversationId ?? null;
     const flaggedPayload: AdvisorAnswerPayload = {
-      answer_markdown:
-        "I can help with work visa and green card questions, but I can't continue with this message as written. Rephrase it as a factual immigration or Haven-product question and I'll answer from official sources.",
+      answer_markdown: guardrailText("MSG_MODERATION_REFUSAL"),
       confidence: "low",
-      disclaimer: "Haven provides information, not legal advice. Check a qualified immigration attorney before making decisions.",
+      disclaimer: guardrailText("MSG_DISCLAIMER"),
       external_citations: [],
       haven_context_used: [],
       community_context_used: [],
@@ -1537,6 +1571,70 @@ export async function* streamAdvisorResponse(rawInput: {
   // the client never stores a non-UUID conversation id.
   const displayThreadId = threadId ?? "pending";
 
+  // CD-13.2 — stop guessing.
+  //
+  // When nothing in the question classified and nothing in the previous turn did
+  // either, the Advisor used to assume h1b + adjustment-of-status and answer with
+  // full confidence. It would do that on every turn, indefinitely, and leave no
+  // trace that it had happened. Now the first miss asks which of a few things the
+  // user means, and a second consecutive miss stops asking and hands off to a real
+  // destination rather than guessing a third time.
+  //
+  // Both paths return before the model call: an answer to a question we have not
+  // understood is worse than no answer, and skipping generation also makes the
+  // repair fast, which matters most to the people who end up here.
+  if (threadState.resolution === "unmatched") {
+    const escalate = threadState.consecutiveMisses >= 2;
+    const guardrailId = escalate ? "MSG_ESCALATE_AFTER_MISSES" : "MSG_CLARIFY_UNRECOGNIZED";
+    const repairPayload: AdvisorAnswerPayload = {
+      answer_markdown: guardrailText(guardrailId),
+      confidence: "low",
+      disclaimer: guardrailText("MSG_DISCLAIMER"),
+      external_citations: [],
+      haven_context_used: [],
+      community_context_used: [],
+      follow_up_questions: [],
+      refusal_or_escalation_reason: escalate
+        ? `Escalated after ${threadState.consecutiveMisses} consecutive unrecognized turns.`
+        : "Question did not match a known topic; asked for clarification."
+    };
+
+    trace?.update({
+      metadata: {
+        topics,
+        experiential,
+        model,
+        promptName: ADVISOR_PROMPT_NAME,
+        classification: threadState.resolution,
+        consecutiveMisses: threadState.consecutiveMisses,
+        guardrailsFired: [guardrailId],
+        guardrailsSuppressed: [],
+        retrievalKnowledgeCount: 0,
+        retrievalCommunityCount: 0,
+        caseStatsTier: "none",
+        citationCount: 0,
+        fallback: false,
+        fallbackReason: null
+      },
+      output: {
+        answer: repairPayload.answer_markdown,
+        cited: false,
+        citationCount: 0,
+        refusalOrEscalationReason: repairPayload.refusal_or_escalation_reason
+      }
+    });
+    await flushLangfuse();
+
+    yield { type: "delta", text: repairPayload.answer_markdown };
+    yield {
+      type: "done",
+      assistantMessage: createAssistantMessage(displayThreadId, repairPayload, traceId),
+      conversationId: threadId,
+      traceId
+    };
+    return;
+  }
+
   const history: AdvisorMessage[] = rawHistory.map((m, i) => ({
     id: `history-${i}`,
     threadId: displayThreadId,
@@ -1572,13 +1670,28 @@ export async function* streamAdvisorResponse(rawInput: {
   const havenContextUsed = promptProfileSummary.slice(0, 4).filter(Boolean);
 
   const { text: systemPrompt, prompt: advisorPrompt } = await getPrompt(lf, ADVISOR_PROMPT_NAME, STREAMING_SYSTEM_PROMPT);
-  const decisionGuardrails = buildDecisionGuardrails(content, topics);
+
+  // CD-13.1 / CD-13.4: select by id, then resolve to text, dropping orientation the
+  // thread has already heard. Hard safety rules are marked `always` in the registry
+  // and are never dropped here.
+  const selectedGuardrailIds = selectGuardrailIds(content, topics);
+  const guardrails = resolveGuardrails(selectedGuardrailIds, threadState.delivered);
+  const decisionGuardrails = guardrails.texts;
+
+  // CD-13.3: if the Advisor is about to offer the fallback options, give it the
+  // attributes behind them — and, just as importantly, the explicit list of things
+  // no source supports, so "how much does premium processing cost?" produces a
+  // hedge instead of an invented number.
+  const optionAttributes = guardrails.fired.includes("GR_LAYOFF_OPTION_MENU")
+    ? [renderLayoffOptionsForPrompt()]
+    : [];
 
   const userPrompt = [
     `User question:\n${content}`,
     "",
     buildContextBlock("Decision guardrails", decisionGuardrails),
     "",
+    ...(optionAttributes.length > 0 ? [buildContextBlock("Option attributes", optionAttributes), ""] : []),
     buildContextBlock("Haven profile summary", promptProfileSummary),
     "",
     buildContextBlock("Haven timeline summary", promptTimelineSummary),
@@ -1665,9 +1778,9 @@ export async function* streamAdvisorResponse(rawInput: {
     fullText = normalizedFullText;
   }
 
-  const mandatorySafetyAddendum = buildMandatorySafetyAddendum(content, topics, fullText);
-  if (mandatorySafetyAddendum) {
-    const addendumText = `\n\n${mandatorySafetyAddendum}`;
+  const addendum = buildMandatorySafetyAddendum(content, topics, fullText, threadState.delivered);
+  if (addendum.text) {
+    const addendumText = `\n\n${addendum.text}`;
     fullText += addendumText;
     yield { type: "delta", text: addendumText };
   }
@@ -1676,7 +1789,7 @@ export async function* streamAdvisorResponse(rawInput: {
   const answerPayload: AdvisorAnswerPayload = {
     answer_markdown: fullText,
     confidence: citations.length >= 2 ? "high" : citations.length === 1 ? "medium" : "low",
-    disclaimer: "Haven provides information, not legal advice. Check a qualified immigration attorney before making decisions.",
+    disclaimer: guardrailText("MSG_DISCLAIMER"),
     external_citations: citations,
     haven_context_used: havenContextUsed,
     community_context_used: communityUsed,
@@ -1689,6 +1802,12 @@ export async function* streamAdvisorResponse(rawInput: {
       experiential,
       model,
       promptName: ADVISOR_PROMPT_NAME,
+      classification: threadState.resolution,
+      consecutiveMisses: threadState.consecutiveMisses,
+      // CD-13.1: fixtures and reviews assert on ids, not on English phrases that a
+      // prompt edit can silently reword.
+      guardrailsFired: [...guardrails.fired, ...addendum.fired],
+      guardrailsSuppressed: [...guardrails.suppressed, ...addendum.suppressed],
       retrievalKnowledgeCount: knowledge.length,
       retrievalCommunityCount: community.length,
       caseStatsTier: caseStats?.tier ?? "none",
