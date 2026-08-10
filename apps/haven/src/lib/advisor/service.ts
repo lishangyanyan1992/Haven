@@ -30,7 +30,8 @@ import {
 import type { TopicBucket } from "@/lib/advisor/topics";
 import { guardrailText, resolveGuardrails } from "@/lib/advisor/guardrail-registry";
 import { buildThreadState, type ThreadState, type TurnResolution } from "@/lib/advisor/thread-state";
-import { persistExchange } from "@/lib/advisor/threads";
+import { listThreads, persistExchange, type AdvisorThreadSummary } from "@/lib/advisor/threads";
+import { listFacts, rememberFactsFrom, renderFactsForPrompt, type RememberedFact } from "@/lib/advisor/memory";
 import { renderLayoffOptionsForPrompt } from "@/lib/advisor/layoff-options";
 import {
   getLiveBulletinSnapshot,
@@ -836,20 +837,75 @@ function buildAdvisorContext(snapshot: Awaited<ReturnType<typeof getSnapshot>>):
 
 type AdvisorSeedSnapshot = Pick<HavenWorkspaceSnapshot, "profile">;
 
-function buildSuggestedPrompts(snapshot: AdvisorSeedSnapshot) {
+/**
+ * How well does this person already know the Advisor?
+ *
+ * Used to taper: a first-time visitor needs orientation, somebody on their tenth
+ * conversation needs the box to type in. Repeating the full introduction to
+ * somebody who has been here every day for a fortnight is the same failure as
+ * repeating the five-option layoff menu on every turn — it reads as a product that
+ * has not noticed them.
+ */
+export type AdvisorFamiliarity = "first-visit" | "returning" | "regular";
+
+export interface AdvisorSessionContext {
+  familiarity: AdvisorFamiliarity;
+  priorConversations: number;
+  lastTitle: string | null;
+  lastActiveAt: string | null;
+}
+
+function familiarityFor(priorConversations: number): AdvisorFamiliarity {
+  if (priorConversations === 0) return "first-visit";
+  if (priorConversations < 4) return "returning";
+  return "regular";
+}
+
+function buildSuggestedPrompts(snapshot: AdvisorSeedSnapshot, session: AdvisorSessionContext) {
   const [firstConcern] = snapshot.profile.topConcerns;
-  return [
+  const prompts = [
     `How does my ${snapshot.profile.preferenceCategory} + ${snapshot.profile.countryOfBirth} path affect what I should watch next?`,
     concernToPrompt(firstConcern ?? "layoffs", "What should I ask Haven first about my immigration timeline?"),
     snapshot.profile.priorityDate
       ? `What does the current visa bulletin mean for my ${snapshot.profile.preferenceCategory} priority date?`
       : "What information do you still need from me to answer green card timeline questions accurately?"
   ];
+
+  // Tapering. Somebody who has had four conversations does not need three worked
+  // examples of what a question looks like; they need one nudge or none.
+  if (session.familiarity === "regular") return [];
+  if (session.familiarity === "returning") return prompts.slice(0, 2);
+  return prompts;
 }
 
-function createWelcomePayload(_snapshot: AdvisorSeedSnapshot): AdvisorAnswerPayload {
+/**
+ * The opening line.
+ *
+ * This used to be one fixed sentence, forever: "Ask me about work visa and green
+ * card questions." For somebody forty days into a grace period, on their eighth
+ * visit, that is a product greeting them as a stranger every single time — the
+ * exact thing that makes a bot feel like it is not paying attention.
+ *
+ * It never names what the last conversation was about. Titles are the first 120
+ * characters of the user's own question, and those can be intensely personal
+ * ("I was fired after telling HR about my diagnosis"). Reflecting one back
+ * unprompted, possibly on a shared screen, is a privacy failure dressed as
+ * warmth. The list below the greeting shows titles because the user chose to look;
+ * the greeting does not put one in front of them.
+ */
+function createWelcomePayload(
+  _snapshot: AdvisorSeedSnapshot,
+  session: AdvisorSessionContext
+): AdvisorAnswerPayload {
+  const answer =
+    session.familiarity === "first-visit"
+      ? "Ask me about work visa and green card questions. The more specific you are about your dates and current status, the more useful I can be."
+      : session.familiarity === "returning"
+        ? "Welcome back. Pick up an earlier conversation below, or tell me what's changed since we last talked."
+        : "What's changed?";
+
   return {
-    answer_markdown: "Ask me about work visa and green card questions.",
+    answer_markdown: answer,
     confidence: "medium",
     disclaimer: guardrailText("MSG_DISCLAIMER"),
     external_citations: [],
@@ -1738,9 +1794,40 @@ function normalizeHighRiskAnswer(
 export async function getAdvisorWorkspaceSeed(snapshotArg?: AdvisorSeedSnapshot) {
   const snapshot = snapshotArg ?? await getSnapshot();
 
+  let session: AdvisorSessionContext = {
+    familiarity: "first-visit",
+    priorConversations: 0,
+    lastTitle: null,
+    lastActiveAt: null
+  };
+
+  // Fetched once and handed to the client as its initial list. The greeting needs
+  // the conversation count anyway, and having the client fetch the same rows again
+  // on mount would double the egress on the one page guaranteed to load them —
+  // against the tightest budget in this project.
+  let threads: AdvisorThreadSummary[] = [];
+
+  try {
+    const identity = await getAdvisorIdentity();
+    if (!identity.isMock) {
+      threads = await listThreads(identity.id);
+      session = {
+        familiarity: familiarityFor(threads.length),
+        priorConversations: threads.length,
+        lastTitle: threads[0]?.title ?? null,
+        lastActiveAt: threads[0]?.updatedAt ?? null
+      };
+    }
+  } catch {
+    // An unreadable history just means the first-visit greeting, which is correct
+    // for a new user and harmless for anyone else. Never fail the page over it.
+  }
+
   return {
-    suggestedPrompts: buildSuggestedPrompts(snapshot),
-    welcomeMessage: createWelcomePayload(snapshot)
+    suggestedPrompts: buildSuggestedPrompts(snapshot, session),
+    welcomeMessage: createWelcomePayload(snapshot, session),
+    session,
+    threads
   };
 }
 
@@ -2039,6 +2126,18 @@ export async function* streamAdvisorResponse(rawInput: {
     }
   });
 
+  // What the user has told us in earlier conversations. Read-only here; nothing is
+  // learned until after the answer is delivered, so a question can never be shaped
+  // by a fact extracted from that same question.
+  let rememberedFacts: RememberedFact[] = [];
+  if (!identity.isMock) {
+    try {
+      rememberedFacts = await listFacts(identity.id);
+    } catch {
+      // Memory is an enhancement. Losing it must not cost the user an answer.
+    }
+  }
+
   const citations = buildCitationSet(knowledge, liveBulletin);
   const communityUsed = community.slice(0, 2).map((item) => `${item.title}: ${item.summary}`);
   const promptProfileSummary = buildPromptProfileSummary(content, topics, userContext);
@@ -2090,6 +2189,9 @@ export async function* streamAdvisorResponse(rawInput: {
         ]
       : []),
     ...(optionAttributes.length > 0 ? [buildContextBlock("Option attributes", optionAttributes), ""] : []),
+    ...(rememberedFacts.length > 0
+      ? [buildContextBlock("What the user told you before (reported, not verified)", renderFactsForPrompt(rememberedFacts)), ""]
+      : []),
     buildContextBlock("Haven profile summary", promptProfileSummary),
     "",
     buildContextBlock("Haven timeline summary", promptTimelineSummary),
@@ -2263,6 +2365,12 @@ export async function* streamAdvisorResponse(rawInput: {
       answer: answerPayload,
       traceId
     });
+
+    // Learn only from the user's own words, and only after answering. Nothing the
+    // Advisor said is ever remembered as fact about the user's life — letting its
+    // output feed back into its own future context is how one small error becomes
+    // permanent.
+    await rememberFactsFrom({ threadId, userId: identity.id, message: content });
   }
 
   yield { type: "done", assistantMessage: createAssistantMessage(displayThreadId, answerPayload, traceId), conversationId: threadId, traceId };

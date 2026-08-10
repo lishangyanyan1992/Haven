@@ -100,7 +100,15 @@ export default async function RegisterPage({
           </div>
 
           <p className="text-caption mt-6">
-            By creating an account, you agree to Haven&apos;s terms and privacy policy. Haven provides information, not legal advice.
+            By creating an account, you agree to Haven&apos;s{" "}
+            <Link className="underline underline-offset-2" href="/terms">
+              terms
+            </Link>{" "}
+            and{" "}
+            <Link className="underline underline-offset-2" href="/privacy">
+              privacy policy
+            </Link>
+            . Haven provides information, not legal advice.
           </p>
         </section>
       </main>

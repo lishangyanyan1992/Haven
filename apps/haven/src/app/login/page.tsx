@@ -139,7 +139,15 @@ export default async function LoginPage({
           </form>
 
           <p className="text-caption mt-6">
-            Haven provides information, not legal advice. By signing in, you agree to the product terms and privacy policy.
+            Haven provides information, not legal advice. By signing in, you agree to the{" "}
+            <Link className="underline underline-offset-2" href="/terms">
+              terms
+            </Link>{" "}
+            and{" "}
+            <Link className="underline underline-offset-2" href="/privacy">
+              privacy policy
+            </Link>
+            .
           </p>
         </section>
       </main>

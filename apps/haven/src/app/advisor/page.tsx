@@ -20,6 +20,7 @@ export default async function AdvisorPage() {
     <AppShell activePath="/advisor" crisisState={crisisState} snapshot={snapshot}>
       <AdvisorWorkspace
         advisorUsage={advisorUsage}
+        initialThreads={seed.threads}
         suggestedPrompts={seed.suggestedPrompts}
         welcomeMessage={seed.welcomeMessage}
       />
