@@ -1,7 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bot, ExternalLink, RotateCcw, SendHorizonal, Square, ThumbsDown, ThumbsUp, User2 } from "lucide-react";
+import {
+  Bot,
+  ExternalLink,
+  MessageSquare,
+  Plus,
+  SendHorizonal,
+  Square,
+  ThumbsDown,
+  ThumbsUp,
+  Trash2,
+  User2
+} from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -26,6 +37,32 @@ type AdvisorWorkspaceProps = {
 const MESSAGE_CHAR_LIMIT = 4000;
 const HISTORY_LIMIT = 12;
 
+type AdvisorThreadSummary = {
+  id: string;
+  title: string;
+  updatedAt: string;
+  messageCount: number;
+};
+
+/** "3 days ago" — enough for a sidebar, no dependency needed. */
+function relativeTime(iso: string) {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "";
+
+  const minutes = Math.round((Date.now() - then) / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+
+  const days = Math.round(hours / 24);
+  if (days === 1) return "yesterday";
+  if (days < 30) return `${days} days ago`;
+
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(iso));
+}
+
 export function AdvisorWorkspace({ advisorUsage, suggestedPrompts, welcomeMessage }: AdvisorWorkspaceProps) {
   const [messages, setMessages] = useState<AdvisorMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -34,8 +71,91 @@ export function AdvisorWorkspace({ advisorUsage, suggestedPrompts, welcomeMessag
   const [isPending, setIsPending] = useState(false);
   const [streamingId, setStreamingId] = useState<string | null>(null);
   const [stoppedIds, setStoppedIds] = useState<string[]>([]);
+  const [threads, setThreads] = useState<AdvisorThreadSummary[]>([]);
+  const [openingThreadId, setOpeningThreadId] = useState<string | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  const refreshThreads = useCallback(async () => {
+    try {
+      const response = await fetch("/api/advisor/threads");
+      if (!response.ok) return;
+      const body = (await response.json()) as { threads?: AdvisorThreadSummary[] };
+      setThreads(body.threads ?? []);
+    } catch {
+      // The conversation list is an affordance, not the product. If it cannot load,
+      // asking a question still works, so this stays quiet rather than showing an
+      // error above a chat box that is fine.
+    }
+  }, []);
+
+  // Loaded once, when the advisor is actually opened — not on every page. Supabase
+  // egress is the tightest budget in this project.
+  useEffect(() => {
+    void refreshThreads();
+  }, [refreshThreads]);
+
+  const openThread = useCallback(async (threadId: string) => {
+    setOpeningThreadId(threadId);
+    setError(null);
+    try {
+      const response = await fetch(`/api/advisor/threads/${threadId}`);
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? "Unable to open that conversation.");
+      }
+      const body = (await response.json()) as { messages: AdvisorMessage[] };
+      setMessages(body.messages);
+      setConversationId(threadId);
+      setStoppedIds([]);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Haven couldn't open that conversation. Try again in a moment."
+      );
+    } finally {
+      setOpeningThreadId(null);
+    }
+  }, []);
+
+  const startNewConversation = useCallback(() => {
+    setMessages([]);
+    setConversationId(null);
+    setError(null);
+    setStreamingId(null);
+    setStoppedIds([]);
+    setIsPending(false);
+    void refreshThreads();
+  }, [refreshThreads]);
+
+  const removeThread = useCallback(
+    async (thread: AdvisorThreadSummary) => {
+      const confirmed = window.confirm(
+        `Delete "${thread.title}"?\n\nThis removes the whole conversation and everything in it. It can't be undone.`
+      );
+      if (!confirmed) return;
+
+      // Optimistic: the row disappears immediately and comes back if the delete
+      // fails, rather than the user clicking again because nothing happened.
+      const previous = threads;
+      setThreads((current) => current.filter((item) => item.id !== thread.id));
+
+      try {
+        const response = await fetch(`/api/advisor/threads/${thread.id}`, { method: "DELETE" });
+        if (!response.ok) throw new Error("delete failed");
+        if (conversationId === thread.id) {
+          setMessages([]);
+          setConversationId(null);
+          setStoppedIds([]);
+        }
+      } catch {
+        setThreads(previous);
+        setError("Haven couldn't delete that conversation. Try again in a moment.");
+      }
+    },
+    [conversationId, threads]
+  );
 
   const draftLength = draft.trim().length;
   const overLimit = draftLength > MESSAGE_CHAR_LIMIT;
@@ -159,6 +279,9 @@ export function AdvisorWorkspace({ advisorUsage, suggestedPrompts, welcomeMessag
             setStreamingId(null);
             setIsPending(false);
             trackEvent("Search", { search_query: content, user_id: null, results_count: 1 });
+            // The exchange is saved by now, so a brand-new conversation appears in
+            // the list and an existing one moves to the top.
+            void refreshThreads();
           } else if (event.type === "error") {
             throw new Error(event.message);
           }
@@ -188,23 +311,63 @@ export function AdvisorWorkspace({ advisorUsage, suggestedPrompts, welcomeMessag
 
   return (
     <div className="space-y-6">
+      {threads.length > 0 && (
+        <Card>
+          <CardContent className="space-y-2 py-4">
+            <p className="text-caption text-[var(--color-text-secondary)]">Your conversations</p>
+            <ul className="space-y-1">
+              {threads.map((thread) => {
+                const isOpen = conversationId === thread.id;
+                return (
+                  <li key={thread.id} className="flex items-center gap-2">
+                    <button
+                      className={`flex min-w-0 flex-1 items-center gap-2 rounded-[var(--radius-md)] px-3 py-2 text-left transition-colors ${
+                        isOpen
+                          ? "bg-[var(--haven-sage-light)]"
+                          : "hover:bg-[var(--haven-sand)] disabled:opacity-50"
+                      }`}
+                      disabled={isPending || openingThreadId !== null}
+                      onClick={() => void openThread(thread.id)}
+                      type="button"
+                    >
+                      <MessageSquare className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-secondary)]" />
+                      <span className="min-w-0 flex-1 truncate text-body-sm">{thread.title}</span>
+                      <span className="shrink-0 text-caption text-[var(--color-text-secondary)]">
+                        {openingThreadId === thread.id ? "opening…" : relativeTime(thread.updatedAt)}
+                      </span>
+                    </button>
+                    <button
+                      aria-label={`Delete conversation: ${thread.title}`}
+                      className="shrink-0 rounded-full p-2 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--haven-blush-light)] hover:text-[var(--haven-blush-ink)] disabled:opacity-50"
+                      disabled={isPending || openingThreadId !== null}
+                      onClick={() => void removeThread(thread)}
+                      type="button"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <div />
+          {/* Was "Reset", which read as "clear the screen" while actually
+              abandoning a conversation the user had already paid for out of their
+              daily five. Now that conversations are saved, this really does start a
+              new one and the old one stays in the list above. */}
           <Button
-            disabled={isPending}
-            onClick={() => {
-              setMessages([]);
-              setConversationId(null);
-              setError(null);
-              setStreamingId(null);
-              setIsPending(false);
-            }}
+            disabled={isPending || messages.length === 0}
+            onClick={startNewConversation}
             size="sm"
             variant="outline"
           >
-            <RotateCcw className="h-4 w-4" />
-            Reset
+            <Plus className="h-4 w-4" />
+            New conversation
           </Button>
         </CardHeader>
         <CardContent className="space-y-4">
