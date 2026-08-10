@@ -30,6 +30,7 @@ import {
 import type { TopicBucket } from "@/lib/advisor/topics";
 import { guardrailText, resolveGuardrails } from "@/lib/advisor/guardrail-registry";
 import { buildThreadState, type ThreadState, type TurnResolution } from "@/lib/advisor/thread-state";
+import { persistExchange } from "@/lib/advisor/threads";
 import { renderLayoffOptionsForPrompt } from "@/lib/advisor/layoff-options";
 import {
   getLiveBulletinSnapshot,
@@ -1845,6 +1846,11 @@ export async function* streamAdvisorResponse(rawInput: {
     // for that session, with an error that named the wrong field. It landed
     // hardest on distressed users: told to rephrase, then told their message was
     // empty, every time after.
+    // Deliberately not persisted. This path returns before a thread is reserved, so
+    // there is usually nothing to attach to — but the more important reason is that
+    // writing a distress disclosure into a conversation history the user will see
+    // listed in their sidebar for months is not a kindness. The moderation category
+    // is on the trace for measurement; the message itself is not kept here.
     const threadId = conversationId ?? null;
     const guardrailId = moderation.distress ? "MSG_CRISIS_SUPPORT" : "MSG_MODERATION_REFUSAL";
     const flaggedPayload: AdvisorAnswerPayload = {
@@ -1971,6 +1977,19 @@ export async function* streamAdvisorResponse(rawInput: {
       }
     });
     await flushLangfuse();
+
+    // Stored like any other turn. The clarifying exchange is part of the
+    // conversation — losing it on reload would make a resumed thread jump from the
+    // user's unclear question straight to whatever they said next.
+    if (threadId && !identity.isMock) {
+      await persistExchange({
+        threadId,
+        userId: identity.id,
+        question: content,
+        answer: repairPayload,
+        traceId
+      });
+    }
 
     yield { type: "delta", text: repairPayload.answer_markdown };
     yield {
@@ -2232,6 +2251,19 @@ export async function* streamAdvisorResponse(rawInput: {
   });
 
   await flushLangfuse();
+
+  // Persist after the answer is final: the safety addenda and the stale-bulletin
+  // notice are appended post-generation, and a stored history missing those would
+  // drop exactly the sentences the guardrails exist to add.
+  if (threadId && !identity.isMock) {
+    await persistExchange({
+      threadId,
+      userId: identity.id,
+      question: content,
+      answer: answerPayload,
+      traceId
+    });
+  }
 
   yield { type: "done", assistantMessage: createAssistantMessage(displayThreadId, answerPayload, traceId), conversationId: threadId, traceId };
 }
