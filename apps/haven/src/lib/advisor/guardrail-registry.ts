@@ -420,6 +420,44 @@ const ENTRIES: GuardrailEntry[] = [
     text: "I can help with work visa and green card questions, but I can't continue with this message as written. Rephrase it as a factual immigration or Haven-product question and I'll answer from official sources."
   },
   {
+    // The distress branch. Previously a self-harm disclosure received
+    // MSG_MODERATION_REFUSAL — the same "rephrase it as a factual immigration
+    // question" given to a spammer. The moderation API already returns the
+    // category; only the routing was missing.
+    //
+    // This deliberately does not try to counsel anyone. Haven is not equipped to,
+    // and pretending otherwise would keep someone in a chat window instead of on a
+    // line with a person. Its whole job is to hand off to help outside Haven,
+    // quickly and without shame, and to stay reachable afterwards.
+    //
+    // NEEDS QUALIFIED REVIEW before this ships. The resource numbers are correct
+    // and stable; the wording is not clinician-written. The line about these
+    // services being independent of USCIS matters most for this audience and is
+    // the one most worth a second opinion — the fear that seeking help touches an
+    // immigration case is real, common, and load-bearing here.
+    id: "MSG_CRISIS_SUPPORT",
+    topic: "cross-cutting",
+    audience: "user",
+    repeat: "always",
+    intent:
+      "Route a self-harm disclosure to real crisis support outside Haven, instead of the generic scope refusal (gate G2).",
+    lastReviewedBy: null,
+    lastReviewedAt: null,
+    text: [
+      "I'm reading something in your message that matters more than the immigration question, and it's outside what I can help with — not because it isn't important, but because you deserve a person rather than a chatbot for this.",
+      "",
+      "Please reach out to someone who can help right now:",
+      "",
+      "- **988 Suicide & Crisis Lifeline** — call or text **988**, free, 24/7, anywhere in the US. Spanish and ASL are available at [988lifeline.org](https://988lifeline.org).",
+      "- **Crisis Text Line** — text **HOME** to **741741**, free, 24/7, in the US.",
+      "- **Outside the US** — [findahelpline.com](https://findahelpline.com) lists free, confidential helplines by country.",
+      "",
+      "These services are independent of Haven and of USCIS. You do not need insurance, an immigration status, or a reason to call them.",
+      "",
+      "I'll still be here for the visa and green card questions whenever you want to come back to them."
+    ].join("\n")
+  },
+  {
     // CD-13.2, first miss. The old behaviour was to assume h1b + adjustment-of-status
     // and answer with full confidence. This asks instead.
     id: "MSG_CLARIFY_UNRECOGNIZED",

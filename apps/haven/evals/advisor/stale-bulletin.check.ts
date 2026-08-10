@@ -1,3 +1,7 @@
+// Marks this file a module, so `main` is file-scoped rather than global and does
+// not collide with the identically-named entry point in the sibling checks.
+export {};
+
 async function main() {
   const { buildStaleBulletinNotice } = await import("@/lib/advisor/service");
   const snap = (label: string, ageDays: number) => ({

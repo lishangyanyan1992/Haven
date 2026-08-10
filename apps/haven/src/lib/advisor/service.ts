@@ -29,7 +29,7 @@ import {
 } from "@/lib/advisor/source-corpus";
 import type { TopicBucket } from "@/lib/advisor/topics";
 import { guardrailText, resolveGuardrails } from "@/lib/advisor/guardrail-registry";
-import { buildThreadState, type ThreadState } from "@/lib/advisor/thread-state";
+import { buildThreadState, type ThreadState, type TurnResolution } from "@/lib/advisor/thread-state";
 import { renderLayoffOptionsForPrompt } from "@/lib/advisor/layoff-options";
 import {
   getLiveBulletinSnapshot,
@@ -93,13 +93,27 @@ function getEmbeddingModel() {
   return env.OPENAI_EMBEDDING_MODEL ?? "text-embedding-3-small";
 }
 
-function formatTimestamp(input: string) {
+/**
+ * Today's date, for the prompt.
+ *
+ * The Advisor had no idea what day it was. Nothing in the system prompt, the user
+ * prompt, or any context block carried a date — while the layoff guardrail
+ * instructs it to "calculate the rough timeline and say what must be filed before
+ * day 60", and the bulletin guardrail turns on which month USCIS is accepting.
+ * Deadline arithmetic with no reference point is guesswork dressed as arithmetic.
+ *
+ * UTC is stated explicitly rather than silently assumed. The user's own timezone is
+ * not available server-side today; for a 60-day window a day of drift does not
+ * change the advice, and the answer always hands the exact date back to counsel.
+ */
+function todayForPrompt() {
   return new Intl.DateTimeFormat("en-US", {
-    month: "short",
+    weekday: "long",
+    year: "numeric",
+    month: "long",
     day: "numeric",
-    hour: "numeric",
-    minute: "2-digit"
-  }).format(new Date(input));
+    timeZone: "UTC"
+  }).format(new Date());
 }
 
 function formatAdvisorRenewal(msUntilRenewal: number | null) {
@@ -225,6 +239,80 @@ function mentionsJobLoss(normalized: string) {
   return JOB_LOSS_PATTERN.test(normalized);
 }
 
+// Leaving the country with a pending I-485 and no approved advance parole can
+// cause USCIS to treat the application as abandoned. That is the second most
+// irreversible thing a Haven user can do, and until now the guardrail warning
+// about it was gated on the words "travel", "advance parole", "AP", "I-131",
+// "visa stamp" or "reentry" — the vocabulary of someone who already knows the
+// rule. The people who most need the warning describe it the way anyone would:
+// "I need to fly to Delhi for my father's funeral." All three of the natural
+// phrasings tested were silent.
+//
+// Worse, the pattern was copied by hand into four places and had already drifted:
+// the selection copy was missing "reentry", and the retrieval copy was missing
+// "ap". A user could therefore match one gate and lose another. Everything now
+// derives from this one definition, as the layoff gates do.
+//
+// The old bare "ap" alternation had no word boundary, so it matched inside
+// "happens", "paperwork" and "capital" — the gate fired on unrelated questions
+// and missed the real ones. \bap\b fixes both halves.
+//
+// Over-triggering is the intended failure mode, exactly as for job loss: an extra
+// advance-parole paragraph costs a few tokens, a missing one can cost someone a
+// green card application they have waited years for.
+const TRAVEL_TERMS = [
+  "travell?(ing|ed)?",
+  "advance parole",
+  "\\bap\\b",
+  "i-?131",
+  "visa stamp",
+  "stamping",
+  "re-?entry",
+  "re-?enter(ing)?",
+  "\\bfly(ing)?\\b",
+  "\\bflight\\b",
+  "\\bflew\\b",
+  "leav(e|ing) (the )?(u\\.?s\\.?a?|us|country|states)",
+  "go(ing)? (back )?(home|abroad|overseas)",
+  "went (back )?home",
+  "\\bback home\\b",
+  "(out|outside) of the (country|u\\.?s\\.?a?|us|states)",
+  "outside the (country|u\\.?s\\.?a?|us|states)",
+  "\\babroad\\b",
+  "\\boverseas\\b",
+  "\\btrip\\b",
+  "vacation",
+  "visit (my |his |her |their |our )?(family|parents|mom|mum|dad|mother|father|home|india|china)",
+  // Bereavement and family events are the commonest reason someone travels against
+  // their own interest, and the commonest way the question gets phrased without any
+  // immigration vocabulary in it at all.
+  "\\bfuneral\\b",
+  "(attend|for|to|going to)( a| my| his| her| their)? wedding",
+  "[a-z]+'?s wedding",
+  "wedding (in|back|abroad|next)",
+  "family emergency",
+  "emergency (back |at )home",
+  "depart(ure|ing|ed)?",
+  "consulate",
+  "consular",
+  "port of entry",
+  "\\bcbp\\b",
+  "(come|coming|get) back (to|into) the (u\\.?s\\.?a?|us|states|country)",
+  "return to the (u\\.?s\\.?a?|us|states|country)"
+];
+
+const TRAVEL_PATTERN = new RegExp(`(${TRAVEL_TERMS.join("|")})`);
+
+/**
+ * Does this question involve leaving or re-entering the country?
+ *
+ * The single definition behind every advance-parole gate: guardrail selection,
+ * the mandatory safety addendum, answer normalization, and retrieval boosting.
+ */
+function mentionsTravel(normalized: string) {
+  return TRAVEL_PATTERN.test(normalized);
+}
+
 // Split from classifyTopics so callers can tell "matched nothing" apart from
 // "matched the default". Without that distinction a follow-up that matches no
 // pattern looks identical to a genuine h1b + adjustment-of-status question.
@@ -293,15 +381,130 @@ function matchesAnyTopic(text: string): boolean {
   return detectTopics(text).size > 0;
 }
 
+export interface AdvisorRoute {
+  topics: TopicBucket[];
+  guardrailIds: string[];
+  currentMatched: boolean;
+  previousMatched: boolean;
+  /**
+   * How this turn resolved. `unmatched` means the streaming path short-circuits to
+   * a clarifying question and never reaches generation, so `guardrailIds` is not
+   * delivered to anyone. Exposed so a check can tell "guarded" apart from "asked
+   * instead of guessing" — they are both safe, and they are not the same thing.
+   */
+  resolution: TurnResolution;
+  /** True when the pending-I-485 profile fact added the adjustment topic. */
+  travelAugmented: boolean;
+}
+
+/**
+ * Everything that decides which guardrails a question receives: topic
+ * classification, the profile-derived augmentation, and guardrail selection.
+ *
+ * This exists as one exported function so that `streamAdvisorResponse` and the
+ * regression checks exercise the *same* routing rather than two implementations
+ * that agree on the day they are written. That distinction is not theoretical
+ * here: the advance-parole gate was four hand-copied regexes that had already
+ * drifted apart, and the eval fixture covering it passed against a copy that was
+ * not the one production used.
+ */
+export function routeAdvisorQuestion(input: {
+  content: string;
+  history?: Array<{ role: "user" | "assistant"; content: string }>;
+  /** From the user's Haven profile. */
+  i485Filed?: boolean;
+}): AdvisorRoute {
+  const { content, history = [], i485Filed = false } = input;
+  const classification = classifyTopicsWithContext(content, history);
+  const normalized = content.toLowerCase();
+
+  // `topics` is DEFAULT_TOPICS when nothing classified — a placeholder so retrieval
+  // has something to work with, not a finding. It happens to contain
+  // "adjustment-of-status", so testing membership of it to decide whether the
+  // profile has something to add would compare against a guess and conclude there
+  // was nothing to add. Track the distinction explicitly.
+  const usedDefaultTopics = !classification.currentMatched && !classification.previousMatched;
+
+  // Travel carries one user turn back, matching how topics are classified. Without
+  // this a narrowing follow-up ("and what if I only go for four days?") kept the
+  // topic and lost the guardrail.
+  const previousUserTurn = [...history].reverse().find((turn) => turn.role === "user");
+  const travelMentioned =
+    mentionsTravel(normalized) ||
+    (previousUserTurn ? mentionsTravel(previousUserTurn.content.toLowerCase()) : false);
+
+  // Profile-aware augmentation.
+  //
+  // Broadening the travel vocabulary is only half the fix. Someone who filed an
+  // I-485 eight months ago does not say "I-485" when they ask "can I go home for
+  // two weeks?" — they have lived with the case long enough that it is background,
+  // not foreground. The question then classifies as something else, or as nothing,
+  // and the abandonment guardrail never fires even though the travel pattern
+  // matched. Haven already knows they filed; a travel question from a user with a
+  // pending adjustment is an adjustment-of-status travel question regardless of
+  // which words they used.
+  const travelAugmented =
+    i485Filed &&
+    travelMentioned &&
+    (usedDefaultTopics || !classification.topics.includes("adjustment-of-status"));
+
+  // When the profile resolves a question the patterns could not, the profile's
+  // answer replaces the placeholder rather than joining it — otherwise retrieval
+  // spends half its slots on the H-1B chunks the default guessed at, for a question
+  // that is entirely about leaving the country.
+  const topics: TopicBucket[] =
+    travelAugmented && usedDefaultTopics
+      ? ["adjustment-of-status"]
+      : travelAugmented
+        ? [...classification.topics, "adjustment-of-status"]
+        : [...classification.topics];
+
+  // An augmented turn counts as matched.
+  //
+  // "Can I go home for two weeks?" classifies against nothing, so without this it
+  // resolves `unmatched` and the user gets the clarifying menu — from a product
+  // that has just worked out exactly what they are asking, using their own profile.
+  // Answering "I'm not sure what you mean" when you are in fact sure is its own
+  // small failure, and here it also costs the abandonment warning: an unmatched
+  // turn returns before generation, so the guardrail is selected and never
+  // delivered. Recording the match keeps the miss counter honest too — this turn
+  // was understood, so it must not push the thread toward the two-strike handoff.
+  const currentMatched = classification.currentMatched || travelAugmented;
+
+  return {
+    topics,
+    guardrailIds: selectGuardrailIds(content, topics, { travelMentioned }),
+    currentMatched,
+    previousMatched: classification.previousMatched,
+    resolution: currentMatched ? "matched" : classification.previousMatched ? "carried" : "unmatched",
+    travelAugmented
+  };
+}
+
+/** Thread-level signals that outlive the sentence the user just typed. */
+export interface GuardrailSignals {
+  /**
+   * Travel was raised in this turn *or* the previous user turn.
+   *
+   * Topics already look one user turn back, but guardrail selection did not, so a
+   * follow-up kept the adjustment-of-status topic and silently lost the
+   * advance-parole guardrail: "My I-485 is pending and I want to travel to India"
+   * is guarded, and "And what if I only go for four days?" — the same decision,
+   * narrowed — was not. This is the same defect the layoff gate was fixed for
+   * (the chips say "day 60", the classifier matched "60-day"); it simply had not
+   * been rechecked here.
+   */
+  travelMentioned: boolean;
+}
+
 /**
  * Choose which guardrails apply to this question.
  *
- * Returns registry ids rather than prose (CD-13.1). The selection logic is
- * unchanged; what moved is the copy. Keeping ids here means a trace records
- * *which* rule fired, and a fixture can assert on that instead of grepping the
- * answer for an English phrase that a prompt edit will quietly change.
+ * Returns registry ids rather than prose (CD-13.1). Keeping ids here means a trace
+ * records *which* rule fired, and a fixture can assert on that instead of grepping
+ * the answer for an English phrase that a prompt edit will quietly change.
  */
-function selectGuardrailIds(query: string, topics: TopicBucket[]): string[] {
+function selectGuardrailIds(query: string, topics: TopicBucket[], signals: GuardrailSignals): string[] {
   const normalized = query.toLowerCase();
   const ids: string[] = [];
 
@@ -313,7 +516,7 @@ function selectGuardrailIds(query: string, topics: TopicBucket[]): string[] {
     ids.push("GR_VISA_BULLETIN_FILING_CHART");
   }
 
-  if (topics.includes("adjustment-of-status") && /(travel|advance parole|ap|visa stamp|i-131)/.test(normalized)) {
+  if (topics.includes("adjustment-of-status") && signals.travelMentioned) {
     ids.push("GR_I485_TRAVEL");
   }
 
@@ -732,13 +935,38 @@ function wantsHavenProfileFacts(query: string) {
   return /(haven profile|my profile|based on.*haven|from my haven|in haven|what should haven|haven help|track|monitor|dashboard|timeline)/i.test(query);
 }
 
-function buildPromptProfileSummary(query: string, userContext: AdvisorUserContext) {
+/**
+ * Which topics genuinely need which date from the profile.
+ *
+ * The old filter was all-or-nothing: unless the question said "Haven", "my
+ * profile", "dashboard" or "timeline", *every* date was stripped. That produced a
+ * specific and serious failure. Ask "I was laid off yesterday, what do I do?" and
+ * the Advisor was handed the layoff guardrail — which instructs it that the grace
+ * period runs "60 days or until I-94/petition validity ends, whichever is shorter"
+ * — with the visa expiry date removed from the context. It was told to apply a rule
+ * and denied the input the rule needs, so it could only ever restate the rule in
+ * the abstract when the user was asking for their own deadline.
+ *
+ * The original intent was sound: stop the model sprinkling the priority date into
+ * questions that have nothing to do with it. But that job is already done properly
+ * by `stripUnrequestedPriorityDate`, which works by provenance rather than by
+ * guessing from the question's wording. So this filter can be narrowed to what it
+ * is actually good at — routing each date to the topics that need it.
+ */
+const PRIORITY_DATE_TOPICS: TopicBucket[] = ["visa-bulletin", "cspa", "adjustment-of-status"];
+const STATUS_DATE_TOPICS: TopicBucket[] = ["layoffs", "h1b", "student-status", "job-change"];
+
+function buildPromptProfileSummary(query: string, topics: TopicBucket[], userContext: AdvisorUserContext) {
   if (wantsHavenProfileFacts(query)) {
     return userContext.profileSummary;
   }
 
+  const allowPriorityDate = topics.some((topic) => PRIORITY_DATE_TOPICS.includes(topic));
+  const allowStatusDates = topics.some((topic) => STATUS_DATE_TOPICS.includes(topic));
+
   return userContext.profileSummary.filter((line) => {
-    if (/priority date|current visa expiry date|h-1b cap date|date:/i.test(line)) return false;
+    if (/^priority date:/i.test(line)) return allowPriorityDate;
+    if (/^current visa expiry date:/i.test(line)) return allowStatusDates;
     return true;
   });
 }
@@ -753,12 +981,22 @@ function buildPromptEmailEvidence(query: string, userContext: AdvisorUserContext
     : [];
 }
 
-function buildPromptDerivedSignals(query: string, userContext: AdvisorUserContext) {
+function buildPromptDerivedSignals(query: string, topics: TopicBucket[], userContext: AdvisorUserContext) {
   if (wantsHavenProfileFacts(query)) {
     return userContext.derivedSignalsSummary;
   }
 
-  return userContext.derivedSignalsSummary.filter((line) => !/date|estimated|cap/i.test(line));
+  const allowStatusDates = topics.some((topic) => STATUS_DATE_TOPICS.includes(topic));
+  const allowProjection = topics.some((topic) => PRIORITY_DATE_TOPICS.includes(topic));
+
+  return userContext.derivedSignalsSummary.filter((line) => {
+    // The 6-year cap date is the other half of a layoff timeline question.
+    if (/h-1b (6-year )?cap date/i.test(line)) return allowStatusDates;
+    // The green card projection is a bulletin/priority-date concept and has no
+    // business appearing in an answer about a 60-day grace period.
+    if (/estimated green card date range/i.test(line)) return allowProjection;
+    return true;
+  });
 }
 
 async function moderateMessage(content: string, parent?: LangfuseParent) {
@@ -778,20 +1016,21 @@ async function moderateMessage(content: string, parent?: LangfuseParent) {
 
     const result = moderation.results?.[0];
     const flagged = result?.flagged ?? false;
-    // Categories are recorded but do not yet change behaviour. Today every flagged
-    // message gets the same scope refusal, which is wrong for self-harm disclosure
-    // in particular — see CD-11.1/11.2. Designing that response needs to start from
-    // the real distribution rather than a guess, so log first and branch once the
-    // crisis copy has been written by someone qualified.
     const categories = result?.categories
       ? Object.entries(result.categories).filter(([, hit]) => hit).map(([name]) => name)
       : [];
 
-    span?.end({ output: { flagged, categories } });
+    // Categories now route (CD-11.1/11.2, gate G2). The omni-moderation model
+    // returns `self-harm`, `self-harm/intent` and `self-harm/instructions`, so the
+    // prefix covers all three and any future sibling. Everything else keeps the
+    // scope refusal.
+    const distress = categories.some((name) => name.startsWith("self-harm"));
 
-    return { flagged, categories };
+    span?.end({ output: { flagged, categories, distress } });
+
+    return { flagged, categories, distress };
   } catch {
-    return { flagged: false, categories: [] as string[] };
+    return { flagged: false, categories: [] as string[], distress: false };
   }
 }
 
@@ -852,7 +1091,7 @@ function scoreIntentBoost(query: string, chunk: RetrievedKnowledgeChunk) {
     if (/(filing chart|dates for filing|final action|visa bulletin|uscis.*monthly)/.test(sourceText)) boost += 8;
   }
 
-  if (/(travel|advance parole|visa stamp|i-131|reentry)/.test(normalized)) {
+  if (mentionsTravel(normalized)) {
     if (/(advance parole|travel|i-131|abandon|reentry|visa stamp)/.test(sourceText)) boost += 8;
   }
 
@@ -1201,8 +1440,8 @@ function fallbackAnswer(
   }
 
   const havenContextUsed = [
-    ...buildPromptProfileSummary(question, userContext).slice(0, 4),
-    ...buildPromptDerivedSignals(question, userContext).slice(0, 1)
+    ...buildPromptProfileSummary(question, topics, userContext).slice(0, 4),
+    ...buildPromptDerivedSignals(question, topics, userContext).slice(0, 1)
   ].filter(Boolean);
   const communityUsed = community.slice(0, 2).map((item) => `${item.title}: ${item.summary}`);
   const sourceBullets = knowledge
@@ -1331,7 +1570,7 @@ function buildMandatorySafetyAddendum(
     }
   }
 
-  if (topics.includes("adjustment-of-status") && /(travel|advance parole|ap|i-131|visa stamp|reentry)/.test(normalizedQuestion)) {
+  if (topics.includes("adjustment-of-status") && mentionsTravel(normalizedQuestion)) {
     const missingPendingApWarning = !/pending advance parole.*not enough|pending i-131.*not enough|do not travel based only on pending ap|pending advance parole.*not.*permission/i.test(answer);
     const missingAbandonmentWarning = !/abandon.*i-485|i-485.*abandon/i.test(answer);
     const missingPlainEnglishDistinction = !/(visa stamp|visa).*?(status).*?(advance parole)|(advance parole).*?(status).*?(visa stamp)/is.test(answer);
@@ -1434,7 +1673,7 @@ function normalizeHighRiskAnswer(
 ) {
   const normalizedQuestion = question.toLowerCase();
 
-  if (topics.includes("adjustment-of-status") && /(travel|advance parole|ap|i-131|visa stamp|reentry)/.test(normalizedQuestion)) {
+  if (topics.includes("adjustment-of-status") && mentionsTravel(normalizedQuestion)) {
     return answer
       .replace(
         /\bYou cannot travel internationally next month(?:[^.]*pending I-485[^.]*)?\./i,
@@ -1553,11 +1792,20 @@ export async function* streamAdvisorResponse(rawInput: {
   }
 
   const { content, history: rawHistory, conversationId } = parsed.data;
-  const classification = classifyTopicsWithContext(content, rawHistory);
-  const topics = classification.topics;
+
+  // Loaded before routing because the profile contributes to it: a pending I-485
+  // turns a bare travel question into an adjustment-of-status travel question.
+  const snapshot = await getSnapshot();
+
+  const route = routeAdvisorQuestion({
+    content,
+    history: rawHistory,
+    i485Filed: snapshot.profile.i485Filed
+  });
+  const topics = route.topics;
   const threadState = buildThreadState({
-    currentMatched: classification.currentMatched,
-    previousMatched: classification.previousMatched,
+    currentMatched: route.currentMatched,
+    previousMatched: route.previousMatched,
     history: rawHistory,
     matches: matchesAnyTopic
   });
@@ -1588,7 +1836,6 @@ export async function* streamAdvisorResponse(rawInput: {
   });
 
   const moderation = await moderateMessage(content, trace);
-  const snapshot = await getSnapshot();
 
   if (moderation.flagged) {
     // Only ever hand back a real thread id. This previously fell back to the
@@ -1599,15 +1846,23 @@ export async function* streamAdvisorResponse(rawInput: {
     // hardest on distressed users: told to rephrase, then told their message was
     // empty, every time after.
     const threadId = conversationId ?? null;
+    const guardrailId = moderation.distress ? "MSG_CRISIS_SUPPORT" : "MSG_MODERATION_REFUSAL";
     const flaggedPayload: AdvisorAnswerPayload = {
-      answer_markdown: guardrailText("MSG_MODERATION_REFUSAL"),
+      answer_markdown: guardrailText(guardrailId),
       confidence: "low",
-      disclaimer: guardrailText("MSG_DISCLAIMER"),
+      // The legal disclaimer is noise under a crisis handoff — it answers a question
+      // nobody in that moment is asking, and it makes the response read as
+      // boilerplate at the one point where it must not.
+      disclaimer: moderation.distress
+        ? "These are independent crisis services. Haven is not a crisis or medical service."
+        : guardrailText("MSG_DISCLAIMER"),
       external_citations: [],
       haven_context_used: [],
       community_context_used: [],
       follow_up_questions: [],
-      refusal_or_escalation_reason: "Message flagged by moderation.",
+      refusal_or_escalation_reason: moderation.distress
+        ? "Distress signal detected; routed to external crisis support."
+        : "Message flagged by moderation.",
     };
     trace?.update({
       metadata: {
@@ -1621,10 +1876,12 @@ export async function* streamAdvisorResponse(rawInput: {
         citationCount: 0,
         fallback: false,
         fallbackReason: null,
-        // Surfaced on the trace so the category mix is filterable in Langfuse.
-        // Until the crisis path exists, this is how we learn what share of flagged
-        // traffic is distress rather than abuse.
-        moderationCategories: moderation.categories
+        // Surfaced on the trace so the category mix stays filterable in Langfuse,
+        // and so the share of flagged traffic that is distress rather than abuse is
+        // measurable now that the two are handled differently.
+        moderationCategories: moderation.categories,
+        moderationDistress: moderation.distress,
+        guardrailsFired: [guardrailId]
       },
       output: {
         answer: flaggedPayload.answer_markdown,
@@ -1725,13 +1982,14 @@ export async function* streamAdvisorResponse(rawInput: {
     return;
   }
 
-  const history: AdvisorMessage[] = rawHistory.map((m, i) => ({
-    id: `history-${i}`,
-    threadId: displayThreadId,
-    role: m.role,
-    content: m.content,
-    createdAt: new Date(Date.now() - (rawHistory.length - i) * 1000).toISOString(),
-  }));
+  // The prior turns, rendered for the prompt without timestamps.
+  //
+  // These used to be stamped `Date.now() - (n - i) * 1000` and printed as "Aug 10,
+  // 3:42 PM" — a fabricated time, one second apart, with no year. A thread picked
+  // up the next morning claimed every earlier turn had happened seconds ago. A made
+  // up timestamp is worse than none in a product doing date arithmetic, and the
+  // client sends no real ones, so the honest render is the turn order alone.
+  const history = rawHistory.map((m) => ({ role: m.role, content: m.content }));
 
   const userContext = buildAdvisorContext(snapshot);
 
@@ -1764,9 +2022,9 @@ export async function* streamAdvisorResponse(rawInput: {
 
   const citations = buildCitationSet(knowledge, liveBulletin);
   const communityUsed = community.slice(0, 2).map((item) => `${item.title}: ${item.summary}`);
-  const promptProfileSummary = buildPromptProfileSummary(content, userContext);
+  const promptProfileSummary = buildPromptProfileSummary(content, topics, userContext);
   const promptTimelineSummary = buildPromptTimelineSummary(content, userContext);
-  const promptDerivedSignals = buildPromptDerivedSignals(content, userContext);
+  const promptDerivedSignals = buildPromptDerivedSignals(content, topics, userContext);
   const promptEmailEvidence = buildPromptEmailEvidence(content, userContext);
   const havenContextUsed = promptProfileSummary.slice(0, 4).filter(Boolean);
 
@@ -1775,8 +2033,7 @@ export async function* streamAdvisorResponse(rawInput: {
   // CD-13.1 / CD-13.4: select by id, then resolve to text, dropping orientation the
   // thread has already heard. Hard safety rules are marked `always` in the registry
   // and are never dropped here.
-  const selectedGuardrailIds = selectGuardrailIds(content, topics);
-  const guardrails = resolveGuardrails(selectedGuardrailIds, threadState.delivered);
+  const guardrails = resolveGuardrails(route.guardrailIds, threadState.delivered);
   const decisionGuardrails = guardrails.texts;
 
   // CD-13.3: if the Advisor is about to offer the fallback options, give it the
@@ -1787,11 +2044,32 @@ export async function* streamAdvisorResponse(rawInput: {
     ? [renderLayoffOptionsForPrompt()]
     : [];
 
+  // The profile is a snapshot the user last edited at some point, not a live feed.
+  // When they open by saying they were just laid off and the profile still reads
+  // "Employment status: employed", the model was being handed a flat contradiction
+  // with no indication of which side to believe. The user's own account of their
+  // situation is always the more current of the two.
+  const profileContradictsJobLoss =
+    mentionsJobLoss(content.toLowerCase()) && /^employment status:\s*employed/i.test(
+      userContext.profileSummary.find((line) => /^employment status:/i.test(line)) ?? ""
+    );
+
   const userPrompt = [
+    `Today's date: ${todayForPrompt()} (UTC).`,
+    "Use this as the reference point for any deadline, grace period, or filing-window arithmetic. Never guess what today is.",
+    "",
     `User question:\n${content}`,
     "",
     buildContextBlock("Decision guardrails", decisionGuardrails),
     "",
+    ...(profileContradictsJobLoss
+      ? [
+          buildContextBlock("Profile freshness", [
+            "The user describes a job loss but their saved Haven profile still says they are employed. The profile is stale. Trust what the user says in the question over the profile's employment status, and do not tell them their profile says they are employed."
+          ]),
+          ""
+        ]
+      : []),
     ...(optionAttributes.length > 0 ? [buildContextBlock("Option attributes", optionAttributes), ""] : []),
     buildContextBlock("Haven profile summary", promptProfileSummary),
     "",
@@ -1829,7 +2107,7 @@ export async function* streamAdvisorResponse(rawInput: {
     "",
     buildContextBlock(
       "Recent conversation",
-      history.slice(-6).map((m) => `${m.role.toUpperCase()} @ ${formatTimestamp(m.createdAt)}: ${m.content}`)
+      history.slice(-6).map((m) => `${m.role.toUpperCase()}: ${m.content}`)
     ),
   ].join("\n");
 
