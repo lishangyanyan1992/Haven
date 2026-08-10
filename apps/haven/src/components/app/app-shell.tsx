@@ -1,7 +1,4 @@
 import Link from "next/link";
-import {
-  FileText,
-} from "lucide-react";
 import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
@@ -102,20 +99,6 @@ export async function AppShell({
             crisisDayNumber={crisisState?.dayNumber}
             showPlanner={Boolean(crisisState) || activePath.startsWith("/planner")}
           />
-
-          <div className="mt-6 rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-4">
-            <div className="flex items-start gap-3">
-              <div className="mt-1 rounded-[var(--radius-sm)] bg-[var(--haven-sky-light)] p-2 text-[var(--haven-sky-ink)]">
-                <FileText className="h-4 w-4" />
-              </div>
-              <div>
-                <p className="text-h3">Trust note</p>
-                <p className="mt-2 text-body-sm">
-                  Haven shares information in plain language. Legal guidance belongs in the footer, not in your face.
-                </p>
-              </div>
-            </div>
-          </div>
         </aside>
 
         <div className="min-w-0">
@@ -135,6 +118,10 @@ export async function AppShell({
           <main className="p-4 md:p-6 lg:p-8 xl:p-10 2xl:p-12">
             <div className="content-container-visual">{children}</div>
           </main>
+
+          <footer className="border-t border-[var(--color-border)] px-4 py-6 md:px-6 xl:px-8 2xl:px-10">
+            <p className="text-caption">Haven provides information, not legal advice. Verify decisions with a qualified attorney.</p>
+          </footer>
         </div>
       </div>
     </div>
