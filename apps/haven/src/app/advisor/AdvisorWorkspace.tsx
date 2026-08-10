@@ -649,7 +649,22 @@ function AdvisorAnswerCard({
               message.answerPayload.external_citations.map((citation) => (
                 <div key={`${citation.label}-${citation.citationIndex}`} className="rounded-[var(--radius-md)] bg-[var(--haven-white)] p-3">
                   <p className="text-body-sm font-medium">{citation.label}</p>
-                  {citation.quote && <p className="mt-1 text-caption">{citation.quote}</p>}
+                  {/* The excerpt is labelled by where its words came from, and a
+                      summary is never wrapped in quotation marks. Previously this
+                      rendered Haven's own paraphrase directly under the agency's
+                      name, next to a link to that agency — so a user forwarding it
+                      to their attorney reasonably read Haven's wording as USCIS's.
+                      Only a verbatim excerpt is presented as a quotation. */}
+                  {citation.excerpt && (
+                    <>
+                      <p className="mt-1 text-caption text-[var(--color-text-secondary)]">
+                        {citation.attribution === "verbatim" ? "Quoted from the source" : "Haven's summary of this source"}
+                      </p>
+                      <p className="mt-0.5 text-caption">
+                        {citation.attribution === "verbatim" ? `“${citation.excerpt}”` : citation.excerpt}
+                      </p>
+                    </>
+                  )}
                   {citation.url && (
                     <a
                       className="mt-2 inline-flex items-center gap-1 text-caption underline underline-offset-2"

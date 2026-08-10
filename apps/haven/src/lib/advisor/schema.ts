@@ -4,7 +4,9 @@ export const advisorCitationSchema = z.object({
   kind: z.enum(["external", "haven", "community"]),
   label: z.string().min(1),
   url: z.string().url().optional(),
-  quote: z.string().optional(),
+  // `excerpt`, not `quote`: it is only a quotation when attribution says so.
+  excerpt: z.string().optional(),
+  attribution: z.enum(["verbatim", "haven-summary"]).optional(),
   citationIndex: z.number().int().nonnegative()
 });
 
@@ -46,12 +48,13 @@ export const advisorAnswerJsonSchema = {
         items: {
           type: "object",
           additionalProperties: false,
-          required: ["kind", "label", "url", "quote", "citationIndex"],
+          required: ["kind", "label", "url", "excerpt", "attribution", "citationIndex"],
           properties: {
             kind: { type: "string", enum: ["external", "haven", "community"] },
             label: { type: "string" },
             url: { type: ["string", "null"] },
-            quote: { type: ["string", "null"] },
+            excerpt: { type: ["string", "null"] },
+            attribution: { type: ["string", "null"], enum: ["verbatim", "haven-summary", null] },
             citationIndex: { type: "integer", minimum: 0 }
           }
         }

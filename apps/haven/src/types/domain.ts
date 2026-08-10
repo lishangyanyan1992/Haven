@@ -305,11 +305,33 @@ export interface CommunityAdviceSummary {
   similarity?: number;
 }
 
+/**
+ * Where an excerpt's words come from.
+ *
+ * `haven-summary` is Haven's own wording describing what a source says.
+ * `verbatim` is the source's own text, copied exactly.
+ *
+ * The distinction has to be carried in the data rather than assumed by whoever
+ * renders it. Every excerpt Haven currently produces is a summary — the corpus
+ * chunks read "USCIS frames H-1B as..." — and they were displayed under the
+ * agency's name, beside a link to that agency, with no indication they were not
+ * the agency's words. A user forwarding one to their attorney reasonably read it
+ * as USCIS's own language, which quietly converts Haven's paraphrase into
+ * government authority.
+ */
+export type AdvisorCitationAttribution = "verbatim" | "haven-summary";
+
 export interface AdvisorCitation {
   kind: AdvisorCitationKind;
   label: string;
   url?: string;
-  quote?: string;
+  /**
+   * The displayed text. Deliberately not called `quote`: it is only a quotation
+   * when `attribution` is `verbatim`, and naming it `quote` is what made it look
+   * safe to render as one.
+   */
+  excerpt?: string;
+  attribution?: AdvisorCitationAttribution;
   citationIndex: number;
 }
 

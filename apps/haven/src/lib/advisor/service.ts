@@ -315,6 +315,64 @@ function mentionsTravel(normalized: string) {
   return TRAVEL_PATTERN.test(normalized);
 }
 
+// The remaining safety gates, audited the same way the travel gate was: write out
+// how real people say the thing, then execute the pattern against all of them.
+// Every one of these was a single narrow phrasing, and every one was silent for
+// the majority of natural wordings. Covered by evals/advisor/guardrail-phrasing.check.ts.
+
+/**
+ * A child ageing out of a family's case.
+ *
+ * The old pattern needed "turns 21", "turn 21", "age out", "aging out" or the
+ * acronym. It missed "will be 21", "ages out" (the plural verb — one letter),
+ * "too old to be included", and every way a parent describes this without knowing
+ * the term. CSPA deadlines cannot be recovered once missed, which is why the
+ * guardrail says to see an attorney immediately.
+ */
+const CSPA_PATTERN =
+  /(cspa|child status protection|ages? out|ageing out|aging out|aged out|turns? 21|turning 21|will be 21|becomes? 21|reaches? 21|over 21|21st birthday|sought to acquire|too old to (be included|qualify|stay on)|age.?out)/;
+
+/**
+ * A petition that came back refused.
+ *
+ * Needed "denied", "denial", "refile", "appeal", "motion" or "proposed endeavor".
+ * "USCIS said no", "rejected", "turned down" and "came back negative" all lost the
+ * guardrail — and motion and appeal windows are short and unrecoverable.
+ */
+const PETITION_REFUSED_PATTERN =
+  /(denied|denial|refil|re-file|appeal|motion|vague|proposed endeavor|reject(ed|ion)?|turned down|said no|came back negative|not approved|unfavorab|refus(ed|al))/;
+
+/**
+ * Work done without authorization, however the person describes it.
+ *
+ * This is the guardrail that refuses to help conceal facts from USCIS and tells
+ * someone to preserve records and get counsel. It needed the words
+ * "unauthorized work", "misrepresent", "hide" or "conceal" — the vocabulary of
+ * somebody who already knows they have a problem. People describing what actually
+ * happened say "freelance", "under the table", "cash", "before my EAD came".
+ */
+const UNAUTHORIZED_WORK_PATTERN =
+  /(misrepresent|hide|hiding|conceal|does not notice|doesn't notice|without authorization|unauthorized work|under the table|off the books|freelanc|side gig|side job|moonlight|paid in cash|cash in hand|contract work|1099|before (my|the) (ead|work permit|card)|while (my|the) (ead|opt|work permit) (was |is )?pending|without a (work )?permit|started working before|worked before)/;
+
+/**
+ * CPT, including the school marketing that sells it.
+ *
+ * Needed the acronym. Somebody who has been told "you can work from day one" by a
+ * recruiter often does not know the term yet — and they are precisely the person
+ * the guardrail's red-flag list is written for.
+ */
+const CPT_PATTERN =
+  /(\bcpt\b|day 1 cpt|day one cpt|curricular practical|work from day (one|1)|start working (from|in|on) (the )?(first|day one|day 1)|program that lets me work|lets? me work while (i )?stud)/;
+
+/**
+ * Beginning work on a pending or expected card.
+ *
+ * "Pending OPT is not work authorization" is the point of the guardrail, and
+ * "my employer wants me to start before my card arrives" is how it gets asked.
+ */
+const START_WORK_PATTERN =
+  /(\bopt\b|\bead\b|work permit|work authorization|\bwork\b|employment|job starts|begin work|start work|start(ing)? (a )?(new )?job|first day|card (arrives|comes|gets here)|before (my|the) card)/;
+
 // Split from classifyTopics so callers can tell "matched nothing" apart from
 // "matched the default". Without that distinction a follow-up that matches no
 // pattern looks identical to a genuine h1b + adjustment-of-status question.
@@ -322,16 +380,29 @@ function detectTopics(input: string): Set<TopicBucket> {
   const normalized = input.toLowerCase();
   const topics = new Set<TopicBucket>();
 
-  if (/(h-?1b|specialty occupation|transfer|amendment|cap|grace period)/.test(normalized)) topics.add("h1b");
+  // Word boundaries are not cosmetic here. `opt`, `ead`, `cap` and `i-9` were all
+  // unanchored, so ordinary English silently misclassified the question:
+  //
+  //   "What are my options after a layoff?"  -> student-status  (opt in options)
+  //   "What is the deadline to file?"        -> work-authorization (ead in deadline)
+  //   "My I-94 expires in March."            -> work-authorization (i-9 in i-94)
+  //   "capital", "already", "instead", "read", "escape" ... likewise
+  //
+  // Topics drive retrieval, and retrieval keeps only the top six chunks, so a
+  // layoff question containing the words "options" and "deadline" — which is most
+  // of them — pulled student-employment and work-authorization sources in place of
+  // the ones it needed. This was invisible: the answer still arrived, just built on
+  // the wrong material.
+  if (/(h-?1b|specialty occupation|transfer|amendment|\bcap\b|grace period)/.test(normalized)) topics.add("h1b");
   if (/(visa bulletin|priority date|dates for filing|final action)/.test(normalized)) topics.add("visa-bulletin");
-  if (/\bperm\b|labor certification|flag/.test(normalized)) topics.add("perm");
+  if (/\bperm\b|labor certification|\bflag(ged|s)?\b/.test(normalized)) topics.add("perm");
   if (/(i-485|i485|adjustment of status|adjust status|advance parole|i-131)/.test(normalized)) topics.add("adjustment-of-status");
   if (/(job change|same or similar|ac21|portability)/.test(normalized)) topics.add("job-change");
   if (mentionsJobLoss(normalized) || /(60-day|grace period)/.test(normalized)) topics.add("layoffs");
-  if (/(f-?1|opt|stem opt|cpt|day 1 cpt|i-983|sevis|dso|ead card)/.test(normalized)) topics.add("student-status");
+  if (/(\bf-?1\b|\bopt\b|stem opt|\bcpt\b|i-983|sevis|\bdso\b|ead card)/.test(normalized)) topics.add("student-status");
   if (/(niw|national interest waiver|eb-?1a|eb-?2 niw|proposed endeavor|dhanasar|self.?petition)/.test(normalized)) topics.add("self-petition");
-  if (/(cspa|child status protection|age out|aging out|turns 21|turn 21|sought to acquire)/.test(normalized)) topics.add("cspa");
-  if (/(work authorization|employment authorization|unauthorized work|worked without authorization|i-9|ead)/.test(normalized)) topics.add("work-authorization");
+  if (CSPA_PATTERN.test(normalized)) topics.add("cspa");
+  if (/(work authorization|employment authorization|unauthorized work|worked without authorization|i-9\b|\bead\b|work permit)/.test(normalized)) topics.add("work-authorization");
   if (/(haven|timeline|dashboard|planner|inbox|community)/.test(normalized)) topics.add("haven-product");
 
   return topics;
@@ -528,11 +599,11 @@ function selectGuardrailIds(query: string, topics: TopicBucket[], signals: Guard
     ids.push("GR_LAYOFF_SAFETY_RULES", "GR_LAYOFF_OPTION_MENU");
   }
 
-  if (topics.includes("student-status") && /(opt|ead|work|employment|job starts|begin work|start work)/.test(normalized)) {
+  if (topics.includes("student-status") && START_WORK_PATTERN.test(normalized)) {
     ids.push("GR_OPT_WORK_AUTHORIZATION");
   }
 
-  if (topics.includes("student-status") && /(cpt|day 1 cpt)/.test(normalized)) {
+  if (topics.includes("student-status") && CPT_PATTERN.test(normalized)) {
     ids.push("GR_CPT_DAY1");
   }
 
@@ -540,11 +611,11 @@ function selectGuardrailIds(query: string, topics: TopicBucket[], signals: Guard
     ids.push("GR_CSPA_AGE_OUT");
   }
 
-  if (topics.includes("self-petition") && /(denied|denial|refil|re-file|appeal|motion|vague|proposed endeavor)/.test(normalized)) {
+  if (topics.includes("self-petition") && PETITION_REFUSED_PATTERN.test(normalized)) {
     ids.push("GR_NIW_DENIAL");
   }
 
-  if (topics.includes("work-authorization") && /(misrepresent|hide|conceal|does not notice|without authorization|unauthorized work)/.test(normalized)) {
+  if (topics.includes("work-authorization") && UNAUTHORIZED_WORK_PATTERN.test(normalized)) {
     ids.push("GR_UNAUTHORIZED_WORK");
   }
 
@@ -1152,11 +1223,11 @@ function scoreIntentBoost(query: string, chunk: RetrievedKnowledgeChunk) {
     if (/(advance parole|travel|i-131|abandon|reentry|visa stamp)/.test(sourceText)) boost += 8;
   }
 
-  if (/(opt|cpt|day 1 cpt|dso|sevis|ead card)/.test(normalized)) {
-    if (/(opt|cpt|dso|form i-20|ead|student)/.test(sourceText)) boost += 8;
+  if (/(\bopt\b|\bcpt\b|day 1 cpt|\bdso\b|sevis|ead card)/.test(normalized)) {
+    if (/(\bopt\b|\bcpt\b|\bdso\b|form i-20|\bead\b|student)/.test(sourceText)) boost += 8;
   }
 
-  if (/(cspa|age out|turns 21|turn 21|sought to acquire)/.test(normalized)) {
+  if (CSPA_PATTERN.test(normalized)) {
     if (/(cspa|child status protection|sought-to-acquire|visa availability|cspa age)/.test(sourceText)) boost += 8;
   }
 
@@ -1178,7 +1249,7 @@ async function retrieveKnowledge(query: string, topics: TopicBucket[], parent?: 
   const retrievalTopics =
     (topics.includes("h1b") || topics.includes("layoffs")) && (mentionsJobLoss(normalized) || /(grace period|60-day|day 60|lca|h-1b transfer|petition cannot be filed)/.test(normalized))
       ? topics.filter((topic) => topic === "h1b" || topic === "layoffs")
-      : topics.includes("student-status") && /(opt|cpt|day 1 cpt|dso|sevis|ead card)/.test(normalized)
+      : topics.includes("student-status") && /(\bopt\b|\bcpt\b|day 1 cpt|\bdso\b|sevis|ead card)/.test(normalized)
       ? topics.filter((topic) => topic === "student-status" || topic === "work-authorization")
       : topics;
 
@@ -1360,7 +1431,10 @@ function buildCitationSet(
       kind: "external",
       label: `Department of State · Visa Bulletin ${liveBulletin.bulletinLabel}`,
       url: liveBulletin.sourceUrl ?? undefined,
-      quote: `Bulletin month: ${liveBulletin.bulletinLabel} (${liveBulletin.ageDays} days old).`,
+      // Haven's own description of the bulletin we hold, not anything the
+      // Department of State wrote.
+      excerpt: `Bulletin month: ${liveBulletin.bulletinLabel} (${liveBulletin.ageDays} days old).`,
+      attribution: "haven-summary",
       citationIndex: 0
     });
   }
@@ -1373,7 +1447,13 @@ function buildCitationSet(
       kind: "external",
       label: `${chunk.agency} · ${chunk.title}`,
       url: chunk.url,
-      quote: chunk.content,
+      // Corpus chunks are Haven's paraphrase of the source ("USCIS frames H-1B
+      // as..."), never the agency's own sentences. Marking that here is what lets
+      // the UI stop presenting them as the agency's words. If verbatim source text
+      // is ever added to the corpus, that is the point to set "verbatim" — from the
+      // document, not from a default.
+      excerpt: chunk.content,
+      attribution: "haven-summary",
       citationIndex: deduped.size
     });
   });
@@ -1564,7 +1644,7 @@ function fallbackAnswer(
  *
  * Returns both the text and the ids used, so the trace records which fired.
  */
-function buildMandatorySafetyAddendum(
+export function buildMandatorySafetyAddendum(
   question: string,
   topics: TopicBucket[],
   answer: string,
@@ -1588,7 +1668,13 @@ function buildMandatorySafetyAddendum(
     const missingUnauthorizedWork = !/do not work without authorization|don't work without authorization|unauthorized work/i.test(answer);
     const missingLcaWarning = !/lca preparation alone does not preserve status|lca.*not.*preserve status|lca.*not.*filed h-1b petition/i.test(answer);
     const missingImmediateCounsel = !/confirm.*deadline.*counsel|confirm.*filing strategy.*counsel|immigration counsel immediately/i.test(answer);
-    const missingFallbackOptions = !/(departure|depart|leave the u\.s\.|consular|change of status|b-2|premium processing|receipt notice|form i-129)/i.test(answer);
+    // \bdepart\b, not `depart`: the bare alternative matched inside "Department",
+    // and "Department of Labor" / "Department of State" appear in a large share of
+    // immigration answers. Their presence convinced this check the answer had
+    // already offered the fallback options, so FIX_FALLBACK_OPTIONS was suppressed
+    // on exactly the layoff answers that needed it — silently, with no error.
+    const missingFallbackOptions =
+      !/(\bdepartures?\b|\bdepart(s|ing|ed)?\b|leave the u\.s\.|consular|change of status|b-2|premium processing|receipt notice|form i-129)/i.test(answer);
     // Previously this checked for one eval fixture's dates and, when absent, asserted
     // them. It fired only for that fixture, so real users got no correction at all
     // while the eval suite reported the check as working. The general form: if the
