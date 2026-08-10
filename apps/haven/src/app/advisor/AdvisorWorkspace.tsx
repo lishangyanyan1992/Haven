@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bot,
+  BrainCircuit,
   ExternalLink,
   MessageSquare,
   Plus,
@@ -11,7 +12,8 @@ import {
   ThumbsDown,
   ThumbsUp,
   Trash2,
-  User2
+  User2,
+  X
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -26,6 +28,8 @@ import type { AdvisorAnswerPayload, AdvisorMessage } from "@/types/domain";
 
 type AdvisorWorkspaceProps = {
   advisorUsage: AdvisorUsage;
+  /** Rendered by the server, so the client does not re-fetch the same rows on mount. */
+  initialThreads: AdvisorThreadSummary[];
   suggestedPrompts: string[];
   welcomeMessage: AdvisorAnswerPayload;
 };
@@ -42,6 +46,13 @@ type AdvisorThreadSummary = {
   title: string;
   updatedAt: string;
   messageCount: number;
+};
+
+type RememberedFact = {
+  id: string;
+  kind: string;
+  quote: string;
+  createdAt: string;
 };
 
 /** "3 days ago" — enough for a sidebar, no dependency needed. */
@@ -63,7 +74,12 @@ function relativeTime(iso: string) {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(iso));
 }
 
-export function AdvisorWorkspace({ advisorUsage, suggestedPrompts, welcomeMessage }: AdvisorWorkspaceProps) {
+export function AdvisorWorkspace({
+  advisorUsage,
+  initialThreads,
+  suggestedPrompts,
+  welcomeMessage
+}: AdvisorWorkspaceProps) {
   const [messages, setMessages] = useState<AdvisorMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -71,7 +87,8 @@ export function AdvisorWorkspace({ advisorUsage, suggestedPrompts, welcomeMessag
   const [isPending, setIsPending] = useState(false);
   const [streamingId, setStreamingId] = useState<string | null>(null);
   const [stoppedIds, setStoppedIds] = useState<string[]>([]);
-  const [threads, setThreads] = useState<AdvisorThreadSummary[]>([]);
+  const [threads, setThreads] = useState<AdvisorThreadSummary[]>(initialThreads);
+  const [facts, setFacts] = useState<RememberedFact[]>([]);
   const [openingThreadId, setOpeningThreadId] = useState<string | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -89,11 +106,43 @@ export function AdvisorWorkspace({ advisorUsage, suggestedPrompts, welcomeMessag
     }
   }, []);
 
-  // Loaded once, when the advisor is actually opened — not on every page. Supabase
-  // egress is the tightest budget in this project.
+  const refreshFacts = useCallback(async () => {
+    try {
+      const response = await fetch("/api/advisor/memory");
+      if (!response.ok) return;
+      const body = (await response.json()) as { facts?: RememberedFact[] };
+      setFacts(body.facts ?? []);
+    } catch {
+      // Same reasoning as the conversation list: an affordance, not the product.
+    }
+  }, []);
+
+  // Threads arrive from the server with the page, so only the facts are fetched
+  // here — and only on the advisor itself, never on every page. Supabase egress is
+  // the tightest budget in this project, and the conversation list is the largest
+  // thing on this screen.
   useEffect(() => {
-    void refreshThreads();
-  }, [refreshThreads]);
+    void refreshFacts();
+  }, [refreshFacts]);
+
+  const forgetFact = useCallback(
+    async (fact: RememberedFact) => {
+      const previous = facts;
+      setFacts((current) => current.filter((item) => item.id !== fact.id));
+      try {
+        const response = await fetch("/api/advisor/memory", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ factId: fact.id })
+        });
+        if (!response.ok) throw new Error("forget failed");
+      } catch {
+        setFacts(previous);
+        setError("Haven couldn't forget that just now. Try again in a moment.");
+      }
+    },
+    [facts]
+  );
 
   const openThread = useCallback(async (threadId: string) => {
     setOpeningThreadId(threadId);
@@ -280,8 +329,12 @@ export function AdvisorWorkspace({ advisorUsage, suggestedPrompts, welcomeMessag
             setIsPending(false);
             trackEvent("Search", { search_query: content, user_id: null, results_count: 1 });
             // The exchange is saved by now, so a brand-new conversation appears in
-            // the list and an existing one moves to the top.
+            // the list and an existing one moves to the top. Facts are extracted in
+            // the same step, so anything newly remembered shows up immediately —
+            // the user should learn that Haven kept something at the moment it
+            // keeps it, not weeks later when it surfaces in an answer.
             void refreshThreads();
+            void refreshFacts();
           } else if (event.type === "error") {
             throw new Error(event.message);
           }
@@ -451,8 +504,19 @@ export function AdvisorWorkspace({ advisorUsage, suggestedPrompts, welcomeMessag
               )}
             </div>
             <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              {/* The old copy described precedence — official sources, then profile,
+                  then community — and never mentioned that the question and the
+                  relevant profile fields are sent to an AI provider to be answered.
+                  Describing the ordering of inputs is not the same as disclosing
+                  where they go, and the second is the one a user handing over their
+                  immigration history is entitled to know without hunting for it. */}
               <p className="text-caption">
-                Haven uses official sources first, then your current Haven profile, then community context as anecdotal backup.
+                Official sources first, then your Haven profile, then community context as anecdotal backup. Your
+                question and the relevant parts of your profile are sent to an AI provider to produce the answer —{" "}
+                <a className="underline underline-offset-2" href="/privacy">
+                  how Haven handles your data
+                </a>
+                .
               </p>
               {isPending ? (
                 <Button onClick={stopAnswer} size="sm" variant="outline">
@@ -469,6 +533,48 @@ export function AdvisorWorkspace({ advisorUsage, suggestedPrompts, welcomeMessag
           </div>
         </CardContent>
       </Card>
+
+      {/* What Haven remembers, in the user's own words, with a way to remove any of
+          it. This panel is the feature's honesty mechanism rather than a
+          convenience: recalling something somebody knows they said is helpful,
+          recalling something they did not realise was kept is unsettling, and on
+          immigration history that is a trust failure. If it is remembered, it is
+          shown here. */}
+      {facts.length > 0 && (
+        <Card>
+          <CardContent className="space-y-3 py-4">
+            <div>
+              <p className="text-caption text-[var(--color-text-secondary)]">What Haven remembers</p>
+              <p className="mt-1 text-caption text-[var(--color-text-secondary)]">
+                Things you told Haven in earlier conversations, so you don&apos;t have to repeat them. Haven treats
+                these as what you said, not as verified facts — remove anything that&apos;s out of date or you&apos;d
+                rather it forgot.
+              </p>
+            </div>
+            <ul className="space-y-1">
+              {facts.map((fact) => (
+                <li key={fact.id} className="flex items-start gap-2 rounded-[var(--radius-md)] bg-[var(--haven-sand)] px-3 py-2">
+                  <BrainCircuit className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--color-text-secondary)]" />
+                  <span className="min-w-0 flex-1 text-body-sm">
+                    &ldquo;{fact.quote}&rdquo;
+                    <span className="ml-2 text-caption text-[var(--color-text-secondary)]">
+                      {relativeTime(fact.createdAt)}
+                    </span>
+                  </span>
+                  <button
+                    aria-label={`Forget: ${fact.quote}`}
+                    className="shrink-0 rounded-full p-1.5 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--haven-blush-light)] hover:text-[var(--haven-blush-ink)]"
+                    onClick={() => void forgetFact(fact)}
+                    type="button"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="px-1">
         {/* Counts conversations, not questions — follow-ups within a thread are
