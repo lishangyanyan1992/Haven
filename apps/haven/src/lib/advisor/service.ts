@@ -1223,11 +1223,11 @@ function scoreIntentBoost(query: string, chunk: RetrievedKnowledgeChunk) {
     if (/(advance parole|travel|i-131|abandon|reentry|visa stamp)/.test(sourceText)) boost += 8;
   }
 
-  if (/(opt|cpt|day 1 cpt|dso|sevis|ead card)/.test(normalized)) {
-    if (/(opt|cpt|dso|form i-20|ead|student)/.test(sourceText)) boost += 8;
+  if (/(\bopt\b|\bcpt\b|day 1 cpt|\bdso\b|sevis|ead card)/.test(normalized)) {
+    if (/(\bopt\b|\bcpt\b|\bdso\b|form i-20|\bead\b|student)/.test(sourceText)) boost += 8;
   }
 
-  if (/(cspa|age out|turns 21|turn 21|sought to acquire)/.test(normalized)) {
+  if (CSPA_PATTERN.test(normalized)) {
     if (/(cspa|child status protection|sought-to-acquire|visa availability|cspa age)/.test(sourceText)) boost += 8;
   }
 
@@ -1249,7 +1249,7 @@ async function retrieveKnowledge(query: string, topics: TopicBucket[], parent?: 
   const retrievalTopics =
     (topics.includes("h1b") || topics.includes("layoffs")) && (mentionsJobLoss(normalized) || /(grace period|60-day|day 60|lca|h-1b transfer|petition cannot be filed)/.test(normalized))
       ? topics.filter((topic) => topic === "h1b" || topic === "layoffs")
-      : topics.includes("student-status") && /(opt|cpt|day 1 cpt|dso|sevis|ead card)/.test(normalized)
+      : topics.includes("student-status") && /(\bopt\b|\bcpt\b|day 1 cpt|\bdso\b|sevis|ead card)/.test(normalized)
       ? topics.filter((topic) => topic === "student-status" || topic === "work-authorization")
       : topics;
 
@@ -1644,7 +1644,7 @@ function fallbackAnswer(
  *
  * Returns both the text and the ids used, so the trace records which fired.
  */
-function buildMandatorySafetyAddendum(
+export function buildMandatorySafetyAddendum(
   question: string,
   topics: TopicBucket[],
   answer: string,
@@ -1668,7 +1668,13 @@ function buildMandatorySafetyAddendum(
     const missingUnauthorizedWork = !/do not work without authorization|don't work without authorization|unauthorized work/i.test(answer);
     const missingLcaWarning = !/lca preparation alone does not preserve status|lca.*not.*preserve status|lca.*not.*filed h-1b petition/i.test(answer);
     const missingImmediateCounsel = !/confirm.*deadline.*counsel|confirm.*filing strategy.*counsel|immigration counsel immediately/i.test(answer);
-    const missingFallbackOptions = !/(departure|depart|leave the u\.s\.|consular|change of status|b-2|premium processing|receipt notice|form i-129)/i.test(answer);
+    // \bdepart\b, not `depart`: the bare alternative matched inside "Department",
+    // and "Department of Labor" / "Department of State" appear in a large share of
+    // immigration answers. Their presence convinced this check the answer had
+    // already offered the fallback options, so FIX_FALLBACK_OPTIONS was suppressed
+    // on exactly the layoff answers that needed it — silently, with no error.
+    const missingFallbackOptions =
+      !/(\bdepartures?\b|\bdepart(s|ing|ed)?\b|leave the u\.s\.|consular|change of status|b-2|premium processing|receipt notice|form i-129)/i.test(answer);
     // Previously this checked for one eval fixture's dates and, when absent, asserted
     // them. It fired only for that fixture, so real users got no correction at all
     // while the eval suite reported the check as working. The general form: if the

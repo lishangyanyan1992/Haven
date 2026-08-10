@@ -112,11 +112,66 @@ const CASES: Case[] = [
   }
 ];
 
+/**
+ * The output-side version of the same bug class.
+ *
+ * `buildMandatorySafetyAddendum` decides whether the model already said the
+ * mandatory thing, and appends it when it did not. Those checks run against the
+ * *answer*, so a substring match there does not add a warning — it withholds one.
+ *
+ * `depart` matched inside "Department". "Department of Labor" and "Department of
+ * State" appear in a large share of immigration answers, so their presence
+ * convinced the check that fallback options had already been offered, and
+ * FIX_FALLBACK_OPTIONS was suppressed on exactly the layoff answers that needed
+ * it. Nothing errored, and the eval suite could not see it because the fixtures
+ * happened not to name either agency.
+ */
+const ADDENDUM_CASES: Array<{ name: string; answer: string; wantFired: string; want: boolean }> = [
+  {
+    name: "'Department of Labor' must not suppress the fallback options",
+    answer: "You were laid off. Confirm your dates with the Department of Labor before acting.",
+    wantFired: "FIX_FALLBACK_OPTIONS",
+    want: true
+  },
+  {
+    name: "'Department of State' must not suppress the fallback options",
+    answer: "The Department of State publishes the visa bulletin monthly, which is separate from your grace period.",
+    wantFired: "FIX_FALLBACK_OPTIONS",
+    want: true
+  },
+  {
+    name: "a real departure discussion still counts as offered",
+    answer:
+      "Options include a change of status, premium processing if the employer offers it, or departure and consular return.",
+    wantFired: "FIX_FALLBACK_OPTIONS",
+    want: false
+  }
+];
+
 async function main() {
-  const { routeAdvisorQuestion } = await import("@/lib/advisor/service");
+  const { routeAdvisorQuestion, buildMandatorySafetyAddendum } = await import("@/lib/advisor/service");
 
   let pass = 0;
   const failures: string[] = [];
+
+  for (const testCase of ADDENDUM_CASES) {
+    const result = buildMandatorySafetyAddendum(
+      "I was laid off last week, what should I do?",
+      ["layoffs", "h1b"] as never,
+      testCase.answer
+    );
+    const fired = result.fired.includes(testCase.wantFired);
+    const ok = fired === testCase.want;
+
+    console.log(
+      `${ok ? "PASS" : "FAIL"}  ${testCase.name}\n` +
+        `      answer: "${testCase.answer}"\n` +
+        `      ${testCase.wantFired}: fired=${fired}, want=${testCase.want}`
+    );
+
+    if (ok) pass += 1;
+    else failures.push(testCase.name);
+  }
 
   for (const testCase of CASES) {
     const route = routeAdvisorQuestion({ content: testCase.content });
