@@ -39,6 +39,44 @@ export interface ThreadState {
 export type HistoryTurn = { role: "user" | "assistant"; content: string };
 
 /**
+ * Remove the current message when the caller has included it in `history`.
+ *
+ * The Advisor client builds its request from `[...messages, newMessage]`, so the
+ * message being asked arrives *inside* its own history. Everything downstream
+ * treats history as "turns before this one", and that mismatch broke three things
+ * at once, all silently:
+ *
+ * - `countConsecutiveMisses` counted the current turn twice (once as the current
+ *   turn, once as the newest history entry), so the *first* unrecognised question
+ *   returned `2` and jumped straight to "I've asked twice and I'm still not
+ *   confident" — skipping the clarifying question entirely. A user's opening
+ *   message was answered as though it were their third.
+ * - `classifyTopicsWithContext` read the newest user turn as the "previous" turn,
+ *   which was the current message, so `previousMatched` always equalled
+ *   `currentMatched` and the one-turn lookback never consulted a real earlier
+ *   turn. That is the mechanism the layoff and travel guardrails rely on to
+ *   survive a follow-up like "and what if I only go for four days?" — in
+ *   production it was inert.
+ * - `deliveredGuardrailIds` was unaffected (it reads assistant turns only), which
+ *   is part of why nothing looked wrong.
+ *
+ * Normalising here rather than only in the client means every caller gets the same
+ * semantics: the browser, the eval harness, and anything added later. A client
+ * that already sends history correctly is unaffected, because only an exact
+ * trailing duplicate of the current message is dropped.
+ */
+export function withoutEchoedCurrentTurn(content: string, history: readonly HistoryTurn[]): HistoryTurn[] {
+  const turns = [...history];
+  const last = turns.at(-1);
+
+  if (last && last.role === "user" && last.content.trim() === content.trim()) {
+    turns.pop();
+  }
+
+  return turns;
+}
+
+/**
  * Detect whether an entry has already been delivered in an earlier answer.
  *
  * `deliveredWhen` wins when present. Otherwise the entry's own text is matched

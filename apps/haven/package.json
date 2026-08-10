@@ -16,7 +16,8 @@
     "check:memory": "tsx --tsconfig tsconfig.json evals/advisor/memory.check.ts",
     "eval:advisor:smoke": "npm run eval:advisor -- --preset recommended10",
     "eval:advisor:judge": "npm run eval:advisor -- --preset recommended10 --judge",
-    "check:guardrail-phrasing": "tsx --tsconfig tsconfig.json evals/advisor/guardrail-phrasing.check.ts"
+    "check:guardrail-phrasing": "tsx --tsconfig tsconfig.json evals/advisor/guardrail-phrasing.check.ts",
+    "check:request-contract": "tsx --tsconfig tsconfig.json evals/advisor/request-contract.check.ts"
   },
   "dependencies": {
     "@haven/auth": "*",

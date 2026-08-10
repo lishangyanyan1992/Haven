@@ -272,9 +272,17 @@ export function AdvisorWorkspace({
         body: JSON.stringify({
           content,
           conversationId: conversationId ?? undefined,
+          // The turns *before* this one. This used to send `nextMessages`, which
+          // includes the message being asked, so the server saw the current
+          // question inside its own history — the first unrecognised question
+          // then counted as two misses and skipped straight to the "I've asked
+          // twice" handoff, and the one-turn topic lookback only ever saw the
+          // current turn. The server also normalises this, so an older client
+          // cannot reintroduce it.
+          //
           // Only the most recent turns: the server rejects longer histories
           // outright, which used to break the thread entirely.
-          history: nextMessages.slice(-HISTORY_LIMIT).map((m) => ({
+          history: messages.slice(-HISTORY_LIMIT).map((m) => ({
             role: m.role,
             content: m.answerPayload?.answer_markdown ?? m.content,
           })),
