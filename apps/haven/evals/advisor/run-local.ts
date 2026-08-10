@@ -45,7 +45,9 @@ type JudgeResult = {
   issues: string[];
 };
 
-type Citation = { label: string; url?: string; quote?: string };
+// Mirrors AdvisorCitation: `excerpt` is only a quotation when attribution says
+// so, and the judge is told which it is rather than being left to assume.
+type Citation = { label: string; url?: string; excerpt?: string; attribution?: string };
 
 /**
  * Token accounting is estimated locally (chars/4) rather than read back from the
@@ -600,7 +602,8 @@ function toCitations(answerPayload: any): Citation[] {
   return (answerPayload?.external_citations ?? []).map((citation: any) => ({
     label: String(citation.label ?? ""),
     url: citation.url ? String(citation.url) : undefined,
-    quote: citation.quote ? String(citation.quote) : undefined
+    excerpt: citation.excerpt ? String(citation.excerpt) : undefined,
+    attribution: citation.attribution ? String(citation.attribution) : undefined
   }));
 }
 
@@ -886,7 +889,8 @@ async function judgeAnswer(testCase: EvalCase, answerText: string, answerPayload
   const citations = (answerPayload?.external_citations ?? []).map((citation: any) => ({
     label: citation.label,
     url: citation.url,
-    quote: citation.quote
+    excerpt: citation.excerpt,
+    attribution: citation.attribution
   }));
 
   const response = await client.chat.completions.create({
@@ -1130,7 +1134,7 @@ function formatMarkdownReport(report: EvalRunReport) {
     lines.push("");
     lines.push(
       result.citations.length > 0
-        ? result.citations.map((citation) => `- ${citation.label}${citation.url ? `: ${citation.url}` : ""}${citation.quote ? `\n  - ${citation.quote}` : ""}`).join("\n")
+        ? result.citations.map((citation) => `- ${citation.label}${citation.url ? `: ${citation.url}` : ""}${citation.excerpt ? `\n  - [${citation.attribution === "verbatim" ? "quoted" : "Haven summary"}] ${citation.excerpt}` : ""}`).join("\n")
         : "- None"
     );
     lines.push("");
