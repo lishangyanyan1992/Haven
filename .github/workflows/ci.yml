@@ -33,3 +33,39 @@ jobs:
 
       - name: Type check (immig-wizard)
         run: npm run typecheck:wizard
+
+  advisor:
+    name: Advisor safety checks
+    runs-on: ubuntu-latest
+
+    # A separate job rather than more steps on `check`, so these run in parallel
+    # and a failure names the thing that broke instead of hiding inside "Type
+    # check & lint".
+    #
+    # These guard the sentences the Advisor is obliged to say in situations where
+    # being wrong costs somebody their immigration status. They are deterministic,
+    # need no API key, and finish in seconds — there is no reason for them not to
+    # gate every change.
+    #
+    # If `check:travel-gate` fails, read the header of
+    # apps/haven/evals/advisor/travel-gate.check.ts before touching the pattern.
+    # Narrowing it to make the suite pass is how the original bug shipped.
+    env:
+      # Same stubs as above: env validation runs at import, and no real secrets
+      # are needed because none of these checks touch the network or a database.
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Guardrail registry, stale bulletin, travel gate
+        run: npm run check:advisor
