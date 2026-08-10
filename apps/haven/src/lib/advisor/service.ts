@@ -29,7 +29,12 @@ import {
 } from "@/lib/advisor/source-corpus";
 import type { TopicBucket } from "@/lib/advisor/topics";
 import { guardrailText, resolveGuardrails } from "@/lib/advisor/guardrail-registry";
-import { buildThreadState, type ThreadState, type TurnResolution } from "@/lib/advisor/thread-state";
+import {
+  buildThreadState,
+  withoutEchoedCurrentTurn,
+  type ThreadState,
+  type TurnResolution
+} from "@/lib/advisor/thread-state";
 import { listThreads, persistExchange, type AdvisorThreadSummary } from "@/lib/advisor/threads";
 import { listFacts, rememberFactsFrom, renderFactsForPrompt, type RememberedFact } from "@/lib/advisor/memory";
 import { renderLayoffOptionsForPrompt } from "@/lib/advisor/layoff-options";
@@ -329,6 +334,25 @@ function mentionsTravel(normalized: string) {
  * the term. CSPA deadlines cannot be recovered once missed, which is why the
  * guardrail says to see an attorney immediately.
  */
+/**
+ * The green-card queue: preference category, country backlog, "what should I
+ * watch next".
+ *
+ * Nothing in the classifier knew what EB-1, EB-2 or EB-3 were. Haven's own first
+ * suggested prompt is built from the user's profile as "How does my {category} +
+ * {country} path affect what I should watch next?" — so the chip shown at the top
+ * of an empty Advisor matched no topic, resolved `unmatched`, and was answered
+ * with a refusal to answer. The product's opening move failed on itself.
+ *
+ * Scoped deliberately. A bare "EB-2" is not enough, because "my EB-2 NIW was
+ * denied" is a self-petition question and pulling visa-bulletin sources into it
+ * would displace the NIW ones — retrieval keeps only six chunks, which is the
+ * lesson from the substring bug. The category has to sit near a queue concept
+ * (path, timeline, backlog, wait, what to watch) before this fires.
+ */
+const GREEN_CARD_PATH_PATTERN =
+  /(?:\beb-?[123]\b|employment[- ]based (?:first|second|third)|\bgreen.?card\b)[^.?!]{0,60}\b(?:path|timeline|process|progress|queue|wait|waiting|watch|backlog|retrogress\w*|current|movement|forecast|next|stage|steps?)\b|\b(?:backlog|retrogress\w*|per.?country (?:limit|cap)|priority date)\b/;
+
 const CSPA_PATTERN =
   /(cspa|child status protection|ages? out|ageing out|aging out|aged out|turns? 21|turning 21|will be 21|becomes? 21|reaches? 21|over 21|21st birthday|sought to acquire|too old to (be included|qualify|stay on)|age.?out)/;
 
@@ -394,7 +418,8 @@ function detectTopics(input: string): Set<TopicBucket> {
   // the ones it needed. This was invisible: the answer still arrived, just built on
   // the wrong material.
   if (/(h-?1b|specialty occupation|transfer|amendment|\bcap\b|grace period)/.test(normalized)) topics.add("h1b");
-  if (/(visa bulletin|priority date|dates for filing|final action)/.test(normalized)) topics.add("visa-bulletin");
+  if (/(visa bulletin|dates for filing|final action)/.test(normalized) || GREEN_CARD_PATH_PATTERN.test(normalized))
+    topics.add("visa-bulletin");
   if (/\bperm\b|labor certification|\bflag(ged|s)?\b/.test(normalized)) topics.add("perm");
   if (/(i-485|i485|adjustment of status|adjust status|advance parole|i-131)/.test(normalized)) topics.add("adjustment-of-status");
   if (/(job change|same or similar|ac21|portability)/.test(normalized)) topics.add("job-change");
@@ -502,9 +527,11 @@ export function routeAdvisorQuestion(input: {
   // this a narrowing follow-up ("and what if I only go for four days?") kept the
   // topic and lost the guardrail.
   const previousUserTurn = [...history].reverse().find((turn) => turn.role === "user");
+  const previousNormalized = previousUserTurn ? previousUserTurn.content.toLowerCase() : null;
   const travelMentioned =
-    mentionsTravel(normalized) ||
-    (previousUserTurn ? mentionsTravel(previousUserTurn.content.toLowerCase()) : false);
+    mentionsTravel(normalized) || (previousNormalized ? mentionsTravel(previousNormalized) : false);
+  const jobLossMentioned =
+    mentionsJobLoss(normalized) || (previousNormalized ? mentionsJobLoss(previousNormalized) : false);
 
   // Profile-aware augmentation.
   //
@@ -546,7 +573,7 @@ export function routeAdvisorQuestion(input: {
 
   return {
     topics,
-    guardrailIds: selectGuardrailIds(content, topics, { travelMentioned }),
+    guardrailIds: selectGuardrailIds(content, topics, { travelMentioned, jobLossMentioned }),
     currentMatched,
     previousMatched: classification.previousMatched,
     resolution: currentMatched ? "matched" : classification.previousMatched ? "carried" : "unmatched",
@@ -568,6 +595,20 @@ export interface GuardrailSignals {
    * been rechecked here.
    */
   travelMentioned: boolean;
+  /**
+   * Job loss was raised in this turn *or* the previous user turn.
+   *
+   * The identical defect on the layoff gate, and the one the codebase already
+   * documented once: the classifier was taught to carry the topic across a
+   * follow-up because our own chips ("What has to be filed before day 60, and who
+   * files it?") restate nothing, but guardrail *selection* was left reading only
+   * the current message. So the chips kept the `layoffs` topic and lost
+   * GR_LAYOFF_SAFETY_RULES — on the highest-risk question in the product, offered
+   * by a button Haven itself renders. Note also that the old trigger list
+   * contained "grace period" but not "day 60", which is the exact wording of the
+   * chip.
+   */
+  jobLossMentioned: boolean;
 }
 
 /**
@@ -593,7 +634,10 @@ function selectGuardrailIds(query: string, topics: TopicBucket[], signals: Guard
     ids.push("GR_I485_TRAVEL");
   }
 
-  if ((topics.includes("h1b") || topics.includes("layoffs")) && (mentionsJobLoss(normalized) || /(grace period|transfer|paycheck|last day)/.test(normalized))) {
+  if (
+    (topics.includes("h1b") || topics.includes("layoffs")) &&
+    (signals.jobLossMentioned || /(grace period|60-day|day 60|transfer|paycheck|last day|deadline|what to file|who files)/.test(normalized))
+  ) {
     // The hard rules and the option menu were one guardrail. Split so the rules can
     // repeat on every layoff turn while the menu is delivered once (CD-13.4).
     ids.push("GR_LAYOFF_SAFETY_RULES", "GR_LAYOFF_OPTION_MENU");
@@ -932,7 +976,7 @@ function familiarityFor(priorConversations: number): AdvisorFamiliarity {
   return "regular";
 }
 
-function buildSuggestedPrompts(snapshot: AdvisorSeedSnapshot, session: AdvisorSessionContext) {
+export function buildSuggestedPrompts(snapshot: AdvisorSeedSnapshot, session: AdvisorSessionContext) {
   const [firstConcern] = snapshot.profile.topConcerns;
   const prompts = [
     `How does my ${snapshot.profile.preferenceCategory} + ${snapshot.profile.countryOfBirth} path affect what I should watch next?`,
@@ -1965,7 +2009,13 @@ export async function* streamAdvisorResponse(rawInput: {
     return;
   }
 
-  const { content, history: rawHistory, conversationId } = parsed.data;
+  const { content, history: submittedHistory, conversationId } = parsed.data;
+
+  // The client sends `[...messages, newMessage]`, so the current question arrives
+  // inside its own history. Normalising at the boundary keeps "history" meaning
+  // "turns before this one" for every caller — see withoutEchoedCurrentTurn for
+  // the three things that quietly broke while it did not.
+  const rawHistory = withoutEchoedCurrentTurn(content, submittedHistory);
 
   // Loaded before routing because the profile contributes to it: a pending I-485
   // turns a bare travel question into an adjustment-of-status travel question.
