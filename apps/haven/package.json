@@ -62,8 +62,8 @@
     "autoprefixer": "^10.5.4",
     "eslint": "*",
     "eslint-config-next": "^16.3.0",
-    "postcss": "*",
-    "supabase": "^2.112.0",
+    "postcss": "^8.5.26",
+    "supabase": "^2.113.0",
     "tailwindcss": "*",
     "typescript": "^5.9.3"
   }
