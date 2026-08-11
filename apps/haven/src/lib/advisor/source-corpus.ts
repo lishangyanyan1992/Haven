@@ -17,6 +17,21 @@ export interface SeedKnowledgeDocument {
   title: string;
   url: string;
   topic: string;
+  /**
+   * Extra topics this document also answers, for retrieval filtering.
+   *
+   * Retrieval filters chunks by topic, and a document can genuinely serve two.
+   * The three layoff-critical documents — the USCIS termination-options page, the
+   * 8 CFR 214.1 grace period, and 8 CFR 214.2 portability — were tagged `h1b`
+   * only, so a question that classified as pure `layoffs` ("I was made redundant,
+   * what now?") matched zero official documents and fell back to whole-corpus
+   * ranking. The right sources usually still surfaced, but through the fallback,
+   * not the filter — on the highest-stakes topic in the product.
+   *
+   * `topic` stays the single primary: the stale-bulletin gate and the DB sync key
+   * off it. This list only widens retrieval; it never narrows anything.
+   */
+  additionalTopics?: string[];
   versionLabel: string;
   effectiveDate?: string;
   bodyMarkdown: string;
@@ -153,6 +168,7 @@ export const trustedKnowledgeDocuments: SeedKnowledgeDocument[] = [
     title: "USCIS Options for Nonimmigrant Workers Following Termination of Employment",
     url: "https://www.uscis.gov/archive/options-for-nonimmigrant-workers-following-termination-of-employment-0",
     topic: "h1b",
+    additionalTopics: ["layoffs"],
     versionLabel: "2026 archived guidance",
     bodyMarkdown:
       "USCIS describes options for certain nonimmigrant workers after termination of employment, including the discretionary grace period, timely filing by a new employer, change of status, and departure planning.",
@@ -168,6 +184,7 @@ export const trustedKnowledgeDocuments: SeedKnowledgeDocument[] = [
     title: "8 CFR 214.1: Nonimmigrant Grace Period",
     url: "https://www.ecfr.gov/current/title-8/chapter-I/subchapter-B/part-214/subpart-A/section-214.1",
     topic: "h1b",
+    additionalTopics: ["layoffs"],
     versionLabel: "2026 current eCFR",
     bodyMarkdown:
       "DHS regulations describe the discretionary grace period for certain nonimmigrants after cessation of employment and state that work is not authorized during that period unless separately authorized.",
@@ -183,6 +200,7 @@ export const trustedKnowledgeDocuments: SeedKnowledgeDocument[] = [
     title: "8 CFR 214.2: H-1B Portability",
     url: "https://www.ecfr.gov/current/title-8/chapter-I/subchapter-B/part-214/subpart-A/section-214.2",
     topic: "h1b",
+    additionalTopics: ["layoffs"],
     versionLabel: "2026 current eCFR",
     bodyMarkdown:
       "DHS regulations describe H-1B portability and the filing condition for starting new employment with a new H-1B petitioner.",

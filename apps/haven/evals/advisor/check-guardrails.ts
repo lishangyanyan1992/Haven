@@ -145,7 +145,12 @@ expect(
 
 const unreviewed = entries.filter((entry) => entry.lastReviewedBy === null);
 const gaps = unsourcedAttributes();
-const layoffDocs = trustedKnowledgeDocuments.filter((document) => document.topic === "layoffs");
+// Effective topics: primary plus additionalTopics. The three layoff-critical
+// documents are primarily h1b (they serve transfer questions too) and carry
+// layoffs as an additional topic so pure-layoff questions retrieve them.
+const layoffDocs = trustedKnowledgeDocuments.filter(
+  (document) => document.topic === "layoffs" || (document.additionalTopics ?? []).includes("layoffs")
+);
 
 console.log(`Guardrail registry: ${entries.length} entries`);
 console.log(`  model-facing: ${entries.filter((e) => e.audience === "model").length}`);
@@ -164,9 +169,40 @@ for (const gap of gaps) {
 }
 
 console.log(`\nOfficial 'layoffs' documents in the corpus: ${layoffDocs.length}`);
-if (layoffDocs.length === 0) {
-  console.log("  The Advisor offers five post-layoff options and has no official layoffs document behind them.");
-  console.log("  The supported statements above are borrowed from h1b-topic documents. This is the CD-13.3 gap.");
+// Hard assertion, not a standing note. The Advisor offers five post-layoff
+// options; the termination-options page, the grace-period regulation, and the
+// portability regulation are the minimum evidence behind them. This was a
+// reported gap for weeks — once closed, it must not quietly reopen.
+if (layoffDocs.length < 3) {
+  failures.push(
+    `layoffs topic has ${layoffDocs.length} official document(s); needs at least 3 ` +
+      "(termination options, 8 CFR 214.1 grace period, 8 CFR 214.2 portability)"
+  );
+}
+
+// --- Retrieval reaches the layoff documents through the filter ---------------
+//
+// Tagging is only real if retrieval honours it. A question that classifies as
+// pure `layoffs` — no H-1B vocabulary — must retrieve the official documents via
+// the topic filter, not via the whole-corpus fallback that quietly served these
+// questions before. Executed here rather than assumed, because the previous
+// state (zero matches, fallback rescue) also "worked" in casual testing.
+{
+  const { retrieveKnowledge } = await import("../../src/lib/advisor/service");
+  const retrieved = await retrieveKnowledge("I was made redundant, what should I do now?", ["layoffs"] as never);
+  const slugs = new Set(retrieved.map((chunk) => chunk.chunkKey.split(":")[0]));
+  const required = [
+    "uscis-nonimmigrant-worker-termination-options",
+    "ecfr-214-1-grace-period",
+    "ecfr-214-2-h1b-portability"
+  ];
+  const missing = required.filter((slug) => !slugs.has(slug));
+  console.log(
+    `\nPure-layoffs retrieval: ${required.length - missing.length}/${required.length} required documents reached`
+  );
+  if (missing.length > 0) {
+    failures.push(`pure-layoffs question did not retrieve: ${missing.join(", ")}`);
+  }
 }
 
 if (failures.length > 0) {

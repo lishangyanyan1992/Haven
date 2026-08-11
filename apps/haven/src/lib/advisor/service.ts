@@ -45,7 +45,9 @@ import {
   type LiveBulletinSnapshot
 } from "@/lib/advisor/bulletin-live";
 
-type RetrievedKnowledgeChunk = KnowledgeChunk & { documentId?: string };
+// `topics` is the full set the chunk answers under (primary + additional); the
+// singular `topic` stays for display, the stale-bulletin gate, and the DB shape.
+type RetrievedKnowledgeChunk = KnowledgeChunk & { documentId?: string; topics?: string[] };
 type RetrievedCommunitySummary = CommunityAdviceSummary;
 
 // A Langfuse parent observation — either the trace itself or a span — that
@@ -1238,6 +1240,11 @@ function buildFallbackKnowledgeChunks(): RetrievedKnowledgeChunk[] {
       chunkIndex: index,
       content: chunk,
       topic: document.topic,
+      // Every topic this chunk answers under. The grace-period and portability
+      // documents are both h1b and layoffs; filtering on the primary alone left a
+      // pure-layoffs question ("I was made redundant, what now?") with zero
+      // official documents, served only by the whole-corpus fallback.
+      topics: [document.topic, ...(document.additionalTopics ?? [])],
       title: document.title,
       url: document.url,
       agency: source.agency,
@@ -1286,7 +1293,7 @@ function scoreIntentBoost(query: string, chunk: RetrievedKnowledgeChunk) {
   return boost;
 }
 
-async function retrieveKnowledge(query: string, topics: TopicBucket[], parent?: LangfuseParent) {
+export async function retrieveKnowledge(query: string, topics: TopicBucket[], parent?: LangfuseParent) {
   const span = parent?.span({ name: "official-sources-agent", input: { query, topics } });
   const chunks = buildFallbackKnowledgeChunks();
   const normalized = query.toLowerCase();
@@ -1299,7 +1306,8 @@ async function retrieveKnowledge(query: string, topics: TopicBucket[], parent?: 
 
   const filtered = chunks.filter((chunk) => {
     if (retrievalTopics.includes("haven-product")) return true;
-    return retrievalTopics.includes(chunk.topic as TopicBucket);
+    const chunkTopics = chunk.topics ?? [chunk.topic];
+    return retrievalTopics.some((topic) => chunkTopics.includes(topic));
   });
 
   const ranked = (filtered.length > 0 ? filtered : chunks)
@@ -2630,6 +2638,7 @@ export async function syncTrustedSources() {
         embedding: embeddingsByChunkKey.get(`${document.slug}:${index}`) ?? null,
         metadata: {
           topic: document.topic,
+          additionalTopics: document.additionalTopics ?? [],
           sourceSlug: document.sourceSlug,
           versionLabel: document.versionLabel
         }
