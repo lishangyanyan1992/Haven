@@ -187,13 +187,30 @@ function tier0Block(filters: CaseSegmentFilters, attempted: boolean): CaseStatsB
 }
 
 // Deterministic text injected into the LLM. The model may only restate these numbers — never compute its own.
-export function renderStatsForPrompt(block: CaseStatsBlock): string {
+/**
+ * @param hasStories whether community stories were retrieved for this answer.
+ *
+ * A thin segment is a reason not to quote *rates*, not a reason to withhold
+ * everything. Statistics need a minimum sample before a percentage means
+ * anything — that is what the tier gate protects. A story needs no sample: one
+ * person's experience is honestly one person's experience, and saying so is not a
+ * statistical claim. Before this, NO_STATS told the model there was nothing, and
+ * the user in the thinnest segment — often the most unusual and most worried —
+ * got the least.
+ */
+export function renderStatsForPrompt(block: CaseStatsBlock, hasStories = false): string {
   if (block.tier === "tier0") {
-    return (
+    const base =
       `NO_STATS — fewer than ${TIER1_MIN_TOTAL} matching cases for "${block.segmentLabel}". ` +
-      "Tell the user there isn't enough data for their exact profile yet, give general orientation, " +
-      "and hand off to an attorney. DO NOT invent any numbers."
-    );
+      "Do NOT give any percentages, counts, or rates, and DO NOT invent numbers.";
+
+    return hasStories
+      ? `${base} There ARE individual community experiences in the "Community summaries" block above. ` +
+          "Use one or two of them, clearly framed as single people's experiences rather than a pattern " +
+          "— say plainly that there isn't enough data yet to say what is typical for their profile. " +
+          "End with the attorney hand-off."
+      : `${base} Tell the user there isn't enough data for their exact profile yet, give general orientation, ` +
+          "and hand off to an attorney.";
   }
 
   const header =
