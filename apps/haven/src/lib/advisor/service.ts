@@ -753,7 +753,33 @@ function isExperientialQuestion(query: string): boolean {
   if (/(how long|processing time|still waiting|how much time|took|delay|stuck|pending|timeline|how fast|when will|when did|how soon|months|weeks|days to)/.test(normalized)) return true;
   if (/(did anyone|has anyone|what happened|rfe|denied|rejected|approved|case status|anyone else|my experience|in my case|success story|real.?world|in practice|actually)/.test(normalized)) return true;
   if (/(people like me|others in|similar case|same situation|community|others have|heard from|typical|average|usually take|normally)/.test(normalized)) return true;
+  // The plainest way anyone asks this, and it matched none of the above. "others
+  // in" needed those two words adjacent, so "what did other people in my
+  // situation do?" -- the canonical phrasing of the entire feature -- was not an
+  // experiential question, retrieved no stories, and (because the stats gate
+  // required "what do/should/can", not "what did") returned no statistics either.
+  // The purest form of the question got nothing at all.
+  if (/(other people|others who|other h-?1b|anyone (who|else|in)|people (who|in) (my|a similar)|what did (people|others|anyone)|how did (people|others|anyone)|what worked for|in (my|a similar) (situation|position|boat|spot))/.test(normalized)) return true;
   return false;
+}
+
+/**
+ * Should this answer carry community stories?
+ *
+ * Stories and outcome statistics answer the same question — "what did people like
+ * me do?" — but they were gated separately, so "I was laid off, what are my
+ * options?" fetched the statistics and no stories. When that segment was too thin
+ * for statistics the block rendered NO_STATS, and the user got nothing human at
+ * all: no numbers, no experiences, just a hand-off.
+ *
+ * That fallback is backwards. Statistics need a minimum sample before they mean
+ * anything, which is why the tier gate exists. A story needs no sample — one
+ * person's experience is legitimately one person's experience, and it is honest
+ * precisely because it is not being presented as a rate. So a thin segment should
+ * degrade to stories, not to silence.
+ */
+export function wantsCommunityStories(query: string, topics: TopicBucket[]): boolean {
+  return isExperientialQuestion(query) || wantsCaseOutcomeStats(query, topics);
 }
 
 // Map the user's Haven profile into the coarse, bucketed segment filters the case-stats RPC expects.
@@ -792,7 +818,7 @@ function buildCaseSegmentFilters(profile: HavenWorkspaceSnapshot["profile"]): Ca
 }
 
 // Fire the crowdsourced "what did people like me do?" data path only for layoff / options questions.
-function wantsCaseOutcomeStats(query: string, topics: TopicBucket[]): boolean {
+export function wantsCaseOutcomeStats(query: string, topics: TopicBucket[]): boolean {
   if (!topics.includes("layoffs")) return false;
   const normalized = query.toLowerCase();
   return (
@@ -1375,12 +1401,15 @@ async function retrieveCommunity(
   snapshot: Awaited<ReturnType<typeof getSnapshot>>,
   parent?: LangfuseParent
 ) {
-  if (!isExperientialQuestion(query)) {
+  if (!wantsCommunityStories(query, topics)) {
     return [] as RetrievedCommunitySummary[];
   }
 
   const profile = snapshot.profile;
-  const span = parent?.span({ name: "community-story-agent", input: { query, topics, experiential: true } });
+  const span = parent?.span({
+    name: "community-story-agent",
+    input: { query, topics, experiential: isExperientialQuestion(query), forOutcomeQuestion: wantsCaseOutcomeStats(query, topics) }
+  });
 
   // Vector search path
   if (hasSupabaseEnv && (await hasCommunityAdviceSummaries())) {
@@ -2367,7 +2396,15 @@ export async function* streamAdvisorResponse(rawInput: {
       community.map((item) => `${item.title} | ${item.summary} | Caveat: ${item.legalCaveat}`)
     ),
     ...(caseStats
-      ? ["", buildContextBlock("Community outcome data (state verbatim; never compute your own numbers)", [renderStatsForPrompt(caseStats)])]
+      ? [
+          "",
+          buildContextBlock("Community outcome data (state verbatim; never compute your own numbers)", [
+            // The stories block is built above; telling the stats renderer whether
+            // it has anything to fall back on is what turns NO_STATS from "say
+            // nothing" into "use the individual experiences instead".
+            renderStatsForPrompt(caseStats, community.length > 0)
+          ])
+        ]
       : []),
     "",
     buildContextBlock(
