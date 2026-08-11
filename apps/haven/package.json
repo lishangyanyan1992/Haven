@@ -36,7 +36,7 @@
     "@vercel/speed-insights": "^2.0.0",
     "class-variance-authority": "*",
     "clsx": "*",
-    "framer-motion": "^12.42.2",
+    "framer-motion": "^13.0.0",
     "langfuse": "^3",
     "lucide-react": "^1.30.0",
     "mixpanel-browser": "^2.81.0",
