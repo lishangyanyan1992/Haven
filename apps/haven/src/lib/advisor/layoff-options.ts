@@ -15,10 +15,20 @@
  *
  * Unsourced attributes are injected into the prompt as explicit do-not-state
  * instructions, so the gap produces a hedge instead of a hallucination. The check
- * script prints the unsourced set as a standing knowledge-corpus gap — which is
- * currently large, because `trustedKnowledgeDocuments` contains zero documents in
- * the `layoffs` topic (its one layoffs entry is a community summary, not an
- * official source).
+ * script prints the unsourced set as a standing knowledge-corpus gap.
+ *
+ * The gap is now narrower than it was. The three documents these options actually
+ * rest on — the USCIS termination-options page, 8 CFR 214.1 (grace period) and
+ * 8 CFR 214.2 (portability) — were always in the corpus but tagged `h1b` only, so
+ * a pure-layoffs question retrieved none of them through the topic filter. They
+ * now carry `layoffs` as an additional topic, and check:guardrails asserts that a
+ * pure-layoffs question reaches all three.
+ *
+ * What remains genuinely missing is *timing and cost*: processing times, the
+ * premium-processing fee and its service window, consular return timing. Those
+ * need new official documents in the corpus, not retagging — and they are exactly
+ * the facts that change most often, so whoever adds them should verify against the
+ * live USCIS pages rather than copying these summaries forward.
  */
 
 export interface OptionAttribute {
