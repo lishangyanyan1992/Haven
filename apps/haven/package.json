@@ -9,6 +9,7 @@
     "build:webpack": "next build --webpack",
     "start": "next start",
     "typecheck": "tsc --noEmit",
+    "advisor:cohorts": "tsx --tsconfig tsconfig.json scripts/advisor-quality-cohorts.ts",
     "check:guardrails": "tsx --tsconfig tsconfig.json evals/advisor/check-guardrails.ts",
     "eval:advisor": "tsx --tsconfig tsconfig.json evals/advisor/run-local.ts",
     "check:stale-bulletin": "tsx --tsconfig tsconfig.json evals/advisor/stale-bulletin.check.ts",
@@ -18,7 +19,8 @@
     "eval:advisor:judge": "npm run eval:advisor -- --preset recommended10 --judge",
     "check:guardrail-phrasing": "tsx --tsconfig tsconfig.json evals/advisor/guardrail-phrasing.check.ts",
     "check:request-contract": "tsx --tsconfig tsconfig.json evals/advisor/request-contract.check.ts",
-    "check:community-stories": "tsx --tsconfig tsconfig.json evals/advisor/community-stories.check.ts"
+    "check:community-stories": "tsx --tsconfig tsconfig.json evals/advisor/community-stories.check.ts",
+    "check:source-freshness": "tsx --tsconfig tsconfig.json evals/advisor/source-freshness.check.ts"
   },
   "dependencies": {
     "@haven/auth": "*",

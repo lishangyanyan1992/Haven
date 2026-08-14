@@ -34,9 +34,52 @@ export interface SeedKnowledgeDocument {
   additionalTopics?: string[];
   versionLabel: string;
   effectiveDate?: string;
+  /**
+   * ISO date (YYYY-MM-DD) on which a human last opened `url` and confirmed that
+   * `bodyMarkdown` and `chunks` still reflect what the agency publishes.
+   *
+   * Distinct from `versionLabel`, and the distinction is the whole point.
+   * `versionLabel` is a claim about the source document ("2026 evergreen").
+   * Fifteen of the twenty-one documents here carry that exact string, which
+   * asserts the content does not go out of date — an assertion nobody has ever
+   * tested, about pages USCIS edits without notice. `lastVerified` is a claim
+   * about *us*: the date somebody actually looked.
+   *
+   * Absent means never verified. That is the honest starting state for this
+   * corpus, and `source-freshness.check.ts` reports it as such rather than
+   * letting an unchecked source pass silently. Do not backfill this field with a
+   * guess — a fabricated verification date is worse than none, because it
+   * converts "we don't know" into "we checked", and the stale-source warning it
+   * suppresses is the one a user would have acted on.
+   */
+  lastVerified?: string;
   bodyMarkdown: string;
   chunks: string[];
 }
+
+/**
+ * How long a document may go unverified before it is treated as stale, by topic.
+ *
+ * Keyed on how fast the underlying source actually moves, not on how important
+ * the topic is. The visa bulletin is republished monthly, so a copy older than
+ * one cycle is wrong by default; a statutory grace-period rule in the eCFR can
+ * sit for a year and still be current.
+ */
+export const SOURCE_FRESHNESS_POLICY_DAYS: Record<string, number> = {
+  "visa-bulletin": 35,
+  layoffs: 90,
+  h1b: 180,
+  "adjustment-of-status": 180,
+  "work-authorization": 180,
+  "student-status": 180,
+  "job-change": 365,
+  perm: 365,
+  "self-petition": 365,
+  cspa: 365,
+  "haven-product": 365
+};
+
+export const DEFAULT_SOURCE_FRESHNESS_DAYS = 180;
 
 export interface SeedCommunitySummary {
   title: string;
