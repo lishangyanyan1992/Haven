@@ -36,6 +36,52 @@ type Case = {
 };
 
 const CASES: Case[] = [
+  // ------------------------------------------------------------- Job loss
+  //
+  // The highest-stakes gate in the product, and until this block existed it was
+  // the only one with no phrasing coverage at all. `JOB_LOSS_TERMS` had been
+  // widened five separate times in response to individual bug reports, but every
+  // layoff fixture in the suite said "laid off" — so roughly forty patterns were
+  // carrying the most dangerous topic we handle with exactly one of them asserted.
+  //
+  // The first audit of this gate found six silent misses, all of which now have a
+  // case below. Each failed the same way: the question matched no topic, fell
+  // through to DEFAULT_TOPICS, and lost every layoff guardrail without erroring.
+  //
+  // Two properties of this list matter more than its length. It is written in the
+  // words of the *notification* — what HR actually says — rather than the words of
+  // immigration law, because a person reports the sentence they were given. And it
+  // deliberately includes non-US-native and consultancy phrasings ("benched", "put
+  // down my papers", "notice period"), because those users are the largest segment
+  // and were the least covered.
+  { name: "job loss — canonical", content: "I was laid off last week, what happens to my H-1B?", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+  { name: "job loss — 'made redundant'", content: "I was made redundant on Friday. What happens to my H-1B?", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+  { name: "job loss — RIF verb", content: "They riffed my whole team yesterday.", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+  { name: "job loss — passive 'been let go'", content: "I have been let go and I don't know what to do.", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+  { name: "job loss — benched (consultancy usage)", content: "My employer put me on the bench three weeks ago.", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+  { name: "job loss — 'put down my papers' (Indian English)", content: "I had to put down my papers last week.", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+  { name: "job loss — notice period only", content: "My notice period ends on the 30th.", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+  { name: "job loss — last working day", content: "My last working day is Friday.", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+  { name: "job loss — petition withdrawn", content: "My employer withdrew my petition.", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+  { name: "job loss — pressured resignation", content: "They asked me to resign.", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+  { name: "job loss — voluntary quit (same 60-day clock)", content: "I quit my job last week.", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+  { name: "job loss — furlough", content: "I was furloughed in June.", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+  { name: "job loss — contract not renewed", content: "My contract is not being renewed.", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+  { name: "job loss — WARN notice", content: "I got a WARN notice this morning.", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+  { name: "job loss — employer shutting down", content: "My company is shutting down.", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+  { name: "job loss — 'services no longer required'", content: "HR told me my services are no longer required.", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+  { name: "job loss — intervening words before 'job'", content: "I lost my H-1B job in the layoffs.", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+
+  // The six silent misses found by the first audit of this gate. Each one was
+  // answered as a generic adjustment-of-status question with no layoff guardrails.
+  { name: "job loss — active voice 'eliminating my role'", content: "They are eliminating my role next month.", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+  { name: "job loss — restructuring euphemism", content: "My position was affected in the restructuring.", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+  { name: "job loss — offboarding euphemism", content: "My company is offboarding me next week.", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+  { name: "job loss — 'being separated' without an object", content: "I'm being separated as part of a restructure.", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+  { name: "job loss — employment agreement ended", content: "My employment agreement was ended early.", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+  { name: "job loss — 'dismissed'", content: "I was dismissed from my job.", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+  { name: "job loss — role outsourced", content: "My job was outsourced.", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+
   // ---------------------------------------------------------------- CSPA
   // Deadlines here cannot be recovered once missed.
   { name: "CSPA — canonical", content: "My daughter turns 21 in four months, what happens to her green card?", wantGuardrail: "GR_CSPA_AGE_OUT" },

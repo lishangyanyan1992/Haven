@@ -239,7 +239,29 @@ const JOB_LOSS_TERMS = [
   "resign(ed|ing|ation)?",
   "(i |we )?quit (my|the) job",
   "stepping down",
-  "notice period"
+  "notice period",
+  // Added after the first phrasing audit of this gate. Every term below was a
+  // silent miss: the question classified as nothing, fell through to
+  // DEFAULT_TOPICS, and lost every layoff guardrail. They fall into four groups.
+  //
+  // 1. The active/progressive voice of a rule we already had. "role was
+  //    eliminated" matched; "they are eliminating my role" did not, and the
+  //    active voice is how people report a decision that has not landed yet —
+  //    which is exactly when the 60-day planning advice is most useful.
+  "eliminat(e|es|ed|ing) (my|his|her|their|our|the) (position|role|job|team)",
+  // 2. Corporate euphemism. Nobody is told "you are being terminated"; they are
+  //    told their position is affected by a restructure, or that HR is
+  //    offboarding them. This is the vocabulary of the notification itself.
+  "restructur(e|es|ed|ing)",
+  "reorg(anization|anisation|anized|anised|anizing)?\\b",
+  "offboard(ed|ing)?",
+  "(been|being|was|were|got) separated",
+  "\\bdismissed\\b",
+  "outsourc(e|ed|ing)",
+  // 3. Contract-side phrasings. Common among consultancy and staffing-firm
+  //    workers, a large share of the H-1B population.
+  "employment (agreement|contract) (was |been |is )?(ended|terminated|cancell?ed)",
+  "(job|position|role) (was |been |is )?(outsourced|gone|going away)"
 ];
 
 const JOB_LOSS_PATTERN = new RegExp(`(${JOB_LOSS_TERMS.join("|")})`);
