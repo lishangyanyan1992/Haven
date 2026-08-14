@@ -426,6 +426,41 @@ const START_WORK_PATTERN =
 // Split from classifyTopics so callers can tell "matched nothing" apart from
 // "matched the default". Without that distinction a follow-up that matches no
 // pattern looks identical to a genuine h1b + adjustment-of-status question.
+/**
+ * "What do you know about me?" — the trust question.
+ *
+ * This is what someone asks before deciding whether to type their real
+ * immigration situation into a text box, and until now the only phrasing that
+ * classified was one containing the literal word "Haven". "Do you have my
+ * information?", "what do you know about me", "what data do you have on me" all
+ * matched nothing, fell to the unrecognised-question repair, and were answered
+ * with the menu of topics.
+ *
+ * That is the worst available response to this particular question. The Advisor
+ * *does* hold the profile — it is loaded before routing, every turn — so a menu
+ * reads as evasion about data the product is holding, at the exact moment the
+ * user is deciding whether to trust it.
+ *
+ * Anchored on the object ("me", "about me", "on me", "my information/data"), not
+ * on the verb, because the verb varies far more than the object does.
+ *
+ * Unlike the safety gates in this file, over-triggering here is NOT the safe
+ * failure mode, and the difference is worth stating because it inverts the usual
+ * rule. An extra safety paragraph costs tokens; a false positive here replaces
+ * somebody's immigration answer with a dump of their own profile. A bare
+ * `what information do you have` alternative did exactly that to "What
+ * information do you have about H-1B transfers?" — caught by the phrasing check
+ * before it shipped. Requiring the about-me object in every branch is what keeps
+ * the two apart.
+ */
+const SELF_KNOWLEDGE_OBJECT = String.raw`(about me|on me|of mine|my (information|info|data|details|profile|records?))`;
+const SELF_KNOWLEDGE_VERB = String.raw`(know|have|hold|store|stored|see|seen|access|remember|told)`;
+const SELF_KNOWLEDGE_PATTERN = new RegExp(
+  `((what|which|how much)[^?.!]*\\b${SELF_KNOWLEDGE_VERB}\\b[^?.!]*\\b${SELF_KNOWLEDGE_OBJECT}\\b)` +
+    `|(\\b(do|did|can) you\\b[^?.!]*\\b${SELF_KNOWLEDGE_VERB}\\b[^?.!]*\\b${SELF_KNOWLEDGE_OBJECT}\\b)`,
+  "i"
+);
+
 function detectTopics(input: string): Set<TopicBucket> {
   const normalized = input.toLowerCase();
   const topics = new Set<TopicBucket>();
@@ -454,7 +489,8 @@ function detectTopics(input: string): Set<TopicBucket> {
   if (/(niw|national interest waiver|eb-?1a|eb-?2 niw|proposed endeavor|dhanasar|self.?petition)/.test(normalized)) topics.add("self-petition");
   if (CSPA_PATTERN.test(normalized)) topics.add("cspa");
   if (/(work authorization|employment authorization|unauthorized work|worked without authorization|i-9\b|\bead\b|work permit)/.test(normalized)) topics.add("work-authorization");
-  if (/(haven|timeline|dashboard|planner|inbox|community)/.test(normalized)) topics.add("haven-product");
+  if (/(haven|timeline|dashboard|planner|inbox|community)/.test(normalized) || SELF_KNOWLEDGE_PATTERN.test(normalized))
+    topics.add("haven-product");
 
   return topics;
 }
@@ -965,6 +1001,72 @@ export const getAdvisorUsage = cache(async (): Promise<AdvisorUsage> => {
     nextRenewalAt: nextRenewalAtMs != null ? new Date(nextRenewalAtMs).toISOString() : null
   };
 });
+
+/**
+ * Answer "what do you know about me?" from the snapshot, not from the model.
+ *
+ * Deterministic on purpose. The question is a factual one about our own storage,
+ * and it is the one question where a confident invention would be most corrosive:
+ * a model that hallucinates a priority date here is not giving a wrong answer
+ * about immigration law, it is misrepresenting what the product holds about
+ * someone. There is also nothing to reason about, so a model call would add
+ * twenty seconds and a failure mode for no gain.
+ *
+ * Only fields that are actually set are listed. A row reading "Priority date: not
+ * set" is noise, and a long list of blanks makes an empty profile look populated.
+ */
+function buildDataDisclosure(
+  profile: HavenWorkspaceSnapshot["profile"],
+  rememberedFacts: RememberedFact[]
+): string {
+  const rows: string[] = [];
+  // Several of these fields are stored as enum slugs — `in_progress`,
+  // `gc_timeline`, `not_started`. Printing them raw makes the answer read as a
+  // database dump at the moment the user is deciding whether to trust the
+  // product with more.
+  const humanize = (value: string) => value.replace(/_/g, " ");
+  const add = (label: string, value: string | null | undefined) => {
+    if (value && String(value).trim().length > 0) rows.push(`- **${label}:** ${humanize(String(value))}`);
+  };
+
+  add("Visa type", profile.visaType);
+  add("Country of birth", profile.countryOfBirth);
+  add("Current visa expires", profile.currentVisaExpiryDate);
+  add("Employment status", profile.employmentStatus);
+  add("Employer", profile.employerName);
+  add("Job title", profile.jobTitle);
+  add("Green card category", profile.preferenceCategory);
+  add("PERM stage", profile.permStage);
+  add("Priority date", profile.priorityDate);
+  // Booleans are stated in words rather than as true/false, and only when true is
+  // not the whole story — "I-140 approved: no" is a fact the user wants confirmed,
+  // so both branches are shown for these two.
+  add("I-140 approved", profile.i140Approved ? `yes${profile.i140ApprovalDate ? ` (${profile.i140ApprovalDate})` : ""}` : "no");
+  add("I-485 filed", profile.i485Filed ? "yes" : "no");
+  add("Spouse status", profile.spouseVisaStatus);
+  add("What you told us matters most", profile.topConcerns?.join(", "));
+
+  // The user's own sentence, quoted, with the date they said it. A paraphrase
+  // here would be the product telling someone what they said, which is exactly
+  // the thing this answer exists to let them check.
+  const memoryRows = rememberedFacts.map((fact) => {
+    const said = fact.createdAt ? fact.createdAt.slice(0, 10) : null;
+    return `- "${fact.quote}"${said ? ` — you said this on ${said}` : ""}`;
+  });
+
+  if (rows.length === 0 && memoryRows.length === 0) {
+    return guardrailText("MSG_DATA_DISCLOSURE_EMPTY");
+  }
+
+  const sections: string[] = [];
+  if (rows.length > 0) sections.push(["**From your Haven profile**", "", ...rows].join("\n"));
+  if (memoryRows.length > 0) {
+    sections.push(["**From our earlier conversations**", "", ...memoryRows].join("\n"));
+  }
+  sections.push(guardrailText("MSG_DATA_DISCLOSURE_CLOSING"));
+
+  return sections.join("\n\n");
+}
 
 function buildAdvisorContext(snapshot: Awaited<ReturnType<typeof getSnapshot>>): AdvisorUserContext {
   const { profile, dashboard, timelineEvents, emailInbox, cohorts, warRoom } = snapshot;
@@ -2228,6 +2330,80 @@ export async function* streamAdvisorResponse(rawInput: {
   // Display-only id on in-memory message objects; the wire value stays null so
   // the client never stores a non-UUID conversation id.
   const displayThreadId = threadId ?? "pending";
+
+  // "What do you know about me?" — answered from storage, before generation.
+  //
+  // Placed ahead of the unmatched repair because this used to *be* an unmatched
+  // question: nothing classified, and the user asking what data we hold was shown
+  // a menu of immigration topics. See SELF_KNOWLEDGE_PATTERN.
+  if (SELF_KNOWLEDGE_PATTERN.test(content)) {
+    let facts: RememberedFact[] = [];
+    if (!identity.isMock) {
+      try {
+        facts = await listFacts(identity.id);
+      } catch {
+        // Memory is an enhancement everywhere else in this file. Here it is part
+        // of the answer, so a failure would silently under-report what we hold —
+        // the one direction this answer must never be wrong in. Say so instead.
+        facts = [];
+      }
+    }
+
+    const disclosurePayload: AdvisorAnswerPayload = {
+      answer_markdown: buildDataDisclosure(snapshot.profile, facts),
+      confidence: "high",
+      // No legal disclaimer: nothing here is a statement about immigration law,
+      // and appending one would make a direct answer read as boilerplate.
+      disclaimer: "",
+      external_citations: [],
+      haven_context_used: [],
+      community_context_used: [],
+      follow_up_questions: [],
+      refusal_or_escalation_reason: undefined
+    };
+
+    trace?.update({
+      metadata: {
+        topics,
+        experiential,
+        model,
+        promptName: ADVISOR_PROMPT_NAME,
+        classification: threadState.resolution,
+        guardrailsFired: ["MSG_DATA_DISCLOSURE_CLOSING"],
+        guardrailsSuppressed: [],
+        retrievalKnowledgeCount: 0,
+        retrievalCommunityCount: 0,
+        caseStatsTier: "none",
+        citationCount: 0,
+        fallback: false,
+        fallbackReason: null,
+        // Deterministic answers must be filterable out of prompt-quality metrics.
+        // Counting them as model output would quietly inflate every score.
+        deterministic: "data-disclosure"
+      },
+      output: { answer: disclosurePayload.answer_markdown, cited: false, citationCount: 0 }
+    });
+    await flushLangfuse();
+
+    if (threadId && !identity.isMock) {
+      await persistExchange({
+        threadId,
+        userId: identity.id,
+        question: content,
+        answer: disclosurePayload,
+        traceId
+      });
+    }
+
+    yield { type: "delta", text: disclosurePayload.answer_markdown };
+    yield {
+      type: "done",
+      assistantMessage: createAssistantMessage(displayThreadId, disclosurePayload, traceId),
+      conversationId: threadId,
+      traceId
+    };
+    return;
+  }
 
   // CD-13.2 — stop guessing.
   //
