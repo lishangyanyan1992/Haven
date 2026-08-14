@@ -33,6 +33,8 @@ type Case = {
   wantGuardrail: string | null;
   /** Topics that must NOT be present — used for the substring-bug cases. */
   forbidTopics?: string[];
+  /** Topics that MUST be present. Asserts routing, not just guardrail selection. */
+  wantTopics?: string[];
 };
 
 const CASES: Case[] = [
@@ -81,6 +83,46 @@ const CASES: Case[] = [
   { name: "job loss — employment agreement ended", content: "My employment agreement was ended early.", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
   { name: "job loss — 'dismissed'", content: "I was dismissed from my job.", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
   { name: "job loss — role outsourced", content: "My job was outsourced.", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+
+  // ------------------------------------------------------- Self-knowledge
+  //
+  // "What do you know about me?" is the trust question — what someone asks
+  // before deciding whether to type their real immigration situation into a text
+  // box. It classified only when the sentence happened to contain the literal
+  // word "Haven"; every natural phrasing fell through to the unrecognised-question
+  // repair and was answered with a menu of immigration topics.
+  //
+  // That failure is worse than an ordinary miss. The Advisor *does* hold the
+  // profile — it is loaded before routing, on every turn — so the menu reads as
+  // evasion about data the product is holding, precisely when trust is being
+  // decided. Answering is also the cheap path: the answer is deterministic, so it
+  // returns in under a second instead of twenty.
+  //
+  // wantGuardrail is null because the disclosure is not guardrail-selected; the
+  // assertion that matters is that these reach `haven-product` rather than
+  // falling through to DEFAULT_TOPICS.
+  { name: "self-knowledge — 'do you have my information'", content: "do you have my information?", wantGuardrail: null, wantTopics: ["haven-product"] },
+  { name: "self-knowledge — 'what do you know about me'", content: "What do you know about me?", wantGuardrail: null, wantTopics: ["haven-product"] },
+  { name: "self-knowledge — 'what information do you have on me'", content: "what information do you have on me", wantGuardrail: null, wantTopics: ["haven-product"] },
+  { name: "self-knowledge — 'what data do you store about me'", content: "What data do you store about me?", wantGuardrail: null, wantTopics: ["haven-product"] },
+  { name: "self-knowledge — 'can you see my details'", content: "Can you see my details?", wantGuardrail: null, wantTopics: ["haven-product"] },
+  { name: "self-knowledge — 'do you remember anything about me'", content: "Do you remember anything about me?", wantGuardrail: null, wantTopics: ["haven-product"] },
+  { name: "self-knowledge — named product still works", content: "Do you have access to my Haven profile?", wantGuardrail: null, wantTopics: ["haven-product"] },
+
+  // The pattern is anchored on the object ("about me", "my data"), so ordinary
+  // questions that merely contain "know" or "have" must not be dragged in.
+  {
+    name: "self-knowledge must not swallow a normal question",
+    content: "What do I need to know about the 60-day grace period?",
+    wantGuardrail: "GR_LAYOFF_SAFETY_RULES",
+    forbidTopics: ["haven-product"]
+  },
+  {
+    name: "self-knowledge must not swallow a question about someone else",
+    content: "What information do you have about H-1B transfers?",
+    wantGuardrail: null,
+    forbidTopics: ["haven-product"]
+  },
 
   // ---------------------------------------------------------------- CSPA
   // Deadlines here cannot be recovered once missed.
@@ -229,7 +271,8 @@ async function main() {
         : delivered && route.guardrailIds.includes(testCase.wantGuardrail);
 
     const leaked = (testCase.forbidTopics ?? []).filter((topic) => route.topics.includes(topic as never));
-    const topicsOk = leaked.length === 0;
+    const missingTopics = (testCase.wantTopics ?? []).filter((topic) => !route.topics.includes(topic as never));
+    const topicsOk = leaked.length === 0 && missingTopics.length === 0;
     const ok = guardrailOk && topicsOk;
 
     console.log(
@@ -239,7 +282,8 @@ async function main() {
     );
     if (!ok) {
       if (!guardrailOk) console.log(`      want guardrail: ${testCase.wantGuardrail}`);
-      if (!topicsOk) console.log(`      leaked topics: ${leaked.join(",")}`);
+      if (leaked.length > 0) console.log(`      leaked topics: ${leaked.join(",")}`);
+      if (missingTopics.length > 0) console.log(`      missing topics: ${missingTopics.join(",")}`);
     }
 
     if (ok) pass += 1;

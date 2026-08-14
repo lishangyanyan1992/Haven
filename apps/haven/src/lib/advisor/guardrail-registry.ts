@@ -460,6 +460,38 @@ const ENTRIES: GuardrailEntry[] = [
   {
     // CD-13.2, first miss. The old behaviour was to assume h1b + adjustment-of-status
     // and answer with full confidence. This asks instead.
+    id: "MSG_DATA_DISCLOSURE_CLOSING",
+    topic: "haven-product",
+    audience: "user",
+    repeat: "always",
+    intent:
+      "Close the 'what do you know about me?' answer with the policy half: where the data came from, when it gets used, and how to change it. The factual half is composed from the live snapshot in service.ts; this is the part that is pure copy and most needs review.",
+    lastReviewedBy: null,
+    lastReviewedAt: null,
+    text: [
+      "All of it came from you — what you entered in your Haven profile, plus anything you told me in an earlier conversation.",
+      "",
+      "I only bring these details into an answer when your question turns on them. Asking a general question about the rules will not pull your dates into the reply.",
+      "",
+      "You can change or clear any of it from your Haven profile."
+    ].join("\n")
+  },
+  {
+    id: "MSG_DATA_DISCLOSURE_EMPTY",
+    topic: "haven-product",
+    audience: "user",
+    repeat: "always",
+    intent:
+      "The same question when the profile is empty. Says so plainly rather than returning a bare heading with nothing under it.",
+    lastReviewedBy: null,
+    lastReviewedAt: null,
+    text: [
+      "Nothing yet — your Haven profile is empty and we have not spoken before.",
+      "",
+      "That means my answers will be general. Filling in your visa type, priority date, and category in your Haven profile is what lets me answer for your situation rather than in the abstract."
+    ].join("\n")
+  },
+  {
     id: "MSG_CLARIFY_UNRECOGNIZED",
     topic: "cross-cutting",
     audience: "user",
