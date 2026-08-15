@@ -460,6 +460,120 @@ const ENTRIES: GuardrailEntry[] = [
   {
     // CD-13.2, first miss. The old behaviour was to assume h1b + adjustment-of-status
     // and answer with full confidence. This asks instead.
+    id: "MSG_SCOPE_TRAVEL",
+    topic: "adjustment-of-status",
+    audience: "user",
+    repeat: "always",
+    intent:
+      "Out of scope: travel with a pending case. Keeps the abandonment warning, which is the one thing the user must not learn later.",
+    lastReviewedBy: "immigration-counsel",
+    lastReviewedAt: null,
+    text: [
+      "I don't cover travel questions yet, and this is one I don't want to half-answer.",
+      "",
+      "The one thing worth knowing before you book anything: leaving the U.S. while an I-485 is pending, without approved advance parole or another valid basis to return, can cause USCIS to treat the application as abandoned. A pending advance parole request is not itself permission to travel.",
+      "",
+      "Talk to an immigration attorney before you travel, not after. If your trip is soon, treat that as urgent."
+    ].join("\n")
+  },
+  {
+    id: "MSG_SCOPE_STUDENT",
+    topic: "student-status",
+    audience: "user",
+    repeat: "always",
+    intent:
+      "Out of scope: F-1 OPT/CPT. Keeps the two rules a student can break before anyone tells them it was a mistake.",
+    lastReviewedBy: "immigration-counsel",
+    lastReviewedAt: null,
+    text: [
+      "I don't cover F-1, OPT, or CPT questions yet.",
+      "",
+      "Two things worth knowing while you find someone who does: a pending OPT application is not permission to work — work generally requires the EAD in hand and the start date reached — and CPT must be authorized by your DSO and appear on your Form I-20 before you begin.",
+      "",
+      "Your DSO is the fastest first call, and an immigration attorney for anything involving a program that promises work from day one."
+    ].join("\n")
+  },
+  {
+    id: "MSG_SCOPE_JOB_CHANGE",
+    topic: "job-change",
+    audience: "user",
+    repeat: "always",
+    intent: "Out of scope: AC21 portability. Names the precondition people most often assume they have met.",
+    lastReviewedBy: "immigration-counsel",
+    lastReviewedAt: null,
+    text: [
+      "I don't cover AC21 job-portability questions yet.",
+      "",
+      "The thing most worth checking with counsel first: AC21 adjustment portability generally depends on having an I-485 that has been pending 180 days or more, and on the new role being in the same or a similar occupational classification. An approved I-140 on its own is usually not enough.",
+      "",
+      "Get an immigration attorney to look at your dates before you accept an offer."
+    ].join("\n")
+  },
+  {
+    id: "MSG_SCOPE_CSPA",
+    topic: "cspa",
+    audience: "user",
+    repeat: "always",
+    intent:
+      "Out of scope: CSPA age-out. The only redirect where the deadline can pass while the person is still looking for help, so it says so first.",
+    lastReviewedBy: "immigration-counsel",
+    lastReviewedAt: null,
+    text: [
+      "I don't cover Child Status Protection Act questions yet — and this is the one I least want to guess at, because the deadline can pass while you are still working out what to do.",
+      "",
+      "Please contact an immigration attorney this week rather than when the birthday is closer. CSPA age depends on facts I cannot verify, and the calculation is not something to take from a chatbot.",
+      "",
+      "Worth gathering before that call: your priority date, the date the I-140 was filed and approved, and the date the category became current."
+    ].join("\n")
+  },
+  {
+    id: "MSG_SCOPE_SELF_PETITION",
+    topic: "self-petition",
+    audience: "user",
+    repeat: "always",
+    intent: "Out of scope: NIW and self-petitions. Names the deadline, because motion and appeal windows are short.",
+    lastReviewedBy: "immigration-counsel",
+    lastReviewedAt: null,
+    text: [
+      "I don't cover NIW or self-petition questions yet.",
+      "",
+      "If you are asking because something was denied, the deadlines matter more than the strategy: motion and appeal windows are short and start running from the notice, so read the denial notice for its specific deadline before deciding anything.",
+      "",
+      "An immigration attorney should see the actual notice — refiling is not automatically the right move."
+    ].join("\n")
+  },
+  {
+    id: "MSG_SCOPE_PERM",
+    topic: "perm",
+    audience: "user",
+    repeat: "always",
+    intent: "Out of scope: PERM. The lowest-urgency redirect, and deliberately the shortest.",
+    lastReviewedBy: null,
+    lastReviewedAt: null,
+    text: [
+      "I don't cover PERM or labor certification questions yet.",
+      "",
+      "PERM is filed and managed by your employer, so your company's immigration team or the attorney handling your case will have the current status and timeline. They are the right first stop for this one."
+    ].join("\n")
+  },
+  {
+    id: "MSG_SCOPE_UNAUTHORIZED_WORK",
+    topic: "work-authorization",
+    audience: "user",
+    repeat: "always",
+    intent:
+      "Out of scope as a topic, but the refusal to help conceal is a safety floor and survives the narrowing. Being out of scope must never read as being unwilling to say 'stop'.",
+    lastReviewedBy: "immigration-counsel",
+    lastReviewedAt: null,
+    text: [
+      "I don't cover work-authorization history questions yet, and I won't help present the facts in a way that hides anything from USCIS — that makes things considerably worse than the original problem.",
+      "",
+      "What is safe to do now: stop any work that is not authorized, preserve your records rather than deleting or amending them, and speak to an immigration attorney about truthful disclosure and what the actual consequences are.",
+      "",
+      "This is worth a real consultation. It is one of the few things where the response genuinely changes the outcome."
+    ].join("\n")
+  },
+  {
     id: "MSG_DATA_DISCLOSURE_CLOSING",
     topic: "haven-product",
     audience: "user",

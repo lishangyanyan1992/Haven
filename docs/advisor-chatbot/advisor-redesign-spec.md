@@ -252,7 +252,26 @@ The load-bearing rule: **the generation layer is expected to be right, and the c
 
 ## 11. Two decisions left open
 
-### A. v1 scope
+### A. v1 scope — DECIDED 2026-08-15, shipped
+
+**Two topics, chosen from the intent corpus rather than from the tier table:**
+
+1. **"I lost my job — how do I stay?"** — layoffs, grace period, and bridge status (B-2, H-4, the 240-day rule)
+2. **"Where am I in the green card line?"** — visa bulletin, priority dates, I-485 filing eligibility
+
+Plus the product answering for itself ("what do you know about me?"), which is deterministic and costs nothing.
+
+**Declined, each with a redirect that keeps its safety fact:** travel with a pending case, F-1 OPT/CPT, AC21 portability, CSPA, NIW/self-petition, PERM, and work-authorization history.
+
+The decision overrode the recommendation below on one point, and the corpus is why. My original pick was layoff / bulletin / OPT-CPT / travel, reasoning from stakes. The card sort of 73 real questions says bridge-status mechanics are the largest cluster and had *zero* coverage, while OPT/CPT was a small slice. Demand evidence beat the stakes argument. Bridge status is not a separate topic from layoff — somebody asking "can I switch to H-4 while I look?" is asking the layoff question — so they ship as one.
+
+Implemented in [`scope.ts`](../../apps/haven/src/lib/advisor/scope.ts). Emptying `REDIRECTED` restores the previous behaviour; deleting one line from it puts one topic back. That one-line cost is the design: topics return individually, each with its own rule module and eval cohort.
+
+Two things deliberately survived the narrowing. The safety floors are not topics — moderation and the crisis hand-off run before the scope gate. And the refusal to help conceal facts from USCIS is carried *by* the work-authorization redirect rather than dropped with the topic.
+
+---
+
+*Original options, kept for the record:*
 
 Ten topics is what turned the prompt into a changelog. Options:
 

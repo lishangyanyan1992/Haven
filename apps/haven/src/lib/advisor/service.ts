@@ -4,6 +4,7 @@ import OpenAI from "openai";
 import { env, hasSupabaseEnv } from "@/lib/env";
 import { flushLangfuse, getLangfuseClient, getPrompt } from "@/lib/langfuse";
 import type { LangfuseSpanClient, LangfuseTraceClient } from "langfuse";
+import { decideScope } from "@/lib/advisor/scope";
 import { getSnapshot } from "@/lib/repositories/case-compass";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -266,6 +267,37 @@ const JOB_LOSS_TERMS = [
 
 const JOB_LOSS_PATTERN = new RegExp(`(${JOB_LOSS_TERMS.join("|")})`);
 
+/**
+ * Bridge status — the largest cluster in the intent corpus, and it routed nowhere.
+ *
+ * The card sort of 73 real questions found that B-2 and H-4 bridge mechanics plus
+ * the 240-day rule are the biggest single group of things people actually ask, and
+ * none of them classified: `B-2` matched no topic, `H-4` matched no topic, and the
+ * 240-day rule had zero coverage of any kind. Those questions fell to
+ * DEFAULT_TOPICS and were answered as generic adjustment-of-status questions with
+ * no layoff guardrails at all.
+ *
+ * They belong to `layoffs` rather than to a topic of their own because they are
+ * the same conversation. Somebody asking "can I switch to H-4 while I look for
+ * work?" is asking what happens after their job ended; the bridge is the answer to
+ * the layoff question, not a separate subject. Routing them here gets them the
+ * grace-period rules, the portability trigger, and the option menu — which already
+ * names change of status to B-2 — instead of nothing.
+ *
+ * The 240-day rule sits slightly apart: it is about continuing to work on a timely
+ * filed extension, which is not always a layoff. It is included because the user
+ * asking it is asking the same underlying question — am I still allowed to be
+ * here, and to work — and because the alternative today is no coverage whatsoever.
+ *
+ * NOTE FOR REVIEW: this routes the questions to existing counsel-shaped guardrails.
+ * It does not add substantive rules about H-4 eligibility, B-2 bridge strategy, or
+ * the 240-day period, and it should not until an immigration attorney writes them.
+ * Routing a question to a safe general answer is a fix; inventing the rule text
+ * would not be.
+ */
+const BRIDGE_STATUS_PATTERN =
+  /\b(b-?2\b|h-?4\b|240[- ]day|bridge (status|visa|option)|change of status|cos\b|i-?539)\b/i;
+
 function mentionsJobLoss(normalized: string) {
   return JOB_LOSS_PATTERN.test(normalized);
 }
@@ -482,7 +514,8 @@ function detectTopics(input: string): Set<TopicBucket> {
   if (/\bperm\b|labor certification|\bflag(ged|s)?\b/.test(normalized)) topics.add("perm");
   if (/(i-485|i485|adjustment of status|adjust status|advance parole|i-131)/.test(normalized)) topics.add("adjustment-of-status");
   if (/(job change|same or similar|ac21|portability)/.test(normalized)) topics.add("job-change");
-  if (mentionsJobLoss(normalized) || /(60-day|grace period)/.test(normalized)) topics.add("layoffs");
+  if (mentionsJobLoss(normalized) || /(60-day|grace period)/.test(normalized) || BRIDGE_STATUS_PATTERN.test(normalized))
+    topics.add("layoffs");
   if (/(\bf-?1\b|\bopt\b|stem opt|\bcpt\b|i-983|sevis|\bdso\b|ead card)/.test(normalized)) topics.add("student-status");
   if (/(niw|national interest waiver|eb-?1a|eb-?2 niw|proposed endeavor|dhanasar|self.?petition)/.test(normalized)) topics.add("self-petition");
   if (CSPA_PATTERN.test(normalized)) topics.add("cspa");
@@ -2430,6 +2463,78 @@ export async function* streamAdvisorResponse(rawInput: {
   // Display-only id on in-memory message objects; the wire value stays null so
   // the client never stores a non-UUID conversation id.
   const displayThreadId = threadId ?? "pending";
+
+  // Scope gate — decline the topics this product has not committed to.
+  //
+  // Placed after moderation and the crisis hand-off, which are safety floors and
+  // run regardless of scope, and before generation, because an out-of-scope
+  // answer should not cost a model call or twenty seconds. See scope.ts for why
+  // these six areas are declined and what each redirect still carries.
+  const scope = decideScope(topics, mentionsTravel(content.toLowerCase()));
+  if (!scope.inScope) {
+    const scopePayload: AdvisorAnswerPayload = {
+      answer_markdown: guardrailText(scope.guardrailId),
+      confidence: "high",
+      // The redirects carry their own hand-off to counsel in the copy, where it
+      // is specific to the deadline that matters. A generic disclaimer stapled
+      // underneath would dilute it into boilerplate.
+      disclaimer: "",
+      external_citations: [],
+      haven_context_used: [],
+      community_context_used: [],
+      follow_up_questions: [],
+      refusal_or_escalation_reason: `Out of scope: ${scope.area}.`
+    };
+
+    trace?.update({
+      metadata: {
+        topics,
+        experiential,
+        model,
+        promptName: ADVISOR_PROMPT_NAME,
+        classification: threadState.resolution,
+        guardrailsFired: [scope.guardrailId],
+        guardrailsSuppressed: [],
+        retrievalKnowledgeCount: 0,
+        retrievalCommunityCount: 0,
+        caseStatsTier: "none",
+        citationCount: 0,
+        fallback: false,
+        fallbackReason: null,
+        deterministic: "scope-redirect",
+        // The share of real traffic each declined area accounts for is the
+        // evidence for which topic comes back first. Without it, re-adding a
+        // topic would be decided the same way the original ten were.
+        scopeRedirectArea: scope.area
+      },
+      output: {
+        answer: scopePayload.answer_markdown,
+        cited: false,
+        citationCount: 0,
+        refusalOrEscalationReason: scopePayload.refusal_or_escalation_reason
+      }
+    });
+    await flushLangfuse();
+
+    if (threadId && !identity.isMock) {
+      await persistExchange({
+        threadId,
+        userId: identity.id,
+        question: content,
+        answer: scopePayload,
+        traceId
+      });
+    }
+
+    yield { type: "delta", text: scopePayload.answer_markdown };
+    yield {
+      type: "done",
+      assistantMessage: createAssistantMessage(displayThreadId, scopePayload, traceId),
+      conversationId: threadId,
+      traceId
+    };
+    return;
+  }
 
   // "What do you know about me?" — answered from storage, before generation.
   //
