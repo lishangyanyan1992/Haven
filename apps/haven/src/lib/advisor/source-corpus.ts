@@ -517,24 +517,29 @@ export const trustedKnowledgeDocuments: SeedKnowledgeDocument[] = [
   }
 ];
 
-export const curatedCommunitySummaries: SeedCommunitySummary[] = [
-  {
-    title: "AC21 documentation patterns from similar members",
-    topic: "job-change",
-    summary:
-      "Members nearing the 180-day mark after I-140 approval said the most useful preparation was collecting approval notices, job descriptions, and role-comparison notes before a job search accelerated.",
-    legalCaveat: "Community experiences are not legal advice and may not match your facts.",
-    tags: ["AC21", "job_change", "community"]
-  },
-  {
-    title: "Layoff first-week triage from war room posts",
-    topic: "layoffs",
-    summary:
-      "Recent war-room posts consistently prioritized attorney outreach, document collection, and recruiter activation in the first week instead of trying to solve every long-term immigration question immediately.",
-    legalCaveat: "Community experiences are not legal advice and may not match your facts.",
-    tags: ["layoff", "60_day_window", "community"]
-  }
-];
+/**
+ * Curated community stories.
+ *
+ * Deliberately empty. It previously held two entries — "AC21 documentation
+ * patterns from similar members" and "Layoff first-week triage from war room
+ * posts" — which were editorial summaries *about* Haven content rather than
+ * anybody's account of what happened to them.
+ *
+ * That distinction is the whole value of this block. A community story earns its
+ * place in an answer because a real person did a specific thing and reported the
+ * outcome; the user weighs it as one person's experience. A sentence beginning
+ * "Recent war-room posts consistently prioritized..." offers none of that — there
+ * is no person, no facts to compare against, and no outcome — while sitting in the
+ * same list and inheriting the same credibility. Cited back to the user it reads
+ * as the product quoting its own interface as evidence.
+ *
+ * Nothing was lost by removing them: the underlying member posts they summarised
+ * are already in this list via `buildFallbackCommunitySummaries`.
+ *
+ * If you add entries here, the test is one question: did a person do this, and
+ * can the reader tell what happened to them? If not, it is not a story.
+ */
+export const curatedCommunitySummaries: SeedCommunitySummary[] = [];
 
 export function getSourceHash(input: string) {
   return createHash("sha256").update(input).digest("hex");
