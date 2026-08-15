@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-
 import { cache } from "react";
 import OpenAI from "openai";
 
@@ -2258,27 +2256,6 @@ export type AdvisorStreamEvent =
 
 const ADVISOR_PROMPT_NAME = "haven-advisor-system";
 
-/**
- * Read the local prompt override, if `tools/advisor-lab` set one.
- *
- * Read on every call rather than cached at module load, so editing the file and
- * asking the next question picks up the change — the whole point of the lab.
- * Returns null on any failure: a lab convenience must never be able to take the
- * Advisor down, so a missing or unreadable file silently falls back to the normal
- * Langfuse path.
- */
-function readPromptOverride(): string | null {
-  const file = process.env.ADVISOR_SYSTEM_PROMPT_FILE;
-  if (!file) return null;
-
-  try {
-    const text = readFileSync(file, "utf8").trim();
-    return text.length > 0 ? text : null;
-  } catch {
-    return null;
-  }
-}
-
 export const STREAMING_SYSTEM_PROMPT = [
   "You are Haven Advisor, an immigration information assistant for employment-based visas and green cards.",
   "Answer in clear, well-structured markdown. Use the official source chunks and Haven profile context provided.",
@@ -2663,23 +2640,7 @@ export async function* streamAdvisorResponse(rawInput: {
   const promptEmailEvidence = buildPromptEmailEvidence(content, userContext);
   const havenContextUsed = promptProfileSummary.slice(0, 4).filter(Boolean);
 
-  // Prompt resolution order: local override file → Langfuse `production` label →
-  // the in-code fallback.
-  //
-  // The override exists for `tools/advisor-lab`, so a prompt can be edited in a
-  // text file and tried against the real pipeline without touching the Langfuse
-  // production label — which, per the deploy run-book, reaches every user within
-  // sixty seconds and has no staged rollout. Before this, the only way to feel out
-  // a prompt change was to ship it.
-  //
-  // It is off unless ADVISOR_SYSTEM_PROMPT_FILE names a readable file, and it is
-  // never set in any deployed environment. A trace built with an override records
-  // the fact, so a lab run can never be mistaken for production behaviour.
-  const promptOverride = readPromptOverride();
-  const resolved = promptOverride
-    ? { text: promptOverride, prompt: undefined }
-    : await getPrompt(lf, ADVISOR_PROMPT_NAME, STREAMING_SYSTEM_PROMPT);
-  const { text: systemPrompt, prompt: advisorPrompt } = resolved;
+  const { text: systemPrompt, prompt: advisorPrompt } = await getPrompt(lf, ADVISOR_PROMPT_NAME, STREAMING_SYSTEM_PROMPT);
 
   // CD-13.1 / CD-13.4: select by id, then resolve to text, dropping orientation the
   // thread has already heard. Hard safety rules are marked `always` in the registry
@@ -2889,9 +2850,6 @@ export async function* streamAdvisorResponse(rawInput: {
       experiential,
       model,
       promptName: ADVISOR_PROMPT_NAME,
-      // A lab run must never be readable as production behaviour. Without this,
-      // an override answer and a real answer are indistinguishable in Langfuse.
-      promptOverridden: Boolean(promptOverride),
       classification: threadState.resolution,
       consecutiveMisses: threadState.consecutiveMisses,
       // CD-13.1: fixtures and reviews assert on ids, not on English phrases that a

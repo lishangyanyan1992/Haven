@@ -24,8 +24,6 @@
     "seo:report": "node apps/haven/scripts/seo-loop/run.mjs",
     "seo:monitor": "node apps/haven/scripts/seo-loop/run.mjs",
     "test:seo-loop": "node --test apps/haven/scripts/seo-loop/*.test.mjs",
-    "advisor:lab": "tsx --tsconfig tools/advisor-lab/tsconfig.json tools/advisor-lab/chat.ts",
-    "advisor:lab:pull": "tsx --tsconfig tools/advisor-lab/tsconfig.json tools/advisor-lab/pull-profile.ts",
     "supabase": "./scripts/supabase-cli.sh",
     "supabase:push": "./scripts/supabase-db-push.sh",
     "supabase:types": "./scripts/supabase-gen-types.sh",

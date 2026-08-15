@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-
 import { cache } from "react";
 
 import { hasSupabaseEnv } from "@/lib/env";
@@ -36,34 +34,7 @@ function shellFromMock(): AppShellSnapshot {
   };
 }
 
-/**
- * A snapshot exported to disk by `tools/advisor-lab`, or null.
- *
- * The lab needs answers shaped by a real profile — a real priority date, a real
- * PERM stage — because most of what makes an Advisor answer wrong or right is the
- * profile it was built from, and the mock profile is a synthetic persona. The
- * alternative was pointing the lab at the production database, which would write
- * a thread row per test question, burn the five-per-24h allowance after five
- * prompts, and put the service-role key in a side project.
- *
- * So the profile is pulled once into a file and read from there. Off unless
- * HAVEN_SNAPSHOT_FILE is set, and never set in a deployed environment.
- */
-function readSnapshotOverride(): HavenWorkspaceSnapshot | null {
-  const file = process.env.HAVEN_SNAPSHOT_FILE;
-  if (!file) return null;
-
-  try {
-    return JSON.parse(readFileSync(file, "utf8")) as HavenWorkspaceSnapshot;
-  } catch {
-    return null;
-  }
-}
-
 export const getSnapshot = cache(async (): Promise<HavenWorkspaceSnapshot> => {
-  const override = readSnapshotOverride();
-  if (override) return override;
-
   if (hasSupabaseEnv) {
     try {
       return await supabaseHavenRepository.getSnapshot();

@@ -17,7 +17,3 @@ apps/*/*.tsbuildinfo
 supabase/.temp
 .vercel
 .env*.local
-
-# advisor lab — real profile + local prompt, never committed
-tools/advisor-lab/*.local.json
-tools/advisor-lab/*.local.md

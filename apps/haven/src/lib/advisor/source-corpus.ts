@@ -197,6 +197,7 @@ export const trustedKnowledgeDocuments: SeedKnowledgeDocument[] = [
     url: "https://www.uscis.gov/working-in-the-united-states/h-1b-specialty-occupations",
     topic: "h1b",
     versionLabel: "2026 evergreen",
+    lastVerified: "2026-08-15",
     bodyMarkdown:
       "USCIS describes the H-1B route as an employer-sponsored classification for specialty occupations. Employers petition for workers, cap cases follow the registration process, and extensions, amendments, and portability all depend on properly filed petitions.",
     chunks: [
@@ -213,6 +214,7 @@ export const trustedKnowledgeDocuments: SeedKnowledgeDocument[] = [
     topic: "h1b",
     additionalTopics: ["layoffs"],
     versionLabel: "2026 archived guidance",
+    lastVerified: "2026-08-15",
     bodyMarkdown:
       "USCIS describes options for certain nonimmigrant workers after termination of employment, including the discretionary grace period, timely filing by a new employer, change of status, and departure planning.",
     chunks: [
