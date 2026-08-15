@@ -1583,8 +1583,12 @@ async function retrieveCommunity(
     }
   }
 
-  // Fallback: text overlap on snapshot + corpus
-  const fallback = [...buildSnapshotCommunitySummaries(snapshot), ...buildFallbackCommunitySummaries()]
+  // Fallback: text overlap on snapshot + corpus, deduplicated because the corpus
+  // is built from the same snapshot and would otherwise supply every post twice.
+  const fallback = dedupeCommunitySummaries([
+    ...buildSnapshotCommunitySummaries(snapshot),
+    ...buildFallbackCommunitySummaries()
+  ])
     .map((item) => ({
       ...item,
       similarity: scoreOverlap(query, `${item.title} ${item.summary} ${item.topic}`) +
@@ -1603,25 +1607,57 @@ async function retrieveCommunity(
   return fallback;
 }
 
+/**
+ * Member posts from the live snapshot, as candidate community stories.
+ *
+ * The title is the post's own title and nothing else. It used to be prefixed
+ * with the container it was read from — `Layoff War Room: Day 1 after layoff` —
+ * and the model reasonably cited the prefix as the source, so an answer looked
+ * like it was resting on a Haven product surface rather than on one member's
+ * account. "Layoff War Room" is a page in this product; it is not evidence, and
+ * putting its name in front of a colon made it read as one.
+ *
+ * The cohort name is a worse offender still: `EB-2 India | Approved I-140 |
+ * Layoff watch` is a filter definition, and prefixing it onto a story invites
+ * the model to present a segment label as a source.
+ */
 function buildSnapshotCommunitySummaries(snapshot: Awaited<ReturnType<typeof getSnapshot>>) {
-  const cohortSummaries = snapshot.cohorts.flatMap((cohort) =>
-    cohort.posts.map((post) => ({
-      title: `${cohort.name}: ${post.title}`,
-      topic: post.tags[0]?.toLowerCase() ?? "community",
-      summary: post.body,
-      legalCaveat: "Community experiences are anecdotal and may not match your facts.",
-      tags: post.tags
-    }))
-  );
-  const warRoomSummaries = snapshot.warRoom.posts.map((post) => ({
-    title: `${snapshot.warRoom.name}: ${post.title}`,
+  const asSummary = (post: { title: string; body: string; tags: string[] }) => ({
+    title: post.title,
     topic: post.tags[0]?.toLowerCase() ?? "community",
     summary: post.body,
     legalCaveat: "Community experiences are anecdotal and may not match your facts.",
     tags: post.tags
-  }));
+  });
 
-  return [...cohortSummaries, ...warRoomSummaries];
+  return [...snapshot.cohorts.flatMap((cohort) => cohort.posts.map(asSummary)), ...snapshot.warRoom.posts.map(asSummary)];
+}
+
+/**
+ * Collapse stories that are the same post reached by two routes.
+ *
+ * The fallback concatenates the live snapshot with the seed corpus, and the seed
+ * corpus is itself built from `havenSnapshot` — so every mock post arrived twice.
+ * With the container prefix on one copy and not the other the titles differed,
+ * nothing deduplicated them, and the model was handed one story twice and
+ * truthfully reported "two posts titled ...". A user reading that concludes two
+ * separate people had the same experience, which is the single most misleading
+ * thing a community-evidence answer can imply.
+ */
+function dedupeCommunitySummaries<T extends { title: string; summary: string }>(items: T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+
+  for (const item of items) {
+    // Keyed on the body rather than the title: the same post reached by two
+    // routes may carry two titles, but the story itself is identical.
+    const key = item.summary.trim().toLowerCase().slice(0, 200);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+
+  return out;
 }
 
 function buildCitationSet(
@@ -2166,6 +2202,7 @@ export const STREAMING_SYSTEM_PROMPT = [
   "Use the user's Haven profile to personalize your answer only where relevant to their question.",
   "For example: reference their priority date only if the question is about visa bulletin or GC timeline; reference their PERM stage only if the question involves PERM or job change. Do not inject profile facts unrelated to what they asked.",
   "For timeline or processing-time questions, lead with official data (USCIS/DOL processing times, visa bulletin). Use community stories only as supplementary real-world anecdote after the official answer, clearly framed as individual experiences — never as the authoritative answer.",
+  "When you retell a community story, write it in complete sentences and keep the specifics that make it useful: what the person's situation was, what they actually did, in what order, and how it turned out. Do not compress a story into a parenthetical list of keywords — the concrete detail (which document they pulled before losing access, which day they filed, what the RFE argued) is the entire reason the story is worth citing, and a keyword summary discards it. Two or three full sentences per story. Name the story by its own title only; never attribute it to a Haven page, cohort, or feature name such as a war room or a segment filter, because those are parts of this product and not sources.",
   "When a 'Community outcome data' block is provided, it contains statistics pre-computed from Haven users in a similar situation. State those figures VERBATIM; never compute, estimate, round, or extrapolate your own percentages or counts. If the block says NO_STATS, tell the user there isn't enough data for their exact profile yet and give general orientation only. Always frame these as what others did (not a recommendation) and end by suggesting they confirm their options with an immigration attorney.",
   "For AC21 or job portability questions, do not imply AC21 helps unless the answer accounts for the pending I-485 requirement, the 180-day pending period, and same-or-similar occupational analysis. If the user has no filed or pending I-485, say AC21 adjustment portability generally is not available from an approved I-140 alone, but still explain the 180-day and same-or-similar requirements so the user understands what is missing.",
   "For I-485 filing questions involving Final Action Dates or Dates for Filing, the controlling filing instruction is USCIS's monthly adjustment filing-chart page. Do not answer yes or no from the Department of State Visa Bulletin alone. User-stated dates override Haven profile dates; never insert a Haven profile priority date unless the user explicitly asks to use their Haven profile. Prefer conditional wording: the user may be able to file only if USCIS authorizes Dates for Filing for that month and the priority date is earlier than the relevant cutoff, assuming all other eligibility requirements are met.",
@@ -2628,9 +2665,20 @@ export async function* streamAdvisorResponse(rawInput: {
       knowledge.map((item) => `${item.agency} | ${item.title} | ${item.url} | ${item.content}`)
     ),
     "",
+    // Rendered as labelled lines rather than pipe-delimited fields.
+    //
+    // `title | summary | Caveat: ...` reads as a database row, and the model
+    // summarised it like one: a 412-character first-person account of what
+    // somebody did in the 24 hours after a layoff came back as "(collected
+    // I-797s/paystubs, called attorney, tracked job search; emphasizes the 60-day
+    // clock)". Every detail worth having — download the documents before HR cuts
+    // your access, attorney first and job search third — was compressed out, and
+    // what remained was a parenthetical fragment.
     buildContextBlock(
-      "Community summaries",
-      community.map((item) => `${item.title} | ${item.summary} | Caveat: ${item.legalCaveat}`)
+      "Community stories (individual member accounts)",
+      community.map((item) =>
+        [`Story: ${item.title}`, `What happened: ${item.summary}`, `Caveat: ${item.legalCaveat}`].join("\n")
+      )
     ),
     ...(caseStats
       ? [

@@ -28,6 +28,66 @@
 
 export {};
 
+/**
+ * What a story is allowed to be, and what it may be called.
+ *
+ * Three defects found by reading one real answer, all of which made the product
+ * look like it was citing itself:
+ *
+ * 1. Story titles were prefixed with the container they were read from — "Layoff
+ *    War Room: Day 1 after layoff", "EB-2 India | Approved I-140 | Layoff watch:
+ *    Used B-2 as a bridge". The first is a page in this product and the second is
+ *    a segment filter. The model cited both as sources.
+ * 2. The seed corpus is built from the same snapshot the live path reads, so every
+ *    post arrived twice — once prefixed, once not. Nothing deduplicated them,
+ *    and the model reported "two posts titled ...", implying two people had the
+ *    same experience.
+ * 3. Two corpus entries were editorial summaries *about* Haven content ("Layoff
+ *    first-week triage from war room posts") rather than anybody's account of
+ *    what happened to them, sitting in the same list and inheriting the same
+ *    credibility.
+ */
+async function checkStoryProvenance(
+  check: (name: string, ok: boolean, detail: string) => void
+) {
+  const { curatedCommunitySummaries, buildFallbackCommunitySummaries } = await import("@/lib/advisor/source-corpus");
+  const { havenSnapshot } = await import("@/lib/repositories/mock-data");
+
+  const stories = buildFallbackCommunitySummaries();
+
+  // Names of product surfaces, taken from the snapshot rather than hardcoded, so
+  // renaming a cohort or a war room cannot quietly retire this assertion.
+  const surfaceNames = [havenSnapshot.warRoom.name, ...havenSnapshot.cohorts.map((c) => c.name)];
+  const prefixed = stories.filter((story) => surfaceNames.some((name) => story.title.startsWith(`${name}:`)));
+  check(
+    "story titles never carry a Haven surface or cohort name",
+    prefixed.length === 0,
+    prefixed.length === 0 ? `checked ${stories.length} stories against ${surfaceNames.length} surface names` : `prefixed: ${prefixed.map((s) => s.title).join(" | ")}`
+  );
+
+  const bodies = stories.map((s) => s.summary.trim().toLowerCase().slice(0, 200));
+  const duplicated = bodies.filter((body, index) => bodies.indexOf(body) !== index);
+  check(
+    "no story body appears twice in the fallback pool",
+    duplicated.length === 0,
+    duplicated.length === 0 ? `${stories.length} stories, ${new Set(bodies).size} distinct bodies` : `${duplicated.length} duplicate bodies`
+  );
+
+  // A story is one person's account. An aggregate has no person in it, and the
+  // giveaway is that it describes what "members" or "posts" collectively did.
+  const aggregatePattern = /\b(members|posts|users|people) (nearing|consistently|generally|typically|often|usually)\b|\bfrom (war room|community) posts\b/i;
+  const aggregates = curatedCommunitySummaries.filter(
+    (item) => aggregatePattern.test(item.summary) || aggregatePattern.test(item.title)
+  );
+  check(
+    "curated community summaries contain no editorial aggregates",
+    aggregates.length === 0,
+    aggregates.length === 0
+      ? `${curatedCommunitySummaries.length} curated entries, none aggregate`
+      : `aggregates: ${aggregates.map((a) => a.title).join(" | ")}`
+  );
+}
+
 async function main() {
   const { wantsCommunityStories, wantsCaseOutcomeStats } = await import("@/lib/advisor/service");
   const { renderStatsForPrompt } = await import("@/lib/advisor/case-stats");
@@ -128,6 +188,8 @@ async function main() {
     /attorney/i.test(withoutStories) && /attorney/i.test(withStories),
     "both branches hand off"
   );
+
+  await checkStoryProvenance(check);
 
   console.log(`\n${pass} passed, ${failures.length} failed`);
   if (failures.length > 0) {
