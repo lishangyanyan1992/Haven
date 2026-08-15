@@ -84,14 +84,44 @@ export function classifyDisclosureTier(totalN: number, pathCount: number): CaseS
 }
 
 // Most-specific → least-specific. Keep current_status + i140_status as the spine (most outcome-relevant).
+/**
+ * Progressively broaden the segment, dropping the least relevant dimension first.
+ *
+ * The order used to be the reverse of this, and it was dropping the single most
+ * relevant fact before anything else: `trigger` came off at step one, so a
+ * question from somebody who had just been laid off was widened by first
+ * discarding the fact that they had been laid off, while still requiring an exact
+ * match on country of birth and preference category. The result was a cohort of
+ * people who shared a passport and a category with the user and had nothing else
+ * in common with their situation.
+ *
+ * Ordered by how much each dimension actually changes what someone did:
+ *
+ *   category            drops first — EB-2 and EB-3 face the same layoff mechanics
+ *   nationalityBucket   next        — matters for queue position, not for status
+ *   i140Status          then        — a real difference, so held longer
+ *   trigger             last        — why they are in this situation at all
+ *
+ * Note that for non-queue questions the first two are already null coming in (see
+ * buildCaseSegmentFilters), which makes those steps no-ops. That is intended: this
+ * ladder is the safety net for the questions where they legitimately do apply.
+ */
 function wideningAttempts(f: CaseSegmentFilters): CaseSegmentFilters[] {
-  return [
-    f,
-    { ...f, trigger: null },
-    { ...f, trigger: null, category: null },
-    { ...f, trigger: null, category: null, nationalityBucket: null }
-  ];
+  const dropCategory = { ...f, category: null };
+  const dropNation = { ...dropCategory, nationalityBucket: null };
+  const dropI140 = { ...dropNation, i140Status: null };
+
+  return [f, dropCategory, dropNation, dropI140, { ...dropI140, trigger: null }];
 }
+
+/**
+ * Exported for the breadth assertions in community-stories.check.ts.
+ *
+ * The ordering here is a policy decision about who counts as comparable, not an
+ * implementation detail — reversing it silently excluded the people the user most
+ * needed to hear from — so it is asserted rather than trusted.
+ */
+export const __wideningAttemptsForTest = wideningAttempts;
 
 function segmentLabel(f: CaseSegmentFilters): string {
   const parts = [

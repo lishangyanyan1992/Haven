@@ -867,12 +867,65 @@ function mapCategory(preference: string): "eb1" | "eb2" | "eb3" | null {
   return null;
 }
 
-function buildCaseSegmentFilters(profile: HavenWorkspaceSnapshot["profile"]): CaseSegmentFilters {
+/**
+ * Does country of birth and preference category change the answer to this question?
+ *
+ * They do for one class of question and one only: where the person sits in the
+ * queue. Country and category jointly determine the priority-date wait, so for a
+ * visa-bulletin or CSPA question they are the entire subject, and a story from
+ * someone in a different queue is genuinely not comparable.
+ *
+ * For everything else they are noise. Someone laid off on H-1B faces the same
+ * 60-day mechanics whether they were born in China, India, or Brazil, and whether
+ * their petition is EB-2 or EB-3 — nothing in the grace period, the portability
+ * rule, or the change-of-status options turns on either fact. Segmenting a layoff
+ * question by country and category therefore excludes people who went through the
+ * identical situation, and does it invisibly: the user sees NO_STATS and concludes
+ * nobody like them exists, when what actually happened is that the segment was
+ * drawn around a fact irrelevant to their question.
+ *
+ * The same reasoning would extend to a country-specific restriction — a ban or a
+ * per-country rule — if one applied. None currently does in this corpus, and
+ * inventing the case here would be guessing.
+ */
+export function queuePositionMatters(query: string, topics: TopicBucket[]): boolean {
+  if (topics.includes("visa-bulletin") || topics.includes("cspa")) return true;
+
+  // Queue vocabulary in the question itself, for the case where classification
+  // landed elsewhere. "How long until my green card" is a queue question even when
+  // it arrives inside a layoff conversation.
+  return /(priority date|retrogress|backlog|visa bulletin|dates for filing|final action|per-?country|country cap|how long.*(green card|gc|wait)|when.*(current|my turn))/i.test(
+    query
+  );
+}
+
+/**
+ * The segment used for outcome statistics.
+ *
+ * Dimensions are included only when they change the answer. The alternative —
+ * always segmenting on everything the profile happens to contain — sounds more
+ * precise and is not: it splits the sample across facts that do not affect the
+ * outcome, so a segment that should have hundreds of comparable cases reports
+ * NO_STATS instead. The user is told there is not enough data about people like
+ * them, which is false; there was not enough data about a distinction that did not
+ * matter.
+ */
+function buildCaseSegmentFilters(
+  profile: HavenWorkspaceSnapshot["profile"],
+  query: string,
+  topics: TopicBucket[]
+): CaseSegmentFilters {
+  const queueMatters = queuePositionMatters(query, topics);
+
   return {
     currentStatus: mapVisa(profile.visaType),
+    // Green-card stage stays in for every question. Whether an I-140 is approved
+    // genuinely changes what someone can do after a layoff — it is the difference
+    // between having a retained priority date and starting over — so it is a real
+    // dimension of comparability, not a demographic one.
     i140Status: profile.i140Approved ? "approved" : null,
-    nationalityBucket: bucketNation(profile.countryOfBirth),
-    category: mapCategory(profile.preferenceCategory),
+    nationalityBucket: queueMatters ? bucketNation(profile.countryOfBirth) : null,
+    category: queueMatters ? mapCategory(profile.preferenceCategory) : null,
     trigger: "laid_off"
   };
 }
@@ -887,19 +940,42 @@ export function wantsCaseOutcomeStats(query: string, topics: TopicBucket[]): boo
   );
 }
 
-function scoreProfileMatch(tags: string[], profile: { visaType: string; preferenceCategory: string; countryOfBirth: string; topConcerns: string[] }): number {
+/**
+ * Rank a community story by how much it resembles this user's situation.
+ *
+ * `queueMatters` gates the two demographic dimensions for the same reason
+ * `buildCaseSegmentFilters` does. Category used to be weighted +2 — equal to visa
+ * type — so on a layoff question a story from another EB-2 applicant outranked a
+ * closer account of the same layoff from an EB-3 one, on a distinction that
+ * changes nothing about what either person could do in sixty days.
+ *
+ * Unlike the statistics segment these are soft boosts rather than filters, so the
+ * cost of getting it wrong is a worse ordering rather than an empty result. That
+ * is also why it is worth getting right: the model is shown three stories, so the
+ * ordering decides which experiences the user ever sees.
+ */
+function scoreProfileMatch(
+  tags: string[],
+  profile: { visaType: string; preferenceCategory: string; countryOfBirth: string; topConcerns: string[] },
+  queueMatters = false
+): number {
   const normalized = tags.map(t => t.toLowerCase().replace(/[-_\s]/g, ""));
   let score = 0;
 
   const visaTag = profile.visaType.toLowerCase().replace(/[-_\s]/g, "");
   if (normalized.some(t => t.includes(visaTag) || visaTag.includes(t))) score += 2;
 
-  const catTag = profile.preferenceCategory.toLowerCase().replace(/[-_\s]/g, "");
-  if (normalized.some(t => t.includes(catTag) || catTag.includes(t))) score += 2;
+  if (queueMatters) {
+    const catTag = profile.preferenceCategory.toLowerCase().replace(/[-_\s]/g, "");
+    if (normalized.some(t => t.includes(catTag) || catTag.includes(t))) score += 2;
 
-  const countryTag = profile.countryOfBirth.toLowerCase().replace(/[-_\s]/g, "");
-  if (normalized.some(t => t.includes(countryTag) || countryTag.includes(t))) score += 1;
+    const countryTag = profile.countryOfBirth.toLowerCase().replace(/[-_\s]/g, "");
+    if (normalized.some(t => t.includes(countryTag) || countryTag.includes(t))) score += 1;
+  }
 
+  // What the user said they are worried about is a better similarity signal than
+  // demographics on every question, and it is the only one that is theirs by
+  // choice rather than by birth.
   for (const concern of profile.topConcerns) {
     const concernTag = concern.toLowerCase().replace(/[-_\s]/g, "");
     if (normalized.some(t => t.includes(concernTag) || concernTag.includes(t))) score += 1;
@@ -1532,9 +1608,19 @@ async function retrieveCommunity(
   }
 
   const profile = snapshot.profile;
+  const queueMatters = queuePositionMatters(query, topics);
   const span = parent?.span({
     name: "community-story-agent",
-    input: { query, topics, experiential: isExperientialQuestion(query), forOutcomeQuestion: wantsCaseOutcomeStats(query, topics) }
+    input: {
+      query,
+      topics,
+      experiential: isExperientialQuestion(query),
+      forOutcomeQuestion: wantsCaseOutcomeStats(query, topics),
+      // On the trace so an over-narrow retrieval can be diagnosed after the fact.
+      // The failure this guards against is silent by construction: the user is
+      // simply shown fewer stories, and nothing records why.
+      queueMatters
+    }
   });
 
   // Vector search path
@@ -1557,7 +1643,7 @@ async function retrieveCommunity(
             id: string; title: string; topic: string; summary: string;
             legal_caveat: string; tags: string[]; similarity: number;
           }>).map(item => {
-            const profileScore = scoreProfileMatch(item.tags ?? [], profile);
+            const profileScore = scoreProfileMatch(item.tags ?? [], profile, queueMatters);
             return {
               title: item.title,
               topic: item.topic ?? "community",
@@ -1592,7 +1678,7 @@ async function retrieveCommunity(
     .map((item) => ({
       ...item,
       similarity: scoreOverlap(query, `${item.title} ${item.summary} ${item.topic}`) +
-        scoreProfileMatch(item.tags ?? [], profile) * 0.05
+        scoreProfileMatch(item.tags ?? [], profile, queueMatters) * 0.05
     }))
     .sort((left, right) => (right.similarity ?? 0) - (left.similarity ?? 0))
     .slice(0, 3);
@@ -2536,7 +2622,7 @@ export async function* streamAdvisorResponse(rawInput: {
   const knowledge = await retrieveKnowledge(content, topics, retrievalSpan);
   const community = await retrieveCommunity(content, topics, snapshot, retrievalSpan);
   const caseStats = wantsCaseOutcomeStats(content, topics)
-    ? await getCaseOutcomeStats(buildCaseSegmentFilters(snapshot.profile), retrievalSpan)
+    ? await getCaseOutcomeStats(buildCaseSegmentFilters(snapshot.profile, content, topics), retrievalSpan)
     : null;
 
   // Live bulletin: only fetched for bulletin questions, so an OPT or layoff

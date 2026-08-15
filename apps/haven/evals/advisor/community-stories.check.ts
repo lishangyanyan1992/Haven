@@ -88,6 +88,89 @@ async function checkStoryProvenance(
   );
 }
 
+/**
+ * How narrowly a cohort may be drawn, and on what.
+ *
+ * A user asked "I was laid off, are there posts from people like me?" and was told
+ * there were not enough cases matching "H-1B · I-140 approved · China · EB-2".
+ * Both demographic halves of that segment are irrelevant to the question. Nothing
+ * in the 60-day grace period, the portability rule, or the change-of-status
+ * options turns on country of birth or preference category — someone in the
+ * identical situation born in Brazil on EB-3 did the same things.
+ *
+ * The failure mode is quiet and it is the wrong way round: the user reads
+ * NO_STATS and concludes nobody like them exists, when what actually happened is
+ * that the cohort was drawn around facts that do not affect the outcome, splitting
+ * the sample until it fell under the disclosure threshold.
+ *
+ * Country and category earn their place on exactly one class of question — where
+ * the person sits in the visa queue — because together they *are* the wait.
+ */
+async function checkSegmentBreadth(
+  check: (name: string, ok: boolean, detail: string) => void
+) {
+  const { queuePositionMatters } = await import("@/lib/advisor/service");
+
+  const queueQuestions: Array<[string, string[]]> = [
+    ["What does this month's visa bulletin mean for me?", ["visa-bulletin"]],
+    ["My daughter turns 21 before our date is current", ["cspa"]],
+    ["How long will I wait for my green card?", ["h1b"]],
+    ["Has my priority date retrogressed?", ["h1b"]],
+    ["When can I file under Dates for Filing?", ["h1b"]]
+  ];
+  for (const [question, topics] of queueQuestions) {
+    check(
+      `queue question narrows by country/category — "${question.slice(0, 40)}"`,
+      queuePositionMatters(question, topics as never),
+      "country and category decide the wait, so they are the subject"
+    );
+  }
+
+  const situationQuestions: Array<[string, string[]]> = [
+    ["I was laid off. Are there posts from people in a situation like mine?", ["layoffs", "h1b"]],
+    ["What did other people do after a layoff?", ["layoffs"]],
+    ["My OPT is pending, can I start work?", ["student-status"]],
+    ["Can I travel with a pending I-485?", ["adjustment-of-status"]],
+    ["What happens to my status if I change jobs?", ["job-change"]]
+  ];
+  for (const [question, topics] of situationQuestions) {
+    check(
+      `situation question stays broad — "${question.slice(0, 40)}"`,
+      !queuePositionMatters(question, topics as never),
+      "the mechanics are identical regardless of country or category"
+    );
+  }
+
+  // The ladder used to drop `trigger` first, so a layoff question was widened by
+  // discarding the layoff while still demanding an exact country match.
+  const { __wideningAttemptsForTest } = (await import("@/lib/advisor/case-stats")) as unknown as {
+    __wideningAttemptsForTest?: (f: Record<string, unknown>) => Array<Record<string, unknown>>;
+  };
+  if (__wideningAttemptsForTest) {
+    const ladder = __wideningAttemptsForTest({
+      currentStatus: "h1b",
+      i140Status: "approved",
+      nationalityBucket: "china",
+      category: "eb2",
+      trigger: "laid_off"
+    });
+    const triggerDroppedAt = ladder.findIndex((step) => step.trigger == null);
+    const categoryDroppedAt = ladder.findIndex((step) => step.category == null);
+    const nationDroppedAt = ladder.findIndex((step) => step.nationalityBucket == null);
+
+    check(
+      "widening drops the layoff trigger last, not first",
+      triggerDroppedAt > categoryDroppedAt && triggerDroppedAt > nationDroppedAt,
+      `trigger at step ${triggerDroppedAt}, category ${categoryDroppedAt}, nationality ${nationDroppedAt}`
+    );
+    check(
+      "widening drops category before nationality",
+      categoryDroppedAt <= nationDroppedAt,
+      `category ${categoryDroppedAt}, nationality ${nationDroppedAt}`
+    );
+  }
+}
+
 async function main() {
   const { wantsCommunityStories, wantsCaseOutcomeStats } = await import("@/lib/advisor/service");
   const { renderStatsForPrompt } = await import("@/lib/advisor/case-stats");
@@ -190,6 +273,7 @@ async function main() {
   );
 
   await checkStoryProvenance(check);
+  await checkSegmentBreadth(check);
 
   console.log(`\n${pass} passed, ${failures.length} failed`);
   if (failures.length > 0) {
