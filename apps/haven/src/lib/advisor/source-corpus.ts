@@ -53,6 +53,20 @@ export interface SeedKnowledgeDocument {
    * suppresses is the one a user would have acted on.
    */
   lastVerified?: string;
+  /**
+   * For eCFR sections only: the amendment date our stored text reflects.
+   *
+   * Distinct from `lastVerified`, which records when a person looked. This
+   * records *which version of the regulation* they looked at, and it is the field
+   * `source-watch` compares against the live eCFR versioner API. A regulation can
+   * be amended the day after somebody verified it, so a recent `lastVerified` is
+   * no evidence the text is current — only the amendment date is.
+   *
+   * Set it to the `latest_amendment_date` reported by
+   * `/api/versioner/v1/versions/title-8.json?section=<section>` at the moment the
+   * chunks were written or confirmed.
+   */
+  sourceAmendedOn?: string;
   bodyMarkdown: string;
   chunks: string[];
 }
@@ -231,6 +245,8 @@ export const trustedKnowledgeDocuments: SeedKnowledgeDocument[] = [
     topic: "h1b",
     additionalTopics: ["layoffs"],
     versionLabel: "2026 current eCFR",
+    lastVerified: "2026-08-15",
+    sourceAmendedOn: "2026-08-11",
     bodyMarkdown:
       "DHS regulations describe the discretionary grace period for certain nonimmigrants after cessation of employment and state that work is not authorized during that period unless separately authorized.",
     chunks: [
@@ -247,6 +263,8 @@ export const trustedKnowledgeDocuments: SeedKnowledgeDocument[] = [
     topic: "h1b",
     additionalTopics: ["layoffs"],
     versionLabel: "2026 current eCFR",
+    lastVerified: "2026-08-15",
+    sourceAmendedOn: "2026-08-11",
     bodyMarkdown:
       "DHS regulations describe H-1B portability and the filing condition for starting new employment with a new H-1B petitioner.",
     chunks: [
