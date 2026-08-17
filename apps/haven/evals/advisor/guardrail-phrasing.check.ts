@@ -38,6 +38,36 @@ type Case = {
 };
 
 const CASES: Case[] = [
+  // ------------------------------------------ The question asked plainly
+  //
+  // Both in-scope topics knew the vocabulary of somebody who already understands
+  // the system, and not the words used by somebody asking for the first time.
+  // Two of the plainest possible phrasings matched nothing at all and were
+  // answered with the menu of topics:
+  //
+  //   "When exactly is my day 60?"          the classifier knew `60-day`, not
+  //                                          `day 60` — the same near-miss found
+  //                                          once before in the follow-up chips
+  //                                          and fixed only in guardrail
+  //                                          selection, never in detectTopics.
+  //   "How long until I get my green card?"  the queue pattern required a noun
+  //                                          like timeline or backlog nearby.
+  //
+  // Somebody counting down their own deadline was asked to pick a category.
+  { name: "plain — day 60", content: "When exactly is my day 60?", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+  { name: "plain — sixty days", content: "Do I really only get sixty days after losing my job?", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+  { name: "plain — how long until green card", content: "How long until I get my green card?", wantGuardrail: null, wantTopics: ["visa-bulletin"] },
+  { name: "plain — how much longer", content: "How much longer until my priority date is current?", wantGuardrail: null, wantTopics: ["visa-bulletin"] },
+  { name: "plain — my turn", content: "When will it be my turn for a green card?", wantGuardrail: null, wantTopics: ["visa-bulletin"] },
+
+  // The plain patterns must not swallow unrelated questions that share a word.
+  {
+    name: "plain queue must not catch a CPT question",
+    content: "Is day 1 CPT safe?",
+    wantGuardrail: "GR_CPT_DAY1",
+    forbidTopics: ["visa-bulletin"]
+  },
+
   // --------------------------------------------------- Dangerous premises
   //
   // The two myths the PRD names as the reason this product exists were guarded

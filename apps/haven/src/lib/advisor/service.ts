@@ -440,6 +440,21 @@ function mentionsTravel(normalized: string) {
 const GREEN_CARD_PATH_PATTERN =
   /(?:\beb-?[123]\b|employment[- ]based (?:first|second|third)|\bgreen.?card\b)[^.?!]{0,60}\b(?:path|timeline|process|progress|queue|wait|waiting|watch|backlog|retrogress\w*|current|movement|forecast|next|stage|steps?)\b|\b(?:backlog|retrogress\w*|per.?country (?:limit|cap)|priority date)\b/;
 
+/**
+ * The queue question asked in plain language.
+ *
+ * The pattern above requires a queue *noun* near "green card" — timeline, wait,
+ * backlog. "How long until I get my green card?" has none of them, so the single
+ * most common phrasing of the second in-scope topic matched nothing and was
+ * answered with the clarifying menu.
+ *
+ * This is the same near-miss as `day 60`: the classifier knew the vocabulary of
+ * somebody who already understands the system, and not the words used by somebody
+ * asking for the first time.
+ */
+const PLAIN_QUEUE_PATTERN =
+  /(how (long|much longer)|when)[^.?!]{0,40}(green.?card|\bgc\b|permanent residen|my turn|be current|priority date)/;
+
 const CSPA_PATTERN =
   /(cspa|child status protection|ages? out|ageing out|aging out|aged out|turns? 21|turning 21|will be 21|becomes? 21|reaches? 21|over 21|21st birthday|sought to acquire|too old to (be included|qualify|stay on)|age.?out)/;
 
@@ -606,12 +621,27 @@ function detectTopics(input: string): Set<TopicBucket> {
   // the ones it needed. This was invisible: the answer still arrived, just built on
   // the wrong material.
   if (/(h-?1b|specialty occupation|transfer|amendment|\bcap\b|grace period)/.test(normalized)) topics.add("h1b");
-  if (/(visa bulletin|dates for filing|final action)/.test(normalized) || GREEN_CARD_PATH_PATTERN.test(normalized))
+  if (
+    /(visa bulletin|dates for filing|final action)/.test(normalized) ||
+    GREEN_CARD_PATH_PATTERN.test(normalized) ||
+    PLAIN_QUEUE_PATTERN.test(normalized)
+  )
     topics.add("visa-bulletin");
   if (/\bperm\b|labor certification|\bflag(ged|s)?\b/.test(normalized)) topics.add("perm");
   if (/(i-485|i485|adjustment of status|adjust status|advance parole|i-131)/.test(normalized)) topics.add("adjustment-of-status");
   if (/(job change|same or similar|ac21|portability)/.test(normalized)) topics.add("job-change");
-  if (mentionsJobLoss(normalized) || /(60-day|grace period)/.test(normalized) || BRIDGE_STATUS_PATTERN.test(normalized))
+  // `day 60` as well as `60-day`. The same near-miss was found once before, in the
+  // follow-up chips, and fixed only in guardrail selection — detectTopics still
+  // knew one spelling. So "When exactly is my day 60?", which is the grace-period
+  // question in its plainest form, matched nothing and was answered with the menu
+  // of topics. Someone counting down their own deadline was asked to pick a
+  // category.
+  if (
+    mentionsJobLoss(normalized) ||
+    /(60[- ]day|day 60|day sixty|sixty days?)/.test(normalized) ||
+    /grace period/.test(normalized) ||
+    BRIDGE_STATUS_PATTERN.test(normalized)
+  )
     topics.add("layoffs");
   if (/(\bf-?1\b|\bopt\b|stem opt|\bcpt\b|i-983|sevis|\bdso\b|ead card)/.test(normalized)) topics.add("student-status");
   if (/(niw|national interest waiver|eb-?1a|eb-?2 niw|proposed endeavor|dhanasar|self.?petition)/.test(normalized)) topics.add("self-petition");
