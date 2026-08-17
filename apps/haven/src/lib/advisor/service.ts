@@ -2774,6 +2774,18 @@ export async function* streamAdvisorResponse(rawInput: {
       output: {
         keywordTopics: topics,
         modelTopics: shadowRead.topics,
+        // The subject, which is what a live cutover would use for scope. Recorded
+        // separately from `union` because the first measurement showed the two
+        // answer different questions: acting on the union would have declined 20
+        // of 61 corpus cases including almost every layoff question, while acting
+        // on the subject matches today's decision on 85% and the fixtures on 97%.
+        primaryTopic: shadowRead.primaryTopic,
+        // What the scope gate would have decided if it keyed on the subject.
+        // Logged rather than derived later so the cutover decision rests on what
+        // real traffic would actually have experienced.
+        scopeIfPrimary: shadowRead.primaryTopic
+          ? decideScope([shadowRead.primaryTopic], mentionsTravel(content.toLowerCase()))
+          : null,
         agreed: comparison.agreed,
         onlyKeyword: comparison.onlyKeyword,
         onlyModel: comparison.onlyModel,

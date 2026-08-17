@@ -84,6 +84,27 @@ export type FactId = (typeof FACT_IDS)[number];
 export type SafetyId = (typeof SAFETY_IDS)[number];
 
 export interface IntentRead {
+  /**
+   * What the question is *about*, as opposed to what it touches.
+   *
+   * Added after the first shadow measurement, which found the two routers agreeing
+   * on only 26% of the corpus — and, far worse, that acting on the union of both
+   * would have flipped 20 of 61 cases from answered to declined, including almost
+   * every layoff question, the product's core topic.
+   *
+   * The model was not wrong. "I was laid off, a new company wants to hire me, when
+   * can I start?" genuinely involves job change and work authorization, and it
+   * returned both. But `job-change` and `work-authorization` are declined topics,
+   * so a semantically correct tag became an operational disaster: the question
+   * would have been redirected to the AC21 message instead of answered.
+   *
+   * The fix is not a better prompt, it is a distinction the schema was missing.
+   * Scope is a question about the subject; safety is a question about everything
+   * involved. So `primaryTopic` decides what the product answers, and `topics`
+   * stays the generous list that decides which guardrails fire — where
+   * over-triggering remains the safe direction.
+   */
+  primaryTopic: TopicBucket | null;
   topics: TopicBucket[];
   confidence: "high" | "low";
   /** Facts the user stated in their own words. Never inferred from the profile. */
@@ -112,7 +133,8 @@ const SYSTEM_PROMPT = [
   "You classify questions for a US employment-based immigration assistant. You never answer them.",
   "Read what the person means, not which words they used. People describe job loss as 'my position was affected in the restructuring', 'they let me go', 'I was benched', 'I put down my papers'. All of those are job loss.",
   "",
-  "Return topics that genuinely apply. An empty list is correct when the question is not about immigration.",
+  "primaryTopic: the single subject of the question — what the person is actually asking about. Someone who says they were laid off and asks when they can start at a new employer is asking a LAYOFF question, even though job change and work authorization are involved. Pick the subject, not the related concepts. Null only when nothing applies.",
+  "topics: every topic the question genuinely touches, including primaryTopic. Be generous here; this list decides which safety warnings appear, and an extra warning is cheap.",
   "",
   "factsStated: only facts the person supplied in this conversation. Never guess, and never include a fact merely because it is typical of the situation.",
   "factsMissing: facts that would change the answer and were not supplied. Empty is fine when the question is general.",
@@ -127,8 +149,9 @@ const SYSTEM_PROMPT = [
 const SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["topics", "confidence", "factsStated", "factsMissing", "requiredSafety", "premiseToCorrect", "outOfDomain"],
+  required: ["primaryTopic", "topics", "confidence", "factsStated", "factsMissing", "requiredSafety", "premiseToCorrect", "outOfDomain"],
   properties: {
+    primaryTopic: { type: ["string", "null"], enum: [...TOPIC_BUCKETS, null] },
     topics: { type: "array", items: { type: "string", enum: [...TOPIC_BUCKETS] } },
     confidence: { type: "string", enum: ["high", "low"] },
     factsStated: { type: "array", items: { type: "string", enum: [...FACT_IDS] } },
@@ -223,6 +246,7 @@ export async function classifyIntent(input: {
     const safetySet = new Set<string>(SAFETY_IDS);
 
     return {
+      primaryTopic: typeof parsed.primaryTopic === "string" && topicSet.has(parsed.primaryTopic) ? parsed.primaryTopic : null,
       topics: (parsed.topics ?? []).filter((t): t is TopicBucket => topicSet.has(t)),
       confidence: parsed.confidence === "high" ? "high" : "low",
       factsStated: (parsed.factsStated ?? []).filter((f): f is FactId => factSet.has(f)),
@@ -246,6 +270,8 @@ export type RouterComparison = {
   onlyModel: TopicBucket[];
   /** Union of both, which is what a live implementation would act on. */
   union: TopicBucket[];
+  /** The subject, used for scope. Distinct from `union`, which is used for safety. */
+  primaryTopic: TopicBucket | null;
   confidence: "high" | "low";
   requiredSafety: SafetyId[];
 };
@@ -267,6 +293,7 @@ export function compareRouters(keywordTopics: TopicBucket[], read: IntentRead): 
     onlyKeyword: keywordTopics.filter((t) => !model.has(t)),
     onlyModel: read.topics.filter((t) => !keyword.has(t)),
     union: [...new Set([...keywordTopics, ...read.topics])],
+    primaryTopic: read.primaryTopic,
     confidence: read.confidence,
     requiredSafety: read.requiredSafety
   };
