@@ -372,13 +372,22 @@ export const trustedKnowledgeDocuments: SeedKnowledgeDocument[] = [
       "https://www.uscis.gov/green-card/green-card-processes-and-procedures/visa-availability-priority-dates/adjustment-of-status-filing-charts-from-the-visa-bulletin",
     topic: "visa-bulletin",
     versionLabel: "July 2026 filing-chart index",
+    lastVerified: "2026-08-16",
+    sourceVersionDate: "2026-08-03",
     effectiveDate: "2026-07-01",
     bodyMarkdown:
       "USCIS publishes a monthly adjustment-of-status filing chart decision. That USCIS page tells employment-based applicants whether they must use Final Action Dates or may use Dates for Filing for the month.",
     chunks: [
       "USCIS tells adjustment applicants to use its monthly filing-chart page to determine whether employment-based applicants must use Final Action Dates or may use Dates for Filing.",
       "For I-485 filing questions, the Department of State Visa Bulletin alone is not the final filing instruction. USCIS decides each month which chart applies for adjustment-of-status filings.",
-      "If USCIS authorizes Dates for Filing for the month, a person may be able to file I-485 when the priority date is earlier than the applicable Dates for Filing cutoff, assuming all other eligibility requirements are met."
+      "If USCIS authorizes Dates for Filing for the month, a person may be able to file I-485 when the priority date is earlier than the applicable Dates for Filing cutoff, assuming all other eligibility requirements are met.",
+      // Added after reading the live page on 2026-08-16. The stored text covered
+      // the monthly designation but not this carve-out, so an answer could tell
+      // someone to wait for a Dates for Filing month when they were already able
+      // to file — a wrong answer in the direction that costs the user time they
+      // cannot get back.
+      "There is an exception to the monthly designation: if a category is current on the Final Action Dates chart, or the Final Action Dates cutoff is later than the Dates for Filing date, applicants in that category may file using the Final Action Dates chart that month even when USCIS has designated Dates for Filing.",
+      "USCIS designates the chart within about a week of the Department of State publishing each Visa Bulletin, so early in a month the designation for that month may not be posted yet."
     ]
   },
   {
