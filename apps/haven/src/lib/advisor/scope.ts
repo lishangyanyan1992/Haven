@@ -97,6 +97,38 @@ const REDIRECT_PRIORITY: TopicBucket[] = ["cspa", "self-petition", "student-stat
 const YIELDS_TO_HAVEN_PRODUCT: TopicBucket[] = ["perm"];
 
 /**
+ * Declined topics that yield when the question clearly raises an in-scope one.
+ *
+ * The recurring defect in this codebase — five instances now — is a topic label
+ * standing for two different questions. Travel and unauthorized work were each
+ * fixed with their own signal. These two are the same shape from the other
+ * direction: the topic is not the subject at all, it is background the user
+ * mentioned because it is true of them.
+ *
+ *   "I moved from F-1 OPT to H-1B two years ago and was laid off last week.
+ *    Does my old OPT matter for the 60-day clock?"     -> declined as a student
+ *   "I have an NIW petition approved. What does this month's visa bulletin
+ *    mean for when I can file?"                        -> declined as NIW
+ *
+ * Both are people describing their own history before asking an in-scope
+ * question, and both were turned away from the thing we exist to answer.
+ *
+ * Only these two yield, and the omissions are deliberate:
+ *
+ *   cspa        never yields. The deadline can pass while somebody is still
+ *               working out who to ask, so an incidental mention is still worth
+ *               stopping for.
+ *   job-change  never yields. "I was laid off and want to use AC21" raises AC21
+ *               as a genuine subject, not as background.
+ *   travel and unauthorized work are decided by signal before this runs.
+ *
+ * The gate is a *strong* in-scope signal rather than any in-scope topic, because
+ * `h1b` and `adjustment-of-status` are the default fallback topics and would let
+ * everything through. See STRONG_IN_SCOPE in service.ts.
+ */
+const YIELDS_TO_STRONG_IN_SCOPE: TopicBucket[] = ["student-status", "self-petition"];
+
+/**
  * Unauthorized work is declined by SIGNAL, not by topic.
  *
  * `work-authorization` was on the declined list, and that was wrong in a way that
@@ -140,7 +172,8 @@ export type ScopeDecision =
 export function decideScope(
   topics: TopicBucket[],
   travelMentioned: boolean,
-  unauthorizedWorkMentioned = false
+  unauthorizedWorkMentioned = false,
+  strongInScopeSignal = false
 ): ScopeDecision {
   if (travelMentioned && topics.includes("adjustment-of-status")) {
     return { inScope: false, area: "travel", guardrailId: "MSG_SCOPE_TRAVEL" };
@@ -159,6 +192,7 @@ export function decideScope(
     const guardrailId = REDIRECTED[topic];
     if (!guardrailId || !topics.includes(topic)) continue;
     if (isHavenProductQuestion && YIELDS_TO_HAVEN_PRODUCT.includes(topic)) continue;
+    if (strongInScopeSignal && YIELDS_TO_STRONG_IN_SCOPE.includes(topic)) continue;
     return { inScope: false, area: topic, guardrailId };
   }
 

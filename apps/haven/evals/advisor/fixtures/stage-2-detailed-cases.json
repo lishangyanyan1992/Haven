@@ -1283,8 +1283,7 @@
           "should cite USCIS change of status or F-1 source if explaining process"
         ]
       },
-      "expectedBehavior": "decline",
-      "declineArea": "student-status"
+      "expectedBehavior": "answer"
     },
     {
       "id": "adv-f1-opt-036",

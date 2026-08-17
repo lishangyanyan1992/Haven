@@ -104,6 +104,34 @@ const CASES: ScopeCase[] = [
     declinedAs: "travel"
   },
 
+  // ------------------------------------------- Background versus subject
+  //
+  // The recurring defect in this codebase — five instances — is a topic label
+  // standing for two different questions. These two are that shape from the other
+  // direction: the declined topic is not the subject at all, it is history the
+  // person mentioned because it is true of them, and both were turned away from
+  // the thing this product exists to answer.
+  {
+    question: "I moved from F-1 OPT to H-1B two years ago and was laid off last week. Does my old OPT matter for the 60-day clock?",
+    declinedAs: null
+  },
+  {
+    question: "I have an NIW petition approved. What does this month's visa bulletin mean for when I can file?",
+    declinedAs: null
+  },
+  // The yield is gated on a *strong* in-scope signal, and only student-status and
+  // self-petition may yield. These four prove the gate did not become a hole:
+  // a genuine student question with no strong signal still declines, and CSPA and
+  // AC21 decline even alongside an explicit layoff, because their deadlines are
+  // not recoverable and AC21 is a real subject rather than background.
+  { question: "My OPT is pending, can I start work on Monday?", declinedAs: "student-status" },
+  { question: "My NIW was denied, should I refile?", declinedAs: "self-petition" },
+  {
+    question: "My daughter turns 21 in four months and I was laid off last week. What happens to her green card?",
+    declinedAs: "cspa"
+  },
+  { question: "I was laid off and want to use AC21 to change jobs.", declinedAs: "job-change" },
+
   // Precedence bugs found by reconciling the eval fixtures against the live
   // decision. All three sent a question to a redirect that answered something the
   // user had not asked.
@@ -151,7 +179,7 @@ const SAFETY_FACTS: Array<{ id: string; name: string; must: RegExp }> = [
 ];
 
 async function main() {
-  const { routeAdvisorQuestion } = await import("@/lib/advisor/service");
+  const { routeAdvisorQuestion, hasStrongInScopeSignal } = await import("@/lib/advisor/service");
   const { decideScope, REDIRECTED } = await import("@/lib/advisor/scope");
   const { guardrailText, getGuardrail } = await import("@/lib/advisor/guardrail-registry");
 
@@ -178,7 +206,14 @@ async function main() {
       /(misrepresent|hide|hiding|conceal|without authorization|unauthorized work|under the table|off the books|freelanc|side gig|moonlight|paid in cash|before (my|the) (ead|work permit|card)|while (my|the) (ead|opt|work permit) (was |is )?pending|started working before|worked before)/i.test(
         testCase.question
       );
-    const decision = decideScope(route.topics, travelMentioned, unauthorizedMentioned);
+    // Fourth argument mirrors the streaming path too: student-status and
+    // self-petition yield when the question clearly raises an in-scope topic.
+    const decision = decideScope(
+      route.topics,
+      travelMentioned,
+      unauthorizedMentioned,
+      hasStrongInScopeSignal(testCase.question.toLowerCase())
+    );
 
     const actual = decision.inScope ? null : decision.area;
     const ok = actual === testCase.declinedAs;

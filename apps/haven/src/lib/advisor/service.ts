@@ -279,6 +279,26 @@ const JOB_LOSS_TERMS = [
 const JOB_LOSS_PATTERN = new RegExp(`(${JOB_LOSS_TERMS.join("|")})`);
 
 /**
+ * Unambiguous evidence that the question is about one of the two live topics.
+ *
+ * Used by the scope gate to let `student-status` and `self-petition` yield when
+ * they were mentioned as background rather than asked about. Deliberately narrow:
+ * `h1b` and `adjustment-of-status` are DEFAULT_TOPICS, so keying on any in-scope
+ * topic would let everything through, and a loose green-card phrase would let a
+ * CSPA question ("what happens to her green card?") escape a redirect that
+ * matters.
+ *
+ * Job loss comes via mentionsJobLoss rather than being duplicated here, so the
+ * forty phrasings hardened over five rounds are not silently re-derived.
+ */
+const STRONG_IN_SCOPE =
+  /(60[- ]day|day 60|grace period|visa bulletin|priority date|dates for filing|final action|retrogress|\bb-?2\b|\bh-?4\b|240[- ]day)/;
+
+export function hasStrongInScopeSignal(normalized: string) {
+  return mentionsJobLoss(normalized) || STRONG_IN_SCOPE.test(normalized);
+}
+
+/**
  * Bridge status — the largest cluster in the intent corpus, and it routed nowhere.
  *
  * The card sort of 73 real questions found that B-2 and H-4 bridge mechanics plus
@@ -2651,10 +2671,12 @@ export async function* streamAdvisorResponse(rawInput: {
   // run regardless of scope, and before generation, because an out-of-scope
   // answer should not cost a model call or twenty seconds. See scope.ts for why
   // these six areas are declined and what each redirect still carries.
+  const normalizedContent = content.toLowerCase();
   const scope = decideScope(
     topics,
-    mentionsTravel(content.toLowerCase()),
-    UNAUTHORIZED_WORK_PATTERN.test(content.toLowerCase())
+    mentionsTravel(normalizedContent),
+    UNAUTHORIZED_WORK_PATTERN.test(normalizedContent),
+    hasStrongInScopeSignal(normalizedContent)
   );
   if (!scope.inScope) {
     const scopePayload: AdvisorAnswerPayload = {

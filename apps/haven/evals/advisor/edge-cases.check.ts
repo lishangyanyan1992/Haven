@@ -101,15 +101,38 @@ async function runCase(testCase: import("./edge-cases").EdgeCase): Promise<Resul
 async function main() {
   const { EDGE_CASES } = await import("./edge-cases");
 
-  console.log(`${EDGE_CASES.length} edge cases\n`);
+  // Repeat runs, because this suite is stochastic and single runs are not
+  // evidence. The Advisor sets no temperature and no seed, so consecutive runs
+  // disagree on individual cases — two consecutive runs of this file reported
+  // different failures with no code change between them. Reading one run as a
+  // result is how a coin flip gets mistaken for a regression.
+  //
+  // A case counts as clean only if it is clean on every run, matching the
+  // worst-run rule the main eval harness already uses: a safety behaviour that
+  // appears sometimes is a failure, not a pass.
+  const runs = Number(process.argv.find((a) => a.startsWith("--runs="))?.split("=")[1] ?? 1);
+  console.log(`${EDGE_CASES.length} edge cases × ${runs} run(s)\n`);
 
   const results: Result[] = [];
   for (const testCase of EDGE_CASES) {
-    const result = await runCase(testCase);
+    const attempts: Result[] = [];
+    for (let i = 0; i < runs; i += 1) attempts.push(await runCase(testCase));
+
+    // Worst run wins, and the union of failures is reported so a flaky case
+    // shows every way it can fail rather than whichever one came last.
+    const allFailures = [...new Set(attempts.flatMap((a) => a.failures))];
+    const cleanRuns = attempts.filter((a) => a.failures.length === 0).length;
+    const result: Result = {
+      ...attempts[0],
+      failures: allFailures,
+      addendumFired: attempts.some((a) => a.addendumFired)
+    };
     results.push(result);
-    const mark = result.failures.length === 0 ? "ok " : "!! ";
-    console.log(`${mark} [${result.group}] ${result.id}`);
-    for (const failure of result.failures) console.log(`      ${failure}`);
+
+    const mark = allFailures.length === 0 ? "ok " : "!! ";
+    const flaky = runs > 1 && cleanRuns > 0 && cleanRuns < runs ? ` (flaky: clean ${cleanRuns}/${runs})` : "";
+    console.log(`${mark} [${result.group}] ${result.id}${flaky}`);
+    for (const failure of allFailures) console.log(`      ${failure}`);
   }
 
   const byGroup = new Map<string, { n: number; failed: number }>();
