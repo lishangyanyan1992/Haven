@@ -83,10 +83,10 @@ async function runCase(testCase: import("./edge-cases").EdgeCase): Promise<Resul
   if (!testCase.expectDecline && declined) failures.push("declined a question it should answer");
 
   for (const rule of testCase.must ?? []) {
-    if (!rule.pattern.test(answer)) failures.push(`missing: ${rule.name}`);
+    if (!rule.test(answer)) failures.push(`missing: ${rule.name}`);
   }
   for (const rule of testCase.mustNot ?? []) {
-    if (rule.pattern.test(answer)) failures.push(`DID: ${rule.name}`);
+    if (rule.test(answer)) failures.push(`DID: ${rule.name}`);
   }
 
   return {
