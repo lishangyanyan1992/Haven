@@ -2178,6 +2178,92 @@ function fallbackAnswer(
  *
  * Returns both the text and the ids used, so the trace records which fired.
  */
+/**
+ * The concrete things this particular answer must contain, as a checklist.
+ *
+ * The requirements already exist — as prose rules in the system prompt, and as
+ * conditional guardrail text injected near the top of the user prompt. Both are
+ * asking. Measured over three runs, the post-generation addendum still had to
+ * staple missing safety language onto 7 of 16 answers, and the two flakiest
+ * edge cases were both "the rule is there and the model followed it two times in
+ * three".
+ *
+ * This is the cheap half of enforcing. Same requirements, but stated as a short
+ * imperative list and placed last in the prompt, where the model attends most.
+ * It does not guarantee anything — nothing does with a language model — and the
+ * addendum stays as the backstop. The measure of whether it worked is the
+ * addendum firing less often, because every fire is the prompt having failed.
+ *
+ * Deliberately adjacent to buildMandatorySafetyAddendum: these two must list the
+ * same things, and the way that goes wrong is one of them being updated alone.
+ */
+export function requiredPointsForAnswer(
+  question: string,
+  topics: TopicBucket[],
+  guardrailIds: string[] = []
+): string[] {
+  const normalized = question.toLowerCase();
+  const points: string[] = [];
+
+  // A false premise is corrected first or the rest of the answer is built on it.
+  for (const premise of detectDangerousPremises(normalized)) {
+    if (premise.id === "unpaid-preserves-status") {
+      points.push(
+        "Say plainly, before anything else, that unpaid or volunteer work does NOT preserve H-1B status — the classification depends on the employer paying the required wage. Do not soften this into 'may be risky'."
+      );
+    }
+    if (premise.id === "lca-is-protection") {
+      points.push(
+        "Say plainly that a filed LCA is not permission to work and not a filed petition. Work authorisation under portability starts from a properly filed nonfrivolous H-1B petition, not from the LCA."
+      );
+    }
+    if (premise.id === "receipt-notice-is-authorisation") {
+      points.push(
+        "Say plainly that a receipt notice is evidence a petition was filed, not the legal event itself, and not a separate grant of permission."
+      );
+    }
+  }
+
+  // Questions that ask for a number nobody can know yet. The failure here is
+  // answering anyway; naming the source is the answer.
+  const asksForPrediction =
+    /(when exactly|what date|how long until|how much longer|will .{0,30}(be current|come current)|when will (i|it|my))/.test(
+      normalized
+    );
+  if (asksForPrediction) {
+    points.push(
+      "This asks for something you cannot know. Say so in the first sentence, name exactly which fact or which monthly source decides it, and ask for the fact if it is one the user has. Do not estimate, and do not offer a range."
+    );
+  }
+
+  // Keyed on the guardrail actually selected rather than on a re-derived
+  // condition. The first version re-tested the layoff signals here and drifted
+  // immediately: "keep me on unpaid so my H-1B stays alive" selects
+  // GR_LAYOFF_SAFETY_RULES via its premise but mentions no job loss, so the
+  // checklist asked for one point while the addendum checked for six — meaning
+  // five were guaranteed to be stapled on rather than written.
+  if (guardrailIds.includes("GR_LAYOFF_SAFETY_RULES")) {
+    {
+      points.push(
+        "State the grace period as up to 60 days or until I-94 or petition validity ends, whichever is shorter.",
+        "State plainly: do not work without authorisation.",
+        "State that LCA preparation alone does not preserve status.",
+        "State that portability turns on a properly filed nonfrivolous petition.",
+        "Name at least two concrete options — a new employer filing, a change of status, departure and consular return, premium processing.",
+        "Tell them to confirm the exact deadline and filing strategy with immigration counsel."
+      );
+    }
+  }
+
+  if (topics.includes("visa-bulletin")) {
+    points.push(
+      "State that USCIS's monthly filing-chart page decides which chart applies, not the Department of State bulletin alone."
+    );
+  }
+
+  return points;
+}
+
 export function buildMandatorySafetyAddendum(
   question: string,
   topics: TopicBucket[],
@@ -3121,6 +3207,23 @@ export async function* streamAdvisorResponse(rawInput: {
       "Recent conversation",
       history.slice(-6).map((m) => `${m.role.toUpperCase()}: ${m.content}`)
     ),
+    // Last, deliberately. The same requirements exist above as prose rules and as
+    // guardrail text, and the model followed them most of the time rather than
+    // every time. Restating them as a short imperative checklist in the final
+    // position is the cheapest lever available on that, and the addendum fire
+    // rate is how we find out whether it moved.
+    ...(() => {
+      const required = requiredPointsForAnswer(content, topics, route.guardrailIds);
+      return required.length > 0
+        ? [
+            "",
+            buildContextBlock(
+              "REQUIRED IN THIS ANSWER — check each before you finish",
+              required.map((point, index) => `${index + 1}. ${point}`)
+            )
+          ]
+        : [];
+    })()
   ].join("\n");
 
   const client = getOpenAIClient();
