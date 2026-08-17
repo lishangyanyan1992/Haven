@@ -2534,7 +2534,11 @@ export async function* streamAdvisorResponse(rawInput: {
   // run regardless of scope, and before generation, because an out-of-scope
   // answer should not cost a model call or twenty seconds. See scope.ts for why
   // these six areas are declined and what each redirect still carries.
-  const scope = decideScope(topics, mentionsTravel(content.toLowerCase()));
+  const scope = decideScope(
+    topics,
+    mentionsTravel(content.toLowerCase()),
+    UNAUTHORIZED_WORK_PATTERN.test(content.toLowerCase())
+  );
   if (!scope.inScope) {
     const scopePayload: AdvisorAnswerPayload = {
       answer_markdown: guardrailText(scope.guardrailId),

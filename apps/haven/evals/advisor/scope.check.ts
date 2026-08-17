@@ -69,6 +69,26 @@ const CASES: ScopeCase[] = [
   { question: "What is my PERM status and how long does labor certification take?", declinedAs: "perm" },
   { question: "I worked without authorization for two months, what do I do?", declinedAs: "work-authorization" },
 
+  // ------------------------------------------- Work authorization, both halves
+  //
+  // The topic covers an in-scope question and an out-of-scope one, and the label
+  // cannot tell them apart. "When can I work again?" is not a side question for
+  // somebody who was just laid off — it is the question, and 8 CFR 214.2 answers
+  // it. Declining it sent people asking the most useful thing about their own
+  // situation to a message about disclosing past violations.
+  //
+  // So the gate follows the signal, as travel does. These four must answer.
+  { question: "I was laid off. When can I start working for the new employer?", declinedAs: null },
+  { question: "My new employer filed my H-1B transfer. Can I start work now?", declinedAs: null },
+  { question: "I lost my job. Can I keep working while the new petition is pending?", declinedAs: null },
+  { question: "When does my work authorization end after a layoff?", declinedAs: null },
+
+  // And these three must still decline — a disclosure of past unauthorized work
+  // is the most sensitive thing raised here and outranks every other topic.
+  { question: "I did some freelance work while my EAD was pending. Is that a problem?", declinedAs: "work-authorization" },
+  { question: "Should I mention on the form that I worked a bit before my EAD came?", declinedAs: "work-authorization" },
+  { question: "My employer paid me under the table while I waited for my EAD.", declinedAs: "work-authorization" },
+
   // ------------------------------------------------------------------ Precedence
   // A question raising two declined areas gets the one whose deadline is least
   // recoverable.
@@ -151,7 +171,14 @@ async function main() {
     const travelMentioned = /(travel|advance parole|\bap\b|i-?131|visa stamp|stamping|re-?entry|\bfly)/i.test(
       testCase.question
     );
-    const decision = decideScope(route.topics, travelMentioned);
+    // Mirrors the streaming path's third argument. Unauthorized work is gated on
+    // the signal rather than the topic, so asserting without it would test a
+    // decision the product never makes.
+    const unauthorizedMentioned =
+      /(misrepresent|hide|hiding|conceal|without authorization|unauthorized work|under the table|off the books|freelanc|side gig|moonlight|paid in cash|before (my|the) (ead|work permit|card)|while (my|the) (ead|opt|work permit) (was |is )?pending|started working before|worked before)/i.test(
+        testCase.question
+      );
+    const decision = decideScope(route.topics, travelMentioned, unauthorizedMentioned);
 
     const actual = decision.inScope ? null : decision.area;
     const ok = actual === testCase.declinedAs;

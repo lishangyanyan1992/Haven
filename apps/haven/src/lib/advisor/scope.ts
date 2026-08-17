@@ -64,8 +64,8 @@ export const REDIRECTED: Partial<Record<TopicBucket, string>> = {
   "job-change": "MSG_SCOPE_JOB_CHANGE",
   cspa: "MSG_SCOPE_CSPA",
   "self-petition": "MSG_SCOPE_SELF_PETITION",
-  perm: "MSG_SCOPE_PERM",
-  "work-authorization": "MSG_SCOPE_UNAUTHORIZED_WORK"
+  perm: "MSG_SCOPE_PERM"
+  // work-authorization is NOT here. See below.
 };
 
 /**
@@ -76,19 +76,7 @@ export const REDIRECTED: Partial<Record<TopicBucket, string>> = {
  * is least recoverable. CSPA leads because its deadline can pass while somebody
  * is still working out who to ask.
  */
-const REDIRECT_PRIORITY: TopicBucket[] = [
-  "cspa",
-  "self-petition",
-  // Below student-status, not above it. A student asking whether they can start
-  // work on a pending OPT application raises both topics, and sending them the
-  // "you worked without permission" redirect answers an accusation they did not
-  // make. The student redirect carries the fact they actually need — pending OPT
-  // is not permission to work — so it is the better of the two here.
-  "student-status",
-  "work-authorization",
-  "job-change",
-  "perm"
-];
+const REDIRECT_PRIORITY: TopicBucket[] = ["cspa", "self-petition", "student-status", "job-change", "perm"];
 
 /**
  * Declined topics that lose when the question is about the user's own Haven data.
@@ -107,6 +95,28 @@ const REDIRECT_PRIORITY: TopicBucket[] = [
  * even an incidental mention is worth stopping for.
  */
 const YIELDS_TO_HAVEN_PRODUCT: TopicBucket[] = ["perm"];
+
+/**
+ * Unauthorized work is declined by SIGNAL, not by topic.
+ *
+ * `work-authorization` was on the declined list, and that was wrong in a way that
+ * cut the heart out of the layoff topic. When somebody is laid off, "when am I
+ * allowed to work again?" is not a side question — it is the question. It is
+ * answered by the portability rule in 8 CFR 214.2, which is in scope and which we
+ * hold. Declining it sent people asking the single most useful thing about their
+ * own situation to a message about disclosing past violations.
+ *
+ * The topic was conflating two unrelated things that share a name:
+ *
+ *   "When can I start at the new employer?"      mechanics — in scope, core layoff
+ *   "I worked two months without authorization"  history — declined, sensitive
+ *
+ * Only the second is out of scope, and the redirect copy was only ever written for
+ * it ("work-authorization history questions"). So the gate follows the signal, as
+ * travel does for the same reason: the topic label covers both an in-scope and an
+ * out-of-scope question, and the label cannot tell them apart.
+ */
+export const UNAUTHORIZED_WORK_REDIRECT = "MSG_SCOPE_UNAUTHORIZED_WORK";
 
 export type ScopeDecision =
   | { inScope: true }
@@ -127,9 +137,20 @@ export type ScopeDecision =
  * answering the layoff half and quietly dropping the travel half is precisely
  * the partial coverage this narrowing exists to stop.
  */
-export function decideScope(topics: TopicBucket[], travelMentioned: boolean): ScopeDecision {
+export function decideScope(
+  topics: TopicBucket[],
+  travelMentioned: boolean,
+  unauthorizedWorkMentioned = false
+): ScopeDecision {
   if (travelMentioned && topics.includes("adjustment-of-status")) {
     return { inScope: false, area: "travel", guardrailId: "MSG_SCOPE_TRAVEL" };
+  }
+
+  // Ahead of the topic loop: a disclosure of past unauthorized work is the most
+  // sensitive thing a user can raise here, and it should not lose to a
+  // lower-priority topic that happens to be present.
+  if (unauthorizedWorkMentioned) {
+    return { inScope: false, area: "work-authorization", guardrailId: UNAUTHORIZED_WORK_REDIRECT };
   }
 
   const isHavenProductQuestion = topics.includes("haven-product");
