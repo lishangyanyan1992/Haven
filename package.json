@@ -19,7 +19,7 @@
     "build:wizard": "npm run build:webpack --workspace @haven/immig-wizard",
     "typecheck:haven": "npm run typecheck --workspace @haven/app",
     "typecheck:wizard": "npm run typecheck --workspace @haven/immig-wizard",
-    "check:advisor": "npm run check:guardrails --workspace @haven/app && npm run check:stale-bulletin --workspace @haven/app && npm run check:travel-gate --workspace @haven/app && npm run check:memory --workspace @haven/app && npm run check:guardrail-phrasing --workspace @haven/app && npm run check:request-contract --workspace @haven/app && npm run check:community-stories --workspace @haven/app && npm run check:scope --workspace @haven/app",
+    "check:advisor": "npm run check:guardrails --workspace @haven/app && npm run check:stale-bulletin --workspace @haven/app && npm run check:travel-gate --workspace @haven/app && npm run check:memory --workspace @haven/app && npm run check:guardrail-phrasing --workspace @haven/app && npm run check:request-contract --workspace @haven/app && npm run check:community-stories --workspace @haven/app && npm run check:scope --workspace @haven/app && npm run check:tone --workspace @haven/app",
     "test:wizard": "npm run test --workspace @haven/immig-wizard",
     "seo:report": "node apps/haven/scripts/seo-loop/run.mjs",
     "seo:monitor": "node apps/haven/scripts/seo-loop/run.mjs",

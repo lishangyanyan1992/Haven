@@ -167,7 +167,7 @@ const ENTRIES: GuardrailEntry[] = [
     intent: "Refuse to help conceal or misrepresent facts to USCIS.",
     lastReviewedBy: null,
     lastReviewedAt: null,
-    text: "Unauthorized work/misrepresentation safety: refuse any help hiding or misrepresenting facts to USCIS. Tell the user not to continue unauthorized work, preserve dates/pay records/messages, and speak with an immigration attorney immediately about truthful disclosure and possible immigration consequences. Do not draft misleading language."
+    text: "Unauthorized work/misrepresentation safety: never help hide or misrepresent facts to USCIS, and never draft misleading language. Do not open with the refusal and do not imply the user asked for it — almost nobody does, and someone who worked a few days on a pending EAD reads it as an accusation. Assume an honest mistake unless they say otherwise. Say plainly that these situations are usually a date moving or a form taking longer rather than anything deliberate. Then: stop unauthorized work, keep records exactly as they are rather than deleting or amending them, and speak with an immigration attorney about what to disclose and how. Frame altering records as the thing that causes more harm than the original gap, which is both kinder and truer."
   },
 
   // ---------------------------------------------------------------------------
@@ -565,12 +565,23 @@ const ENTRIES: GuardrailEntry[] = [
       "Out of scope as a topic, but the refusal to help conceal is a safety floor and survives the narrowing. Being out of scope must never read as being unwilling to say 'stop'.",
     lastReviewedBy: "immigration-counsel",
     lastReviewedAt: "2026-08-16",
+    // Rewritten after review: the first version opened by refusing to help hide
+    // anything, which presumes the person asked for that. Almost nobody does.
+    // They worked a few days on a pending EAD, or a start date moved, and they are
+    // frightened. Leading with a refusal answers an accusation they never made and
+    // is the last thing someone in that state can hear.
+    //
+    // The refusal itself stays — it is a safety floor — but it moves to the end and
+    // is framed as what does not help *them*, which is also the truer statement.
+    // No legal content changed between versions.
     text: [
-      "I don't cover work-authorization history questions yet, and I won't help present the facts in a way that hides anything from USCIS — that makes things considerably worse than the original problem.",
+      "This one is outside what I cover, and I want to be careful not to guess at it — but I know it's a frightening thing to be sitting with, so here is what I can tell you.",
       "",
-      "What is safe to do now: stop any work that is not authorized, preserve your records rather than deleting or amending them, and speak to an immigration attorney about truthful disclosure and what the actual consequences are.",
+      "Situations like this are more common than people think, and they are usually the result of a date moving or a form taking longer than expected rather than anything anyone did deliberately.",
       "",
-      "This is worth a real consultation. It is one of the few things where the response genuinely changes the outcome."
+      "What helps right now: stop any work that isn't currently authorized, keep your records exactly as they are rather than deleting or amending anything, and talk to an immigration attorney about what to disclose and how. Changing records or leaving something off a form tends to cause far more harm than the original gap.",
+      "",
+      "This is genuinely worth a consultation — it's one of the few situations where how it's handled changes the outcome."
     ].join("\n")
   },
   {

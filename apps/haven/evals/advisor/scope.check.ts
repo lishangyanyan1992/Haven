@@ -119,7 +119,14 @@ const SAFETY_FACTS: Array<{ id: string; name: string; must: RegExp }> = [
   { id: "MSG_SCOPE_JOB_CHANGE", name: "AC21 keeps the 180-day precondition", must: /180 days/i },
   { id: "MSG_SCOPE_CSPA", name: "CSPA conveys that the deadline can pass while they look", must: /deadline can pass|this week/i },
   { id: "MSG_SCOPE_SELF_PETITION", name: "NIW keeps the deadline warning", must: /deadline/i },
-  { id: "MSG_SCOPE_UNAUTHORIZED_WORK", name: "unauthorized work keeps the refusal to conceal", must: /won't help|hides anything/i },
+  // Asserts the substance, not the old wording. The message was rewritten to stop
+  // opening with a refusal — which read as an accusation to someone who worked
+  // three days on a pending EAD — and the earlier assertion was pinned to that
+  // exact phrasing, so the kinder version failed a check meant to protect the
+  // safety content. The safety content is: don't alter the record, and don't omit
+  // from a form. Both survive the rewrite; only the framing changed.
+  { id: "MSG_SCOPE_UNAUTHORIZED_WORK", name: "unauthorized work still warns against altering records", must: /deleting or amending|changing records/i },
+  { id: "MSG_SCOPE_UNAUTHORIZED_WORK", name: "unauthorized work still warns against omitting from a form", must: /leaving something off a form/i },
   { id: "MSG_SCOPE_UNAUTHORIZED_WORK", name: "unauthorized work keeps 'stop and preserve records'", must: /stop any work/i }
 ];
 
