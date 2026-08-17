@@ -82,6 +82,31 @@ const CASES: ScopeCase[] = [
   {
     question: "I was laid off and I need to travel with my I-485 pending.",
     declinedAs: "travel"
+  },
+
+  // Precedence bugs found by reconciling the eval fixtures against the live
+  // decision. All three sent a question to a redirect that answered something the
+  // user had not asked.
+  //
+  // A student asking about a pending OPT application raises work-authorization
+  // too. Sending them the "you worked without permission" redirect answers an
+  // accusation they did not make, and withholds the fact they need.
+  {
+    question: "My OPT application has been pending for 95 days and my employer wants me to start. Can I work?",
+    declinedAs: "student-status"
+  },
+  // A question about the user's own uploaded documents that happens to name PERM
+  // is not a PERM question. It never says "Haven", which is why it used to be one.
+  {
+    question: "I uploaded my I-797, PERM filing receipt and I-140 approval. Which dates matter most if layoffs start?",
+    declinedAs: null
+  },
+  // But a question genuinely about PERM stays declined, even though it also
+  // raises H-1B. This is the case that broke when PERM was allowed to yield to
+  // any in-scope topic rather than only to the product topic.
+  {
+    question: "My employer started PERM in January 2026 and recruitment is done. My H-1B max-out date is in March.",
+    declinedAs: "perm"
   }
 ];
 

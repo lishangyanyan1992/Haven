@@ -78,12 +78,35 @@ export const REDIRECTED: Partial<Record<TopicBucket, string>> = {
  */
 const REDIRECT_PRIORITY: TopicBucket[] = [
   "cspa",
-  "work-authorization",
   "self-petition",
-  "job-change",
+  // Below student-status, not above it. A student asking whether they can start
+  // work on a pending OPT application raises both topics, and sending them the
+  // "you worked without permission" redirect answers an accusation they did not
+  // make. The student redirect carries the fact they actually need — pending OPT
+  // is not permission to work — so it is the better of the two here.
   "student-status",
+  "work-authorization",
+  "job-change",
   "perm"
 ];
+
+/**
+ * Declined topics that lose when the question is about the user's own Haven data.
+ *
+ * PERM is the only one, and it yields only to `haven-product` — not to any
+ * in-scope topic. The narrower rule is deliberate: yielding to anything in scope
+ * let real PERM questions through, because "my employer started PERM and my H-1B
+ * max-out is in March" raises h1b too and would have been answered.
+ *
+ * What this does allow is "I uploaded my I-797, PERM receipt and I-140 approval —
+ * what does my timeline look like?", a question about documents the user gave us
+ * that happens to name PERM. Answering that with "PERM is your employer's job" is
+ * unhelpful and slightly absurd.
+ *
+ * Nothing else belongs here. Every other declined topic carries a deadline, so
+ * even an incidental mention is worth stopping for.
+ */
+const YIELDS_TO_HAVEN_PRODUCT: TopicBucket[] = ["perm"];
 
 export type ScopeDecision =
   | { inScope: true }
@@ -109,11 +132,13 @@ export function decideScope(topics: TopicBucket[], travelMentioned: boolean): Sc
     return { inScope: false, area: "travel", guardrailId: "MSG_SCOPE_TRAVEL" };
   }
 
+  const isHavenProductQuestion = topics.includes("haven-product");
+
   for (const topic of REDIRECT_PRIORITY) {
     const guardrailId = REDIRECTED[topic];
-    if (guardrailId && topics.includes(topic)) {
-      return { inScope: false, area: topic, guardrailId };
-    }
+    if (!guardrailId || !topics.includes(topic)) continue;
+    if (isHavenProductQuestion && YIELDS_TO_HAVEN_PRODUCT.includes(topic)) continue;
+    return { inScope: false, area: topic, guardrailId };
   }
 
   return { inScope: true };

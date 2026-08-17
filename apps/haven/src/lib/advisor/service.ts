@@ -531,7 +531,20 @@ function detectTopics(input: string): Set<TopicBucket> {
   if (/(niw|national interest waiver|eb-?1a|eb-?2 niw|proposed endeavor|dhanasar|self.?petition)/.test(normalized)) topics.add("self-petition");
   if (CSPA_PATTERN.test(normalized)) topics.add("cspa");
   if (/(work authorization|employment authorization|unauthorized work|worked without authorization|i-9\b|\bead\b|work permit)/.test(normalized)) topics.add("work-authorization");
-  if (/(haven|timeline|dashboard|planner|inbox|community)/.test(normalized) || SELF_KNOWLEDGE_PATTERN.test(normalized))
+  // `uploaded` and `my documents` are here because the product topic otherwise
+  // only matched if the user named a Haven surface. "I uploaded my I-797, PERM
+  // receipt and I-140 approval — which dates matter if layoffs start?" is a
+  // question about their own stored documents that never says "Haven", so it
+  // classified as PERM and was answered with "PERM is your employer's job" — on a
+  // layoff question.
+  //
+  // Deliberately narrow. A bare `documents` would catch "what documents do I
+  // need?", which is not about their Haven data, and the product topic widens
+  // retrieval to the whole corpus.
+  if (
+    /(haven|timeline|dashboard|planner|inbox|community|uploaded|my documents)/.test(normalized) ||
+    SELF_KNOWLEDGE_PATTERN.test(normalized)
+  )
     topics.add("haven-product");
 
   return topics;

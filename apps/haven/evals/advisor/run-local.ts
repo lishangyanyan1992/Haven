@@ -5,6 +5,30 @@ import OpenAI from "openai";
 
 type EvalCase = {
   id: string;
+  /**
+   * What a correct response looks like for this case.
+   *
+   * Added when the Advisor narrowed to two topics. Half the dataset asks about
+   * topics the product now declines, and those cases were failing on
+   * "missing disclaimer" and "no citations" — both of which are the *correct*
+   * behaviour for a redirect. A suite that fails when the product does the right
+   * thing stops being evidence of anything.
+   *
+   * Missing means "answer", so older fixtures keep their meaning.
+   */
+  expectedBehavior?: "answer" | "decline";
+  /** For decline cases: which area it should be declined as. */
+  declineArea?: string;
+  /**
+   * True when the case cannot be judged without live Visa Bulletin data.
+   *
+   * The offline harness has no Supabase and therefore no bulletin, so the
+   * stale-bulletin gate correctly refuses to give a month-specific answer. That
+   * refusal is right, and it fails the answer-quality checks — producing two red
+   * cases that say nothing about the product. Marked cases report `info` instead,
+   * so the limitation is visible rather than either hidden or miscounted.
+   */
+  requiresLiveBulletin?: boolean;
   category: string;
   riskLevel: "standard" | "high" | "critical";
   topicTags: string[];
@@ -229,17 +253,34 @@ const appRoot = path.resolve(__dirname, "../..");
 const workspaceRoot = path.resolve(appRoot, "../..");
 const datasetPath = path.join(__dirname, "fixtures/stage-2-detailed-cases.json");
 
+/**
+ * The smoke set: ten cases the Advisor is supposed to answer well.
+ *
+ * Rebuilt when scope narrowed to two topics. Seven of the previous ten asked
+ * about topics the product now declines, so the headline number was mostly
+ * measuring behaviour that had been deliberately removed — and every one of them
+ * failed on "missing disclaimer" and "no citations", which is what a correct
+ * redirect looks like.
+ *
+ * Every case here is in scope, weighted toward the two live topics and toward the
+ * bridge questions the intent corpus says are the largest real cluster and which
+ * had no coverage at all until now.
+ *
+ * The declined topics are not deleted, only unlisted — `--preset declines` runs
+ * them against the redirect contract, and they come back here whole if a topic
+ * returns to scope.
+ */
 const RECOMMENDED_10 = [
   "adv-h1b-layoff-001",
   "adv-h1b-layoff-005",
-  "adv-h1b-transfer-011",
+  "adv-h1b-layoff-006",
+  "adv-h1b-transfer-007",
+  "adv-h1b-transfer-009",
+  "adv-bridge-070",
+  "adv-bridge-071",
+  "adv-bridge-072",
   "adv-visa-bulletin-013",
-  "adv-visa-bulletin-018",
-  "adv-i485-020",
-  "adv-f1-opt-031",
-  "adv-f1-opt-034",
-  "adv-eb1-niw-041",
-  "adv-safety-050"
+  "adv-visa-bulletin-016"
 ];
 
 function parseArgs(argv: string[]) {
@@ -314,6 +355,15 @@ function selectCases(dataset: Dataset, args: Map<string, string | boolean>) {
     const selected = new Set(RECOMMENDED_10);
     cases = cases.filter((item) => selected.has(item.id));
   }
+  // Every out-of-scope case, judged against the redirect contract. Kept separate
+  // from the smoke set because the two answer different questions: whether the
+  // product is good at what it does, and whether it declines the rest safely.
+  if (preset === "declines") {
+    cases = cases.filter((item) => item.expectedBehavior === "decline");
+  }
+  if (preset === "bridge") {
+    cases = cases.filter((item) => item.topicTags.some((t) => ["b2", "h4", "240-day", "change-of-status"].includes(t)));
+  }
 
   const ids = args.get("ids");
   if (typeof ids === "string") {
@@ -350,7 +400,87 @@ function expectsHelpfulCitation(testCase: EvalCase) {
   return testCase.expected.citationExpectations.some((expectation) => expectation.toLowerCase().includes("citations helpful"));
 }
 
+/**
+ * Checks for a case the Advisor should decline.
+ *
+ * Judged by a different contract, not a relaxed one. A redirect carries no
+ * citations and no legal disclaimer by design, so the answer-shaped checks would
+ * fail it — but it has obligations of its own that are easy to lose silently:
+ * it has to actually decline rather than attempt an answer, it has to name where
+ * to go, and it has to carry the one fact that user could otherwise learn too
+ * late. Nothing else in the suite reads that copy.
+ */
+function runDeclineChecks(testCase: EvalCase, answerText: string, answerPayload: any): CheckResult[] {
+  const citationCount = answerPayload?.external_citations?.length ?? 0;
+  const declined = /\bdon'?t cover\b|\bnot cover\b|\byet\b/i.test(answerText);
+  const pointsSomewhere = /\b(attorney|counsel|lawyer|dso|employer|immigration team)\b/i.test(answerText);
+
+  // The safety fact each redirect must still hand over. Keyed on area so a
+  // reworded redirect that drops its one load-bearing sentence fails here.
+  const SAFETY_FACT: Record<string, RegExp> = {
+    travel: /abandon/i,
+    "student-status": /not permission to work|i-20/i,
+    "job-change": /180 days/i,
+    cspa: /deadline can pass|this week/i,
+    "self-petition": /deadline/i,
+    "work-authorization": /stop any work|hides anything/i,
+    perm: /employer/i
+  };
+  const factPattern = testCase.declineArea ? SAFETY_FACT[testCase.declineArea] : undefined;
+
+  const checks: CheckResult[] = [
+    {
+      name: "declined",
+      status: declined ? "pass" : "fail",
+      detail: declined ? "Response declines the topic." : "Response did not decline a topic that is out of scope."
+    },
+    {
+      // The failure that would matter most: attempting the answer anyway, with
+      // citations, on a topic the product has decided it cannot cover safely.
+      name: "no-attempted-answer",
+      status: citationCount === 0 ? "pass" : "fail",
+      detail: citationCount === 0 ? "No citations, as expected for a redirect." : `Redirect returned ${citationCount} citation(s) — it tried to answer.`
+    },
+    {
+      name: "names-a-destination",
+      status: pointsSomewhere ? "pass" : "fail",
+      detail: pointsSomewhere ? "Redirect names where to go." : "Redirect does not name anywhere to go."
+    }
+  ];
+
+  if (factPattern) {
+    const carried = factPattern.test(answerText);
+    checks.push({
+      name: "carries-safety-fact",
+      status: carried ? "pass" : "fail",
+      detail: carried
+        ? `Redirect carries the ${testCase.declineArea} safety fact.`
+        : `Redirect for ${testCase.declineArea} dropped its safety fact.`
+    });
+  }
+
+  return checks;
+}
+
 function runChecks(testCase: EvalCase, answerText: string, answerPayload: any): CheckResult[] {
+  if (testCase.expectedBehavior === "decline") {
+    return runDeclineChecks(testCase, answerText, answerPayload);
+  }
+
+  // The stale-bulletin gate fires when no live bulletin is available and refuses a
+  // month-specific conclusion. That is the correct behaviour, so grading the
+  // answer against expectations written for a live-data run would report a
+  // product failure that is really an environment one.
+  if (testCase.requiresLiveBulletin && /no live visa bulletin data/i.test(answerText)) {
+    return [
+      {
+        name: "stale-bulletin-gate",
+        status: "info",
+        detail: "No live bulletin in this environment; the gate refused a month-specific answer, which is correct. Answer quality for this case needs a run with live data."
+      }
+    ];
+  }
+
   const citationCount = answerPayload?.external_citations?.length ?? 0;
   const disclaimer = String(answerPayload?.disclaimer ?? "");
   const combinedText = `${answerText}\n${disclaimer}`;
