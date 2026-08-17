@@ -35,12 +35,22 @@
  * change and on what date, which is the difference between correcting an answer
  * after users read it and correcting it before.
  *
- * WHAT THIS DOES NOT COVER
+ * AND THE AGENCY PAGES
  *
- * Only eCFR sections. The USCIS policy-manual and guidance pages — the majority
- * of the corpus — publish no version feed, so they still need a person. This
- * script deliberately reports how many of those there are rather than letting
- * a green run imply the whole corpus was checked.
+ * USCIS and DHS SEVP publish no API, but both run Drupal and both emit a
+ * standards-compliant sitemap carrying a `<lastmod>` per URL — an official,
+ * machine-readable last-modified date for every page in the corpus. That covers
+ * the majority of documents that looked unwatchable when the only options
+ * considered were scraping the page or diffing its HTML.
+ *
+ * It is a coarser signal than the eCFR feed and worth stating plainly: `lastmod`
+ * moves for a typo as readily as for a policy change, so a flag means "somebody
+ * should look", not "this is wrong". That is still the entire job — it turns
+ * re-reading seventeen pages each quarter into reading the two that moved.
+ *
+ * DOL's flag.dol.gov publishes no sitemap and dol.gov returns 403, so PERM has
+ * no automatic signal at all. The script names it rather than letting a green
+ * run imply the whole corpus was checked.
  *
  * STATE
  *
@@ -134,7 +144,7 @@ async function checkRegulations(findings: Finding[]) {
       meta = payload.meta ?? {};
 
       const live = meta.latest_amendment_date;
-      const stored = doc.sourceAmendedOn;
+      const stored = doc.sourceVersionDate;
 
       if (!live) {
         findings.push({
@@ -152,8 +162,8 @@ async function checkRegulations(findings: Finding[]) {
         // to write, which removes the temptation to guess one.
         findings.push({
           severity: "unknown",
-          headline: `${doc.slug}: no sourceAmendedOn recorded`,
-          detail: [`live amendment date is ${live}`, `set sourceAmendedOn: "${live}" once the chunks are confirmed against it`]
+          headline: `${doc.slug}: no sourceVersionDate recorded`,
+          detail: [`live amendment date is ${live}`, `set sourceVersionDate: "${live}" once the chunks are confirmed against it`]
         });
         console.log(`  ?  ${doc.slug}\n     live ${live}, stored (none) — needs stamping`);
         continue;
@@ -199,6 +209,128 @@ async function checkRegulations(findings: Finding[]) {
     `\n  ${unwatchable} document(s) have no version feed (USCIS policy pages, DOL) and still need a person.\n` +
       "  This script cannot see those change; npm run check:source-freshness tracks them."
   );
+}
+
+/**
+ * Sitemaps: the version feed the agency publishes without calling it one.
+ *
+ * USCIS and DHS SEVP both run Drupal, and both emit a standards-compliant
+ * sitemap with a `<lastmod>` per URL. That is an official, machine-readable
+ * last-modified date for every page in the corpus — the thing that looked
+ * unavailable when the only options considered were scraping the page or
+ * diffing its HTML.
+ *
+ * It is a coarse signal and worth being honest about: `lastmod` moves for a
+ * typo fix as readily as for a policy change, so a flag here means "a person
+ * should look", not "this is wrong". That is still the whole job. It converts
+ * "re-read seventeen pages every quarter" into "read the two that moved".
+ *
+ * USCIS paginates to roughly 19,500 URLs across five files, so a run pulls
+ * about 8 MB. Fine weekly; do not put this on a request path.
+ *
+ * DOL's flag.dol.gov publishes no sitemap (404) and dol.gov returns 403, so
+ * PERM has no automatic signal at all and is reported as such.
+ */
+const SITEMAPS: Array<{ host: string; index: string; pages: number; note: string }> = [
+  { host: "www.uscis.gov", index: "https://www.uscis.gov/sitemap.xml?page=", pages: 5, note: "USCIS" },
+  { host: "studyinthestates.dhs.gov", index: "https://studyinthestates.dhs.gov/sitemap.xml?page=", pages: 1, note: "DHS SEVP" }
+];
+
+async function getText(url: string): Promise<string> {
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": "Haven source-watch (https://haven-h1b.com; immigration information tool)"
+    }
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status} for ${url}`);
+  return response.text();
+}
+
+/** Normalise for comparison: DHS publishes some URLs under an `edit-` host. */
+function normaliseUrl(url: string): string {
+  return url
+    .replace(/^https?:\/\//, "")
+    .replace(/^edit-/, "")
+    .replace(/^www\./, "")
+    .replace(/\/$/, "")
+    .toLowerCase();
+}
+
+async function loadSitemapDates(): Promise<Map<string, string>> {
+  const dates = new Map<string, string>();
+
+  for (const sitemap of SITEMAPS) {
+    for (let page = 1; page <= sitemap.pages; page += 1) {
+      try {
+        const xml = await getText(`${sitemap.index}${page}`);
+        // Parsed per <url> block rather than with one combined pattern: the
+        // hreflang <xhtml:link> elements sit between <loc> and <lastmod>, so an
+        // adjacency-based match silently returns nothing at all.
+        for (const block of xml.split("<url>").slice(1)) {
+          const loc = /<loc>([^<]+)<\/loc>/.exec(block);
+          const lastmod = /<lastmod>([^<]+)<\/lastmod>/.exec(block);
+          if (loc && lastmod) dates.set(normaliseUrl(loc[1].trim()), lastmod[1].trim().slice(0, 10));
+        }
+      } catch (error) {
+        console.log(`  (${sitemap.note} sitemap page ${page} unavailable: ${(error as Error).message})`);
+      }
+    }
+  }
+
+  return dates;
+}
+
+async function checkPages(findings: Finding[]) {
+  const { trustedKnowledgeDocuments } = await import("@/lib/advisor/source-corpus");
+
+  console.log("\n── Agency pages (sitemap lastmod)\n");
+  const dates = await loadSitemapDates();
+  console.log(`  ${dates.size} URLs indexed from agency sitemaps\n`);
+
+  const pageDocs = trustedKnowledgeDocuments.filter((doc) => !parseEcfrUrl(doc.url));
+  const unmatched: string[] = [];
+
+  for (const doc of pageDocs) {
+    const live = dates.get(normaliseUrl(doc.url));
+
+    if (!live) {
+      unmatched.push(doc.slug);
+      continue;
+    }
+
+    const stored = doc.sourceVersionDate;
+
+    if (!stored) {
+      findings.push({
+        severity: "unknown",
+        headline: `${doc.slug}: no sourceVersionDate recorded`,
+        detail: [`the page was last modified ${live}`, `set sourceVersionDate: "${live}" once the chunks are confirmed against it`]
+      });
+      console.log(`  ?  ${doc.slug}\n     live ${live}, stored (none) — needs stamping`);
+      continue;
+    }
+
+    if (live > stored) {
+      findings.push({
+        severity: "changed",
+        headline: `${doc.slug}: page modified since our copy`,
+        detail: [`our text reflects ${stored}, the page was modified ${live}`, doc.url]
+      });
+      console.log(`  !  ${doc.slug}\n     ours ${stored} → live ${live}`);
+      continue;
+    }
+
+    console.log(`  ok ${doc.slug}\n     current as of ${stored}`);
+  }
+
+  if (unmatched.length > 0) {
+    console.log(
+      `\n  ${unmatched.length} document(s) have no sitemap entry and no automatic signal:\n` +
+        unmatched.map((slug) => `     ${slug}`).join("\n") +
+        "\n     These stay a manual check. DOL publishes no sitemap; the visa bulletin\n" +
+        "     is fetched live at answer time by bulletin-live.ts and needs no watching."
+    );
+  }
 }
 
 async function checkFederalRegister(state: WatchState, findings: Finding[]) {
@@ -282,6 +414,7 @@ async function main() {
   const findings: Finding[] = [];
 
   await checkRegulations(findings);
+  await checkPages(findings);
   await checkFederalRegister(state, findings);
 
   const changed = findings.filter((f) => f.severity === "changed");
@@ -307,7 +440,7 @@ async function main() {
 
   if (changed.length > 0 || upcoming.length > 0) {
     console.log(
-      "\n  To close one out: read the rule, update the affected chunks and sourceAmendedOn,\n" +
+      "\n  To close one out: read the rule, update the affected chunks and sourceVersionDate,\n" +
         "  then add the document number to scripts/source-watch.json with a one-line note.\n" +
         "  Recording a rule as reviewed is a claim that somebody read it."
     );

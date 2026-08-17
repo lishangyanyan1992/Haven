@@ -54,19 +54,26 @@ export interface SeedKnowledgeDocument {
    */
   lastVerified?: string;
   /**
-   * For eCFR sections only: the amendment date our stored text reflects.
+   * The source's own version stamp at the moment our chunks were confirmed
+   * against it.
    *
    * Distinct from `lastVerified`, which records when a person looked. This
-   * records *which version of the regulation* they looked at, and it is the field
-   * `source-watch` compares against the live eCFR versioner API. A regulation can
-   * be amended the day after somebody verified it, so a recent `lastVerified` is
-   * no evidence the text is current — only the amendment date is.
+   * records *which version they looked at*, and it is what `source-watch`
+   * compares against the live value. A regulation can be amended the day after
+   * somebody verified it, so a recent `lastVerified` is no evidence the text is
+   * current — only the version stamp is.
    *
-   * Set it to the `latest_amendment_date` reported by
-   * `/api/versioner/v1/versions/title-8.json?section=<section>` at the moment the
-   * chunks were written or confirmed.
+   * Where the value comes from, by source:
+   *
+   *   eCFR sections   `latest_amendment_date` from
+   *                   /api/versioner/v1/versions/title-8.json?section=<section>
+   *   USCIS pages     the `<lastmod>` for that URL in uscis.gov/sitemap.xml
+   *   DHS SEVP        the `<lastmod>` in studyinthestates.dhs.gov/sitemap.xml
+   *
+   * DOL's flag.dol.gov publishes no sitemap and no feed, so it has no automatic
+   * signal and stays a manual check.
    */
-  sourceAmendedOn?: string;
+  sourceVersionDate?: string;
   bodyMarkdown: string;
   chunks: string[];
 }
@@ -246,7 +253,7 @@ export const trustedKnowledgeDocuments: SeedKnowledgeDocument[] = [
     additionalTopics: ["layoffs"],
     versionLabel: "2026 current eCFR",
     lastVerified: "2026-08-15",
-    sourceAmendedOn: "2026-08-11",
+    sourceVersionDate: "2026-08-11",
     bodyMarkdown:
       "DHS regulations describe the discretionary grace period for certain nonimmigrants after cessation of employment and state that work is not authorized during that period unless separately authorized.",
     chunks: [
@@ -264,7 +271,7 @@ export const trustedKnowledgeDocuments: SeedKnowledgeDocument[] = [
     additionalTopics: ["layoffs"],
     versionLabel: "2026 current eCFR",
     lastVerified: "2026-08-15",
-    sourceAmendedOn: "2026-08-11",
+    sourceVersionDate: "2026-08-11",
     bodyMarkdown:
       "DHS regulations describe H-1B portability and the filing condition for starting new employment with a new H-1B petitioner.",
     chunks: [
