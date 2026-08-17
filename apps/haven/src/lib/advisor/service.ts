@@ -4,6 +4,7 @@ import OpenAI from "openai";
 import { env, hasSupabaseEnv } from "@/lib/env";
 import { flushLangfuse, getLangfuseClient, getPrompt } from "@/lib/langfuse";
 import type { LangfuseSpanClient, LangfuseTraceClient } from "langfuse";
+import { classifyIntent, compareRouters } from "@/lib/advisor/intent-router";
 import { decideScope } from "@/lib/advisor/scope";
 import { getSnapshot } from "@/lib/repositories/case-compass";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -2403,6 +2404,21 @@ export async function* streamAdvisorResponse(rawInput: {
     }
   });
 
+  // Shadow the keyword router with the intent router.
+  //
+  // Started here and never awaited on the critical path: the comparison is
+  // recorded when the answer is already being assembled, so a slow or failed
+  // classification costs the user nothing. Nothing downstream reads it. The only
+  // output is trace metadata, and the only question this phase answers is how
+  // often the two routers disagree on real traffic, and in which direction.
+  //
+  // `onlyModel` is the number that decides whether this is worth shipping — those
+  // are topics a real user raised that the keyword list missed. `onlyKeyword` is
+  // the counterweight, and it matters just as much: if the model routinely drops
+  // topics the patterns catch, the live design must keep both signals rather than
+  // replace one with the other.
+  const shadowRouter = classifyIntent({ content, history: rawHistory }).catch(() => null);
+
   const moderation = await moderateMessage(content, trace);
 
   if (moderation.flagged) {
@@ -2727,6 +2743,30 @@ export async function* streamAdvisorResponse(rawInput: {
 
   // Retrieval agents run under a shared parent span so the official-source and
   // community-story handoffs are visible as a nested tree under the trace.
+  // Collected here because the router call started before moderation and has had
+  // the whole pre-retrieval stretch to finish. Recorded as its own span so the
+  // disagreement rate is filterable in Langfuse without reading every trace.
+  const shadowRead = await shadowRouter;
+  if (shadowRead) {
+    const comparison = compareRouters(topics, shadowRead);
+    trace?.span({ name: "intent-router-shadow", input: { question: content } })?.end({
+      output: {
+        keywordTopics: topics,
+        modelTopics: shadowRead.topics,
+        agreed: comparison.agreed,
+        onlyKeyword: comparison.onlyKeyword,
+        onlyModel: comparison.onlyModel,
+        union: comparison.union,
+        confidence: shadowRead.confidence,
+        requiredSafety: shadowRead.requiredSafety,
+        factsStated: shadowRead.factsStated,
+        factsMissing: shadowRead.factsMissing,
+        premiseToCorrect: shadowRead.premiseToCorrect,
+        outOfDomain: shadowRead.outOfDomain
+      }
+    });
+  }
+
   const retrievalSpan = trace?.span({ name: "retrieval", input: { topics } });
   const knowledge = await retrieveKnowledge(content, topics, retrievalSpan);
   const community = await retrieveCommunity(content, topics, snapshot, retrievalSpan);

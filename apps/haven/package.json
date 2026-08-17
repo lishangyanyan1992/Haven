@@ -21,6 +21,7 @@
     "check:request-contract": "tsx --tsconfig tsconfig.json evals/advisor/request-contract.check.ts",
     "check:community-stories": "tsx --tsconfig tsconfig.json evals/advisor/community-stories.check.ts",
     "watch:sources": "tsx --tsconfig tsconfig.json scripts/source-watch.ts",
+    "check:intent-router": "tsx --tsconfig tsconfig.json evals/advisor/intent-router.check.ts",
     "check:scope": "tsx --tsconfig tsconfig.json evals/advisor/scope.check.ts",
     "check:source-freshness": "tsx --tsconfig tsconfig.json evals/advisor/source-freshness.check.ts"
   },

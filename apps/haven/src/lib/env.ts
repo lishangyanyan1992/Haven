@@ -17,6 +17,11 @@ const envSchema = z.object({
   // so setting it would silently change the advisor too. See getChatModel() in
   // lib/advisor/service.ts.
   OPENAI_ADVISOR_MODEL: z.string().optional(),
+  // The intent router is a separate knob from the answer model: it makes a short
+  // structured call on every question and wants speed, where generation wants
+  // quality. Tying them together would re-tune routing every time the answer
+  // model changes.
+  OPENAI_ADVISOR_ROUTER_MODEL: z.string().optional(),
   OPENAI_EMBEDDING_MODEL: z.string().optional(),
   ADVISOR_SOURCE_SYNC_SECRET: z.string().optional(),
   COMMUNITY_IMPORT_SECRET: z.string().optional(),
@@ -55,6 +60,7 @@ export const env = envSchema.parse({
   OPENAI_API_KEY: process.env.OPENAI_API_KEY,
   OPENAI_CHAT_MODEL: process.env.OPENAI_CHAT_MODEL,
   OPENAI_ADVISOR_MODEL: process.env.OPENAI_ADVISOR_MODEL,
+  OPENAI_ADVISOR_ROUTER_MODEL: process.env.OPENAI_ADVISOR_ROUTER_MODEL,
   OPENAI_EMBEDDING_MODEL: process.env.OPENAI_EMBEDDING_MODEL,
   ADVISOR_SOURCE_SYNC_SECRET: process.env.ADVISOR_SOURCE_SYNC_SECRET,
   COMMUNITY_IMPORT_SECRET: process.env.COMMUNITY_IMPORT_SECRET,
