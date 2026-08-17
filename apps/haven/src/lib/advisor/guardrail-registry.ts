@@ -467,7 +467,7 @@ const ENTRIES: GuardrailEntry[] = [
     intent:
       "Out of scope: travel with a pending case. Keeps the abandonment warning, which is the one thing the user must not learn later.",
     lastReviewedBy: "immigration-counsel",
-    lastReviewedAt: null,
+    lastReviewedAt: "2026-08-16",
     text: [
       "I don't cover travel questions yet, and this is one I don't want to half-answer.",
       "",
@@ -484,7 +484,7 @@ const ENTRIES: GuardrailEntry[] = [
     intent:
       "Out of scope: F-1 OPT/CPT. Keeps the two rules a student can break before anyone tells them it was a mistake.",
     lastReviewedBy: "immigration-counsel",
-    lastReviewedAt: null,
+    lastReviewedAt: "2026-08-16",
     text: [
       "I don't cover F-1, OPT, or CPT questions yet.",
       "",
@@ -500,7 +500,7 @@ const ENTRIES: GuardrailEntry[] = [
     repeat: "always",
     intent: "Out of scope: AC21 portability. Names the precondition people most often assume they have met.",
     lastReviewedBy: "immigration-counsel",
-    lastReviewedAt: null,
+    lastReviewedAt: "2026-08-16",
     text: [
       "I don't cover AC21 job-portability questions yet.",
       "",
@@ -517,7 +517,7 @@ const ENTRIES: GuardrailEntry[] = [
     intent:
       "Out of scope: CSPA age-out. The only redirect where the deadline can pass while the person is still looking for help, so it says so first.",
     lastReviewedBy: "immigration-counsel",
-    lastReviewedAt: null,
+    lastReviewedAt: "2026-08-16",
     text: [
       "I don't cover Child Status Protection Act questions yet — and this is the one I least want to guess at, because the deadline can pass while you are still working out what to do.",
       "",
@@ -533,7 +533,7 @@ const ENTRIES: GuardrailEntry[] = [
     repeat: "always",
     intent: "Out of scope: NIW and self-petitions. Names the deadline, because motion and appeal windows are short.",
     lastReviewedBy: "immigration-counsel",
-    lastReviewedAt: null,
+    lastReviewedAt: "2026-08-16",
     text: [
       "I don't cover NIW or self-petition questions yet.",
       "",
@@ -548,8 +548,8 @@ const ENTRIES: GuardrailEntry[] = [
     audience: "user",
     repeat: "always",
     intent: "Out of scope: PERM. The lowest-urgency redirect, and deliberately the shortest.",
-    lastReviewedBy: null,
-    lastReviewedAt: null,
+    lastReviewedBy: "product",
+    lastReviewedAt: "2026-08-16",
     text: [
       "I don't cover PERM or labor certification questions yet.",
       "",
@@ -564,7 +564,7 @@ const ENTRIES: GuardrailEntry[] = [
     intent:
       "Out of scope as a topic, but the refusal to help conceal is a safety floor and survives the narrowing. Being out of scope must never read as being unwilling to say 'stop'.",
     lastReviewedBy: "immigration-counsel",
-    lastReviewedAt: null,
+    lastReviewedAt: "2026-08-16",
     text: [
       "I don't cover work-authorization history questions yet, and I won't help present the facts in a way that hides anything from USCIS — that makes things considerably worse than the original problem.",
       "",
