@@ -38,6 +38,42 @@ type Case = {
 };
 
 const CASES: Case[] = [
+  // --------------------------------------------------- Dangerous premises
+  //
+  // The two myths the PRD names as the reason this product exists were guarded
+  // only under the `layoffs` topic — and both arise *before* a layoff, so neither
+  // question mentions one and neither classified.
+  //
+  //   "keep me on unpaid so my H-1B stays alive"  -> topics h1b, zero guardrails
+  //   "the LCA is already filed so I'm covered"   -> matched nothing at all, and
+  //                                                  the user got the clarifying
+  //                                                  menu instead of a warning
+  //
+  // The second is the worse one: somebody about to work without authorisation on
+  // the strength of a misunderstanding was handed a list of topics to pick from.
+  // A premise is not a topic — it is a belief that makes the answer dangerous
+  // whatever the question is nominally about — so it now classifies on its own.
+  { name: "premise — unpaid work preserves status", content: "My manager offered to keep me on unpaid for a couple of months so my H-1B stays alive while I look. Should I take it?", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+  { name: "premise — unpaid, phrased as the employer stopping pay", content: "They said they will stop paying me but keep my visa sponsorship going. Is that OK?", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+  { name: "premise — volunteering to keep status", content: "Could I volunteer for my employer to keep my H-1B status while I job hunt?", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+  { name: "premise — LCA is protection", content: "My new employer says the LCA is already filed so I'm covered. Can I start Monday?", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+  { name: "premise — labor condition application spelled out", content: "The labor condition application went in last week. Am I allowed to begin work?", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+  { name: "premise — receipt notice means portable", content: "I have the receipt notice for my H-1B transfer, so I'm portable now right?", wantGuardrail: "GR_LAYOFF_SAFETY_RULES" },
+
+  // Premises must not fire on ordinary questions that share a word. Unlike the
+  // safety gates, over-triggering here would staple layoff warnings onto
+  // unrelated answers, so the pairing requirement is asserted both ways.
+  {
+    name: "premise must not fire on ordinary unpaid leave",
+    content: "Can I take unpaid leave for a month to care for a relative?",
+    wantGuardrail: null
+  },
+  {
+    name: "premise must not fire on an unpaid invoice",
+    content: "My relocation expenses are still unpaid by the company. Who do I chase?",
+    wantGuardrail: null
+  },
+
   // ------------------------------------------------------------- Job loss
   //
   // The highest-stakes gate in the product, and until this block existed it was

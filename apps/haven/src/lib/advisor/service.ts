@@ -502,6 +502,72 @@ const SELF_KNOWLEDGE_PATTERN = new RegExp(
   "i"
 );
 
+/**
+ * Dangerous beliefs, detected directly rather than as a by-product of a topic.
+ *
+ * The two myths the PRD names as the reason this product exists — that unpaid
+ * work preserves H-1B status, and that a filed LCA means you may start work —
+ * were guarded only under the `layoffs` topic. Both arise *before* a layoff, so
+ * neither question mentions one, so neither classified:
+ *
+ *   "My manager offered to keep me on unpaid for a couple of months so my H-1B
+ *    stays alive"                       -> topics h1b, zero guardrails
+ *   "My new employer says the LCA is
+ *    already filed so I'm covered. Can
+ *    I start Monday?"                   -> matched nothing at all, and the user
+ *                                          was shown the clarifying menu
+ *
+ * The second is the worse failure. Someone about to work without authorisation on
+ * the strength of a misunderstanding was handed a list of topics to choose from.
+ *
+ * A premise is not a topic. It is a specific false belief that makes an answer
+ * dangerous regardless of what the question is nominally about, so it is detected
+ * on its own terms and forces both the topic and the guardrail. Over-triggering is
+ * the intended failure mode, as everywhere else in this file: an unnecessary
+ * paragraph about unpaid work costs a few tokens, and missing one costs status.
+ */
+const DANGEROUS_PREMISES: Array<{
+  id: string;
+  /** The belief itself. */
+  pattern: RegExp;
+  /** A second signal required alongside it, where the first is ambiguous alone. */
+  requires?: RegExp;
+  topics: TopicBucket[];
+  guardrails: string[];
+}> = [
+  {
+    id: "unpaid-preserves-status",
+    pattern: /(unpaid|without pay|work(ing)? for free|no salary|not paying me|stop paying me|volunteer(ing)?)/,
+    // "Unpaid" alone appears in benign questions about unpaid leave or unpaid
+    // invoices. Pairing it with a status word keeps the gate on the myth.
+    requires: /(h-?1b|status|visa|stay|sponsor|payroll|employment)/,
+    topics: ["layoffs", "h1b"],
+    guardrails: ["GR_LAYOFF_SAFETY_RULES"]
+  },
+  {
+    id: "lca-is-protection",
+    // Specific enough alone — an LCA only arises in an H-1B context, and the
+    // person raising it is almost always about to act on it.
+    pattern: /\blca\b|labor condition application/,
+    topics: ["h1b", "layoffs"],
+    guardrails: ["GR_LAYOFF_SAFETY_RULES"]
+  },
+  {
+    id: "receipt-notice-is-authorisation",
+    pattern: /receipt notice|receipt number|i-?797c/,
+    requires: /(start|begin|work|portab|transfer|covered|allowed)/,
+    topics: ["h1b", "layoffs"],
+    guardrails: ["GR_LAYOFF_SAFETY_RULES"]
+  }
+];
+
+export function detectDangerousPremises(input: string) {
+  const normalized = input.toLowerCase();
+  return DANGEROUS_PREMISES.filter(
+    (premise) => premise.pattern.test(normalized) && (!premise.requires || premise.requires.test(normalized))
+  );
+}
+
 function detectTopics(input: string): Set<TopicBucket> {
   const normalized = input.toLowerCase();
   const topics = new Set<TopicBucket>();
@@ -546,6 +612,15 @@ function detectTopics(input: string): Set<TopicBucket> {
     SELF_KNOWLEDGE_PATTERN.test(normalized)
   )
     topics.add("haven-product");
+
+  // Last, so a dangerous premise can classify a question that matched nothing
+  // else. "My new employer says the LCA is already filed so I'm covered — can I
+  // start Monday?" named no topic, so it fell to the clarifying menu: somebody
+  // about to work without authorisation on the strength of a misunderstanding was
+  // handed a list of topics to choose from.
+  for (const premise of detectDangerousPremises(normalized)) {
+    for (const topic of premise.topics) topics.add(topic);
+  }
 
   return topics;
 }
@@ -739,6 +814,12 @@ function selectGuardrailIds(query: string, topics: TopicBucket[], signals: Guard
   const normalized = query.toLowerCase();
   const ids: string[] = [];
 
+  // Premises first. The belief is what makes the answer dangerous, so its
+  // guardrail must not depend on the topic conditions below also matching.
+  for (const premise of detectDangerousPremises(normalized)) {
+    for (const id of premise.guardrails) if (!ids.includes(id)) ids.push(id);
+  }
+
   if (topics.includes("job-change") && /(ac21|same or similar|portability)/.test(normalized)) {
     ids.push("GR_AC21_PORTABILITY");
   }
@@ -780,7 +861,9 @@ function selectGuardrailIds(query: string, topics: TopicBucket[], signals: Guard
     ids.push("GR_UNAUTHORIZED_WORK");
   }
 
-  return ids;
+  // Premises force their guardrails above and the topic conditions can select the
+  // same id again. Duplicates would deliver the same paragraph twice.
+  return [...new Set(ids)];
 }
 
 // Follow-ups were declared in the payload but never populated, so the UI had
