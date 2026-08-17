@@ -74,6 +74,27 @@ export interface SeedKnowledgeDocument {
    * signal and stays a manual check.
    */
   sourceVersionDate?: string;
+  /**
+   * Set when the agency itself has retired the page.
+   *
+   * USCIS banners the nonimmigrant-termination page with "Archived Content — The
+   * information on this page is out of date", and we cite it in essentially every
+   * grace-period answer without saying so. The substantive rules on it still read
+   * correctly, so this is not a wrong-answer problem; it is a provenance one.
+   * Presenting an agency-retired page as current guidance is a claim we should not
+   * be making silently.
+   *
+   * Two reasons this is a flag rather than a deletion. The page carries USCIS's
+   * own practical framing of the options after employment ends — change of status,
+   * adjustment, compelling-circumstances EAD, portability — which the regulations
+   * state in pieces and never as a list. And an archived page is not wrong, it is
+   * unmaintained; dropping it would lose real content to fix a labelling problem.
+   *
+   * A date-based watcher cannot detect this. An abandoned page and a stable page
+   * look identical to `lastmod` and opposite to a reader, which is why this is
+   * recorded by hand.
+   */
+  agencyArchived?: boolean;
   bodyMarkdown: string;
   chunks: string[];
 }
@@ -126,6 +147,18 @@ export const trustedKnowledgeSources: SeedKnowledgeSource[] = [
     baseUrl: "https://www.ecfr.gov/current/title-8/chapter-I/subchapter-B/part-214",
     topic: "h1b",
     trustPriority: 12
+  },
+  {
+    // Added when bridge status (B-2, H-4, the 240-day rule) came into scope as
+    // part of the layoff topic. Until then the largest cluster of real user
+    // questions was answered from the H-1B regulations plus whatever the model
+    // already knew, with no source covering change of status at all.
+    slug: "ecfr-change-of-status",
+    label: "eCFR Change of Nonimmigrant Classification",
+    agency: "DHS/eCFR",
+    baseUrl: "https://www.ecfr.gov/current/title-8/chapter-I/subchapter-B/part-248",
+    topic: "layoffs",
+    trustPriority: 14
   },
   {
     slug: "uscis-green-card",
@@ -236,9 +269,17 @@ export const trustedKnowledgeDocuments: SeedKnowledgeDocument[] = [
     additionalTopics: ["layoffs"],
     versionLabel: "2026 archived guidance",
     lastVerified: "2026-08-15",
+    sourceVersionDate: "2025-05-21",
+    agencyArchived: true,
     bodyMarkdown:
-      "USCIS describes options for certain nonimmigrant workers after termination of employment, including the discretionary grace period, timely filing by a new employer, change of status, and departure planning.",
+      "USCIS describes options for certain nonimmigrant workers after termination of employment, including the discretionary grace period, timely filing by a new employer, change of status, and departure planning. USCIS has archived this page as out of date; the underlying rules are in 8 CFR 214.1, 214.2 and 248.",
     chunks: [
+      // The archived status leads this chunk rather than sitting in metadata,
+      // because the model reads the chunk and cannot see the flag. Every
+      // grace-period answer rests partly on this page, and the substance is still
+      // accurate — the honest framing is "the agency has retired this summary,
+      // the rules behind it are in the regulations we also hold".
+      "USCIS has archived this page and marks it as out of date. Treat it as USCIS's practical framing of the options after employment ends, not as current guidance, and rely on 8 CFR 214.1, 214.2 and 248 for the rules themselves.",
       "USCIS describes an up-to-60-day discretionary grace period for certain nonimmigrant workers after employment ends, but the period cannot extend beyond the authorized validity period.",
       "USCIS says eligible H-1B workers may be able to begin new employment after a new employer properly files a nonfrivolous H-1B petition, subject to portability requirements and case-specific facts.",
       "If no timely employer petition or other filing is available, USCIS lists other options such as change of status, compelling-circumstances EAD in limited cases, or departure from the United States. Users should confirm deadlines and avoid unauthorized work."
@@ -278,6 +319,34 @@ export const trustedKnowledgeDocuments: SeedKnowledgeDocument[] = [
       "8 CFR 214.2 describes H-1B portability: an eligible H-1B worker may start new employment when a nonfrivolous H-1B petition for new employment has been filed, or on the requested start date, whichever is later.",
       "For portability, the petition for new employment must be filed before the worker's authorized period of stay expires, and the worker must not have been employed without authorization after the last admission.",
       "An LCA or petition in preparation is not the same as a filed H-1B portability petition. In urgent layoff cases, the filing deadline and receipt strategy should be confirmed with employer counsel."
+    ]
+  },
+  {
+    // The source behind bridge-status questions — "can I switch to B-2 or H-4
+    // while I look for work?" — which the intent corpus found to be the largest
+    // cluster of real questions, and which had no source at all until now.
+    //
+    // Chunks written from the live 2026-07-17 text pulled through the eCFR
+    // versioner full-text endpoint, not from memory. 248.1(b) is the load-bearing
+    // rule and the one people get wrong: the application has to be filed *before*
+    // the previously authorized status expires, which is what ties a bridge
+    // application to the grace-period clock in 8 CFR 214.1.
+    slug: "ecfr-248-change-of-status",
+    sourceSlug: "ecfr-change-of-status",
+    title: "8 CFR 248: Change of Nonimmigrant Classification",
+    url: "https://www.ecfr.gov/current/title-8/chapter-I/subchapter-B/part-248/section-248.1",
+    topic: "layoffs",
+    additionalTopics: ["h1b"],
+    versionLabel: "2026 current eCFR",
+    lastVerified: "2026-08-16",
+    sourceVersionDate: "2026-07-17",
+    bodyMarkdown:
+      "8 CFR 248 governs changing from one nonimmigrant classification to another inside the United States — the mechanism behind a B-2 or H-4 bridge after employment ends. Eligibility turns on having been lawfully admitted and continuing to maintain status, and on filing before the previously authorized status expires.",
+    chunks: [
+      "8 CFR 248.1(a): a person lawfully admitted as a nonimmigrant who is continuing to maintain that status may apply to change to another nonimmigrant classification, except for the classes listed in 8 CFR 248.2 and except for K (fiance) and C (transit) classifications.",
+      "8 CFR 248.1(b): a change of status generally may not be approved for someone who failed to maintain the previously accorded status, or whose status expired before the application or petition was filed. The application must therefore be filed while the person is still in an authorized period — which is what connects a bridge application to the grace-period deadline in 8 CFR 214.1.",
+      "8 CFR 248.1(b) provides a narrow discretionary excuse for filing late, available without a separate application, only where the delay was due to extraordinary circumstances beyond the applicant's control and USCIS finds the delay commensurate, the person has not otherwise violated status, remains a bona fide nonimmigrant, and is not in removal proceedings. This is discretionary and should never be planned around.",
+      "8 CFR 248.3: who files depends on the classification sought. A petitioner files for E, H-1B, H-2A, H-2B, H-3, L-1, O, P, Q, R and TN. A person seeking a dependent classification such as H-4, or any classification not on that petitioner list such as B-2, applies on their own behalf. So an H-1B transfer is employer-filed while a B-2 or H-4 bridge is filed by the individual."
     ]
   },
   {

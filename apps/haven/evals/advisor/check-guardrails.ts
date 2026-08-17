@@ -205,6 +205,61 @@ if (layoffDocs.length < 3) {
   }
 }
 
+// --- Bridge questions reach the change-of-status regulation ------------------
+//
+// Routing a topic into scope is not the same as making its source reachable, and
+// the gap between the two is invisible. Bridge status classified correctly from
+// the day it shipped and was still answered from the H-1B regulations alone,
+// because `scoreIntentBoost` had no branch for it: a layoff question boosted only
+// grace-period and portability vocabulary, so 8 CFR 248 scored zero while three
+// older documents scored +8 each and filled all six retrieval slots.
+//
+// Asserted per phrasing rather than once, because the boost is keyed on the
+// question's words. "H-4" and "B-2" and "240-day" are different doors into the
+// same rule, and a user only uses one of them.
+{
+  const { retrieveKnowledge } = await import("../../src/lib/advisor/service");
+  const bridgeQuestions = [
+    "Can I switch to H-4 while I look for work after my layoff?",
+    "Should I file a B-2 change of status before day 60?",
+    "My H-1B extension is pending — does the 240-day rule let me keep working?",
+    "What bridge options do I have after being laid off?"
+  ];
+
+  for (const question of bridgeQuestions) {
+    const retrieved = await retrieveKnowledge(question, ["layoffs"] as never);
+    const slugs = new Set(retrieved.map((chunk) => chunk.chunkKey.split(":")[0]));
+    const reached = slugs.has("ecfr-248-change-of-status");
+    console.log(`${reached ? "  ok" : "  !!"} bridge retrieval: "${question.slice(0, 52)}"`);
+    if (!reached) {
+      failures.push(`bridge question did not retrieve 8 CFR 248: "${question}"`);
+    }
+  }
+}
+
+// --- The archived page is labelled as archived ------------------------------
+//
+// USCIS banners the termination-options page as out of date, and we cite it in
+// essentially every grace-period answer. A date-based watcher cannot catch this —
+// an abandoned page and a stable page look identical to `lastmod` — so the claim
+// that we are not presenting it as current guidance is asserted here instead.
+{
+  const { trustedKnowledgeDocuments } = await import("../../src/lib/advisor/source-corpus");
+  const archived = trustedKnowledgeDocuments.filter((doc) => doc.agencyArchived);
+
+  console.log(`\nAgency-archived documents: ${archived.length}`);
+  for (const doc of archived) {
+    // The flag alone is not enough: the model reads chunks, not metadata. The
+    // first chunk has to say so, or the answer is built as though the page were
+    // current no matter what the field says.
+    const declared = /archived/i.test(doc.chunks[0] ?? "");
+    console.log(`${declared ? "  ok" : "  !!"} ${doc.slug} declares archived status in its first chunk`);
+    if (!declared) {
+      failures.push(`${doc.slug} is agencyArchived but no chunk says so — the model cannot see the flag`);
+    }
+  }
+}
+
 if (failures.length > 0) {
   console.error(`\n${failures.length} failure(s):`);
   for (const failure of failures) console.error(`  ✗ ${failure}`);

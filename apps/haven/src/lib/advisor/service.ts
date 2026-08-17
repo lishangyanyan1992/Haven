@@ -48,7 +48,17 @@ import {
 
 // `topics` is the full set the chunk answers under (primary + additional); the
 // singular `topic` stays for display, the stale-bulletin gate, and the DB shape.
-type RetrievedKnowledgeChunk = KnowledgeChunk & { documentId?: string; topics?: string[] };
+type RetrievedKnowledgeChunk = KnowledgeChunk & {
+  documentId?: string;
+  topics?: string[];
+  /**
+   * True when the agency has retired the page this chunk came from. Carried all
+   * the way to the citation so the label can say so — an agency-archived page
+   * presented as current guidance is a claim the product should not make
+   * silently, and the model cannot infer it from the text.
+   */
+  agencyArchived?: boolean;
+};
 type RetrievedCommunitySummary = CommunityAdviceSummary;
 
 // A Langfuse parent observation — either the trace itself or a span — that
@@ -1507,7 +1517,8 @@ function buildFallbackKnowledgeChunks(): RetrievedKnowledgeChunk[] {
       title: document.title,
       url: document.url,
       agency: source.agency,
-      sourceSlug: source.slug
+      sourceSlug: source.slug,
+      agencyArchived: document.agencyArchived
     }));
   });
 }
@@ -1519,6 +1530,20 @@ function scoreIntentBoost(query: string, chunk: RetrievedKnowledgeChunk) {
 
   if (mentionsJobLoss(normalized) || /(grace period|60-day|day 60|transfer|lca)/.test(normalized)) {
     if (/(grace period|cessation of employment|60-day|h-1b portability|nonfrivolous h-1b petition|lca)/.test(sourceText)) boost += 8;
+  }
+
+  // Bridge status. Added with 8 CFR 248, and without it that document could never
+  // be retrieved: a layoff question boosts only chunks matching the grace-period
+  // and portability vocabulary above, so the change-of-status regulation scored
+  // zero while three older documents scored +8 each and took all six slots.
+  //
+  // Routing a topic into scope is not the same as making its source reachable.
+  // Bridge status was classified correctly from the day it shipped and still
+  // answered from the H-1B regulations alone, because retrieval was never told
+  // what a bridge question needs.
+  if (/\b(b-?2|h-?4|240[- ]day|change of status|cos|i-?539|bridge)\b/.test(normalized)) {
+    if (/(change of nonimmigrant classification|248|change of status|dependent nonimmigrant|previously accorded status)/.test(sourceText))
+      boost += 8;
   }
 
   if (/(ac21|same or similar|product manager|software engineer|portability)/.test(normalized)) {
@@ -1805,7 +1830,9 @@ function buildCitationSet(
 
     deduped.set(key, {
       kind: "external",
-      label: `${chunk.agency} · ${chunk.title}`,
+      // The archived marker rides in the label rather than the excerpt because
+      // the label is what a user scanning citations actually reads.
+      label: `${chunk.agency} · ${chunk.title}${chunk.agencyArchived ? " (archived by the agency)" : ""}`,
       url: chunk.url,
       // Corpus chunks are Haven's paraphrase of the source ("USCIS frames H-1B
       // as..."), never the agency's own sentences. Marking that here is what lets
