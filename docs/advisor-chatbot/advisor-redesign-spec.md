@@ -283,15 +283,47 @@ Ten topics is what turned the prompt into a changelog. Options:
 
 **My recommendation: narrow + travel.** Four modules. Redirect the rest with a named destination. Add topics back one at a time, each with its own eval cohort, once the pipeline has proven itself on four.
 
-### B. Primary success criterion
+### B. Primary success criterion — DECIDED 2026-08-16
+
+**Safe answers, plus good ideas drawn from what the community actually did.**
+
+Two halves, and the second one was corrected from my proposal.
+
+**Safe** is the floor: zero unsafe answers on the high-stakes cohorts, and safety
+facts present regardless of how the question was phrased.
+
+**Good ideas, not next steps.** My original wording was "≥80% of answers name a
+concrete next step", and the founder pushed back on it — correctly. "Next step"
+slides toward telling someone what to do, which is the line this product does not
+cross. The useful thing is not instruction, it is *options they had not thought of*,
+grounded in what people in similar situations actually did.
+
+That reframes the counterweight around community stories rather than around
+directives, and it lines up with what the product actually has that a general
+chatbot does not. The measure becomes: when relevant community experience exists,
+does the answer surface it — as one person's experience, never as a recommendation?
+
+The distinction in practice:
+
+| Not this | This |
+|---|---|
+| "You should file a B-2 change of status." | "Some people in this situation filed a B-2 as a bridge; one member did it on day 59 and later transferred. That is one person's experience, not a recommendation." |
+| "Your next step is to contact an attorney." | "This is the kind of thing an attorney can settle in one call — worth bringing your last day of work and your I-94 date." |
+
+Why safety alone was not enough as a criterion: it makes refusing everything the
+winning strategy. Why "next step" was the wrong counterweight: it makes the product
+sound like counsel. Community-grounded ideas is the version that pulls toward
+usefulness without pulling toward advice.
+
+---
+
+*Original options, kept for the record:*
 
 | Option | What it optimizes | Cost |
 |---|---|---|
-| **Correct-and-safe on high-stakes turns** | The worst case. Measured on the existing eval cohorts: zero unsafe answers on layoff/travel/CSPA, safety facts present *regardless of phrasing*. | Says nothing about whether answers are useful. |
-| **User acts correctly afterward** | The actual product. | Needs outcome instrumentation that does not exist. Months of work before it reports anything. |
+| **Correct-and-safe on high-stakes turns** | The worst case. | Says nothing about whether answers are useful. |
+| **User acts correctly afterward** | The actual product. | Needs outcome instrumentation that does not exist. |
 | **Return usage** | The PRD's retention goal. | At tier 4 this pulls design toward engagement over restraint. |
-
-**My recommendation: correct-and-safe as the primary, with a usefulness counterweight** — otherwise the design's dominant strategy becomes refusing everything. Something like: *zero unsafe answers on the high-stakes cohorts, and ≥80% of answers name a concrete next step.* The second clause is what stops safety-maximizing from producing disclaimer soup.
 
 ---
 
