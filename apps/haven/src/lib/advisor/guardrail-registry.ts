@@ -590,15 +590,15 @@ const ENTRIES: GuardrailEntry[] = [
     audience: "user",
     repeat: "always",
     intent:
-      "Close the 'what do you know about me?' answer with the policy half: where the data came from, when it gets used, and how to change it. The factual half is composed from the live snapshot in service.ts; this is the part that is pure copy and most needs review.",
+      "Close the 'what do you know about me?' answer with the policy half, and ask the user to confirm it. A profile is a snapshot they last edited at some point; an employment status or a PERM stage that has since moved changes the answer without either side noticing. Asking is the cheapest correction the product has.",
     lastReviewedBy: null,
     lastReviewedAt: null,
     text: [
       "All of it came from you — what you entered in your Haven profile, plus anything you told me in an earlier conversation.",
       "",
-      "I only bring these details into an answer when your question turns on them. Asking a general question about the rules will not pull your dates into the reply.",
+      "**Is that all still right?** A profile is a snapshot, and the details that go stale fastest — whether you are still employed, your PERM stage, your dates — are exactly the ones that change an answer. If anything above has moved, tell me here and I will use what you tell me over what is saved.",
       "",
-      "You can change or clear any of it from your Haven profile."
+      "I only bring these details into an answer when your question turns on them. Asking a general question about the rules will not pull your dates into the reply. You can change or clear any of it from your Haven profile."
     ].join("\n")
   },
   {

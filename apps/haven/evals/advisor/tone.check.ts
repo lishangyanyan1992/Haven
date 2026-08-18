@@ -101,13 +101,33 @@ async function main() {
 
   // The system prompt has to carry the tone rules, or the model writes in its
   // drifting default and none of the copy above governs a generated answer.
+  // The disclosure must ask the user to confirm, not just recite. A profile is a
+  // snapshot they last edited at some point, and employment status, PERM stage and
+  // dates go stale without either side noticing — which then changes an answer
+  // silently. Asking is the cheapest correction the product has, and it is easy to
+  // lose in a rewrite because the recitation reads complete without it.
+  const disclosure = userFacing.find((e) => e.id === "MSG_DATA_DISCLOSURE_CLOSING");
+  if (disclosure) {
+    check(
+      "the data disclosure asks the user to confirm it is still right",
+      /still right|still accurate|has moved|has changed/i.test(disclosure.text),
+      "no confirmation prompt in the closing"
+    );
+    check(
+      "the data disclosure promises to prefer what the user says over what is saved",
+      /use what you tell me|over what is saved|tell me here/i.test(disclosure.text),
+      "no promise to override the stored profile"
+    );
+  }
+
   const promptRules: Array<[string, RegExp]> = [
     ["names who is reading", /laid off this morning|frightened|second or third language/i],
     ["forbids accusation", /never accuse|assume an honest mistake/i],
     ["forbids sounding like a lawyer", /not a lawyer|never sound like one/i],
     ["forbids false reassurance", /you'?ll be fine|don'?t worry/i],
     ["requires pointing to the source when unsure", /point to the source|instead of guessing/i],
-    ["requires community stories when they fit", /community stories/i]
+    ["requires community stories when they fit", /community stories/i],
+    ["names a stale-prone profile fact when it changed the answer", /materially changes your answer|invite correction/i]
   ];
   console.log("");
   for (const [name, pattern] of promptRules) {
