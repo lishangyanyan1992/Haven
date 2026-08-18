@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Scope** | Rewrite the decision layer. Keep the PRD, CD requirements, guardrail content, evals, crisis path, and UI. |
-| **Status** | Draft for review — two decisions deliberately left open (§11) |
+| **Status** | Both open decisions settled (§11). Scope shipped; the decision layer is live and measured. |
 | **Supersedes** | Nothing yet. Sits alongside [PRD](advisor-chatbot-prd.md) and [CD requirements](conversation-design-requirements.md). |
 | **Date** | 2026-08-12 |
 
@@ -250,7 +250,7 @@ The load-bearing rule: **the generation layer is expected to be right, and the c
 
 ---
 
-## 11. Two decisions left open
+## 11. The two decisions — both settled
 
 ### A. v1 scope — DECIDED 2026-08-15, shipped
 
