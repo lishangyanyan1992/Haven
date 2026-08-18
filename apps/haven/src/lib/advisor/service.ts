@@ -39,6 +39,13 @@ import {
 } from "@/lib/advisor/thread-state";
 import { listThreads, persistExchange, type AdvisorThreadSummary } from "@/lib/advisor/threads";
 import { listFacts, rememberFactsFrom, renderFactsForPrompt, type RememberedFact } from "@/lib/advisor/memory";
+import {
+  detectProfileUpdates,
+  filterAlreadyCurrent,
+  renderProfileUpdateNotice,
+  type ProfileUpdate
+} from "@/lib/advisor/profile-updates";
+import { persistProfileDraft } from "@/lib/profile-sync";
 import { renderLayoffOptionsForPrompt } from "@/lib/advisor/layoff-options";
 import {
   getLiveBulletinSnapshot,
@@ -3368,11 +3375,44 @@ export async function* streamAdvisorResponse(rawInput: {
     yield { type: "delta", text: noticeText };
   }
 
+  // Profile updates the user stated in this message.
+  //
+  // Written after the answer, never before it. A write that happened first would
+  // change the profile the answer was built from, so a mistake would be baked
+  // into the reply that announces it.
+  //
+  // Announced deterministically rather than left to the model. A wrong
+  // description of a database write is worse than none — the user would go and
+  // correct the wrong field.
+  let profileUpdates: ProfileUpdate[] = [];
+  if (!identity.isMock) {
+    try {
+      profileUpdates = filterAlreadyCurrent(detectProfileUpdates(content), snapshot.profile);
+      if (profileUpdates.length > 0) {
+        await persistProfileDraft(
+          identity.id,
+          Object.fromEntries(profileUpdates.map((update) => [update.field, update.value]))
+        );
+      }
+    } catch {
+      // A failed write must not cost the user their answer. Nothing is announced
+      // in that case, so the profile and what they were told stay consistent.
+      profileUpdates = [];
+    }
+  }
+
+  const updateNotice = renderProfileUpdateNotice(profileUpdates);
+  if (updateNotice) {
+    fullText += updateNotice;
+    yield { type: "delta", text: updateNotice };
+  }
+
   trace?.update({
     output: {
       answer: fullText,
       cited: citations.length > 0,
       citationCount: citations.length,
+      profileUpdates: profileUpdates.map((update) => `${update.field}=${String(update.value)}`),
       fallback,
       fallbackReason,
       staleBulletinNotice: Boolean(staleNotice)

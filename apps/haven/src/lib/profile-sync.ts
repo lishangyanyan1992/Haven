@@ -1,11 +1,17 @@
 import { computeDerivedSignals } from "@/lib/haven";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import type { Concern, ImmigrationProfile, PrimaryGoal, PreferenceCategory, SpouseVisaStatus, VisaType } from "@/types/domain";
+import type { Concern, EmploymentStatus, ImmigrationProfile, PrimaryGoal, PreferenceCategory, SpouseVisaStatus, VisaType } from "@/types/domain";
 
 export const ONBOARDING_OVERRIDE_COOKIE = "haven_onboarding_override";
 
 type ProfileDraft = Partial<{
   visaType: string;
+  // Added so a correction stated in chat lands in the same record the dashboard
+  // writes. It was readable but not writable, which meant "I was laid off" could
+  // never reach the profile from anywhere except the form.
+  employmentStatus: string;
+  permStage: string;
+  i485Filed: string | boolean;
   countryOfBirth: string;
   primaryGoal: string;
   employerName: string;
@@ -27,6 +33,7 @@ const primaryGoals: PrimaryGoal[] = ["get_gc", "job_stability", "explore_options
 const preferenceCategories: PreferenceCategory[] = ["EB-1", "EB-2", "EB-3", "EB-2 NIW", "Not sure"];
 const spouseVisaStatuses: SpouseVisaStatus[] = ["none", "H1B", "H4", "H4 EAD", "GC", "citizen", "other"];
 const concerns: Concern[] = ["layoffs", "visa_expiry", "gc_timeline", "job_change", "other"];
+const employmentStatuses: EmploymentStatus[] = ["employed", "actively_searching", "laid_off"];
 
 function asEnumValue<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
   return typeof value === "string" && (allowed as readonly string[]).includes(value) ? (value as T) : fallback;
@@ -95,6 +102,11 @@ function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unk
         : typeof existingRow?.employer_size === "string"
           ? existingRow.employer_size
           : "enterprise",
+    employment_status: asEnumValue(
+      rawDraft.employmentStatus,
+      employmentStatuses,
+      (existingRow?.employment_status as EmploymentStatus | undefined) ?? "employed"
+    ),
     perm_stage: permStage,
     priority_date:
       rawDraft.priorityDate !== undefined
