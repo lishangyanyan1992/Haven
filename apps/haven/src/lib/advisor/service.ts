@@ -860,6 +860,21 @@ export interface GuardrailSignals {
  * records *which* rule fired, and a fixture can assert on that instead of grepping
  * the answer for an English phrase that a prompt edit will quietly change.
  */
+/**
+ * Guardrail selection from an explicit topic list.
+ *
+ * The signals are re-derived from the query rather than passed in, so the intent
+ * router's topics can be run through exactly the same selection the keyword path
+ * uses. Two selectors would drift; this is the same one.
+ */
+export function selectGuardrailIdsForTopics(query: string, topics: TopicBucket[]): string[] {
+  const normalized = query.toLowerCase();
+  return selectGuardrailIds(query, topics, {
+    jobLossMentioned: mentionsJobLoss(normalized),
+    travelMentioned: mentionsTravel(normalized)
+  });
+}
+
 function selectGuardrailIds(query: string, topics: TopicBucket[], signals: GuardrailSignals): string[] {
   const normalized = query.toLowerCase();
   const ids: string[] = [];
@@ -2645,7 +2660,16 @@ export async function* streamAdvisorResponse(rawInput: {
     history: rawHistory,
     i485Filed: snapshot.profile.i485Filed
   });
-  const topics = route.topics;
+
+  // The intent router, now driving rather than shadowing.
+  //
+  // Started before moderation and awaited after it, so its ~1s overlaps work that
+  // had to happen anyway. Null on failure or timeout, and every use below falls
+  // back to the keyword result — a router that could take the Advisor down would
+  // be a worse product than the keyword matching it replaces, however much better
+  // it classifies.
+  const intentPromise = classifyIntent({ content, history: rawHistory }).catch(() => null);
+
   const threadState = buildThreadState({
     currentMatched: route.currentMatched,
     previousMatched: route.previousMatched,
@@ -2656,6 +2680,51 @@ export async function* streamAdvisorResponse(rawInput: {
   const model = getChatModel();
 
   const lf = getLangfuseClient();
+  const intentRead = await intentPromise;
+
+  // Three different questions, three different inputs. Keeping them separate is
+  // the whole lesson of the shadow phase: acting on one merged topic list would
+  // have declined 20 of 61 corpus cases, including almost every layoff question.
+  //
+  //   safety     the union. Either router may raise a topic, and both must miss
+  //              before a user loses a guardrail. Over-triggering is safe here.
+  //   scope      the subject only. A layoff question genuinely involves job
+  //              change and work authorisation, and tagging those must not
+  //              redirect it to the AC21 message.
+  //   retrieval  the keyword topics, widened by the subject when the keywords
+  //              found nothing. Retrieval keeps six chunks, so adding related
+  //              topics dilutes the budget rather than improving it.
+  const safetyTopics = intentRead
+    ? ([...new Set([...route.topics, ...intentRead.topics])] as TopicBucket[])
+    : route.topics;
+  // `work-authorization` is excluded from driving scope, and the reason is the
+  // same defect this codebase keeps hitting: the label means two things.
+  //
+  // The model is right that "my OPT is pending and my employer wants me to start"
+  // is a work-authorisation question — it is literally about whether they may
+  // work. But work-authorization was deliberately taken off the declined list,
+  // because for a laid-off person "when can I work again?" is the core question.
+  // Letting it drive scope re-introduced exactly the ambiguity that removal
+  // resolved: two student cases, one of them the "can I keep working after my OPT
+  // expires" safety case, went from declining to being answered.
+  //
+  // Whether past unauthorised work was disclosed is decided by signal below, and
+  // that is the only thing work-authorization should gate.
+  const primaryDrivesScope =
+    intentRead?.primaryTopic &&
+    intentRead.confidence === "high" &&
+    intentRead.primaryTopic !== "work-authorization";
+  const scopeTopics = primaryDrivesScope ? [intentRead!.primaryTopic!] : route.topics;
+  const topics =
+    threadState.resolution === "unmatched" && intentRead?.primaryTopic
+      ? ([...new Set([...route.topics, intentRead.primaryTopic])] as TopicBucket[])
+      : route.topics;
+
+  // Guardrails are reselected on the union, so a topic only the model saw still
+  // brings its safety rules. Selection is pure, so calling it twice is free.
+  const guardrailIds = intentRead
+    ? [...new Set([...route.guardrailIds, ...selectGuardrailIdsForTopics(content, safetyTopics)])]
+    : route.guardrailIds;
   // One trace per message; group a multi-turn conversation via sessionId so
   // each question gets its own clean observation tree instead of piling up.
   const traceId = crypto.randomUUID();
@@ -2789,10 +2858,11 @@ export async function* streamAdvisorResponse(rawInput: {
   // these six areas are declined and what each redirect still carries.
   const normalizedContent = content.toLowerCase();
   const scope = decideScope(
-    topics,
+    scopeTopics,
     mentionsTravel(normalizedContent),
     UNAUTHORIZED_WORK_PATTERN.test(normalizedContent),
-    hasStrongInScopeSignal(normalizedContent)
+    hasStrongInScopeSignal(normalizedContent),
+    detectDangerousPremises(normalizedContent).length > 0
   );
   if (!scope.inScope) {
     const scopePayload: AdvisorAnswerPayload = {
@@ -3023,38 +3093,31 @@ export async function* streamAdvisorResponse(rawInput: {
 
   // Retrieval agents run under a shared parent span so the official-source and
   // community-story handoffs are visible as a nested tree under the trace.
-  // Collected here because the router call started before moderation and has had
-  // the whole pre-retrieval stretch to finish. Recorded as its own span so the
-  // disagreement rate is filterable in Langfuse without reading every trace.
-  const shadowRead = await shadowRouter;
-  if (shadowRead) {
-    const comparison = compareRouters(topics, shadowRead);
-    trace?.span({ name: "intent-router-shadow", input: { question: content } })?.end({
+  // The router is now driving, so this records what it changed rather than what
+  // it would have changed. `divergedFromKeyword` is the number to watch on real
+  // traffic: it is how often the live decision differs from what the keyword
+  // router alone would have produced.
+  if (intentRead) {
+    const comparison = compareRouters(route.topics, intentRead);
+    trace?.span({ name: "intent-router", input: { question: content } })?.end({
       output: {
-        keywordTopics: topics,
-        modelTopics: shadowRead.topics,
-        // The subject, which is what a live cutover would use for scope. Recorded
-        // separately from `union` because the first measurement showed the two
-        // answer different questions: acting on the union would have declined 20
-        // of 61 corpus cases including almost every layoff question, while acting
-        // on the subject matches today's decision on 85% and the fixtures on 97%.
-        primaryTopic: shadowRead.primaryTopic,
-        // What the scope gate would have decided if it keyed on the subject.
-        // Logged rather than derived later so the cutover decision rests on what
-        // real traffic would actually have experienced.
-        scopeIfPrimary: shadowRead.primaryTopic
-          ? decideScope([shadowRead.primaryTopic], mentionsTravel(content.toLowerCase()))
-          : null,
+        keywordTopics: route.topics,
+        modelTopics: intentRead.topics,
+        primaryTopic: intentRead.primaryTopic,
+        confidence: intentRead.confidence,
         agreed: comparison.agreed,
         onlyKeyword: comparison.onlyKeyword,
         onlyModel: comparison.onlyModel,
-        union: comparison.union,
-        confidence: shadowRead.confidence,
-        requiredSafety: shadowRead.requiredSafety,
-        factsStated: shadowRead.factsStated,
-        factsMissing: shadowRead.factsMissing,
-        premiseToCorrect: shadowRead.premiseToCorrect,
-        outOfDomain: shadowRead.outOfDomain
+        safetyTopics,
+        scopeTopics,
+        retrievalTopics: topics,
+        guardrailsFromModelOnly: guardrailIds.filter((id) => !route.guardrailIds.includes(id)),
+        divergedFromKeyword: !comparison.agreed,
+        requiredSafety: intentRead.requiredSafety,
+        factsStated: intentRead.factsStated,
+        factsMissing: intentRead.factsMissing,
+        premiseToCorrect: intentRead.premiseToCorrect,
+        outOfDomain: intentRead.outOfDomain
       }
     });
   }
@@ -3109,7 +3172,7 @@ export async function* streamAdvisorResponse(rawInput: {
   // CD-13.1 / CD-13.4: select by id, then resolve to text, dropping orientation the
   // thread has already heard. Hard safety rules are marked `always` in the registry
   // and are never dropped here.
-  const guardrails = resolveGuardrails(route.guardrailIds, threadState.delivered);
+  const guardrails = resolveGuardrails(guardrailIds, threadState.delivered);
   const decisionGuardrails = guardrails.texts;
 
   // CD-13.3: if the Advisor is about to offer the fallback options, give it the
@@ -3213,7 +3276,7 @@ export async function* streamAdvisorResponse(rawInput: {
     // position is the cheapest lever available on that, and the addendum fire
     // rate is how we find out whether it moved.
     ...(() => {
-      const required = requiredPointsForAnswer(content, topics, route.guardrailIds);
+      const required = requiredPointsForAnswer(content, topics, guardrailIds);
       return required.length > 0
         ? [
             "",

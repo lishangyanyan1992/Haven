@@ -104,6 +104,18 @@ const CASES: ScopeCase[] = [
     declinedAs: "travel"
   },
 
+  // ------------------------------- A dangerous premise outranks a redirect
+  //
+  // Found when the intent router started driving scope. "My new employer says the
+  // LCA is already filed so I'm covered. Can I start Monday?" classifies as
+  // job-change — defensibly, it is about starting at a new employer — and was
+  // declined with the AC21 message. Someone about to work without authorisation
+  // on a misunderstanding got a redirect instead of the correction, and no
+  // redirect contains the correction.
+  { question: "My new employer says the LCA is already filed so I'm covered. Can I start Monday?", declinedAs: null },
+  { question: "My manager offered to keep me on unpaid so my H-1B stays alive. Should I take it?", declinedAs: null },
+  { question: "I have the receipt notice for my H-1B transfer, so I'm portable now right?", declinedAs: null },
+
   // ------------------------------------------- Background versus subject
   //
   // The recurring defect in this codebase — five instances — is a topic label
@@ -179,7 +191,7 @@ const SAFETY_FACTS: Array<{ id: string; name: string; must: RegExp }> = [
 ];
 
 async function main() {
-  const { routeAdvisorQuestion, hasStrongInScopeSignal } = await import("@/lib/advisor/service");
+  const { routeAdvisorQuestion, hasStrongInScopeSignal, detectDangerousPremises } = await import("@/lib/advisor/service");
   const { decideScope, REDIRECTED } = await import("@/lib/advisor/scope");
   const { guardrailText, getGuardrail } = await import("@/lib/advisor/guardrail-registry");
 
@@ -212,7 +224,8 @@ async function main() {
       route.topics,
       travelMentioned,
       unauthorizedMentioned,
-      hasStrongInScopeSignal(testCase.question.toLowerCase())
+      hasStrongInScopeSignal(testCase.question.toLowerCase()),
+      detectDangerousPremises(testCase.question.toLowerCase()).length > 0
     );
 
     const actual = decision.inScope ? null : decision.area;

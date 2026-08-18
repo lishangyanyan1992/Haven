@@ -173,7 +173,8 @@ export function decideScope(
   topics: TopicBucket[],
   travelMentioned: boolean,
   unauthorizedWorkMentioned = false,
-  strongInScopeSignal = false
+  strongInScopeSignal = false,
+  dangerousPremise = false
 ): ScopeDecision {
   if (travelMentioned && topics.includes("adjustment-of-status")) {
     return { inScope: false, area: "travel", guardrailId: "MSG_SCOPE_TRAVEL" };
@@ -184,6 +185,21 @@ export function decideScope(
   // lower-priority topic that happens to be present.
   if (unauthorizedWorkMentioned) {
     return { inScope: false, area: "work-authorization", guardrailId: UNAUTHORIZED_WORK_REDIRECT };
+  }
+
+  // A dangerous premise outranks every ordinary redirect.
+  //
+  // Found when the intent router started driving scope: "My new employer says the
+  // LCA is already filed so I'm covered. Can I start Monday?" classifies as
+  // job-change — defensibly, it is about starting at a new employer — and was
+  // declined with the AC21 message. Someone about to work without authorisation
+  // on a misunderstanding got a redirect instead of the correction.
+  //
+  // No redirect contains the correction, so declining is the one response that
+  // cannot be right. Travel and unauthorised-work disclosure are checked above
+  // and still win, because those redirects are themselves the safety response.
+  if (dangerousPremise) {
+    return { inScope: true };
   }
 
   const isHavenProductQuestion = topics.includes("haven-product");
