@@ -191,7 +191,7 @@ const SAFETY_FACTS: Array<{ id: string; name: string; must: RegExp }> = [
 ];
 
 async function main() {
-  const { routeAdvisorQuestion, hasStrongInScopeSignal, detectDangerousPremises } = await import("@/lib/advisor/service");
+  const { routeAdvisorQuestion, hasStrongInScopeSignal, detectDangerousPremises, modelMayDecideScope } = await import("@/lib/advisor/service");
   const { decideScope, REDIRECTED } = await import("@/lib/advisor/scope");
   const { guardrailText, getGuardrail } = await import("@/lib/advisor/guardrail-registry");
 
@@ -254,6 +254,75 @@ async function main() {
     }
     check(`redirect for ${topic} resolves to a real entry`, resolves, id);
   }
+
+  // ------------------------------------ when the model may overrule the patterns
+  //
+  // Two mirror-image failures, both measured on real classifications before they
+  // were fixed, and both invisible to every other suite because each looked like
+  // the other one's bug.
+  //
+  //   refusing alone   "I filed B-2 and now I have an offer. Do I wait for the
+  //                    B-2 to be approved first?" classified six times came back
+  //                    job-change/high twice and work-authorization the rest. The
+  //                    patterns said `layoffs` every time and were right. Two
+  //                    users in six were refused and handed an AC21 message about
+  //                    an I-485 they have not filed.
+  //
+  //   overruling a decline   "I was laid off and want to use AC21 portability"
+  //                    classified layoffs/high six times out of six, overriding a
+  //                    pattern match on `portability`. scope.ts names this exact
+  //                    sentence as one that must decline, and it was answered.
+  //
+  // The rescue case — a question the patterns did not recognise at all — must keep
+  // working, decline included, because there is nothing else to decide it with.
+  const mayDecide = (
+    primaryTopic: string | null,
+    confidence: "high" | "low",
+    patternTopics: string[],
+    patternsMatched: boolean
+  ) =>
+    modelMayDecideScope({
+      primaryTopic: primaryTopic as never,
+      confidence,
+      patternTopics: patternTopics as never,
+      patternsMatched
+    });
+
+  check(
+    "the model may not refuse a question the patterns recognised and saw nothing declined in",
+    mayDecide("job-change", "high", ["layoffs"], true) === false,
+    "it was allowed to refuse alone"
+  );
+  check(
+    "the model may not answer past a declined topic the patterns matched",
+    mayDecide("layoffs", "high", ["layoffs", "job-change"], true) === false,
+    "it was allowed to overrule the decline"
+  );
+  check(
+    "the model still decides a question the patterns did not recognise",
+    mayDecide("cspa", "high", ["h1b", "adjustment-of-status"], false) === true,
+    "the rescue path was closed"
+  );
+  check(
+    "the model may still redirect an in-scope classification when nothing declined is in play",
+    mayDecide("layoffs", "high", ["h1b", "adjustment-of-status"], true) === true,
+    "it was blocked unnecessarily"
+  );
+  check(
+    "a low-confidence read never drives scope",
+    mayDecide("cspa", "low", ["h1b"], false) === false,
+    "low confidence drove the decision"
+  );
+  check(
+    "no classification never drives scope",
+    mayDecide(null, "high", ["h1b"], false) === false,
+    "a null topic drove the decision"
+  );
+  check(
+    "work authorization never drives scope, for its own reason",
+    mayDecide("work-authorization", "high", ["h1b"], true) === false,
+    "work-authorization drove the decision"
+  );
 
   console.log(`\n${pass} passed, ${failures.length} failed`);
   if (failures.length > 0) {

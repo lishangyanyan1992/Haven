@@ -76,6 +76,16 @@ export const REDIRECTED: Partial<Record<TopicBucket, string>> = {
  * is least recoverable. CSPA leads because its deadline can pass while somebody
  * is still working out who to ask.
  */
+/**
+ * Is this a topic the product declines?
+ *
+ * Exported so the router wiring can ask before letting a model classification
+ * drive a refusal. See the note on `primaryDrivesScope` in service.ts.
+ */
+export function isRedirectedTopic(topic: TopicBucket): boolean {
+  return topic in REDIRECTED;
+}
+
 const REDIRECT_PRIORITY: TopicBucket[] = ["cspa", "self-petition", "student-status", "job-change", "perm"];
 
 /**

@@ -5,7 +5,7 @@ import { env, hasSupabaseEnv } from "@/lib/env";
 import { flushLangfuse, getLangfuseClient, getPrompt } from "@/lib/langfuse";
 import type { LangfuseSpanClient, LangfuseTraceClient } from "langfuse";
 import { classifyIntent, compareRouters } from "@/lib/advisor/intent-router";
-import { decideScope } from "@/lib/advisor/scope";
+import { decideScope, isRedirectedTopic } from "@/lib/advisor/scope";
 import { getSnapshot } from "@/lib/repositories/case-compass";
 import { resolveTestPersona } from "@/lib/repositories/test-personas";
 import { readGracePeriod, renderGracePeriodForPrompt } from "@/lib/advisor/grace-period";
@@ -779,6 +779,41 @@ function detectTopics(input: string): Set<TopicBucket> {
 }
 
 const DEFAULT_TOPICS: TopicBucket[] = ["h1b", "adjustment-of-status"];
+
+/**
+ * Whether one model classification is allowed to replace the pattern router's
+ * view of what a question is about, for the purpose of deciding scope.
+ *
+ * Extracted so the rule can be asserted directly. It was previously three
+ * conditions inline in a 200-line function, which is why the two failures it now
+ * prevents both survived review: each looked like the other's fix.
+ */
+export function modelMayDecideScope(input: {
+  primaryTopic: TopicBucket | null | undefined;
+  confidence: "high" | "low" | undefined;
+  patternTopics: TopicBucket[];
+  patternsMatched: boolean;
+}): boolean {
+  const { primaryTopic, confidence, patternTopics, patternsMatched } = input;
+  if (!primaryTopic || confidence !== "high") return false;
+
+  // Work authorization is excluded for its own reason, unrelated to the two
+  // below: "when can I work again?" is the layoff question, and letting that
+  // label drive scope sent people to a message about disclosing past violations.
+  if (primaryTopic === "work-authorization") return false;
+
+  // The patterns hit a declined topic, and scope.ts already knows which of those
+  // yield and which never do. Replacing that with one label discards the rules.
+  if (patternTopics.some((topic) => isRedirectedTopic(topic))) return false;
+
+  // The patterns recognised the question and saw nothing declined; the model
+  // wants to decline anyway. Refusing alone is the direction where being wrong
+  // costs the person everything, so it takes both.
+  if (isRedirectedTopic(primaryTopic) && patternsMatched) return false;
+
+  return true;
+}
+
 
 /**
  * Is this a layoff situation, for the purposes of safety rules?
@@ -2933,11 +2968,58 @@ export async function* streamAdvisorResponse(rawInput: {
   //
   // Whether past unauthorised work was disclosed is decided by signal below, and
   // that is the only thing work-authorization should gate.
-  const primaryDrivesScope =
-    intentRead?.primaryTopic &&
-    intentRead.confidence === "high" &&
-    intentRead.primaryTopic !== "work-authorization";
-  const scopeTopics = primaryDrivesScope ? [intentRead!.primaryTopic!] : route.topics;
+  //
+  // And it may not overrule the patterns on a topic the patterns can see.
+  //
+  // Measured, not assumed. "I filed B-2 and now I have an offer. Do I wait for
+  // the B-2 to be approved first?" was classified six times: four
+  // `work-authorization`, two `job-change` at high confidence. The patterns said
+  // `layoffs` every time and were right — this is the bridge-status question, the
+  // largest cluster in the corpus and squarely in scope. But a high-confidence
+  // primaryTopic replaced the pattern topics wholesale, so roughly one user in
+  // three asking it was refused and handed an AC21 message about an I-485 they
+  // have not filed. Same question, different day, different product. Across five
+  // in-scope questions run six times each, 4 of 30 were wrongly refused; with the
+  // guard, 0 of 30, on the same classifications.
+  //
+  // The router earns its place on questions the patterns miss — that is why it was
+  // built and it is measurably good at it. Overruling questions the patterns
+  // caught is a second power it was never argued for, and it swings both ways: the
+  // same override wrongly *answers* "I was laid off and want to use AC21", which
+  // scope.ts names as a case that must decline.
+  //
+  // So the rule is about who saw what, not about which direction the answer went.
+  // Declined topics are matched on precise terms; scope.ts already says which of
+  // them yield to a strong in-scope signal and which never do. When a pattern has
+  // hit one, that decision stands — and when no pattern has, the model does not
+  // get to refuse on its own.
+  //
+  // The rescue case is untouched, which is the point of keying on
+  // `route.currentMatched`: a question the patterns did not recognise at all has
+  // nothing else to go on, so the model still decides it, decline included.
+  const primaryTopic = intentRead?.primaryTopic;
+
+  // The patterns own the scope call whenever they have hit a declined topic.
+  //
+  // `ac21`, `portability`, `same or similar`, `niw`, `cspa`, `perm` are precise
+  // terms — somebody who types one means it — and scope.ts already encodes which
+  // of those yield to a strong in-scope signal and which never do. Letting one
+  // model call replace that whole decision with a single label discards the
+  // yielding rules and swings both ways at once.
+  // The two failures are mirror images and neither guard catches both. When the
+  // patterns saw no declined topic and the model declines anyway, the model is
+  // refusing alone — the B-2 case. When the patterns *did* see one and the model
+  // answers anyway, the model is overruling a decline — the AC21 case. Measured
+  // separately: the first rule alone fixed 4 of 30 wrongly refused and left AC21
+  // wrong 6 of 6; the second alone fixed AC21 and let all 4 back in. Together,
+  // 0 of 60.
+  const primaryDrivesScope = modelMayDecideScope({
+    primaryTopic,
+    confidence: intentRead?.confidence,
+    patternTopics: route.topics,
+    patternsMatched: route.currentMatched
+  });
+  const scopeTopics = primaryDrivesScope && primaryTopic ? [primaryTopic] : route.topics;
   const topics =
     threadState.resolution === "unmatched" && intentRead?.primaryTopic
       ? ([...new Set([...route.topics, intentRead.primaryTopic])] as TopicBucket[])
