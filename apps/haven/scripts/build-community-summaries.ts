@@ -39,11 +39,15 @@
  * promote it for the wrong people.
  *
  * Usage:
- *   npx tsx --tsconfig tsconfig.json scripts/build-community-summaries.ts [--limit N] [--force] [--dry-run]
+ *   npx tsx --tsconfig tsconfig.json scripts/build-community-summaries.ts [--limit N] [--force] [--dry-run] [--retry-skipped]
  *
  * Needs OPENAI_API_KEY and the Supabase service role key:
  *   set -a; source .env.local; set +a
  */
+
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import OpenAI from "openai";
 
@@ -56,6 +60,34 @@ const SUMMARY_MODEL = process.env.OPENAI_ADVISOR_MODEL ?? process.env.OPENAI_CHA
 
 /** Concurrency. Low enough to stay well inside rate limits on a few hundred posts. */
 const BATCH = 4;
+
+/**
+ * Posts already judged to hold no transferable experience.
+ *
+ * Kept on disk because a rejected post writes no row, so nothing in the database
+ * records that it was considered. Without this the daily run re-judges all of
+ * them every night — 78 model calls to reach the same conclusion, growing with
+ * the corpus — and a question with no outcome does not acquire one later, since
+ * these are imported snapshots rather than live threads.
+ *
+ * `--retry-skipped` clears it, for when the rubric in the prompt changes and the
+ * old judgements are worth revisiting.
+ */
+const SKIP_FILE = path.join(path.dirname(fileURLToPath(import.meta.url)), "community-summaries-skipped.json");
+
+type SkipRecord = { id: string; title: string; why: string; at: string };
+
+function readSkipList(): SkipRecord[] {
+  try {
+    return JSON.parse(fs.readFileSync(SKIP_FILE, "utf8")) as SkipRecord[];
+  } catch {
+    return [];
+  }
+}
+
+function writeSkipList(records: SkipRecord[]) {
+  fs.writeFileSync(SKIP_FILE, `${JSON.stringify(records, null, 2)}\n`);
+}
 
 const args = process.argv.slice(2);
 const flag = (name: string) => args.includes(`--${name}`);
@@ -167,14 +199,22 @@ async function main() {
   );
   const done = new Set(existing.map((row) => row.source_post_id).filter(Boolean) as string[]);
 
-  const queue = posts.filter((post) => force || !done.has(post.id)).slice(0, limit > 0 ? limit : undefined);
+  const retrySkipped = flag("retry-skipped");
+  const skipList = retrySkipped ? [] : readSkipList();
+  const skipIds = new Set(skipList.map((record) => record.id));
 
-  console.log(`${posts.length} posts, ${done.size} already summarised, ${queue.length} to do`);
+  const queue = posts
+    .filter((post) => force || (!done.has(post.id) && !skipIds.has(post.id)))
+    .slice(0, limit > 0 ? limit : undefined);
+
+  console.log(
+    `${posts.length} posts, ${done.size} already summarised, ${skipIds.size} previously skipped, ${queue.length} to do`
+  );
   console.log(`summary model: ${SUMMARY_MODEL}   embedding model: ${EMBEDDING_MODEL}`);
   if (dryRun) console.log("DRY RUN — nothing will be written\n");
 
   let written = 0;
-  const skipped: Array<{ title: string; why: string }> = [];
+  const skipped: Array<{ id: string; title: string; why: string }> = [];
   const failed: Array<{ title: string; why: string }> = [];
 
   for (let index = 0; index < queue.length; index += BATCH) {
@@ -189,7 +229,7 @@ async function main() {
           }
 
           if (!summary.usable) {
-            skipped.push({ title: post.title, why: summary.summary.slice(0, 110) });
+            skipped.push({ id: post.id, title: post.title, why: summary.summary.slice(0, 110) });
             return;
           }
 
@@ -231,6 +271,11 @@ async function main() {
         }
       })
     );
+  }
+
+  if (!dryRun && skipped.length > 0) {
+    const at = new Date().toISOString();
+    writeSkipList([...skipList, ...skipped.map((item) => ({ ...item, at }))]);
   }
 
   console.log(`\n${written} written, ${skipped.length} skipped as not usable, ${failed.length} failed`);
