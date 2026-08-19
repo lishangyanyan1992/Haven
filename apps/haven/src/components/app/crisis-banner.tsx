@@ -58,11 +58,11 @@ export function CrisisBanner({ crisisState }: CrisisBannerProps) {
 
       <div className="flex items-center gap-4 shrink-0">
         <Link
-          href="/planner"
+          href="/advisor"
           className="text-body-sm font-medium underline underline-offset-4"
           style={{ color: "var(--haven-blush-ink)" }}
         >
-          View checklist
+          Ask what to do next
         </Link>
         <form action={resolveCrisisMode.bind(null, "dismissed")}>
           <button

@@ -4,6 +4,7 @@ import { createServerClient } from "@supabase/ssr";
 
 import { applySharedCookieOptions } from "@haven/auth/cookie-options";
 import { authEnv } from "@haven/auth/env";
+import { SIGNED_IN_HOME } from "@/lib/archived-routes";
 
 /**
  * Supabase auth callback handler.
@@ -19,10 +20,10 @@ import { authEnv } from "@haven/auth/env";
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/dashboard";
+  const next = searchParams.get("next") ?? SIGNED_IN_HOME;
 
   // Validate redirect destination — only allow relative paths on this origin.
-  const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
+  const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : SIGNED_IN_HOME;
 
   if (!code) {
     // No code — could be a hash-based recovery link (older Supabase flow).

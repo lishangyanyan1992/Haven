@@ -11,6 +11,7 @@ import { createSupabaseServerClient } from "@haven/auth/server";
 import { ONBOARDING_OVERRIDE_COOKIE } from "@/lib/profile-sync";
 import { persistProfileDraft } from "@/lib/profile-sync";
 import { env } from "@/lib/env";
+import { SIGNED_IN_HOME } from "@/lib/archived-routes";
 import { captureSignupCompleted } from "@/lib/posthog-server";
 
 const EMAIL_INGEST_DOMAIN = env.EMAIL_INGEST_DOMAIN ?? "import.haven-h1b.com";
@@ -94,7 +95,7 @@ export async function resolvePostAuthRedirect(
     return `/onboarding?progress=${progress}`;
   }
 
-  return "/dashboard";
+  return SIGNED_IN_HOME;
 }
 
 async function bootstrapUserProfile(user: { id: string; email?: string | null }, fullName?: string) {
@@ -132,7 +133,7 @@ export async function signInAction(formData: FormData) {
   const supabase = await createSupabaseServerClient();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
-  const redirectTo = normalizeRedirectPath(String(formData.get("redirectTo") ?? "/dashboard"), "/dashboard");
+  const redirectTo = normalizeRedirectPath(String(formData.get("redirectTo") ?? SIGNED_IN_HOME), SIGNED_IN_HOME);
 
   const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
 
@@ -152,7 +153,7 @@ export async function signInAction(formData: FormData) {
   const finalRedirect = resolvePostSignInRedirect({
     redirectTo,
     preferredPath: destination,
-    fallbackPath: "/dashboard",
+    fallbackPath: SIGNED_IN_HOME,
     disallowRedirectPrefixes: ["/onboarding"]
   });
   redirect(finalRedirect);

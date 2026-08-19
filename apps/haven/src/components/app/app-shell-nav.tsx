@@ -3,26 +3,15 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import {
-  FileText,
-  LayoutDashboard,
-  LoaderCircle,
-  MessageSquareQuote,
-  Settings,
-  ShieldAlert,
-  Users
-} from "lucide-react";
+import { LoaderCircle, MessageSquareQuote, Settings } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import type { AdvisorUsage } from "@/lib/advisor/service";
 import { cn } from "@/lib/utils";
 
+// Two destinations on purpose: the question box, and your details.
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/inbox", label: "Document Vault", icon: FileText },
-  { href: "/profile/community", label: "Community", icon: Users },
-  { href: "/advisor", label: "Advisor", icon: MessageSquareQuote },
-  { href: "/planner", label: "Layoff Planner", icon: ShieldAlert },
+  { href: "/advisor", label: "Ask", icon: MessageSquareQuote },
   { href: "/settings", label: "Settings", icon: Settings }
 ];
 

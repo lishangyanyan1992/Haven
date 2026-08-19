@@ -25,6 +25,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { AdvisorStreamEvent, AdvisorUsage } from "@/lib/advisor/service";
 import { trackEvent } from "@/lib/mixpanel";
 import type { AdvisorAnswerPayload, AdvisorMessage } from "@/types/domain";
+import { PENDING_QUESTION_KEY } from "@/lib/pending-question";
 
 type AdvisorWorkspaceProps = {
   advisorUsage: AdvisorUsage;
@@ -124,6 +125,20 @@ export function AdvisorWorkspace({
   useEffect(() => {
     void refreshFacts();
   }, [refreshFacts]);
+
+  // A question typed on the home page waits in session storage while the person
+  // signs up and finishes onboarding. Drop it into the composer — not sent
+  // automatically, so they can add anything the setup questions missed.
+  useEffect(() => {
+    try {
+      const pending = window.sessionStorage.getItem(PENDING_QUESTION_KEY);
+      if (!pending) return;
+      window.sessionStorage.removeItem(PENDING_QUESTION_KEY);
+      setDraft(pending);
+    } catch {
+      // Storage unavailable — nothing to restore.
+    }
+  }, []);
 
   const forgetFact = useCallback(
     async (fact: RememberedFact) => {

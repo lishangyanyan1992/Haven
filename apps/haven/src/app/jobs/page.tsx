@@ -229,8 +229,8 @@ export default function JobsPage() {
                 will sponsor today.
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
-                <Link className={buttonVariants({ variant: "default" })} href="/community/contribute">
-                  Share sponsorship intel
+                <Link className={buttonVariants({ variant: "default" })} href="/">
+                  Ask about sponsorship
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link className={buttonVariants({ variant: "outline" })} href="/tools/grace-period-calculator">

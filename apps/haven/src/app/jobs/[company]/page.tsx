@@ -235,8 +235,8 @@ export default async function CompanyPage({ params }: CompanyPageProps) {
                 <Link className={buttonVariants({ variant: "default" })} href="/tools/grace-period-calculator">
                   Check your grace period
                 </Link>
-                <Link className={buttonVariants({ variant: "outline" })} href="/community/contribute">
-                  Share sponsorship intel
+                <Link className={buttonVariants({ variant: "outline" })} href="/">
+                  Ask about sponsorship
                 </Link>
               </div>
             </div>

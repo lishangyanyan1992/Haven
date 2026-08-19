@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { trackEvent } from "@/lib/mixpanel";
 import { cn } from "@/lib/utils";
+import { SIGNED_IN_HOME } from "@/lib/archived-routes";
 
 interface OnboardingData {
   visaType: string;
@@ -373,7 +374,7 @@ export function OnboardingFlow({
           window.sessionStorage.removeItem(`${ONBOARDING_STARTED_PREFIX}:${userEmail || "anonymous"}`);
         }
         if (typeof window !== "undefined") window.localStorage.removeItem(ONBOARDING_STORAGE_KEY);
-        router.push("/dashboard");
+        router.push(SIGNED_IN_HOME);
       } catch {
         setSaveFeedback("Something went wrong. Please try again.");
       }

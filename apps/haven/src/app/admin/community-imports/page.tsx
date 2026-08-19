@@ -15,6 +15,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Json } from "@/types/database";
 import { AutoReviewQueueForm } from "./AutoReviewQueueForm";
+import { SIGNED_IN_HOME } from "@/lib/archived-routes";
 
 export const metadata = noIndexMetadata;
 
@@ -152,7 +153,7 @@ export default async function CommunityImportsAdminPage({
   const email = user.email?.toLowerCase() ?? "";
 
   if (!hasReviewerAccess(email)) {
-    redirect("/dashboard");
+    redirect(SIGNED_IN_HOME);
   }
 
   const [snapshot, crisisState] = await Promise.all([getCommunityPageData(), getCrisisState()]);

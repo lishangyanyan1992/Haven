@@ -6,6 +6,7 @@ import { LoginEventTracker } from "@/components/app/login-event-tracker";
 import { LoginSubmitButton } from "@/components/app/login-submit-button";
 import { Input } from "@/components/ui/input";
 import { noIndexMetadata } from "@/lib/seo";
+import { SIGNED_IN_HOME } from "@/lib/archived-routes";
 import { signInAction } from "@/server/actions";
 
 export const metadata = noIndexMetadata;
@@ -16,7 +17,7 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ redirectTo?: string; error?: string; email?: string; message?: string; progress?: string }>;
 }) {
-  const { redirectTo = "/dashboard", email = "", message, progress } = await searchParams;
+  const { redirectTo = SIGNED_IN_HOME, email = "", message, progress } = await searchParams;
   const progressPct = Math.min(100, Math.max(0, parseInt(progress ?? "0", 10)));
 
 

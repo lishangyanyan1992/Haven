@@ -4,11 +4,18 @@ import { createServerClient } from "@supabase/ssr";
 
 import { applySharedCookieOptions } from "@haven/auth/cookie-options";
 import { authEnv, hasSupabaseEnv } from "@haven/auth/env";
+import { isArchivedPath } from "@/lib/archived-routes";
 
 const protectedPrefixes = ["/dashboard", "/onboarding", "/profile", "/timeline", "/planner", "/advisor", "/inbox", "/settings"];
 
 export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
+
+  // Parked surfaces are switched off completely — no direct-link back door.
+  if (isArchivedPath(path)) {
+    return NextResponse.rewrite(new URL("/gone", request.url), { status: 404 });
+  }
+
   const requiresAuth = protectedPrefixes.some((prefix) => path.startsWith(prefix));
 
   if (!requiresAuth || !hasSupabaseEnv) {
@@ -44,6 +51,14 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/cases/:path*",
+    "/clients/:path*",
+    "/community/:path*",
+    "/documents/:path*",
+    "/lawyers/:path*",
+    "/reports/:path*",
+    "/search/:path*",
+    "/tasks/:path*",
     "/dashboard/:path*",
     "/onboarding/:path*",
     "/profile/:path*",

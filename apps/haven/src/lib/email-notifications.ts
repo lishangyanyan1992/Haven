@@ -1,5 +1,6 @@
 import { env } from "@/lib/env";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { SIGNED_IN_HOME } from "@/lib/archived-routes";
 import type { BulletinChargeability, BulletinPreferenceCategory } from "@/types/domain";
 import type { ParsedVisaBulletinResult } from "@/lib/visa-bulletin-parser";
 
@@ -120,7 +121,7 @@ async function sendMailgunEmail(input: {
 
 function buildDashboardUrl() {
   const baseUrl = env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-  return new URL("/dashboard", baseUrl).toString();
+  return new URL(SIGNED_IN_HOME, baseUrl).toString();
 }
 
 export async function sendVisaBulletinStatusUpdateEmails(bulletin: ParsedVisaBulletinResult) {

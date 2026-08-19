@@ -1,388 +1,175 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
-import { ArrowRight, ArrowUpRight, Calculator, CalendarCheck, FileText, FolderOpen, Landmark, MessageCircle, Search, ShieldAlert, Sparkles, Star } from "lucide-react";
-
-import {
-  CommunityFeaturePreview,
-  JobBoardFeaturePreview,
-  LayoffFeaturePreview,
-  MarketplaceFeaturePreview,
-  TimelineFeaturePreview,
-  WaitlistFeaturePreview
-} from "@/components/app/marketing-feature-previews";
-import { ScrollReveal } from "@/components/ui/scroll-reveal";
+import { ArrowRight, FileText, MessageCircle, Users, UserCheck } from "lucide-react";
 
 import { BlogCard } from "@/components/app/blog-card";
 import { HavenBrand } from "@/components/app/haven-brand";
-import { HowItWorksShowcase } from "@/components/app/how-it-works-showcase";
+import { HomeQuestionBox } from "@/components/app/home-question-box";
 import { PublicNavbar, getPublicImmigWizardUrl } from "@/components/app/public-navbar";
-import { WaitlistModalProvider, WaitlistTrigger } from "@/components/app/waitlist-modal";
 import { buttonVariants } from "@/components/ui/button";
-import { getAllResourcePosts, getRecentBlogPosts } from "@/lib/blog";
+import { getRecentBlogPosts } from "@/lib/blog";
 import { absoluteUrl } from "@/lib/seo";
-import { publicTools, type ToolSlug } from "@/lib/tools";
 import { cn } from "@/lib/utils";
 
-const features = [
-  {
-    icon: CalendarCheck,
-    title: "Organized and on track",
-    description: "See the dates and action windows that matter, and keep every document and message with employers and lawyers in one organized place.",
-    preview: TimelineFeaturePreview,
-    cardClass: "bg-[var(--haven-sand)]",
-    iconClass: "bg-[var(--haven-white)] text-[var(--haven-ink)]",
-    layoutClass: "xl:col-span-6",
-    cta: { href: "/register", label: "Get started" }
-  },
-  {
-    icon: ShieldAlert,
-    title: "Layoff planning for H-1B workers",
-    description: "A calmer 60-day plan with H-1B transfer options, sponsor-ready job leads, and one clear action at a time.",
-    preview: LayoffFeaturePreview,
-    cardClass: "bg-[var(--haven-sky-light)]",
-    iconClass: "bg-white/70 text-[var(--haven-ink)]",
-    layoutClass: "xl:col-span-6",
-    cta: { href: "/register", label: "Get started" }
-  },
-  {
-    icon: Sparkles,
-    title: "AI expert from real stories",
-    description: "Ask about your immigration moment and get guidance grounded in moderated stories from people who have been there.",
-    preview: CommunityFeaturePreview,
-    cardClass: "bg-[rgba(236,243,238,0.92)]",
-    iconClass: "bg-[var(--haven-white)] text-[var(--haven-ink)]",
-    layoutClass: "xl:col-span-6",
-    cta: { href: "/community", label: "Explore the community" }
-  },
-  {
-    icon: FileText,
-    title: "TurboTax-style immigration prep",
-    description: "Prepare visa and green card applications with guided questions, organized evidence, and form-ready next steps.",
-    preview: WaitlistFeaturePreview,
-    cardClass: "bg-[rgba(249,242,236,0.96)]",
-    iconClass: "bg-[var(--haven-white)] text-[var(--haven-ink)]",
-    layoutClass: "xl:col-span-6"
-  },
-];
+const HOME_DESCRIPTION =
+  "Ask what you're facing — a missed H-1B lottery, a layoff, status running out — and get an answer built from what people in the same situation actually did.";
 
-const stories = [
+const steps = [
   {
-    title: "You have 60 days. Here’s what helped.",
-    body: "Haven translated the noise into a plan I could actually follow. The community examples mattered as much as the dates.",
-    author: "Priya S.",
-    detail: "Layoff → F-1 → I-140 → back to H-1B",
-    initials: "PS"
+    icon: MessageCircle,
+    title: "Ask in your own words",
+    description: "No forms to decode. Describe what happened the way you'd tell a friend."
   },
   {
-    title: "It felt like a friend who’d done this before.",
-    body: "The timeline didn’t just tell me when things happened. It told me what to do now and what to ignore.",
-    author: "Marcus L.",
-    detail: "H-1B → O-1 → EB-1A",
-    initials: "ML"
+    icon: UserCheck,
+    title: "Tell us your situation once",
+    description: "Visa, dates, employer. It takes a minute, and it's why the answer fits your case instead of a generic one."
   },
   {
-    title: "The transfer timeline made the move feel manageable.",
-    body: "I could finally see what had to happen first, what could wait, and where premium processing actually changed the math.",
-    author: "Ananya R.",
-    detail: "H-1B transfer · new employer",
-    initials: "AR"
+    icon: Users,
+    title: "Get what people actually did",
+    description: "Your answer is built from the experiences of people who were where you are — what worked, what cost them time."
   }
 ];
 
-const toolIcons: Record<ToolSlug, typeof Sparkles> = {
-  "uscis-vaccine-finder": ShieldAlert,
-  "grace-period-calculator": Calculator,
-  "priority-date-checker": Sparkles,
-  "document-pack-builder": FolderOpen
-};
-
 export const metadata: Metadata = {
-  title: "Haven",
-  description: "Immigration timeline, layoff planning, and community guidance for F-1/OPT students, H-1B workers, and employment-based green card applicants.",
+  title: "Haven — Immigration answers from people who've been through it",
+  description: HOME_DESCRIPTION,
   alternates: {
     canonical: "/"
   },
   openGraph: {
     url: absoluteUrl("/"),
-    title: "Haven",
-    description: "Immigration timeline, layoff planning, and community guidance for F-1/OPT students, H-1B workers, and employment-based green card applicants."
+    title: "Haven — Immigration answers from people who've been through it",
+    description: HOME_DESCRIPTION
   },
   twitter: {
-    title: "Haven",
-    description: "Immigration timeline, layoff planning, and community guidance for F-1/OPT students, H-1B workers, and employment-based green card applicants."
+    title: "Haven — Immigration answers from people who've been through it",
+    description: HOME_DESCRIPTION
   }
 };
 
 export default function HomePage() {
   const recentPosts = getRecentBlogPosts(3);
-  const h1bPosts = getAllResourcePosts().filter((post) => post.category === "H1B").slice(0, 3);
   const immigWizardUrl = getPublicImmigWizardUrl();
   const pageSectionClass = "border-t border-[var(--color-border)]";
-  const pageSectionInnerClass = "content-container-visual pt-16 pb-18 md:pt-20 md:pb-20 lg:pt-24 lg:pb-24 xl:pt-28 xl:pb-28";
+  const pageSectionInnerClass = "content-container-visual pt-16 pb-18 md:pt-20 md:pb-20 lg:pt-24 lg:pb-24";
 
   return (
-    <WaitlistModalProvider sourcePath="/">
-      <div className="min-h-screen">
-        <PublicNavbar currentPath="/" />
+    <div className="min-h-screen">
+      <PublicNavbar currentPath="/" />
 
-        <main>
-        <section className="content-container-visual relative overflow-hidden bg-[var(--haven-cream)] pt-20 pb-18 md:pt-20 md:pb-20 lg:pt-24 lg:pb-24 xl:pt-28 xl:pb-28">
-          <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
-            <div
-              className="absolute inset-x-[-4%] inset-y-4 rounded-[3rem] opacity-[0.32] animate-pulse"
-              style={{
-                backgroundImage:
-                  "repeating-linear-gradient(180deg, rgba(191, 10, 48, 0.3) 0 30px, rgba(255, 255, 255, 0) 30px 60px)"
-              }}
-            />
-            <div className="absolute right-[8%] top-6 h-[11rem] w-[14rem] rounded-[1.75rem] bg-[rgba(10,49,97,0.24)] shadow-[0_20px_60px_-40px_rgba(10,49,97,0.45)] md:h-[12.5rem] md:w-[16rem] lg:right-[18%] lg:top-8 lg:h-[15rem] lg:w-[19rem]">
-              <div className="grid h-full w-full grid-cols-5 gap-3 p-4 md:p-5">
-                {Array.from({ length: 20 }).map((_, index) => (
-                  <span key={index} className="h-1.5 w-1.5 rounded-full bg-[rgba(255,255,255,0.78)]" />
-                ))}
-              </div>
+      <main>
+        <section className="bg-[var(--haven-cream)]">
+          <div className="content-container-visual flex flex-col items-center pt-10 pb-14 text-center md:pt-12 md:pb-16 lg:pt-14 lg:pb-20">
+            <h1 className="text-display max-w-[22ch]">
+              You are not the first person <em>this</em> has happened to.
+            </h1>
+            <p className="text-body mt-5 max-w-[54ch]">
+              Ask what you&apos;re facing. Haven answers with what people in the same situation actually did — the
+              lottery they missed, the layoff clock, the status running out.
+            </p>
+
+            <div className="mt-8 w-full max-w-[46rem] text-left">
+              <HomeQuestionBox />
             </div>
-            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(253,250,246,0.92)_0%,rgba(253,250,246,0.72)_42%,rgba(253,250,246,0.76)_100%)]" />
+
+            <p className="text-caption mt-6 max-w-[52ch]">
+              Haven provides information from real experiences, not legal advice. For a decision you can&apos;t undo,
+              check with a qualified attorney.
+            </p>
           </div>
-
-          <div className="relative z-10 grid gap-8 px-0 lg:grid-cols-[0.88fr_1.12fr] lg:items-center lg:gap-16 xl:grid-cols-[0.84fr_1.16fr] xl:gap-20 2xl:gap-24">
-            <div className="animate-enter">
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="inline-flex items-center gap-2 rounded-full border border-[var(--haven-sky-mid)] bg-[var(--haven-sky-light)] px-4 py-2">
-                  <Landmark className="h-3.5 w-3.5 text-[var(--haven-sky-ink)]" />
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--haven-sky-ink)]">
-                    Built for U.S. immigration
-                  </p>
-                </div>
-                <div className="inline-flex items-center gap-2 rounded-full border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] px-4 py-2">
-                  <Sparkles className="h-3.5 w-3.5 text-[var(--haven-ink-mid)]" />
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--haven-ink-mid)]">
-                    Free to use
-                  </p>
-                </div>
-              </div>
-              <h1 className="text-display mt-5 max-w-[12ch]">
-                You don&apos;t have to navigate immigration <em>alone</em>.
-              </h1>
-              <p className="text-body mt-6 max-w-[60ch]">
-                Haven helps global talent navigate U.S. visas and green cards — from F-1, OPT/CPT, and H-1B to job changes, layoffs, priority dates, and employment-based green cards.
-              </p>
-              <div className="mt-8 flex flex-col items-start gap-3 sm:flex-row">
-                <Link className={buttonVariants({ variant: "default", size: "lg" })} href="/register">
-                  Get Started
-                </Link>
-              </div>
-            </div>
-
-            <div className="animate-enter rounded-[2rem] border border-[var(--color-border)] bg-[var(--haven-white)] p-3 shadow-[0_12px_48px_-12px_rgba(44,54,48,0.12)] lg:p-4">
-              <div className="relative overflow-hidden rounded-[calc(var(--radius-2xl)+0.25rem)]">
-                <Image
-                  src="/hero-banner.png"
-                  alt="Three people reviewing immigration documents together"
-                  width={1536}
-                  height={1024}
-                  className="h-auto w-full object-cover"
-                  sizes="(min-width: 1728px) 62rem, (min-width: 1440px) 58rem, (min-width: 1280px) 54rem, (min-width: 1024px) 50vw, 100vw"
-                  quality={95}
-                  priority
-                />
-                <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.02)_0%,rgba(255,255,255,0)_42%,rgba(44,54,48,0.08)_100%)]" />
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className={cn(pageSectionClass, "bg-[var(--haven-white)]")} id="features">
-          <ScrollReveal yOffset={30} duration={0.8} className={pageSectionInnerClass}>
-            <div className="max-w-[62ch]">
-              <p className="text-label">Why Haven</p>
-              <h2 className="text-h1 mt-4 max-w-[28ch]">All your immigration support, in one place</h2>
-            </div>
-            <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-12 xl:gap-5">
-              {features.map((feature) => (
-                <article
-                  key={feature.title}
-                  className={cn(
-                    "animate-enter group relative overflow-hidden rounded-[var(--radius-2xl)] p-6 xl:p-8",
-                    "shadow-[0_2px_16px_-4px_rgba(44,54,48,0.07)] transition-all duration-300",
-                    "hover:shadow-[0_16px_48px_-16px_rgba(44,54,48,0.18)] hover:-translate-y-1",
-                    feature.cardClass,
-                    feature.layoutClass
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div
-                      className={cn(
-                        "flex h-10 w-10 items-center justify-center rounded-[var(--radius-xl)] shadow-[0_1px_4px_rgba(44,54,48,0.08)]",
-                        feature.iconClass
-                      )}
-                    >
-                      <feature.icon className="h-[18px] w-[18px]" />
-                    </div>
-                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[rgba(44,54,48,0.06)] text-[var(--haven-ink)] opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                      <ArrowUpRight className="h-4 w-4" />
-                    </div>
-                  </div>
-                  <h3 className="text-h2 mt-5">{feature.title}</h3>
-                  <p className="text-body mt-2">{feature.description}</p>
-                  <feature.preview />
-                  {feature.cta ? (
-                    <Link
-                      href={feature.cta.href}
-                      className="relative z-10 mt-5 inline-flex items-center gap-1 text-[13px] font-medium text-[var(--haven-ink)]"
-                    >
-                      {feature.cta.label}
-                      <ArrowRight className="h-3.5 w-3.5 transition-transform duration-150 group-hover:translate-x-0.5" />
-                    </Link>
-                  ) : null}
-                </article>
-              ))}
-            </div>
-          </ScrollReveal>
         </section>
 
         <section className={cn(pageSectionClass, "bg-[var(--haven-white)]")} id="how-it-works">
           <div className={pageSectionInnerClass}>
-            <div className="space-y-10">
-              <div className="max-w-[62ch]">
-                <p className="text-label">How it works</p>
-                <h2 className="text-h1 mt-4">Give Haven a few details. Get value back immediately.</h2>
-                <p className="text-body mt-4 max-w-[60ch]">
-                  The setup is short by design. Each answer unlocks a timeline, better recommendations, or more relevant stories from people in the same situation.
-                </p>
-              </div>
-              <HowItWorksShowcase />
-            </div>
-          </div>
-        </section>
-
-        <section className={cn(pageSectionClass, "bg-[var(--haven-sky-light)]")} id="community">
-          <ScrollReveal yOffset={30} duration={0.8} className={pageSectionInnerClass}>
             <div className="max-w-[62ch]">
-              <p className="text-label">Community stories</p>
-              <h2 className="text-h1 mt-4">People trust specifics, not slogans.</h2>
+              <p className="text-label">How it works</p>
+              <h2 className="text-h1 mt-4 max-w-[26ch]">Three steps, then an answer you can act on.</h2>
             </div>
-            <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-3 xl:gap-6">
-              {stories.map((story) => (
-                <article key={story.title} className="flex flex-col rounded-[var(--radius-xl)] border border-[var(--haven-sky-mid)] bg-[var(--haven-white)] p-6 shadow-[0_2px_12px_-4px_rgba(58,110,132,0.08)]">
-                  <div className="flex items-center gap-0.5">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star key={i} className="h-3.5 w-3.5 fill-[var(--haven-sky-ink)] text-[var(--haven-sky-ink)]" />
-                    ))}
+            <div className="mt-10 grid gap-4 md:grid-cols-3 md:gap-5">
+              {steps.map((step, index) => (
+                <article
+                  key={step.title}
+                  className="rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-cream)] p-6 xl:p-8"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-xl)] bg-[var(--haven-white)] text-[var(--haven-ink)]">
+                    <step.icon className="h-[18px] w-[18px]" />
                   </div>
-                  <h3 className="text-h2 mt-4">{story.title}</h3>
-                  <p className="text-body mt-3 flex-1">{story.body}</p>
-                  <div className="mt-5 flex items-center gap-3 border-t border-[var(--haven-sky-mid)] pt-4">
-                    <div className="avatar avatar-sm avatar-community flex-shrink-0">{story.initials}</div>
-                    <div>
-                      <p className="text-[13px] font-medium leading-none text-[var(--haven-ink)]">{story.author}</p>
-                      <p className="text-caption mt-1">{story.detail}</p>
-                    </div>
-                  </div>
+                  <p className="text-label mt-5">Step {index + 1}</p>
+                  <h3 className="text-h2 mt-2">{step.title}</h3>
+                  <p className="text-body mt-2">{step.description}</p>
                 </article>
               ))}
             </div>
-          </ScrollReveal>
+          </div>
+        </section>
+
+        <section className={cn(pageSectionClass, "bg-[var(--haven-sky-light)]")}>
+          <div className={pageSectionInnerClass}>
+            <div className="max-w-[62ch]">
+              <p className="text-label">Why the answers are different</p>
+              <h2 className="text-h1 mt-4 max-w-[30ch]">Wisdom of the crowd, not a search result.</h2>
+              <p className="text-body mt-4">
+                Most immigration advice online is either a forum thread you can&apos;t verify or a page written for
+                everyone. Haven reads thousands of moderated, real accounts from people on the same visa path, keeps
+                what held up, and answers your specific question with it.
+              </p>
+              <p className="text-body mt-4">
+                We start with the hardest moments — the lottery, the layoff, the deadline — because that&apos;s when a
+                wrong answer costs the most. Longer-term planning comes next.
+              </p>
+            </div>
+          </div>
         </section>
 
         <section className={cn(pageSectionClass, "bg-[var(--haven-white)]")}>
-          <ScrollReveal yOffset={30} duration={0.8} className={pageSectionInnerClass}>
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-[62ch]">
-              <p className="text-label">Free tools</p>
-              <h2 className="text-h1 mt-4 max-w-[24ch]">Useful calculators and checkers you can open right now — no account needed.</h2>
-              <p className="text-body mt-4 max-w-[58ch]">
-                Try any tool before you sign up. Grace periods, Visa Bulletin math, document prep — useful on their own, more powerful inside Haven.
-              </p>
-            </div>
-            <Link className={buttonVariants({ variant: "outline" })} href="/tools">
-              Check your dates
-            </Link>
-          </div>
-
-          <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {publicTools.map((tool) => {
-              const Icon = toolIcons[tool.slug];
-
-              return (
-              <Link
-                key={tool.slug}
-                href={`/tools/${tool.slug}`}
-                className="group rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-6 shadow-[0_8px_32px_-12px_rgba(44,54,48,0.12)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_36px_-12px_rgba(44,54,48,0.18)]"
-              >
-                <div className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-xl)] bg-[var(--haven-sage-light)] text-[var(--haven-ink)]">
-                  <Icon className="h-5 w-5" />
-                </div>
-                <h3 className="text-h2 mt-5">{tool.title}</h3>
-                <p className="text-body mt-3">{tool.teaser}</p>
-                <span className="mt-5 inline-flex items-center gap-1 text-[13px] font-medium text-[var(--haven-ink)]">
-                  Use this tool
-                  <ArrowRight className="h-3.5 w-3.5 transition-transform duration-150 group-hover:translate-x-0.5" />
-                </span>
+          <div className={pageSectionInnerClass}>
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+              <div className="max-w-[62ch]">
+                <p className="text-label">Read first, sign up later</p>
+                <h2 className="text-h1 mt-4 max-w-[26ch]">Plain-language guides for layoffs, grace periods, and transfers.</h2>
+                <p className="text-body mt-4 max-w-[58ch]">
+                  Open to everyone, no account needed — along with the{" "}
+                  <Link className="underline underline-offset-4" href="/tools">
+                    free calculators
+                  </Link>
+                  ,{" "}
+                  <Link className="underline underline-offset-4" href="/resources">
+                    resource library
+                  </Link>
+                  , and{" "}
+                  <Link className="underline underline-offset-4" href="/jobs">
+                    sponsor history directory
+                  </Link>
+                  .
+                </p>
+              </div>
+              <Link className={buttonVariants({ variant: "outline" })} href="/guides">
+                Browse the guides
               </Link>
-            );
-            })}
-          </div>
-          </ScrollReveal>
-        </section>
-
-        <section className={cn(pageSectionClass, "bg-[var(--haven-sand)]")}>
-          <ScrollReveal yOffset={30} duration={0.8} className={pageSectionInnerClass}>
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-[62ch]">
-              <p className="text-label">H-1B resources</p>
-              <h2 className="text-h1 mt-4">Plain-language resources for layoffs, grace periods, and transfers.</h2>
-              <p className="text-body mt-4 max-w-[58ch]">
-                The detailed H-1B library now lives in Resources, so layoffs, transfers, and decision workflows are
-                easier to browse without getting mixed into the editorial blog stream.
-              </p>
             </div>
-            <Link className={buttonVariants({ variant: "outline" })} href="/resources?category=h1b">
-              Browse H-1B resources
-            </Link>
-          </div>
 
-          <div className="mt-10 grid gap-5 lg:grid-cols-3">
-            {h1bPosts.map((post) => (
-              <BlogCard key={post.slug} post={post} />
-            ))}
-          </div>
-          </ScrollReveal>
-        </section>
-
-        <section className={cn(pageSectionClass, "bg-[var(--haven-white)]")}>
-          <ScrollReveal yOffset={30} duration={0.8} className={pageSectionInnerClass}>
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-[62ch]">
-              <p className="text-label">From the blog</p>
-              <h2 className="text-h1 mt-4">Practical reads for layoffs, transfers, and green card uncertainty.</h2>
-              <p className="text-body mt-4 max-w-[58ch]">
-                The blog is where Haven publishes clear, tactical articles you can share, revisit, and update over time.
-              </p>
+            <div className="mt-10 grid gap-5 lg:grid-cols-3">
+              {recentPosts.map((post) => (
+                <BlogCard key={post.slug} post={post} />
+              ))}
             </div>
-            <Link className={buttonVariants({ variant: "outline" })} href="/blog">
-              Read the blog
-            </Link>
           </div>
-
-          <div className="mt-10 grid gap-5 lg:grid-cols-3">
-            {recentPosts.map((post) => (
-              <BlogCard key={post.slug} post={post} />
-            ))}
-          </div>
-          </ScrollReveal>
         </section>
 
-        <section className={cn(pageSectionClass, "bg-[var(--haven-cream)] content-container-visual pt-16 pb-20 md:pt-20 md:pb-20 lg:pt-24 lg:pb-24 xl:pt-28 xl:pb-28")}>
+        <section className={cn(pageSectionClass, "content-container-visual bg-[var(--haven-cream)] pt-16 pb-20 md:pt-20 md:pb-20 lg:pt-24 lg:pb-24")}>
           <div className="rounded-[var(--radius-2xl)] bg-[var(--haven-ink)] px-6 py-10 text-[var(--haven-cream)] md:px-10 md:py-12">
-            <h2 className="text-h1 mt-4 max-w-[18ch] text-[var(--haven-cream)]">This is a lot. Let’s take it one step at a time.</h2>
+            <h2 className="text-h1 max-w-[20ch] text-[var(--haven-cream)]">
+              Whatever just happened, someone has been here before.
+            </h2>
             <p className="mt-4 max-w-[52ch] text-[15px] leading-relaxed text-[rgba(253,250,246,0.72)]">
-              Set up your profile, see your timeline, and get one clear next step grounded in your actual situation.
+              Ask your question and find out what they did next.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link className={buttonVariants({ variant: "cream", size: "lg" })} href="/register">
-                Get Started
+                Ask your question
+                <ArrowRight className="h-4 w-4" />
               </Link>
               <Link className={buttonVariants({ variant: "ghost-light", size: "lg" })} href="/login">
                 I already have an account
@@ -390,43 +177,45 @@ export default function HomePage() {
             </div>
           </div>
         </section>
-        </main>
+      </main>
 
-        <footer className="border-t border-[var(--color-border)]">
-          <div className="content-container-visual flex flex-col gap-4 py-8 md:flex-row md:items-center md:justify-between">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-6">
-              <HavenBrand compact />
-              <Link className="text-caption text-[var(--haven-ink-mid)] transition-colors hover:text-[var(--haven-ink)]" href="/tools">
-                Free tools
-              </Link>
-              <Link className="text-caption text-[var(--haven-ink-mid)] transition-colors hover:text-[var(--haven-ink)]" href="/resources?category=h1b">
-                H-1B resources
-              </Link>
-              <Link className="text-caption text-[var(--haven-ink-mid)] transition-colors hover:text-[var(--haven-ink)]" href="/resources">
-                Resources
-              </Link>
-              <Link className="text-caption text-[var(--haven-ink-mid)] transition-colors hover:text-[var(--haven-ink)]" href="/blog">
-                Blog
-              </Link>
-              <Link className="text-caption text-[var(--haven-ink-mid)] transition-colors hover:text-[var(--haven-ink)]" href="/about">
-                About
-              </Link>
+      <footer className="border-t border-[var(--color-border)]">
+        <div className="content-container-visual flex flex-col gap-4 py-8 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-6">
+            <HavenBrand compact />
+            <Link className="text-caption text-[var(--haven-ink-mid)] transition-colors hover:text-[var(--haven-ink)]" href="/guides">
+              Guides
+            </Link>
+            <Link className="text-caption text-[var(--haven-ink-mid)] transition-colors hover:text-[var(--haven-ink)]" href="/blog">
+              Blog
+            </Link>
+            <Link className="text-caption text-[var(--haven-ink-mid)] transition-colors hover:text-[var(--haven-ink)]" href="/resources">
+              Resources
+            </Link>
+            <Link className="text-caption text-[var(--haven-ink-mid)] transition-colors hover:text-[var(--haven-ink)]" href="/tools">
+              Free tools
+            </Link>
+            <Link className="text-caption text-[var(--haven-ink-mid)] transition-colors hover:text-[var(--haven-ink)]" href="/jobs">
+              Sponsor jobs
+            </Link>
+            <Link className="text-caption text-[var(--haven-ink-mid)] transition-colors hover:text-[var(--haven-ink)]" href="/about">
+              About
+            </Link>
             {immigWizardUrl ? (
               <a
                 href={immigWizardUrl}
                 target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-caption text-[var(--haven-ink-mid)] transition-colors hover:text-[var(--haven-ink)]"
-                >
-                  <FileText className="h-3 w-3" />
-                  ImmigWizard — Green Card Forms
-                </a>
-              ) : null}
-            </div>
-            <p className="text-caption">Haven provides information, not legal advice. Verify decisions with a qualified attorney.</p>
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-caption text-[var(--haven-ink-mid)] transition-colors hover:text-[var(--haven-ink)]"
+              >
+                <FileText className="h-3 w-3" />
+                ImmigWizard — Green Card Forms
+              </a>
+            ) : null}
           </div>
-        </footer>
-      </div>
-    </WaitlistModalProvider>
+          <p className="text-caption">Haven provides information, not legal advice. Verify decisions with a qualified attorney.</p>
+        </div>
+      </footer>
+    </div>
   );
 }

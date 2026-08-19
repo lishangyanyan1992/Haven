@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Clock3, ShieldAlert, Users } from "lucide-react";
 
 import { HavenBrand } from "@/components/app/haven-brand";
+import { PendingQuestionNote } from "@/components/app/pending-question-note";
 import { noIndexMetadata } from "@/lib/seo";
 import { RegisterForm } from "./RegisterForm";
 
@@ -10,19 +11,19 @@ const HAVEN_HOME_URL = "https://haven-h1b.com/";
 
 const benefits = [
   {
-    icon: Clock3,
-    title: "A timeline built for your case",
-    description: "Deterministic dates where rules are clear, honest ranges where they aren’t."
+    icon: Users,
+    title: "Answers from people who have been there",
+    description: "Real accounts from people on your visa path — not a page written for everyone."
   },
   {
     icon: ShieldAlert,
-    title: "Layoff planning before you need it",
-    description: "Know what matters in a 60-day window before panic takes over."
+    title: "Built for the moments that hurt",
+    description: "A missed lottery, a layoff, status running out — when a wrong answer costs the most."
   },
   {
-    icon: Users,
-    title: "Community context that actually matches",
-    description: "See what people in your same visa stage and country queue experienced."
+    icon: Clock3,
+    title: "Set up once, in about a minute",
+    description: "Your visa, your dates, your employer. That is what makes the answer yours."
   }
 ];
 
@@ -52,12 +53,14 @@ export default async function RegisterPage({
       <main className="content-container-wide grid gap-8 py-12 lg:grid-cols-[0.95fr_0.85fr] lg:items-center lg:py-20">
         <section>
           <p className="text-label">Get started</p>
-          <h1 className="text-display mt-5 max-w-[11ch]">
-            Start with clarity, not another <em>spreadsheet</em>.
+          <h1 className="text-display mt-5 max-w-[13ch]">
+            Ask once. Get an answer that knows your <em>case</em>.
           </h1>
           <p className="text-body mt-6 max-w-[60ch]">
-            Haven asks only what it needs, then gives you something useful right away: your timeline, your next step, and a cohort that gets it.
+            Haven asks only what it needs, then answers your question with what people in the same situation actually
+            did.
           </p>
+          <PendingQuestionNote />
           <div className="mt-8 grid gap-4">
             {benefits.map((benefit) => (
               <article key={benefit.title} className="rounded-[var(--radius-xl)] bg-[var(--haven-sand)] p-5">
@@ -72,8 +75,8 @@ export default async function RegisterPage({
         <section className="rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-6 md:p-8">
           <div>
             <p className="text-label">Create account</p>
-            <h2 className="text-h1 mt-3">Build your Haven profile.</h2>
-            <p className="text-body-sm mt-3">Free to start. No credit card. Under 10 minutes to your first useful view.</p>
+            <h2 className="text-h1 mt-3">Create your account.</h2>
+            <p className="text-body-sm mt-3">Free. No credit card. About a minute before your question gets answered.</p>
           </div>
 
           {message === "no_account" && (
