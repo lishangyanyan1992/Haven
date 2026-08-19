@@ -346,6 +346,51 @@ const JOB_LOSS_PATTERN = new RegExp(`(${JOB_LOSS_TERMS.join("|")})`);
  * Job loss comes via mentionsJobLoss rather than being duplicated here, so the
  * forty phrasings hardened over five rounds are not silently re-derived.
  */
+/**
+ * The layoff conversation, after the layoff.
+ *
+ * Every phrasing the classifier knew for this topic named the loss — "laid off",
+ * "grace period", "60 days", "B-2". But by the time somebody has an offer and a
+ * petition on file, they have stopped talking about the layoff entirely. They ask
+ * about the receipt, the transfer, the clock. Reading sixty answers found the
+ * single most important question in the product falling through:
+ *
+ *   "New employer filed with premium. Can I start on the receipt or wait for
+ *    approval?"
+ *
+ * matched nothing, resolved `unmatched`, and was answered with the menu of topics
+ * — for all three test personas. That is the portability question. It is the
+ * reason the product narrowed to this topic, it is where the collected corpus
+ * holds its most confidently wrong advice, and getting it wrong in either
+ * direction costs the person either their status or a month of income.
+ *
+ * Two more fell the same way: a notice period described as "garden leave", and a
+ * deadline described as "my clock".
+ *
+ * These are matched on the object rather than on a bare noun. `receipt` alone
+ * appears in ordinary sentences about documents; `start on the receipt` does not.
+ */
+const POST_LAYOFF_MECHANICS = [
+  // Starting work on a filing rather than an approval — the portability question.
+  /\b(start|starting|begin|beginning|join|joining)\b[^.?!]{0,40}\b(receipt|petition|transfer|filing|approval|i-?797)\b/,
+  /\b(receipt|petition|transfer|filing|approval|i-?797)\b[^.?!]{0,40}\b(start|starting|begin|beginning|join|joining) (work|working|the|at|a new)\b/,
+  /\breceipt (notice|number)\b/,
+  /\bh-?1-?b transfer\b/,
+  /\btransfer (was |been |is )?(filed|pending|approved)\b/,
+  // The deadline, named as a clock rather than as a number of days.
+  /\b(my|the) clock\b/,
+  /\bclock (is |already )?(running|started|ticking)\b/,
+  // The notice period, which is where the clock's start date is actually disputed.
+  /\bgarden(ing)? leave\b/,
+  /\bnotice period\b/,
+  /\blast day (on paper|of (work|employment))\b/,
+  /\bpaid (me )?through\b/
+];
+
+function mentionsPostLayoffMechanics(normalized: string) {
+  return POST_LAYOFF_MECHANICS.some((pattern) => pattern.test(normalized));
+}
+
 const STRONG_IN_SCOPE =
   /(60[- ]day|day 60|grace period|visa bulletin|priority date|dates for filing|final action|retrogress|\bb-?2\b|\bh-?4\b|240[- ]day)/;
 
@@ -695,7 +740,8 @@ function detectTopics(input: string): Set<TopicBucket> {
     mentionsJobLoss(normalized) ||
     /(60[- ]day|day 60|day sixty|sixty days?)/.test(normalized) ||
     /grace period/.test(normalized) ||
-    BRIDGE_STATUS_PATTERN.test(normalized)
+    BRIDGE_STATUS_PATTERN.test(normalized) ||
+    mentionsPostLayoffMechanics(normalized)
   )
     topics.add("layoffs");
   if (/(\bf-?1\b|\bopt\b|stem opt|\bcpt\b|i-983|sevis|\bdso\b|ead card)/.test(normalized)) topics.add("student-status");
@@ -731,6 +777,38 @@ function detectTopics(input: string): Set<TopicBucket> {
 }
 
 const DEFAULT_TOPICS: TopicBucket[] = ["h1b", "adjustment-of-status"];
+
+/**
+ * Is this a layoff situation, for the purposes of safety rules?
+ *
+ * Three call sites — guardrail selection, the required-points checklist and the
+ * post-generation addendum — each carried their own copy of this condition, and
+ * the copies had already drifted: one knew "h-1b transfer", the other two did
+ * not. That drift has bitten this file before, when the checklist asked for one
+ * point while the addendum checked six.
+ *
+ * The topic check alone is not enough and never was: `h1b` is a default topic, so
+ * keying on it would put layoff safety rules on every unclassified question. The
+ * phrasing check is what makes it a layoff *situation* rather than a question that
+ * merely involves H-1B.
+ *
+ * Post-layoff mechanics are included because somebody asking whether they can
+ * start work on a receipt notice is in the middle of exactly the situation these
+ * rules exist for, and was getting none of them.
+ *
+ * `selectGuardrailIds` keeps its own, wider condition on purpose — see the note
+ * there. This is the tighter of the two.
+ */
+function isLayoffSituation(normalized: string, topics: TopicBucket[]) {
+  if (!topics.includes("h1b") && !topics.includes("layoffs")) return false;
+  return (
+    mentionsJobLoss(normalized) ||
+    /(grace period|60-day|day 60|lca|petition cannot be filed)/.test(normalized) ||
+    mentionsPostLayoffMechanics(normalized)
+  );
+}
+
+
 
 /**
  * Classify a turn in the context of the one before it.
@@ -952,9 +1030,19 @@ function selectGuardrailIds(query: string, topics: TopicBucket[], signals: Guard
     ids.push("GR_I485_TRAVEL");
   }
 
+  // Deliberately wider than `isLayoffSituation`, and kept separate from it.
+  //
+  // This decides whether safety *rules* fire, where over-triggering costs a
+  // paragraph. `isLayoffSituation` decides whether retrieval narrows and whether
+  // text fixups apply, where over-triggering costs relevance — "what's the
+  // deadline for filing my I-485?" should not have its sources cut down to layoff
+  // material. Same subject, different tolerance, so they are two predicates with
+  // one shared floor rather than one predicate serving both badly.
   if (
     (topics.includes("h1b") || topics.includes("layoffs")) &&
-    (signals.jobLossMentioned || /(grace period|60-day|day 60|transfer|paycheck|last day|deadline|what to file|who files)/.test(normalized))
+    (signals.jobLossMentioned ||
+      /(grace period|60-day|day 60|transfer|paycheck|last day|deadline|what to file|who files)/.test(normalized) ||
+      mentionsPostLayoffMechanics(normalized))
   ) {
     // The hard rules and the option menu were one guardrail. Split so the rules can
     // repeat on every layoff turn while the menu is delivered once (CD-13.4).
@@ -1415,7 +1503,7 @@ function buildDataDisclosure(
   return sections.join("\n\n");
 }
 
-function buildAdvisorContext(snapshot: Awaited<ReturnType<typeof getSnapshot>>): AdvisorUserContext {
+export function buildAdvisorContext(snapshot: Awaited<ReturnType<typeof getSnapshot>>): AdvisorUserContext {
   const { profile, dashboard, timelineEvents, emailInbox, cohorts, warRoom } = snapshot;
 
   return {
@@ -1644,8 +1732,45 @@ function buildPromptProfileSummary(query: string, topics: TopicBucket[], userCon
   });
 }
 
-function buildPromptTimelineSummary(query: string, userContext: AdvisorUserContext) {
-  return wantsHavenProfileFacts(query) ? userContext.timelineSummary : [];
+/**
+ * The user's own dated milestones — their last day, when their grace period ends,
+ * what has been filed.
+ *
+ * This used to return nothing unless the question happened to contain "Haven",
+ * "my profile", "dashboard" or "timeline". Sixty answers were read across three
+ * laid-off test personas and not one of them named the person's own deadline,
+ * because almost nobody phrases an urgent question that way. "When can I start?"
+ * does not mention Haven, so the date the whole product exists to track was
+ * withheld from the answer — and the model, correctly, then talked about the rule
+ * in the abstract.
+ *
+ * The worst case was the persona whose grace period had already run out and who
+ * had a change of status pending inside it: that pending filing is the entire
+ * difference between "you are out of status, plan to depart" and "you have a
+ * pending application, here is what that means". It was in the timeline, it was
+ * not in the prompt, and the answer told him to leave the country.
+ *
+ * This is the same defect `buildPromptProfileSummary` was already fixed for, one
+ * function further down. That comment ends "it could only ever restate the rule in
+ * the abstract when the user was asking for their own deadline", which is exactly
+ * what was still happening here — the profile dates were let through and the
+ * timeline was not.
+ *
+ * So it now routes by topic like its neighbours: dated milestones reach the
+ * date-sensitive topics, and are withheld from everything else. Leakage of the
+ * priority date specifically is handled by provenance in
+ * `stripUnrequestedPriorityDate`, not by starving the prompt.
+ */
+export function buildPromptTimelineSummary(query: string, topics: TopicBucket[], userContext: AdvisorUserContext) {
+  if (wantsHavenProfileFacts(query)) {
+    return userContext.timelineSummary;
+  }
+
+  const wantsDates = topics.some(
+    (topic) => STATUS_DATE_TOPICS.includes(topic) || PRIORITY_DATE_TOPICS.includes(topic)
+  );
+
+  return wantsDates ? userContext.timelineSummary : [];
 }
 
 function buildPromptEmailEvidence(query: string, userContext: AdvisorUserContext) {
@@ -1812,7 +1937,7 @@ export async function retrieveKnowledge(query: string, topics: TopicBucket[], pa
   const chunks = buildFallbackKnowledgeChunks();
   const normalized = query.toLowerCase();
   const retrievalTopics =
-    (topics.includes("h1b") || topics.includes("layoffs")) && (mentionsJobLoss(normalized) || /(grace period|60-day|day 60|lca|h-1b transfer|petition cannot be filed)/.test(normalized))
+    isLayoffSituation(normalized, topics)
       ? topics.filter((topic) => topic === "h1b" || topic === "layoffs")
       : topics.includes("student-status") && /(\bopt\b|\bcpt\b|day 1 cpt|\bdso\b|sevis|ead card)/.test(normalized)
       ? topics.filter((topic) => topic === "student-status" || topic === "work-authorization")
@@ -2367,7 +2492,7 @@ export function buildMandatorySafetyAddendum(
     return texts;
   };
 
-  if ((topics.includes("h1b") || topics.includes("layoffs")) && (mentionsJobLoss(normalizedQuestion) || /(grace period|day 60|lca|petition cannot be filed)/.test(normalizedQuestion))) {
+  if (isLayoffSituation(normalizedQuestion, topics)) {
     const missingUnauthorizedWork = !/do not work without authorization|don't work without authorization|unauthorized work/i.test(answer);
     const missingLcaWarning = !/lca preparation alone does not preserve status|lca.*not.*preserve status|lca.*not.*filed h-1b petition/i.test(answer);
     const missingImmediateCounsel = !/confirm.*deadline.*counsel|confirm.*filing strategy.*counsel|immigration counsel immediately/i.test(answer);
@@ -2531,7 +2656,7 @@ function normalizeHighRiskAnswer(
       );
   }
 
-  if ((topics.includes("h1b") || topics.includes("layoffs")) && (mentionsJobLoss(normalizedQuestion) || /(grace period|day 60|lca|petition cannot be filed)/.test(normalizedQuestion))) {
+  if (isLayoffSituation(normalizedQuestion, topics)) {
     return answer
       // These corrections must never assert a date. An earlier version substituted
       // dates taken from an eval fixture, so a user whose grace period actually ended
@@ -2673,6 +2798,13 @@ export const STREAMING_SYSTEM_PROMPT = [
   // Profile
   "Use the user's Haven profile only where it is relevant to what they asked. Reference their priority date only for bulletin or green-card-timeline questions, their PERM stage only for PERM or job-change questions. Do not inject profile facts the question did not call for.",
   "User-stated dates always override Haven profile dates. Never insert a profile priority date unless the user asks you to use their Haven profile.",
+  // The counterweight to the rule above it. "Only where relevant" was read as
+  // "sparingly", and across sixty read answers the model never once used a date
+  // from the Haven timeline block — it restated the 60-day rule in the abstract to
+  // three different people whose exact deadlines were sitting in the prompt. For
+  // the two topics this product covers, the person's own dates are not colour;
+  // they are the answer.
+  "When the Haven timeline gives a date that bears on the question — their last day of work, when their grace period ends, what has been filed and when — use it explicitly rather than describing the rule in general terms. A person asking about their deadline should be told their deadline. If the timeline shows a pending filing, say what is pending before you describe what happens to someone with nothing pending.",
   "When a profile fact materially changes your answer, name the fact you used and invite correction in one short line — for example 'I am going on your profile saying you are still employed; tell me if that has changed.' A profile is a snapshot the user last edited at some point, and employment status, PERM stage and dates go stale without either side noticing. Do not do this for facts that did not change the answer, and never turn it into a list of everything you hold.",
 
   // In-scope topic: where am I in the green card line
@@ -3232,7 +3364,7 @@ export async function* streamAdvisorResponse(rawInput: {
   const citations = buildCitationSet(knowledge, liveBulletin);
   const communityUsed = community.slice(0, 2).map((item) => `${item.title}: ${item.summary}`);
   const promptProfileSummary = buildPromptProfileSummary(content, topics, userContext);
-  const promptTimelineSummary = buildPromptTimelineSummary(content, userContext);
+  const promptTimelineSummary = buildPromptTimelineSummary(content, topics, userContext);
   const promptDerivedSignals = buildPromptDerivedSignals(content, topics, userContext);
   const promptEmailEvidence = buildPromptEmailEvidence(content, userContext);
   const havenContextUsed = promptProfileSummary.slice(0, 4).filter(Boolean);

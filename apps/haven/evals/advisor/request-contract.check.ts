@@ -69,6 +69,51 @@ async function main() {
     `outcome=${reported.outcome} topics=${reported.route.topics.join(",")}`
   );
 
+  // ------------------------------------- the layoff conversation, after the layoff
+  //
+  // Found by reading sixty answers, not by a test. Every phrasing the classifier
+  // knew for this topic named the loss — "laid off", "grace period", "60 days".
+  // But once somebody has an offer and a petition on file they stop mentioning the
+  // layoff at all, and three questions in that state fell to the clarify menu for
+  // all three test personas. The first one below is the portability question: the
+  // reason the product narrowed to this topic, and the place the collected corpus
+  // holds its most confidently wrong advice.
+  const postLayoff: Array<[string, string]> = [
+    ["starting work on a receipt rather than an approval", "New employer filed with premium. Can I start on the receipt or wait for approval?"],
+    ["a notice period described as garden leave", "My last day on paper is next week but I'm on garden leave until January. Is my clock already running?"],
+    ["a deadline described as a clock", "My clock is running and I have nothing filed. What now?"],
+    ["a transfer named without the layoff", "My H-1B transfer is pending. Can I switch to the new job now?"],
+    ["the last-paid-day confusion", "I was let go May 30 but they paid me through July 4. Which date counts?"]
+  ];
+  for (const [name, question] of postLayoff) {
+    const result = send(question);
+    check(
+      `${name} is recognised, not sent to the menu`,
+      result.outcome === "ANSWERS" && result.route.topics.includes("layoffs"),
+      `outcome=${result.outcome} topics=${result.route.topics.join(",")}`
+    );
+    check(
+      `${name} carries the layoff safety rules`,
+      result.route.guardrailIds.includes("GR_LAYOFF_SAFETY_RULES"),
+      `guardrails=${result.route.guardrailIds.join(",") || "none"}`
+    );
+  }
+
+  // The widened patterns must not swallow questions that are not about a layoff.
+  // "receipt", "transfer" and "last day" all appear in ordinary sentences.
+  const notLayoff: Array<[string, string]> = [
+    ["a document question", "What documents should I keep copies of?"],
+    ["a bulletin question", "What does the visa bulletin say about EB-2 India this month?"]
+  ];
+  for (const [name, question] of notLayoff) {
+    const result = send(question);
+    check(
+      `${name} is not reclassified as a layoff`,
+      !result.route.topics.includes("layoffs"),
+      `topics=${result.route.topics.join(",")}`
+    );
+  }
+
   // ------------------------------------------------- first miss must not escalate
   const cold = send("hello there");
   check(
