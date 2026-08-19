@@ -6,7 +6,7 @@ Usage:
   python3 daily-reddit-import.py [--dry-run] [--max-stories 10] [--output-dir /tmp] [--hours 336]
 
 Orchestrates the full daily pipeline:
-  1. Discover posts from 4 subreddits (RSS endpoint with retries)
+  1. Discover posts from 7 subreddits (RSS endpoint with retries)
   2. Filter to posts from the last N hours (default: 336 = 14 days)
   3. Pre-filter by immigration relevance keywords
   4. Fetch comments for top candidates (rate-limited, max ~12 fetches)
@@ -55,7 +55,7 @@ HAVEN_ROOT = os.path.dirname(os.path.dirname(SCRIPT_DIR))
 # Config
 # ---------------------------------------------------------------------------
 
-SUBREDDITS = ["h1b", "F1Visa", "USCIS", "immigration"]
+SUBREDDITS = ["h1b", "F1Visa", "USCIS", "immigration", "O1VisasEB1Greencards", "EB2NIW_EB1A", "EB2_NIW"]
 MAX_FETCH_CANDIDATES = 12  # Max posts to fetch comments for (Reddit rate-limit safe zone)
 MIN_QUALIFYING_SCORE = 35  # Minimum combined score to publish (standard path)
 MAX_STORIES = 10  # Maximum stories to publish per day
@@ -78,6 +78,11 @@ RELEVANCE_KEYWORDS = [
     "uscis", "change of status", "cos", "b2", "b-2", "o1", "o-1",
     "cap-exempt", "lottery", "registration", "selected", "not selected",
     "60 days", "unemployment", "stem extension", "cap gap",
+    # Talent visa keywords
+    "eb-1a", "eb-1b", "eb-1c", "eb1a", "eb1b", "eb1c",
+    "niw", "national interest waiver", "extraordinary ability",
+    "outstanding researcher", "multinational executive", "eb-2 niw",
+    "o-1a", "o-1b", "o1a", "o1b", "artist visa", "genius visa",
 ]
 
 # Hard exclusion keywords (skip these topics)
@@ -375,7 +380,7 @@ You score Reddit stories against the Haven Community Story Selection Rubric. Ret
 }
 
 Scoring rules:
-- audience_fit 4: Directly H-1B, OPT/STEM OPT, employment-based GC, layoff, transfer, priority date
+- audience_fit 4: Directly H-1B, OPT/STEM OPT, employment-based GC, layoff, transfer, priority date, O-1, EB-1A/B/C, EB-2 NIW, extraordinary ability, outstanding researcher, national interest waiver, multinational executive
 - decision_value 4: Shows concrete decision, tradeoff, action, or outcome
 - case_specificity 4: Includes status, timing, action, and result/current state
 - product_alignment 4: Supports Haven surface (layoff planner, advisor, sponsor search, timeline, community)
@@ -395,7 +400,7 @@ Tier thresholds:
 
 CRITICAL: Skip (set tier=SKIP) if:
 - No outcome AND no recommendations/ideas from poster or commenters AND the post is NOT a fresh/unfolding situation (see below)
-- Family-based, asylum, citizenship, or humanitarian content
+- Family-based, asylum, citizenship, or humanitarian content (EXCEPT talent visa content: O-1, EB-1A/B/C, EB-2 NIW, extraordinary ability, outstanding researcher, national interest waiver, multinational executive are NOT family-based and should NOT be skipped)
 - Mostly legal advice, not lived experience
 - Cannot be safely anonymized
 - Mainly names/criticizes a person, employer, school, or law firm
