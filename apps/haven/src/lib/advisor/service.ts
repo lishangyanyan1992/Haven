@@ -80,6 +80,48 @@ type AdvisorIdentity = {
   isMock: boolean;
 };
 
+/**
+ * Tags that separate a real user's trace from a test run.
+ *
+ * Eval scripts, probe questions and production traffic all call this same
+ * pipeline and all land in the same Langfuse project. Without a tag the only
+ * distinguishing mark was the absence of a userId on mock runs, which is easy to
+ * miss and silently wrong the moment somebody points a script at a real account
+ * — which is exactly what a founder testing against their own login does.
+ *
+ * Two independent signals, because they answer different questions:
+ *
+ *   mock-identity   the run had no real account behind it. Derived, not
+ *                   configured, so it cannot be forgotten.
+ *   ADVISOR_TRACE_TAG  set by whoever launched the process. This is the one that
+ *                   catches a real-account test run, and the only way to catch
+ *                   it: nothing inside the request can tell "the owner probing
+ *                   the product" from "the owner using the product".
+ *
+ * Production sets neither and stays untagged, so filtering to real traffic is
+ * "no tags" rather than a list that has to be kept current as test harnesses
+ * come and go.
+ */
+export function buildTraceTags(
+  identity: { isMock: boolean },
+  // Injectable so a test can assert the untagged-production case in the same
+  // process as the tagged ones. Reading env at call time would make "production
+  // has no tags" the one claim the suite could not check.
+  configuredTag: string | undefined = env.ADVISOR_TRACE_TAG
+): string[] {
+  const tags: string[] = [];
+  if (identity.isMock) tags.push("mock-identity");
+
+  const configured = configuredTag?.trim();
+  if (configured) {
+    for (const tag of configured.split(",").map((part) => part.trim()).filter(Boolean)) {
+      if (!tags.includes(tag)) tags.push(tag);
+    }
+  }
+
+  return tags;
+}
+
 export type AdvisorUsage = {
   limit: number;
   used: number;
@@ -2742,6 +2784,7 @@ export async function* streamAdvisorResponse(rawInput: {
     sessionId: conversationId,
     input: { question: content },
     userId: identity.isMock ? undefined : identity.id,
+    tags: buildTraceTags(identity),
     metadata: {
       topics,
       experiential,

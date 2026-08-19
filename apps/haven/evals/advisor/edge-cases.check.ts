@@ -57,6 +57,16 @@
 
 export {};
 
+/**
+ * Every trace this harness produces is tagged as a test run.
+ *
+ * Set before the pipeline is imported, because the env module reads process.env
+ * once at load. Defaulting here rather than in the npm script means a run
+ * launched by hand — the usual way this gets run — is tagged too.
+ */
+process.env.ADVISOR_TRACE_TAG ??= "eval";
+
+
 type Result = {
   id: string;
   group: string;
