@@ -1,0 +1,251 @@
+/**
+ * Turn community posts into the summaries the Advisor's semantic search reads.
+ *
+ * WHY THIS EXISTS
+ *
+ * `retrieveCommunityAdvice` has a proper vector path: embed the question, match it
+ * against `community_advice_summaries`, filter by topic, re-rank by how well each
+ * story's tags fit the asker's profile. It has never run in production. The table
+ * has zero rows and nothing in the codebase writes to it, so every request fell
+ * through to the text-overlap fallback — which treats "60-day" and "day 60" as
+ * unrelated strings, the exact failure the semantic layer was built to avoid.
+ *
+ * The service reports the empty table to Sentry once per process, so this has been
+ * quietly logged for some time.
+ *
+ * WHAT A SUMMARY IS FOR
+ *
+ * It is matched against a *question*, not against another story. So the summary is
+ * written as the situation a person was in and what happened, in the vocabulary
+ * somebody in that situation would use — not as a headline. A post titled "Finally
+ * some good news!!" is useless to match on; "laid off on H-1B, filed B-2 inside the
+ * 60 days, later transferred to a new employer after an RFE" is what someone in
+ * that position is actually asking about.
+ *
+ * WHAT GETS REJECTED
+ *
+ * Not every post is evidence. A question with no outcome, a request for referrals,
+ * a rant, or a post whose whole content is "same here" teaches nobody anything, and
+ * retrieving it wastes one of the three slots an answer has. The model marks those
+ * `usable: false` and they are skipped with the reason recorded, rather than
+ * summarised into something that sounds informative and is not.
+ *
+ * TAGS ARE NOT DECORATION
+ *
+ * `scoreProfileMatch` re-ranks on them, and it matches loosely on visa type,
+ * preference category, country of birth and the asker's stated concerns. So tags
+ * are emitted in exactly those shapes when the story states them, and omitted when
+ * it does not — an invented "India" on a story that never mentions a country would
+ * promote it for the wrong people.
+ *
+ * Usage:
+ *   npx tsx --tsconfig tsconfig.json scripts/build-community-summaries.ts [--limit N] [--force] [--dry-run]
+ *
+ * Needs OPENAI_API_KEY and the Supabase service role key:
+ *   set -a; source .env.local; set +a
+ */
+
+import OpenAI from "openai";
+
+import { TOPIC_BUCKETS } from "@/lib/advisor/topics";
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const EMBEDDING_MODEL = process.env.OPENAI_EMBEDDING_MODEL ?? "text-embedding-3-small";
+const SUMMARY_MODEL = process.env.OPENAI_ADVISOR_MODEL ?? process.env.OPENAI_CHAT_MODEL ?? "gpt-5-mini";
+
+/** Concurrency. Low enough to stay well inside rate limits on a few hundred posts. */
+const BATCH = 4;
+
+const args = process.argv.slice(2);
+const flag = (name: string) => args.includes(`--${name}`);
+const value = (name: string) => {
+  const hit = args.find((a) => a.startsWith(`--${name}=`));
+  if (hit) return hit.slice(name.length + 3);
+  const index = args.indexOf(`--${name}`);
+  return index !== -1 ? args[index + 1] : undefined;
+};
+
+const SYSTEM_PROMPT = [
+  "You condense real immigration community posts into retrieval summaries for a US employment-based immigration assistant.",
+  "The summary will be matched against a *question* somebody types while in trouble. Write the situation and the outcome in the words that person would use, not as a headline.",
+  "",
+  "summary: two to four sentences. State the person's status, what happened to them, what they did, and how it turned out. If there is no outcome yet, say what is still pending. Never add facts the post does not contain, and never give advice.",
+  // The topic is a hard filter in the RPC, not a label. Two identical
+  // "laid off -> B-2 -> new H-1B" stories came back as `layoffs` and `job-change`
+  // in the first trial run, which would have made half the bridge stories
+  // invisible to every layoff question. So the two easily-confused buckets are
+  // defined here, in the product's own terms rather than the model's.
+  "topic: the single bucket this best belongs to. It is used as a hard filter, so consistency matters more than nuance.",
+  "  layoffs — anything following a job loss, including bridge status: B-2, H-4, F-1, the 240-day rule, grace-period timing, and transferring to a new employer after being let go. Somebody switching to H-4 while they job hunt is a LAYOFF story, not a job-change story.",
+  "  job-change — AC21 portability specifically: moving employers with an I-485 pending 180 days or more, and same-or-similar occupational classification. Not simply having changed jobs.",
+  "tags: short factual labels drawn only from what the post states — visa type (H1B, F1, H4, B2), preference category (EB-2, EB-3), country of birth, and the concern it speaks to (layoffs, gc_timeline, job_change, visa_expiry). Omit anything the post does not say. An invented country or category promotes this story for the wrong readers.",
+  "legalCaveat: one sentence naming what is specific to this person's facts and should not be generalised — the actual reason their outcome may not transfer.",
+  "",
+  "usable: false when the post teaches a reader nothing — a question with no answer or outcome, a request for referrals or job leads, a rant, a greeting, or a post whose substance is agreement with someone else. Being short is not the test; having no transferable experience is. When false, say why in one clause in `summary` and leave the other fields as best you can.",
+].join("\n");
+
+const SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["usable", "summary", "topic", "tags", "legalCaveat"],
+  properties: {
+    usable: { type: "boolean" },
+    summary: { type: "string" },
+    topic: { type: "string", enum: [...TOPIC_BUCKETS] },
+    tags: { type: "array", items: { type: "string" } },
+    legalCaveat: { type: "string" }
+  }
+} as const;
+
+type Summary = {
+  usable: boolean;
+  summary: string;
+  topic: string;
+  tags: string[];
+  legalCaveat: string;
+};
+
+type Post = { id: string; title: string; body: string; tags: string[]; space_id: string };
+
+async function rest(path: string, init?: RequestInit) {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    ...init,
+    headers: {
+      apikey: SERVICE_KEY!,
+      Authorization: `Bearer ${SERVICE_KEY}`,
+      "Content-Type": "application/json",
+      ...(init?.headers ?? {})
+    }
+  });
+  if (!response.ok) throw new Error(`${response.status} ${await response.text()}`);
+  const text = await response.text();
+  return text ? JSON.parse(text) : null;
+}
+
+/**
+ * What actually gets embedded.
+ *
+ * The title is included because community titles often carry the status pair
+ * ("H1B -> B2 -> H1B") that the body only implies, and the tags because a question
+ * naming a visa type should reach stories about it. Everything here is text the
+ * question might rhyme with; nothing is metadata.
+ */
+function embeddingText(post: Post, summary: Summary) {
+  return [post.title, summary.summary, summary.tags.join(", ")].filter(Boolean).join("\n");
+}
+
+async function summarise(openai: OpenAI, post: Post): Promise<Summary | null> {
+  const response = await openai.chat.completions.create({
+    model: SUMMARY_MODEL,
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      {
+        role: "user",
+        content: `Title: ${post.title}\nExisting tags: ${(post.tags ?? []).join(", ") || "none"}\n\n${post.body.slice(0, 6000)}`
+      }
+    ],
+    response_format: { type: "json_schema", json_schema: { name: "advice_summary", strict: true, schema: SCHEMA } }
+  } as unknown as OpenAI.Chat.ChatCompletionCreateParamsNonStreaming);
+
+  const raw = response.choices[0]?.message?.content;
+  return raw ? (JSON.parse(raw) as Summary) : null;
+}
+
+async function main() {
+  if (!SUPABASE_URL || !SERVICE_KEY) throw new Error("Supabase env missing. set -a; source .env.local; set +a");
+  if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY missing.");
+
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const limit = Number(value("limit") ?? 0);
+  const force = flag("force");
+  const dryRun = flag("dry-run");
+
+  const posts: Post[] = await rest(`community_posts?select=id,title,body,tags,space_id&order=created_at.asc`);
+  const existing: Array<{ source_post_id: string | null }> = await rest(
+    `community_advice_summaries?select=source_post_id`
+  );
+  const done = new Set(existing.map((row) => row.source_post_id).filter(Boolean) as string[]);
+
+  const queue = posts.filter((post) => force || !done.has(post.id)).slice(0, limit > 0 ? limit : undefined);
+
+  console.log(`${posts.length} posts, ${done.size} already summarised, ${queue.length} to do`);
+  console.log(`summary model: ${SUMMARY_MODEL}   embedding model: ${EMBEDDING_MODEL}`);
+  if (dryRun) console.log("DRY RUN — nothing will be written\n");
+
+  let written = 0;
+  const skipped: Array<{ title: string; why: string }> = [];
+  const failed: Array<{ title: string; why: string }> = [];
+
+  for (let index = 0; index < queue.length; index += BATCH) {
+    const slice = queue.slice(index, index + BATCH);
+    await Promise.all(
+      slice.map(async (post) => {
+        try {
+          const summary = await summarise(openai, post);
+          if (!summary) {
+            failed.push({ title: post.title, why: "no content returned" });
+            return;
+          }
+
+          if (!summary.usable) {
+            skipped.push({ title: post.title, why: summary.summary.slice(0, 110) });
+            return;
+          }
+
+          const embeddingResponse = await openai.embeddings.create({
+            model: EMBEDDING_MODEL,
+            input: embeddingText(post, summary)
+          });
+          const embedding = embeddingResponse.data[0]?.embedding;
+          if (!embedding) {
+            failed.push({ title: post.title, why: "no embedding returned" });
+            return;
+          }
+
+          if (!dryRun) {
+            await rest("community_advice_summaries", {
+              method: "POST",
+              headers: { Prefer: "resolution=merge-duplicates" },
+              body: JSON.stringify({
+                source_post_id: post.id,
+                space_id: post.space_id,
+                title: post.title,
+                topic: summary.topic,
+                summary: summary.summary,
+                legal_caveat: summary.legalCaveat,
+                tags: summary.tags,
+                // Every post here was already reviewed on the way into the
+                // community. Re-queueing them for moderation would leave the
+                // table populated and the search still finding nothing.
+                moderation_status: "approved",
+                embedding: `[${embedding.map((n) => Number(n).toFixed(8)).join(",")}]`
+              })
+            });
+          }
+
+          written += 1;
+          console.log(`  ok   ${summary.topic.padEnd(20)} ${post.title.slice(0, 62)}`);
+        } catch (error) {
+          failed.push({ title: post.title, why: (error as Error)?.message?.slice(0, 120) ?? "unknown" });
+        }
+      })
+    );
+  }
+
+  console.log(`\n${written} written, ${skipped.length} skipped as not usable, ${failed.length} failed`);
+  if (skipped.length > 0) {
+    console.log("\nSkipped:");
+    for (const item of skipped) console.log(`  - ${item.title.slice(0, 58)} — ${item.why}`);
+  }
+  if (failed.length > 0) {
+    console.log("\nFailed:");
+    for (const item of failed) console.log(`  - ${item.title.slice(0, 58)} — ${item.why}`);
+    process.exitCode = 1;
+  }
+}
+
+main().catch((error) => {
+  console.error("ERR:", error?.message ?? error);
+  process.exit(1);
+});

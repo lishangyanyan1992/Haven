@@ -2095,7 +2095,18 @@ async function retrieveCommunity(
     if (embedding) {
       try {
         const admin = createSupabaseAdminClient() as any;
-        const filterTopics = topics.filter(t => t !== "haven-product");
+        // `h1b` and `layoffs` are one conversation here, and the topic column is a
+        // hard filter rather than a hint — a story labelled `h1b` is invisible to a
+        // `layoffs` question and vice versa. Summarising the corpus made that
+        // concrete: identical "laid off, bridged to B-2, transferred to a new
+        // employer" stories landed in both buckets, because the distinction is
+        // genuinely thin. Rather than pretend the labelling can be made perfect,
+        // the pair is queried together, which is how the rest of the pipeline
+        // already treats them — see STRONG_IN_SCOPE and the retrieval narrowing.
+        const requested = topics.filter(t => t !== "haven-product");
+        const filterTopics = requested.some(t => t === "h1b" || t === "layoffs")
+          ? [...new Set([...requested, "h1b", "layoffs"])]
+          : requested;
 
         const { data, error } = await admin.rpc("match_community_advice_summaries", {
           query_embedding: asPgVector(embedding),
