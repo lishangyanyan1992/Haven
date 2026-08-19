@@ -699,7 +699,7 @@ def run_import(batch_path, dry_run=False):
 # Stage 8: Summary
 # ---------------------------------------------------------------------------
 
-def build_summary(scored_stories, batch, import_result, output_path):
+def build_summary(scored_stories, batch, import_result, output_path, funnel=None):
     """Build a human-readable summary."""
     lines = []
     lines.append("=" * 80)
@@ -708,6 +708,26 @@ def build_summary(scored_stories, batch, import_result, output_path):
     lines.append(f"Subreddits: r/{', r/'.join(SUBREDDITS)}")
     lines.append("=" * 80)
     lines.append("")
+
+    # Funnel stats — discovered → fresh → relevant → unique → fetched → scored → published
+    if funnel:
+        lines.append("FUNNEL:")
+        lines.append("-" * 80)
+        stages = [
+            ("discovered",  "Posts discovered (RSS)"),
+            ("fresh",       "After time filter"),
+            ("relevant",    "After relevance filter"),
+            ("unique",      "After dedup"),
+            ("fetched",     "Comments fetched"),
+            ("scored",      "Scored by OpenAI"),
+            ("qualified",   "Qualified (score >= threshold)"),
+            ("published",   "Published to Supabase"),
+        ]
+        for key, label in stages:
+            val = funnel.get(key)
+            if val is not None:
+                lines.append(f"  {label:.<40} {val}")
+        lines.append("")
 
     if not scored_stories:
         lines.append("No qualifying stories found today.")
@@ -764,6 +784,24 @@ def build_summary(scored_stories, batch, import_result, output_path):
 
 
 # ---------------------------------------------------------------------------
+# Funnel logging
+# ---------------------------------------------------------------------------
+
+def _log_funnel(funnel, pipeline_start):
+    """Emit a one-line funnel summary to stdout (captured by cron logs)."""
+    duration_sec = int(time.time() - pipeline_start)
+    duration_min = duration_sec / 60
+    parts = []
+    for key in ["discovered", "fresh", "relevant", "unique", "fetched", "scored", "qualified", "published"]:
+        val = funnel.get(key)
+        if val is not None:
+            parts.append(f"{key}={val}")
+    funnel_str = "  ".join(parts)
+    # stdout (not stderr) so cron captures it as a clean one-liner
+    print(f"FUNNEL  {funnel_str}  duration={duration_min:.1f}min")
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -801,23 +839,31 @@ def main():
     })
 
     # Stage 1: Discover
+    pipeline_start = time.time()
     all_posts = discover_all(args.output_dir)
+    funnel = {"discovered": len(all_posts) if all_posts else 0}
     if not all_posts:
         print("\nNo posts discovered. Exiting.", file=sys.stderr)
+        funnel.update({"fresh": 0, "relevant": 0, "unique": 0, "fetched": 0, "scored": 0, "qualified": 0, "published": 0})
         summary = build_summary([], {"stories": []}, {"error": "no posts discovered"},
-                               os.path.join(args.output_dir, "daily_summary.txt"))
+                               os.path.join(args.output_dir, "daily_summary.txt"), funnel=funnel)
+        _log_funnel(funnel, pipeline_start)
         return
 
     # Stage 2: Filter to last 24h
     fresh = filter_last_24h(all_posts, hours=args.hours)
+    funnel["fresh"] = len(fresh)
 
     # Stage 3: Relevance pre-filter
     relevant = filter_relevant(fresh)
+    funnel["relevant"] = len(relevant)
 
     if not relevant:
         print("\nNo relevant posts found. Exiting.", file=sys.stderr)
+        funnel.update({"unique": 0, "fetched": 0, "scored": 0, "qualified": 0, "published": 0})
         summary = build_summary([], {"stories": []}, {"error": "no relevant posts"},
-                               os.path.join(args.output_dir, "daily_summary.txt"))
+                               os.path.join(args.output_dir, "daily_summary.txt"), funnel=funnel)
+        _log_funnel(funnel, pipeline_start)
         return
 
     # Dedup by reddit_id
@@ -829,6 +875,7 @@ def main():
             seen_ids.add(rid)
             unique.append(p)
     print(f"[DEDUP] {len(relevant)} -> {len(unique)} unique posts", file=sys.stderr)
+    funnel["unique"] = len(unique)
 
     # Sort by age (newest first)
     unique.sort(key=lambda p: -(p.get("_age_hours") or 0))  # Oldest first = more comments
@@ -840,19 +887,27 @@ def main():
     time.sleep(POST_DISCOVERY_COOLDOWN)
 
     fetched = fetch_all_comments(unique, args.output_dir, max_fetch=args.max_fetch)
+    funnel["fetched"] = len(fetched) if fetched else 0
 
     if not fetched:
         print("\nNo posts fetched with comments. Exiting.", file=sys.stderr)
+        funnel.update({"scored": 0, "qualified": 0, "published": 0})
         summary = build_summary([], {"stories": []}, {"error": "no posts fetched"},
-                               os.path.join(args.output_dir, "daily_summary.txt"))
+                               os.path.join(args.output_dir, "daily_summary.txt"), funnel=funnel)
+        _log_funnel(funnel, pipeline_start)
         return
 
     # Stage 5: Score with OpenAI
     scored = score_all_stories(fetched, args.output_dir, force=args.force)
+    funnel["scored"] = len(scored) if scored else 0
 
     # Stage 6: Build batch
     batch_path = os.path.join(args.output_dir, "daily_batch.json")
     batch = build_batch(scored, batch_path, max_stories=args.max_stories)
+
+    published_count = len(batch.get("stories", []))
+    funnel["qualified"] = len(scored)  # scored = stories that passed rubric
+    funnel["published"] = published_count
 
     # Stage 7: Run import (skip if no qualifying stories)
     if not scored:
@@ -864,7 +919,7 @@ def main():
 
     # Stage 8: Summary
     summary_path = os.path.join(args.output_dir, "daily_summary.txt")
-    summary = build_summary(scored, batch, import_result, summary_path)
+    summary = build_summary(scored, batch, import_result, summary_path, funnel=funnel)
 
     langfuse_event("daily.run_complete", {
         "discovered": len(all_posts),
@@ -879,6 +934,7 @@ def main():
     })
 
     print(f"\n[DONE] Summary saved to {summary_path}", file=sys.stderr)
+    _log_funnel(funnel, pipeline_start)
 
 
 if __name__ == "__main__":
