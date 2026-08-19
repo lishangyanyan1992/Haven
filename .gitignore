@@ -17,3 +17,4 @@ apps/*/*.tsbuildinfo
 supabase/.temp
 .vercel
 .env*.local
+__pycache__/
