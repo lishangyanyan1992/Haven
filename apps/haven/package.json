@@ -27,7 +27,9 @@
     "check:profile-updates": "tsx --tsconfig tsconfig.json evals/advisor/profile-updates.check.ts",
     "check:scope": "tsx --tsconfig tsconfig.json evals/advisor/scope.check.ts",
     "check:source-freshness": "tsx --tsconfig tsconfig.json evals/advisor/source-freshness.check.ts",
-    "check:trace-tags": "tsx --tsconfig tsconfig.json evals/advisor/trace-tags.check.ts"
+    "check:trace-tags": "tsx --tsconfig tsconfig.json evals/advisor/trace-tags.check.ts",
+    "check:personas": "tsx --tsconfig tsconfig.json evals/advisor/personas.check.ts",
+    "advisor:corpus": "tsx --tsconfig tsconfig.json evals/advisor/corpus-run.ts"
   },
   "dependencies": {
     "@haven/auth": "*",

@@ -7,6 +7,7 @@ import type { LangfuseSpanClient, LangfuseTraceClient } from "langfuse";
 import { classifyIntent, compareRouters } from "@/lib/advisor/intent-router";
 import { decideScope } from "@/lib/advisor/scope";
 import { getSnapshot } from "@/lib/repositories/case-compass";
+import { resolveTestPersona } from "@/lib/repositories/test-personas";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database";
@@ -107,10 +108,15 @@ export function buildTraceTags(
   // Injectable so a test can assert the untagged-production case in the same
   // process as the tagged ones. Reading env at call time would make "production
   // has no tags" the one claim the suite could not check.
-  configuredTag: string | undefined = env.ADVISOR_TRACE_TAG
+  configuredTag: string | undefined = env.ADVISOR_TRACE_TAG,
+  // Which test persona the run was answering as. Without it, the same question
+  // asked as three different people is three traces that look identical, and the
+  // whole point of having personas is comparing those three answers.
+  personaId: string | undefined = resolveTestPersona()?.id
 ): string[] {
   const tags: string[] = [];
   if (identity.isMock) tags.push("mock-identity");
+  if (personaId) tags.push(`persona-${personaId}`);
 
   const configured = configuredTag?.trim();
   if (configured) {
@@ -1253,6 +1259,19 @@ function concernToPrompt(concern: Concern, fallbackPrompt: string) {
 
 async function getAdvisorIdentity(): Promise<AdvisorIdentity> {
   if (!hasSupabaseEnv) {
+    // The identity must come from the same persona as the snapshot. An answer
+    // addressed to Priya while the profile describes somebody laid off in May is
+    // the kind of incoherence that reads as a model failure and is not one.
+    const testPersona = resolveTestPersona();
+    if (testPersona) {
+      return {
+        id: testPersona.snapshot.profile.id,
+        email: testPersona.snapshot.profile.email,
+        fullName: testPersona.snapshot.profile.fullName,
+        isMock: true
+      };
+    }
+
     return {
       id: "user-1",
       email: "priya@example.com",

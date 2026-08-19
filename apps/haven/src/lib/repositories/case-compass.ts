@@ -2,6 +2,7 @@ import { cache } from "react";
 
 import { hasSupabaseEnv } from "@/lib/env";
 import { havenSnapshot } from "@/lib/repositories/mock-data";
+import { resolveTestPersona } from "@/lib/repositories/test-personas";
 import {
   getSupabaseCommunityPageData,
   getSupabaseDashboardPageData,
@@ -26,11 +27,25 @@ export type WarRoomPageData = AppShellSnapshot & Pick<HavenWorkspaceSnapshot, "w
 export type InboxPageData = AppShellSnapshot &
   Pick<HavenWorkspaceSnapshot, "documents" | "emailAlias" | "emailInbox" | "emailThreads" | "emailContacts">;
 
+/**
+ * The snapshot used when there is no Supabase — Priya by default, or a test
+ * persona when one is selected.
+ *
+ * Every mock read in this file goes through here rather than touching
+ * `havenSnapshot` directly, so a persona cannot be applied to the Advisor but
+ * missed by the dashboard the user is comparing it against. A half-applied
+ * persona would be worse than none: the answer and the screen would describe
+ * two different people.
+ */
+function mockSnapshot(): HavenWorkspaceSnapshot {
+  return resolveTestPersona()?.snapshot ?? havenSnapshot;
+}
+
 function shellFromMock(): AppShellSnapshot {
   return {
     communityUnreadCount: 0,
-    profile: havenSnapshot.profile,
-    dashboard: havenSnapshot.dashboard
+    profile: mockSnapshot().profile,
+    dashboard: mockSnapshot().dashboard
   };
 }
 
@@ -39,11 +54,11 @@ export const getSnapshot = cache(async (): Promise<HavenWorkspaceSnapshot> => {
     try {
       return await supabaseHavenRepository.getSnapshot();
     } catch {
-      return havenSnapshot;
+      return mockSnapshot();
     }
   }
 
-  return havenSnapshot;
+  return mockSnapshot();
 });
 
 export const getAppShellSnapshot = cache(async (): Promise<AppShellSnapshot> => {
@@ -83,14 +98,14 @@ export const getTimelinePageData = cache(async (): Promise<TimelinePageData> => 
     } catch {
       return {
         ...shellFromMock(),
-        timelineEvents: havenSnapshot.timelineEvents
+        timelineEvents: mockSnapshot().timelineEvents
       };
     }
   }
 
   return {
     ...shellFromMock(),
-    timelineEvents: havenSnapshot.timelineEvents
+    timelineEvents: mockSnapshot().timelineEvents
   };
 });
 
@@ -101,14 +116,14 @@ export const getPlannerPageData = cache(async (): Promise<PlannerPageData> => {
     } catch {
       return {
         ...shellFromMock(),
-        planner: havenSnapshot.planner
+        planner: mockSnapshot().planner
       };
     }
   }
 
   return {
     ...shellFromMock(),
-    planner: havenSnapshot.planner
+    planner: mockSnapshot().planner
   };
 });
 
@@ -119,14 +134,14 @@ export const getCommunityPageData = cache(async (): Promise<CommunityPageData> =
     } catch {
       return {
         ...shellFromMock(),
-        cohorts: havenSnapshot.cohorts
+        cohorts: mockSnapshot().cohorts
       };
     }
   }
 
   return {
     ...shellFromMock(),
-    cohorts: havenSnapshot.cohorts
+    cohorts: mockSnapshot().cohorts
   };
 });
 
@@ -150,8 +165,8 @@ export const getPublicCommunityPageData = cache(async (): Promise<PublicCommunit
   }
 
   return {
-    cohorts: havenSnapshot.cohorts,
-    warRoom: havenSnapshot.warRoom
+    cohorts: mockSnapshot().cohorts,
+    warRoom: mockSnapshot().warRoom
   };
 });
 
@@ -162,14 +177,14 @@ export const getWarRoomPageData = cache(async (): Promise<WarRoomPageData> => {
     } catch {
       return {
         ...shellFromMock(),
-        warRoom: havenSnapshot.warRoom
+        warRoom: mockSnapshot().warRoom
       };
     }
   }
 
   return {
     ...shellFromMock(),
-    warRoom: havenSnapshot.warRoom
+    warRoom: mockSnapshot().warRoom
   };
 });
 
@@ -180,22 +195,22 @@ export const getInboxPageData = cache(async (): Promise<InboxPageData> => {
     } catch {
       return {
         ...shellFromMock(),
-        documents: havenSnapshot.documents,
-        emailAlias: havenSnapshot.emailAlias,
-        emailInbox: havenSnapshot.emailInbox,
-        emailThreads: havenSnapshot.emailThreads,
-        emailContacts: havenSnapshot.emailContacts
+        documents: mockSnapshot().documents,
+        emailAlias: mockSnapshot().emailAlias,
+        emailInbox: mockSnapshot().emailInbox,
+        emailThreads: mockSnapshot().emailThreads,
+        emailContacts: mockSnapshot().emailContacts
       };
     }
   }
 
   return {
     ...shellFromMock(),
-    documents: havenSnapshot.documents,
-    emailAlias: havenSnapshot.emailAlias,
-    emailInbox: havenSnapshot.emailInbox,
-    emailThreads: havenSnapshot.emailThreads,
-    emailContacts: havenSnapshot.emailContacts
+    documents: mockSnapshot().documents,
+    emailAlias: mockSnapshot().emailAlias,
+    emailInbox: mockSnapshot().emailInbox,
+    emailThreads: mockSnapshot().emailThreads,
+    emailContacts: mockSnapshot().emailContacts
   };
 });
 

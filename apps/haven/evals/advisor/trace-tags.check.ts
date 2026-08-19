@@ -40,14 +40,14 @@ async function main() {
     else failures.push(name);
   };
 
-  const production = buildTraceTags(real, undefined);
+  const production = buildTraceTags(real, undefined, undefined);
   check(
     "a real user with no configured tag produces no tags at all",
     production.length === 0,
     `got: ${JSON.stringify(production)}`
   );
 
-  const mockUntagged = buildTraceTags(mock, undefined);
+  const mockUntagged = buildTraceTags(mock, undefined, undefined);
   check(
     "a mock identity is marked even when nothing is configured",
     mockUntagged.includes("mock-identity"),
@@ -55,7 +55,7 @@ async function main() {
   );
 
   // The case the userId check could never catch.
-  const realTagged = buildTraceTags(real, "eval");
+  const realTagged = buildTraceTags(real, "eval", undefined);
   check(
     "a real account running an eval is still marked as a test",
     realTagged.includes("eval"),
@@ -67,28 +67,42 @@ async function main() {
     `got: ${JSON.stringify(realTagged)}`
   );
 
-  const both = buildTraceTags(mock, "eval");
+  const both = buildTraceTags(mock, "eval", undefined);
   check(
     "mock and configured tags coexist",
     both.includes("mock-identity") && both.includes("eval"),
     `got: ${JSON.stringify(both)}`
   );
 
-  const multi = buildTraceTags(real, "eval, edge-cases ,");
+  const multi = buildTraceTags(real, "eval, edge-cases ,", undefined);
   check(
     "a comma list becomes separate tags, trimmed, with blanks dropped",
     multi.length === 2 && multi.includes("eval") && multi.includes("edge-cases"),
     `got: ${JSON.stringify(multi)}`
   );
 
-  const whitespaceOnly = buildTraceTags(real, "   ");
+  const whitespaceOnly = buildTraceTags(real, "   ", undefined);
   check(
     "a whitespace-only setting is treated as unset",
     whitespaceOnly.length === 0,
     `got: ${JSON.stringify(whitespaceOnly)}`
   );
 
-  const duplicated = buildTraceTags(mock, "mock-identity, mock-identity");
+  const withPersona = buildTraceTags(mock, "eval", "day-42");
+  check(
+    "the persona is on the trace, so three people asking the same question are distinguishable",
+    withPersona.includes("persona-day-42"),
+    `got: ${JSON.stringify(withPersona)}`
+  );
+
+  const noPersona = buildTraceTags(real, undefined, undefined);
+  check(
+    "no persona means no persona tag",
+    noPersona.length === 0,
+    `got: ${JSON.stringify(noPersona)}`
+  );
+
+  const duplicated = buildTraceTags(mock, "mock-identity, mock-identity", undefined);
   check(
     "duplicate tags collapse",
     duplicated.filter((t) => t === "mock-identity").length === 1,
