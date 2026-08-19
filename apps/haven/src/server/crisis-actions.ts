@@ -31,6 +31,18 @@ function getElapsedCrisisDays(activatedAtIso: string) {
   return Math.floor((Date.now() - new Date(activatedAtIso).getTime()) / 86400000) + 1;
 }
 
+/**
+ * When to stop showing crisis mode — not when the legal window closes.
+ *
+ * Counted from activation on purpose, and deliberately not switched to the layoff
+ * date when the countdown was. The two are different questions: the grace period
+ * runs from the last day of employment (readGracePeriod owns that, and every
+ * surface now displays it), while this decides how long the crisis UI stays up.
+ *
+ * Keying this to the layoff date would auto-dismiss anybody who activates after
+ * their 60 days have already passed — the person in the most trouble, hiding the
+ * checklist from them the moment they ask for it.
+ */
 function hasCrisisExpired(activatedAtIso: string) {
   return getElapsedCrisisDays(activatedAtIso) > 60;
 }

@@ -105,6 +105,45 @@ async function main() {
 
   check("nothing renders from nothing", renderGracePeriodForPrompt(null).length === 0, "it rendered something");
 
+  // ------------------------------------------------------- one calculator only
+  //
+  // The reason this check exists: the dashboard used to count the 60 days from
+  // the moment somebody pressed the activation button rather than from their last
+  // day of work. Nobody presses it the hour they are let go, so the number was
+  // wrong for everyone and wrong in the dangerous direction — "Day 1 of 60, 59
+  // days remaining" shown to a person who had thirty. It was invisible until the
+  // Advisor began counting too and the two contradicted each other on one screen.
+  //
+  // The rule asserted: anything that turns the *stored* layoff date into a day
+  // count goes through this module. A hand-rolled version elsewhere is exactly the
+  // kind of change that looks harmless in review and puts two numbers on one
+  // screen again.
+  //
+  // Not covered, and deliberately: /tools has its own 60-day estimator. It takes
+  // dates the visitor types rather than reading anything stored, is not signed in,
+  // and additionally compares against I-94 expiry, which this module does not
+  // model. Folding them together is a real piece of work rather than a rename, so
+  // it is named here instead of quietly excluded.
+  const fs = await import("node:fs");
+  const path = await import("node:path");
+
+  const crisisState = fs.readFileSync(path.resolve(process.cwd(), "src/lib/get-crisis-state.ts"), "utf8");
+  check(
+    "the crisis countdown comes from this module",
+    /readGracePeriod\(/.test(crisisState),
+    "get-crisis-state.ts does not call readGracePeriod"
+  );
+  check(
+    "the crisis countdown does no day arithmetic of its own",
+    !/86[_ ]?400[_ ]?000|864e5/.test(crisisState),
+    "get-crisis-state.ts still divides milliseconds into days"
+  );
+  check(
+    "the crisis countdown no longer counts from the activation time",
+    !/getElapsedCrisisDays|Date\.now\(\) - activatedAt/.test(crisisState),
+    "it is still counting from when the button was pressed"
+  );
+
   console.log(`\n${pass} passed, ${failures.length} failed`);
   if (failures.length > 0) {
     console.log("\nFailed:");

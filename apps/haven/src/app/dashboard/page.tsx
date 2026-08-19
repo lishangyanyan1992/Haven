@@ -97,7 +97,11 @@ export default async function DashboardPage({
   const showPriorityDateSection = profile.i140Approved;
   const checklistItems = buildChecklist(profile);
   const checklistProgress = crisisState ? Math.round((crisisState.completedItemKeys.length / checklistItems.length) * 100) : 0;
-  const crisisProgressWidth = crisisState ? `${Math.max((crisisState.dayNumber / 60) * 100, 2)}%` : "0%";
+  // Clamped at both ends now that dayNumber is a real count rather than a value
+  // pinned to 1..60 — past the ceiling the bar is simply full.
+  const crisisProgressWidth = crisisState
+    ? `${Math.min(Math.max((crisisState.dayNumber / 60) * 100, 2), 100)}%`
+    : "0%";
   const changeSections = {
     overview: JSON.stringify(
       crisisState
@@ -161,7 +165,11 @@ export default async function DashboardPage({
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                   <div className="max-w-[72ch]">
                     <p className="text-label text-[var(--haven-blush-ink)]">Crisis mode active</p>
-                    <h1 className="text-h1 mt-4">Day {crisisState.dayNumber} of 60. Keep the next filing window in reach.</h1>
+                    <h1 className="text-h1 mt-4">
+                      {crisisState.expired
+                        ? "Your 60-day window has passed. What happens next depends on what was filed."
+                        : `Day ${crisisState.dayNumber} of 60. Keep the next filing window in reach.`}
+                    </h1>
                     <p className="text-body mt-4 text-[var(--haven-blush-ink)]">
                       Haven is now prioritizing your live layoff plan. Last day of employment:{" "}
                       {crisisState.layoffDate.toLocaleDateString(undefined, {
@@ -175,7 +183,11 @@ export default async function DashboardPage({
                       <div className="countdown-bar-fill urgent" style={{ width: crisisProgressWidth }} />
                     </div>
                     <div className="mt-4 flex flex-wrap items-center gap-3 text-body-sm text-[var(--haven-blush-ink)]">
-                      <span>{crisisState.daysRemaining} days remaining</span>
+                      <span>
+                        {crisisState.expired
+                          ? `Day ${crisisState.dayNumber} since your last day of work`
+                          : `${crisisState.daysRemaining} days remaining`}
+                      </span>
                       <span className="opacity-50">·</span>
                       <span>
                         {crisisState.completedItemKeys.length} of {checklistItems.length} checklist items completed
@@ -193,7 +205,12 @@ export default async function DashboardPage({
                 </div>
 
                 <div className="mt-6 grid gap-4 md:grid-cols-2">
-                  <StatCard label="Crisis clock" value={`Day ${crisisState.dayNumber}`} helper="Tracker started when you activated crisis mode." badge={<Badge variant="urgent">Live</Badge>} />
+                  <StatCard
+                    label="Crisis clock"
+                    value={crisisState.expired ? "Passed" : `Day ${crisisState.dayNumber}`}
+                    helper="Counted from your last day of employment."
+                    badge={<Badge variant="urgent">Live</Badge>}
+                  />
                   <StatCard label="Checklist progress" value={`${checklistProgress}%`} helper="Persisted to your current layoff event." />
                 </div>
               </section>

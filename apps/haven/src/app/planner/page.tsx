@@ -18,7 +18,8 @@ export default async function PlannerPage() {
   const crisisChecklist = buildChecklist(profile);
   const dayNumber = crisisState?.dayNumber ?? 0;
   const daysRemaining = crisisState?.daysRemaining ?? 0;
-  const dayProgressWidth = crisisState ? `${Math.max((dayNumber / 60) * 100, 2)}%` : "0%";
+  const expired = crisisState?.expired ?? false;
+  const dayProgressWidth = crisisState ? `${Math.min(Math.max((dayNumber / 60) * 100, 2), 100)}%` : "0%";
 
   return (
     <AppShell activePath="/planner" crisisState={crisisState} snapshot={snapshot}>
@@ -54,11 +55,11 @@ export default async function PlannerPage() {
               <div>
                 <p className="text-label text-[var(--haven-blush-ink)]">Grace period</p>
                 <p className="text-h3 mt-1">
-                  Day {dayNumber} of 60
+                  {expired ? `Day ${dayNumber} since your last day of work` : `Day ${dayNumber} of 60`}
                 </p>
               </div>
               <Badge variant={crisisState ? "urgent" : "pending"}>
-                {daysRemaining} days left
+                {expired ? "60-day window passed" : `${daysRemaining} days left`}
               </Badge>
             </div>
             <div className="mt-4 countdown-bar">

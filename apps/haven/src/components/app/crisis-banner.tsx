@@ -9,8 +9,8 @@ interface CrisisBannerProps {
 }
 
 export function CrisisBanner({ crisisState }: CrisisBannerProps) {
-  const { dayNumber, daysRemaining } = crisisState;
-  const isUrgent = daysRemaining <= 14;
+  const { dayNumber, daysRemaining, expired } = crisisState;
+  const isUrgent = !expired && daysRemaining <= 14;
 
   return (
     <div
@@ -26,15 +26,31 @@ export function CrisisBanner({ crisisState }: CrisisBannerProps) {
           style={{ color: "var(--haven-blush-ink)" }}
         />
         <p className="text-body-sm font-medium" style={{ color: "var(--haven-blush-ink)" }}>
-          <span className="font-semibold">Day {dayNumber} of 60</span>
-          <span className="mx-2 opacity-50">·</span>
-          <span>
-            {daysRemaining} day{daysRemaining !== 1 ? "s" : ""} remaining
-          </span>
-          {isUrgent && (
+          {expired ? (
             <>
+              {/* Named plainly rather than counted. Somebody past the ceiling is
+                  the person who most needs to be told, and "Day 60 of 60" — what
+                  the clamped counter used to show them forever — reads as though
+                  they still have a day left. */}
+              <span className="font-semibold">Your 60-day window has passed</span>
               <span className="mx-2 opacity-50">·</span>
-              <span className="font-semibold">File before your grace period ends</span>
+              <span>Day {dayNumber} since your last day of work</span>
+              <span className="mx-2 opacity-50">·</span>
+              <span className="font-semibold">Talk to an immigration attorney</span>
+            </>
+          ) : (
+            <>
+              <span className="font-semibold">Day {dayNumber} of 60</span>
+              <span className="mx-2 opacity-50">·</span>
+              <span>
+                {daysRemaining} day{daysRemaining !== 1 ? "s" : ""} remaining
+              </span>
+              {isUrgent && (
+                <>
+                  <span className="mx-2 opacity-50">·</span>
+                  <span className="font-semibold">File before your grace period ends</span>
+                </>
+              )}
             </>
           )}
         </p>
