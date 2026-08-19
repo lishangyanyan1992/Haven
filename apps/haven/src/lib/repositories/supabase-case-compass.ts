@@ -384,10 +384,31 @@ async function buildSnapshotContext(): Promise<SnapshotContext> {
     };
   }
 
-  const [{ data: profileRow }, { data: derivedSignalRow }] = await Promise.all([
+  const [{ data: profileRow }, { data: derivedSignalRow }, { data: layoffRow }] = await Promise.all([
     supabase.from("user_profiles").select("*").eq("id", user.id).maybeSingle(),
-    supabase.from("derived_signals").select("*").eq("user_id", user.id).maybeSingle()
+    supabase.from("derived_signals").select("*").eq("user_id", user.id).maybeSingle(),
+    // The open layoff, if there is one. `resolved_at is null` is what "open"
+    // means here — the same condition getActiveCrisisEvent uses, so the Advisor
+    // and the War Room cannot disagree about whether somebody is in their 60
+    // days. Fetched with the profile rather than on demand because every surface
+    // that shows a deadline needs it.
+    supabase
+      .from("layoff_events")
+      .select("layoff_date, employer_at_layoff, visa_type_at_layoff")
+      .eq("user_id", user.id)
+      .is("resolved_at", null)
+      .order("layoff_date", { ascending: false })
+      .limit(1)
+      .maybeSingle()
   ]);
+
+  const activeLayoffEvent = layoffRow
+    ? {
+        layoffDate: layoffRow.layoff_date,
+        employerAtLayoff: layoffRow.employer_at_layoff,
+        visaTypeAtLayoff: layoffRow.visa_type_at_layoff
+      }
+    : null;
 
   if (!profileRow) {
     return {
@@ -406,7 +427,8 @@ async function buildSnapshotContext(): Promise<SnapshotContext> {
   let snapshot = mergeSnapshotProfile(havenSnapshot, profile, priorityDateSignals);
   snapshot = {
     ...snapshot,
-    communityUnreadCount
+    communityUnreadCount,
+    activeLayoffEvent
   };
 
   if (derivedSignalRow) {

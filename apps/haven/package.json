@@ -30,7 +30,8 @@
     "check:trace-tags": "tsx --tsconfig tsconfig.json evals/advisor/trace-tags.check.ts",
     "check:personas": "tsx --tsconfig tsconfig.json evals/advisor/personas.check.ts",
     "advisor:corpus": "tsx --tsconfig tsconfig.json evals/advisor/corpus-run.ts",
-    "check:profile-context": "tsx --tsconfig tsconfig.json evals/advisor/profile-context.check.ts"
+    "check:profile-context": "tsx --tsconfig tsconfig.json evals/advisor/profile-context.check.ts",
+    "check:grace-period": "tsx --tsconfig tsconfig.json evals/advisor/grace-period.check.ts"
   },
   "dependencies": {
     "@haven/auth": "*",

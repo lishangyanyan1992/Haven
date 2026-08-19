@@ -30,7 +30,7 @@
 export {};
 
 async function main() {
-  const { buildAdvisorContext, buildPromptTimelineSummary, routeAdvisorQuestion } = await import("@/lib/advisor/service");
+  const { buildAdvisorContext, buildPromptTimelineSummary, buildPromptGracePeriod, routeAdvisorQuestion } = await import("@/lib/advisor/service");
   const { TEST_PERSONAS } = await import("@/lib/repositories/test-personas");
 
   let pass = 0;
@@ -75,6 +75,40 @@ async function main() {
       `context was:\n      ${timeline.replace(/\n/g, "\n      ") || "(empty)"}`
     );
   }
+
+  // ------------------------------------------------------------- the countdown
+  //
+  // The layoff date is what changes the most answers and was the one fact the
+  // Advisor could not see: layoff_events has carried it since the War Room
+  // shipped and nothing in the pipeline read the table. The bot knew *that*
+  // somebody was laid off and never *when*.
+  function graceFor(question: string, snapshot: Parameters<typeof buildAdvisorContext>[0]) {
+    const route = routeAdvisorQuestion({ content: question, history: [{ role: "user", content: question }] });
+    return buildPromptGracePeriod(route.topics, buildAdvisorContext(snapshot)).join("\n");
+  }
+
+  for (const persona of TEST_PERSONAS) {
+    const grace = graceFor("New employer filed with premium. Can I start on the receipt?", persona.snapshot as never);
+    check(
+      `${persona.id}: the 60-day count reaches a question that never mentions the layoff`,
+      /day \d+/.test(grace),
+      `context was: ${grace || "(empty)"}`
+    );
+    check(
+      `${persona.id}: the count names the last day it was computed from`,
+      grace.includes("Last day of employment on file"),
+      `context was: ${grace || "(empty)"}`
+    );
+  }
+
+  // Priya is employed. No layoff event, so no countdown — a count for somebody
+  // who was never laid off would be a fabricated deadline.
+  const { havenSnapshot: employed } = await import("@/lib/repositories/mock-data");
+  check(
+    "somebody who is not laid off gets no countdown",
+    graceFor("I was laid off. What are my options?", employed as never).length === 0,
+    "a countdown was produced for an employed profile"
+  );
 
   // The pending I-539 is the whole of day-89's situation.
   const day89 = TEST_PERSONAS.find((p) => p.id === "day-89")!;

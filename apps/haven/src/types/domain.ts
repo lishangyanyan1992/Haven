@@ -256,9 +256,25 @@ export interface DashboardSnapshot {
   signals: DerivedProfileSignals;
 }
 
+/**
+ * The open layoff on record, from `layoff_events`.
+ *
+ * Null when there is none. Carried on the snapshot rather than fetched where it
+ * is needed, because the dashboard, the timeline and the Advisor must agree about
+ * whether somebody is in their 60 days — two surfaces reading two sources is how
+ * the profile and the answer end up describing different people.
+ */
+export interface ActiveLayoffEvent {
+  /** Last day of employment. ISO date. */
+  layoffDate: string;
+  employerAtLayoff: string | null;
+  visaTypeAtLayoff: string | null;
+}
+
 export interface HavenWorkspaceSnapshot {
   communityUnreadCount?: number;
   profile: ImmigrationProfile;
+  activeLayoffEvent: ActiveLayoffEvent | null;
   dashboard: DashboardSnapshot;
   onboardingSteps: OnboardingStep[];
   timelineEvents: TimelineEvent[];
@@ -366,6 +382,14 @@ export interface AdvisorThread {
 
 export interface AdvisorUserContext {
   profileSummary: string[];
+  /**
+   * Where the person is in their 60 days, computed from the layoff date on file.
+   *
+   * Separate from `timelineSummary` because it is arithmetic rather than a list of
+   * stored milestones, and because it is the single fact that changes the most
+   * answers — burying it among four timeline entries is how it gets skimmed.
+   */
+  gracePeriodSummary: string[];
   timelineSummary: string[];
   derivedSignalsSummary: string[];
   emailEvidenceSummary: string[];

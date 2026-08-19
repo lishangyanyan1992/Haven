@@ -74,7 +74,7 @@ const CASES: Case[] = [
 ];
 
 async function main() {
-  const { detectProfileUpdates, filterAlreadyCurrent } = await import("@/lib/advisor/profile-updates");
+  const { detectProfileUpdates, filterAlreadyCurrent, renderProfileUpdateNotice } = await import("@/lib/advisor/profile-updates");
 
   let pass = 0;
   const failures: string[] = [];
@@ -104,6 +104,101 @@ async function main() {
   console.log(`${quiet ? "PASS" : "FAIL"}  restating a fact already on file announces nothing`);
   if (quiet) pass += 1;
   else failures.push("restating a fact already on file announces nothing");
+
+  const check = (name: string, ok: boolean, detail: string) => {
+    console.log(`${ok ? "PASS" : "FAIL"}  ${name}${ok ? "" : `\n      ${detail}`}`);
+    if (ok) pass += 1;
+    else failures.push(name);
+  };
+
+  // ------------------------------------------------------- the last day of work
+  //
+  // The highest-consequence parse in the product: it seeds a 60-day countdown
+  // somebody plans around. A wrong date here is worse than no date, so most of
+  // what follows asserts refusal rather than recognition.
+  const asOf = new Date("2026-08-19T12:00:00Z");
+  const layoffDateFrom = (message: string) =>
+    detectProfileUpdates(message, asOf).find((u) => u.field === "layoffDate")?.value ?? null;
+
+  const parses: Array<[string, string, string]> = [
+    ["a month by name", "I was laid off on August 3, 2026.", "2026-08-03"],
+    ["an abbreviated month", "I got laid off Aug 3.", "2026-08-03"],
+    ["an ordinal", "I was laid off on August 3rd.", "2026-08-03"],
+    ["a numeric date with a full year", "I was laid off on 8/3/2026.", "2026-08-03"],
+    ["yesterday", "I was laid off yesterday.", "2026-08-18"],
+    ["today", "I got laid off today.", "2026-08-19"],
+    // Year-less and in the future for this year, so it means last year.
+    ["a month later in the year", "I was laid off on November 2.", "2025-11-02"]
+  ];
+  for (const [name, message, expected] of parses) {
+    const got = layoffDateFrom(message);
+    check(`${name} is read as ${expected}`, got === expected, `got ${got}`);
+  }
+
+  const refuses: Array<[string, string]> = [
+    // The reason weekdays are not parsed: "last Friday" and "on Friday" can be
+    // seven days apart under two reasonable readings, and a clock that starts a
+    // week late is the exact harm this feature exists to prevent.
+    ["a weekday", "I was laid off last Friday."],
+    ["a bare weekday", "I was laid off on Friday."],
+    // 8/3 is August 3rd to an American and March 8th to most of this product's users.
+    ["an ambiguous numeric date with no year", "I was laid off on 8/3."],
+    ["a vague period", "I was laid off a couple of weeks ago."],
+    ["a month with no day", "I was laid off in August."],
+    ["a day the month does not have", "I was laid off on February 31."],
+    ["a date in the future", "I was laid off on 12/25/2026."]
+  ];
+  for (const [name, message] of refuses) {
+    const got = layoffDateFrom(message);
+    check(`${name} records no date rather than a guess`, got === null, `it recorded ${got}`);
+  }
+
+  // The date must come from the sentence that states the job loss, not from
+  // anywhere in the message.
+  const otherDate = layoffDateFrom("I was laid off. My I-140 was approved on March 3, 2026.");
+  check(
+    "a date belonging to a different fact does not become the layoff date",
+    otherDate === null,
+    `it recorded ${otherDate}`
+  );
+
+  // Everything that stops the employment-status write must stop this too.
+  check("a question records no date", layoffDateFrom("What if I was laid off on August 3?") === null, "it recorded one");
+  check(
+    "somebody else's layoff records no date",
+    layoffDateFrom("My husband was laid off on August 3.") === null,
+    "it recorded one"
+  );
+  check(
+    "a layoff cancelled out by a new job records no date",
+    layoffDateFrom("I was laid off on June 1. I started a new job in July.") === null,
+    "it recorded one"
+  );
+
+  // Restating a date already on record should not announce a new write.
+  const stated = detectProfileUpdates("I was laid off on August 3, 2026.", asOf);
+  const alreadyKnown = filterAlreadyCurrent(stated, { employmentStatus: "laid_off" }, "2026-08-03");
+  check(
+    "a date we already hold is not re-announced",
+    !alreadyKnown.some((u) => u.field === "layoffDate"),
+    `still announced: ${JSON.stringify(alreadyKnown)}`
+  );
+
+  const changed = filterAlreadyCurrent(stated, { employmentStatus: "laid_off" }, "2026-07-01");
+  check(
+    "a different date on record is still surfaced",
+    changed.some((u) => u.field === "layoffDate"),
+    "it was dropped"
+  );
+
+  // The notice has to say what recording a date actually does.
+  const notice = renderProfileUpdateNotice(stated);
+  check(
+    "the notice says the 60-day timeline now runs from that date",
+    /60-day timeline now runs/i.test(notice),
+    notice
+  );
+  check("the notice says how to correct it", /if the date is wrong/i.test(notice), notice);
 
   console.log(`\n${pass} passed, ${failures.length} failed`);
   if (failures.length > 0) process.exit(1);

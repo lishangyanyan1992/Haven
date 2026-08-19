@@ -37,19 +37,20 @@
  * Supabase is absent. It cannot overwrite, mask, or be confused with a real
  * account's data, and it requires ADVISOR_TEST_PERSONA to be set on top of that.
  *
- * WHAT THESE CANNOT TEST
+ * THE LAYOFF DATE
  *
- * There is no layoff date on the profile. `layoff_events.layoff_date` exists in
- * the database and the Advisor does not read it, so the bot cannot say "you are
- * on day 42 of 60" even for a real user — it only knows `employmentStatus:
- * laid_off`. The dates below are carried in the timeline entries, which do reach
- * the model, so these personas test the best case the product can currently
- * reach. If an answer here is vague about the deadline, that is the missing field
- * showing, not the model.
+ * Each persona carries an `activeLayoffEvent`, the same shape a real account gets
+ * from `layoff_events` when the Layoff War Room is activated. That is deliberate:
+ * the personas exercise the production path rather than a fixture-only one, so a
+ * green run here is evidence about real users and not only about these three.
+ *
+ * The dates in the timeline entries below must agree with it. personas.check.ts
+ * asserts that they do, because two sources for one date is how the answer and
+ * the dashboard end up describing different days.
  */
 
 import { havenSnapshot } from "@/lib/repositories/mock-data";
-import type { HavenWorkspaceSnapshot, ImmigrationProfile, TimelineEvent } from "@/types/domain";
+import type { ActiveLayoffEvent, HavenWorkspaceSnapshot, ImmigrationProfile, TimelineEvent } from "@/types/domain";
 
 export type TestPersona = {
   id: string;
@@ -80,6 +81,7 @@ function persona(
   id: string,
   situation: string,
   tests: string,
+  layoff: ActiveLayoffEvent,
   profile: Partial<ImmigrationProfile>,
   entries: Parameters<typeof timeline>[0],
   signals: Partial<HavenWorkspaceSnapshot["dashboard"]["signals"]>,
@@ -91,6 +93,7 @@ function persona(
     tests,
     snapshot: {
       ...havenSnapshot,
+      activeLayoffEvent: layoff,
       profile: { ...havenSnapshot.profile, id, ...profile },
       timelineEvents: timeline(entries),
       dashboard: {
@@ -116,6 +119,7 @@ export const TEST_PERSONAS: TestPersona[] = [
     "day-5",
     "Arjun Menon — laid off five days ago, 60-day grace period ends Oct 13, 2026. Nothing filed yet.",
     "The open decision. Approved I-140 and certified PERM, so nothing here is a hard case — a weak answer is the product's fault, not the situation's.",
+    { layoffDate: "2026-08-14", employerAtLayoff: "Northwind Systems", visaTypeAtLayoff: "H1B" },
     {
       fullName: "Arjun Menon",
       email: "arjun@example.com",
@@ -188,6 +192,7 @@ export const TEST_PERSONAS: TestPersona[] = [
     "day-42",
     "Wei Chen — laid off 42 days ago, grace period ends Sep 6, 2026. New employer filed an H-1B transfer with premium processing on Aug 12; no decision yet.",
     "The most dangerous moment in the corpus: 'can I start?' has a real answer, and people get it wrong in both directions. Also the only persona whose spouse is on their own H-1B.",
+    { layoffDate: "2026-07-08", employerAtLayoff: "Kestrel Robotics", visaTypeAtLayoff: "H1B" },
     {
       fullName: "Wei Chen",
       email: "wei@example.com",
@@ -260,6 +265,7 @@ export const TEST_PERSONAS: TestPersona[] = [
     "day-89",
     "Rafael Souza — laid off 89 days ago. The 60-day grace period ended Jul 21, 2026. An I-539 change of status to B-2 was filed Jul 18, inside the grace period, and is still pending.",
     "The case the product most needs to not make worse, and the one Priya could never reach. No I-140, PERM died with the job, no spouse to bridge through — every easy answer is unavailable.",
+    { layoffDate: "2026-05-22", employerAtLayoff: "Halcyon Health", visaTypeAtLayoff: "H1B" },
     {
       fullName: "Rafael Souza",
       email: "rafael@example.com",

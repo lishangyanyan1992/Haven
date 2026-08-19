@@ -1,6 +1,8 @@
 import type { HavenWorkspaceSnapshot } from "@/types/domain";
 
 export const havenSnapshot: HavenWorkspaceSnapshot = {
+  // Priya is employed. See test-personas.ts for the laid-off cases.
+  activeLayoffEvent: null,
   profile: {
     id: "user-1",
     fullName: "Priya Shah",

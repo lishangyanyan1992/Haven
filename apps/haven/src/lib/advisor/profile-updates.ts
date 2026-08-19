@@ -38,6 +38,19 @@ import type { EmploymentStatus, PermStage } from "@/types/domain";
 
 export type ProfileUpdate =
   | { field: "employmentStatus"; value: EmploymentStatus; quote: string; label: string }
+  /**
+   * The last day of employment, which starts the 60-day clock.
+   *
+   * Held apart from the other fields because it does not live on the profile — it
+   * is written to `layoff_events`, the same record the Layoff War Room creates,
+   * so the Advisor and the countdown on the dashboard cannot disagree.
+   *
+   * It is also the highest-consequence write in this file by a distance. Every
+   * other field is a category the user can eyeball; this one is arithmetic that
+   * produces a deadline somebody acts on, and being two days out in the wrong
+   * direction is worse than having no date at all. Hence the parsing rules below.
+   */
+  | { field: "layoffDate"; value: string; quote: string; label: string }
   | { field: "i140Approved"; value: true; quote: string; label: string }
   | { field: "i485Filed"; value: true; quote: string; label: string }
   | { field: "permStage"; value: PermStage; quote: string; label: string };
@@ -64,6 +77,81 @@ const LAID_OFF =
 const NEW_JOB =
   /\bi (started|start|have started|'ve started|joined|am joining)\b[^.?!]{0,24}\b(job|role|company|employer|position)\b|\bi (found|got|accepted)\b[^.?!]{0,16}\b(job|offer|role|position)\b|\bmy new employer (filed|started)\b/i;
 
+/**
+ * A date the user stated plainly enough to act on.
+ *
+ * Only three shapes are accepted, and the omissions matter more than the
+ * inclusions:
+ *
+ *   "August 3" / "Aug 3, 2026"   month by name, unambiguous in any locale
+ *   "8/3/2026"                   numeric, but only with a four-digit year, because
+ *                                8/3 is August 3rd to an American and March 8th to
+ *                                almost everybody else — and this product's users
+ *                                are overwhelmingly not American
+ *   "today" / "yesterday"        exact, relative to a date we hold
+ *
+ * Weekday names are deliberately rejected. "Last Friday" and "on Friday" are how
+ * people actually speak, and they are precisely the phrasings where a reasonable
+ * reading can be seven days out. A clock that starts a week late is the specific
+ * harm this whole feature exists to prevent, so an unparsed date is the right
+ * outcome: the answer asks for it instead.
+ *
+ * A bare year-less month/day is read as the most recent occurrence, never a future
+ * one — somebody in August saying "laid off on November 2nd" means last November.
+ */
+const MONTHS: Record<string, number> = {
+  january: 0, jan: 0, february: 1, feb: 1, march: 2, mar: 2, april: 3, apr: 3,
+  may: 4, june: 5, jun: 5, july: 6, jul: 6, august: 7, aug: 7,
+  september: 8, sep: 8, sept: 8, october: 9, oct: 9, november: 10, nov: 10, december: 11, dec: 11
+};
+
+const MONTH_NAME_DATE = new RegExp(
+  `\\b(${Object.keys(MONTHS).join("|")})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s+(\\d{4}))?\\b`,
+  "i"
+);
+const NUMERIC_DATE = /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/;
+const TODAY_WORD = /\btoday\b/i;
+const YESTERDAY_WORD = /\byesterday\b/i;
+
+function isoOf(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+export function extractStatedDate(sentence: string, today: Date = new Date()): string | null {
+  const now = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+
+  if (YESTERDAY_WORD.test(sentence)) return isoOf(new Date(now.getTime() - 86_400_000));
+  if (TODAY_WORD.test(sentence)) return isoOf(now);
+
+  const numeric = NUMERIC_DATE.exec(sentence);
+  if (numeric) {
+    const [, month, day, year] = numeric;
+    const parsed = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+    if (parsed.getUTCMonth() !== Number(month) - 1) return null;
+    return parsed.getTime() > now.getTime() ? null : isoOf(parsed);
+  }
+
+  const named = MONTH_NAME_DATE.exec(sentence);
+  if (named) {
+    const [, monthWord, dayText, yearText] = named;
+    const month = MONTHS[monthWord.toLowerCase()];
+    const day = Number(dayText);
+    const year = yearText ? Number(yearText) : now.getUTCFullYear();
+    const parsed = new Date(Date.UTC(year, month, day));
+    // A day number the month does not have — "February 31" — rolls over silently
+    // in the Date constructor and would produce a real-looking wrong date.
+    if (parsed.getUTCMonth() !== month) return null;
+    if (parsed.getTime() > now.getTime()) {
+      if (yearText) return null;
+      const lastYear = new Date(Date.UTC(year - 1, month, day));
+      return isoOf(lastYear);
+    }
+    return isoOf(parsed);
+  }
+
+  return null;
+}
+
 const I140_APPROVED = /\bmy i-?140 (was|got|has been|is) approved\b|\bi-?140 approval\b(?!.*\bdenied\b)/i;
 const I485_FILED = /\b(i|we|my (attorney|lawyer|employer)) filed (my|our|the) i-?485\b|\bmy i-?485 (was|has been) filed\b/i;
 const PERM_CERTIFIED = /\bmy perm (was|got|has been|is) (certified|approved)\b/i;
@@ -75,7 +163,7 @@ const PERM_FILED = /\b(my (employer|attorney|lawyer)|we|i) filed (my|our|the) pe
  * Sentence by sentence, so a quote shown back to the user is the statement that
  * caused the change rather than a paragraph containing it.
  */
-export function detectProfileUpdates(message: string): ProfileUpdate[] {
+export function detectProfileUpdates(message: string, today: Date = new Date()): ProfileUpdate[] {
   const sentences = message
     .split(/(?<=[.!?])\s+|\n+/)
     .map((sentence) => sentence.trim())
@@ -113,6 +201,19 @@ export function detectProfileUpdates(message: string): ProfileUpdate[] {
       quote: sawLaidOff,
       label: "Employment status: laid off"
     });
+
+    // Only from the sentence that states the job loss. Scanning the whole message
+    // would pick up a date belonging to something else entirely — "I was laid off.
+    // My I-140 was approved March 3" would start the clock in March.
+    const layoffDate = extractStatedDate(sawLaidOff, today);
+    if (layoffDate) {
+      updates.push({
+        field: "layoffDate",
+        value: layoffDate,
+        quote: sawLaidOff,
+        label: `Last day of employment: ${layoffDate}`
+      });
+    }
   } else if (sawNewJob && !sawLaidOff) {
     updates.push({
       field: "employmentStatus",
@@ -140,9 +241,13 @@ export function detectProfileUpdates(message: string): ProfileUpdate[] {
  */
 export function filterAlreadyCurrent(
   updates: ProfileUpdate[],
-  profile: { employmentStatus?: string; i140Approved?: boolean; i485Filed?: boolean; permStage?: string }
+  profile: { employmentStatus?: string; i140Approved?: boolean; i485Filed?: boolean; permStage?: string },
+  // The open layoff on record, if any. Separate argument because it comes from a
+  // different table than the profile and a caller can genuinely not have it.
+  activeLayoffDate?: string | null
 ): ProfileUpdate[] {
   return updates.filter((update) => {
+    if (update.field === "layoffDate") return activeLayoffDate !== update.value;
     if (update.field === "employmentStatus") return profile.employmentStatus !== update.value;
     if (update.field === "i140Approved") return profile.i140Approved !== true;
     if (update.field === "i485Filed") return profile.i485Filed !== true;
@@ -161,14 +266,22 @@ export function filterAlreadyCurrent(
 export function renderProfileUpdateNotice(updates: ProfileUpdate[]): string {
   if (updates.length === 0) return "";
 
+  const startedClock = updates.some((update) => update.field === "layoffDate");
+
   return [
     "",
     "---",
     "",
-    updates.length === 1 ? "**I updated your Haven profile:**" : "**I updated your Haven profile:**",
+    "**I updated your Haven profile:**",
     "",
     ...updates.map((update) => `- ${update.label} — from what you said: "${update.quote}"`),
     "",
-    "This now shows everywhere in Haven, including your dashboard and timeline. If I got it wrong, change it in your profile and I will use that instead."
+    // Naming the consequence, not just the write. Recording a last day of
+    // employment starts a 60-day countdown across the product, and somebody who
+    // mistyped a date needs to know that before the countdown is what they plan
+    // around.
+    startedClock
+      ? "Your 60-day timeline now runs from that date across Haven — your dashboard, your timeline, and my answers. If the date is wrong, tell me the right one or change it in your profile, and everything recalculates."
+      : "This now shows everywhere in Haven, including your dashboard and timeline. If I got it wrong, change it in your profile and I will use that instead."
   ].join("\n");
 }

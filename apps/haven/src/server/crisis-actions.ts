@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { openLayoffEvent } from "@/lib/layoff-events";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database";
 
@@ -89,31 +90,17 @@ export async function activateCrisisMode(layoffDateInput: Date | string): Promis
     return { eventId: activeEvent.id };
   }
 
-  const { data: profile } = await admin
-    .from("user_profiles")
-    .select("employer_name, visa_type")
-    .eq("id", user.id)
-    .maybeSingle();
+  // The insert itself lives in lib/layoff-events so the Advisor can open the same
+  // kind of row from a sentence typed in chat. One writer, two callers.
+  const opened = await openLayoffEvent(user.id, layoffDate.toISOString().split("T")[0]);
 
-  const { data, error } = await admin
-    .from("layoff_events")
-    .insert({
-      user_id: user.id,
-      layoff_date: layoffDate.toISOString().split("T")[0],
-      employer_at_layoff: profile?.employer_name ?? null,
-      visa_type_at_layoff: profile?.visa_type ?? null,
-      activated_at: new Date().toISOString(),
-    })
-    .select("id")
-    .single();
-
-  if (error) {
-    throw new Error(`Failed to activate crisis mode: ${error.message}`);
+  if (!opened) {
+    throw new Error("Failed to activate crisis mode.");
   }
 
   revalidateCrisisSurfaces();
 
-  return { eventId: data.id };
+  return { eventId: opened.event.id };
 }
 
 export async function resolveCrisisMode(resolution: ResolutionType): Promise<void> {

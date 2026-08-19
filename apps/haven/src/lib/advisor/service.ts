@@ -8,6 +8,7 @@ import { classifyIntent, compareRouters } from "@/lib/advisor/intent-router";
 import { decideScope } from "@/lib/advisor/scope";
 import { getSnapshot } from "@/lib/repositories/case-compass";
 import { resolveTestPersona } from "@/lib/repositories/test-personas";
+import { readGracePeriod, renderGracePeriodForPrompt } from "@/lib/advisor/grace-period";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database";
@@ -47,6 +48,7 @@ import {
   type ProfileUpdate
 } from "@/lib/advisor/profile-updates";
 import { persistProfileDraft } from "@/lib/profile-sync";
+import { openLayoffEvent } from "@/lib/layoff-events";
 import { renderLayoffOptionsForPrompt } from "@/lib/advisor/layoff-options";
 import {
   getLiveBulletinSnapshot,
@@ -1507,6 +1509,7 @@ export function buildAdvisorContext(snapshot: Awaited<ReturnType<typeof getSnaps
   const { profile, dashboard, timelineEvents, emailInbox, cohorts, warRoom } = snapshot;
 
   return {
+    gracePeriodSummary: renderGracePeriodForPrompt(readGracePeriod(snapshot.activeLayoffEvent?.layoffDate)),
     profileSummary: [
       `Visa type: ${profile.visaType}`,
       `Country of birth: ${profile.countryOfBirth}`,
@@ -1761,6 +1764,22 @@ function buildPromptProfileSummary(query: string, topics: TopicBucket[], userCon
  * priority date specifically is handled by provenance in
  * `stripUnrequestedPriorityDate`, not by starving the prompt.
  */
+/**
+ * The 60-day countdown, for the questions it bears on.
+ *
+ * Gated on the same date-sensitive topics as the timeline, and for the same
+ * reason: it is the person's own deadline, so it belongs in any answer about
+ * their status and nowhere else. It is not gated on the question mentioning a
+ * layoff — somebody four days from their ceiling asking "can I start on the
+ * receipt?" needs the count more than the person who says "I was laid off".
+ */
+export function buildPromptGracePeriod(topics: TopicBucket[], userContext: AdvisorUserContext) {
+  const wantsDates = topics.some(
+    (topic) => STATUS_DATE_TOPICS.includes(topic) || PRIORITY_DATE_TOPICS.includes(topic)
+  );
+  return wantsDates ? userContext.gracePeriodSummary : [];
+}
+
 export function buildPromptTimelineSummary(query: string, topics: TopicBucket[], userContext: AdvisorUserContext) {
   if (wantsHavenProfileFacts(query)) {
     return userContext.timelineSummary;
@@ -2804,6 +2823,9 @@ export const STREAMING_SYSTEM_PROMPT = [
   // three different people whose exact deadlines were sitting in the prompt. For
   // the two topics this product covers, the person's own dates are not colour;
   // they are the answer.
+  // Asking is cheap; guessing is not. Weekday phrasings ("last Friday") are
+  // deliberately not parsed, so this is the path most people's date arrives by.
+  "If the answer depends on when their employment ended and no 'Grace period' block is present, ask for the last day of employment in one short line at the end — and say why it changes the answer. Ask once; never open with it, and never withhold the rest of the answer waiting for it.",
   "When the Haven timeline gives a date that bears on the question — their last day of work, when their grace period ends, what has been filed and when — use it explicitly rather than describing the rule in general terms. A person asking about their deadline should be told their deadline. If the timeline shows a pending filing, say what is pending before you describe what happens to someone with nothing pending.",
   "When a profile fact materially changes your answer, name the fact you used and invite correction in one short line — for example 'I am going on your profile saying you are still employed; tell me if that has changed.' A profile is a snapshot the user last edited at some point, and employment status, PERM stage and dates go stale without either side noticing. Do not do this for facts that did not change the answer, and never turn it into a list of everything you hold.",
 
@@ -3364,6 +3386,7 @@ export async function* streamAdvisorResponse(rawInput: {
   const citations = buildCitationSet(knowledge, liveBulletin);
   const communityUsed = community.slice(0, 2).map((item) => `${item.title}: ${item.summary}`);
   const promptProfileSummary = buildPromptProfileSummary(content, topics, userContext);
+  const promptGracePeriod = buildPromptGracePeriod(topics, userContext);
   const promptTimelineSummary = buildPromptTimelineSummary(content, topics, userContext);
   const promptDerivedSignals = buildPromptDerivedSignals(content, topics, userContext);
   const promptEmailEvidence = buildPromptEmailEvidence(content, userContext);
@@ -3416,6 +3439,10 @@ export async function* streamAdvisorResponse(rawInput: {
       ? [buildContextBlock("What the user told you before (reported, not verified)", renderFactsForPrompt(rememberedFacts)), ""]
       : []),
     buildContextBlock("Haven profile summary", promptProfileSummary),
+    "",
+    // Above the timeline on purpose: it is the fact most likely to change the
+    // answer, and prompt position is one of the few levers on what gets used.
+    buildContextBlock("Grace period, computed from the date on file", promptGracePeriod),
     "",
     buildContextBlock("Haven timeline summary", promptTimelineSummary),
     "",
@@ -3581,12 +3608,37 @@ export async function* streamAdvisorResponse(rawInput: {
   let profileUpdates: ProfileUpdate[] = [];
   if (!identity.isMock) {
     try {
-      profileUpdates = filterAlreadyCurrent(detectProfileUpdates(content), snapshot.profile);
-      if (profileUpdates.length > 0) {
+      profileUpdates = filterAlreadyCurrent(
+        detectProfileUpdates(content),
+        snapshot.profile,
+        snapshot.activeLayoffEvent?.layoffDate ?? null
+      );
+
+      // The last day of employment is not a profile column — it opens a row in
+      // layoff_events, the same record the crisis-mode button writes, so the
+      // countdown the dashboard shows and the one in the answer are the same
+      // countdown. Split out here rather than inside persistProfileDraft because
+      // it is a different table with a different meaning: a profile field is a
+      // fact, this starts a clock.
+      const layoffUpdate = profileUpdates.find((update) => update.field === "layoffDate");
+      const profileFields = profileUpdates.filter((update) => update.field !== "layoffDate");
+
+      if (profileFields.length > 0) {
         await persistProfileDraft(
           identity.id,
-          Object.fromEntries(profileUpdates.map((update) => [update.field, update.value]))
+          Object.fromEntries(profileFields.map((update) => [update.field, update.value]))
         );
+      }
+
+      if (layoffUpdate) {
+        const opened = await openLayoffEvent(identity.id, layoffUpdate.value);
+        // Announce it only if this call is what created it. An existing open
+        // record is left alone — somebody who set a date on the form gave it more
+        // thought than a sentence typed in a hurry — and telling them we recorded
+        // something we did not would be worse than saying nothing.
+        if (!opened?.created) {
+          profileUpdates = profileUpdates.filter((update) => update.field !== "layoffDate");
+        }
       }
     } catch {
       // A failed write must not cost the user their answer. Nothing is announced

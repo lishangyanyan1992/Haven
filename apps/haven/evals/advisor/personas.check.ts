@@ -60,6 +60,15 @@ async function main() {
 
     check(`${id} has a name of its own`, profile.fullName !== havenSnapshot.profile.fullName, `still ${profile.fullName}`);
 
+    // The layoff event is what production reads. The timeline entries are prose
+    // for the model. Two sources for one date is how the dashboard and the answer
+    // end up describing different days, so they are asserted to agree.
+    check(
+      `${id} carries a layoff event, the way a real account does`,
+      Boolean(snapshot.activeLayoffEvent),
+      "activeLayoffEvent is null"
+    );
+
     const lastDay = snapshot.timelineEvents.find((e) => /last day of employment/i.test(e.title));
     const graceEnd = snapshot.timelineEvents.find((e) => /grace period end/i.test(e.title));
 
@@ -72,6 +81,12 @@ async function main() {
     const graceEndDate = dateFromLabel(graceEnd.dateLabel);
     check(`${id} dates are readable`, Boolean(lastDayDate && graceEndDate), `${lastDay.dateLabel} / ${graceEnd.dateLabel}`);
     if (!lastDayDate || !graceEndDate) continue;
+
+    check(
+      `${id} layoff event date matches the timeline`,
+      snapshot.activeLayoffEvent?.layoffDate === lastDayDate.toISOString().slice(0, 10),
+      `event says ${snapshot.activeLayoffEvent?.layoffDate}, timeline says ${lastDay.dateLabel}`
+    );
 
     const graceLength = daysBetween(lastDayDate, graceEndDate);
     check(
