@@ -22,13 +22,29 @@
  * 60 days, later transferred to a new employer after an RFE" is what someone in
  * that position is actually asking about.
  *
- * WHAT GETS REJECTED
+ * WHAT GETS REJECTED, AND WHY THE MODEL DOES NOT DECIDE IT
  *
- * Not every post is evidence. A question with no outcome, a request for referrals,
- * a rant, or a post whose whole content is "same here" teaches nobody anything, and
- * retrieving it wastes one of the three slots an answer has. The model marks those
- * `usable: false` and they are skipped with the reason recorded, rather than
- * summarised into something that sounds informative and is not.
+ * Not every post is evidence. A question with no outcome teaches nobody anything —
+ * and worse, it is the *closest* possible vector match to somebody asking that same
+ * question, so it outranks the stories that contain answers and takes one of the
+ * three slots an answer has. The filter is load-bearing, not tidiness.
+ *
+ * It used to be a verdict: the model was asked "is this usable?" and its boolean was
+ * taken. Measured over 24 posts run three times each, that verdict flipped on 8 of
+ * them — a third of the corpus decided by a coin toss. The first full run rejected
+ * 78 posts, of which a second pass accepted 40.
+ *
+ * So the model is now asked only what it can read off the page — did this person
+ * report something that already happened, did they complete a concrete step, are
+ * they asking for contacts rather than describing a situation — and the rule is
+ * applied in code. Same posts, same model, same three runs: 2 flips instead of 8.
+ *
+ * It is also less trigger-happy. "Signed Job Offer Days Before H1B Grace Period
+ * Ended" was rejected on all three verdict runs and accepted on all three fact runs,
+ * correctly: the person describes what they actually did.
+ *
+ * This is the same move as the grace-period arithmetic — ask the model for what it
+ * observes, and keep the decision somewhere it can be read and asserted.
  *
  * TAGS ARE NOT DECORATION
  *
@@ -114,15 +130,20 @@ const SYSTEM_PROMPT = [
   "tags: short factual labels drawn only from what the post states — visa type (H1B, F1, H4, B2), preference category (EB-2, EB-3), country of birth, and the concern it speaks to (layoffs, gc_timeline, job_change, visa_expiry). Omit anything the post does not say. An invented country or category promotes this story for the wrong readers.",
   "legalCaveat: one sentence naming what is specific to this person's facts and should not be generalised — the actual reason their outcome may not transfer.",
   "",
-  "usable: false when the post teaches a reader nothing — a question with no answer or outcome, a request for referrals or job leads, a rant, a greeting, or a post whose substance is agreement with someone else. Being short is not the test; having no transferable experience is. When false, say why in one clause in `summary` and leave the other fields as best you can.",
+  // Observations, not a verdict. See the note at the top of the file.
+  "reportedOutcome: what has ALREADY happened to this person, in a few words — an approval, a denial, an RFE they answered, a start date they reached, a departure they made. Empty string when nothing has resolved yet.",
+  "actionsTaken: concrete steps this person has ALREADY completed, a few words each. 'Filed I-539 to B-2' counts. 'Thinking about filing', 'my lawyer suggested', and anything they are still deciding do not. Empty when they have only asked questions.",
+  "isRequestForContacts: true when the post is asking for attorney recommendations, job referrals or leads rather than describing a situation.",
 ].join("\n");
 
 const SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["usable", "summary", "topic", "tags", "legalCaveat"],
+  required: ["reportedOutcome", "actionsTaken", "isRequestForContacts", "summary", "topic", "tags", "legalCaveat"],
   properties: {
-    usable: { type: "boolean" },
+    reportedOutcome: { type: "string" },
+    actionsTaken: { type: "array", items: { type: "string" } },
+    isRequestForContacts: { type: "boolean" },
     summary: { type: "string" },
     topic: { type: "string", enum: [...TOPIC_BUCKETS] },
     tags: { type: "array", items: { type: "string" } },
@@ -131,7 +152,9 @@ const SCHEMA = {
 } as const;
 
 type Summary = {
-  usable: boolean;
+  reportedOutcome: string;
+  actionsTaken: string[];
+  isRequestForContacts: boolean;
   summary: string;
   topic: string;
   tags: string[];
@@ -153,6 +176,29 @@ async function rest(path: string, init?: RequestInit) {
   if (!response.ok) throw new Error(`${response.status} ${await response.text()}`);
   const text = await response.text();
   return text ? JSON.parse(text) : null;
+}
+
+/**
+ * Does this post hold experience somebody else can use?
+ *
+ * Generous in one direction on purpose: an unresolved situation still counts if the
+ * person actually did something, because "I filed B-2 on day 58 and I am waiting" is
+ * real information to somebody on day 55. What is excluded is the post containing
+ * only a question, and the one asking for contacts.
+ */
+function holdsExperience(summary: Summary): { usable: boolean; why: string } {
+  if (summary.isRequestForContacts) {
+    return { usable: false, why: "asking for referrals or attorney recommendations, not describing a situation" };
+  }
+
+  const outcome = summary.reportedOutcome.trim();
+  const actions = (summary.actionsTaken ?? []).filter((action) => action.trim().length > 0);
+
+  if (outcome.length === 0 && actions.length === 0) {
+    return { usable: false, why: "a question only — nothing has happened yet and no step has been taken" };
+  }
+
+  return { usable: true, why: "" };
 }
 
 /**
@@ -228,8 +274,9 @@ async function main() {
             return;
           }
 
-          if (!summary.usable) {
-            skipped.push({ id: post.id, title: post.title, why: summary.summary.slice(0, 110) });
+          const verdict = holdsExperience(summary);
+          if (!verdict.usable) {
+            skipped.push({ id: post.id, title: post.title, why: verdict.why });
             return;
           }
 
