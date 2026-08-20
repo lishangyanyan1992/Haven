@@ -2553,6 +2553,74 @@ export function requiredPointsForAnswer(
   return points;
 }
 
+/**
+ * Deletes the answer's repeats before anyone reads them.
+ *
+ * The prompt has been asked twice, in two different wordings, to say each
+ * required line once. Both times the mean answer length barely moved and seven of
+ * ten answers still restated "do not work without authorisation" two or three
+ * times, usually inside a closing "Final safety reminders" block that also
+ * duplicated the citation panel. A model that ignores an instruction twice will
+ * ignore it a third time, so this stops asking and does it.
+ *
+ * Two deliberate limits, because this edits words a person is about to act on:
+ *
+ * - Only the SECOND and later occurrences are removed, never the first. Whatever
+ *   this function does, every required safety line still appears in the answer.
+ * - Only whole list items are removed, never part of a sentence. A duplicate
+ *   embedded in prose is left alone; a mangled sentence in a legal answer would
+ *   be far worse than a repeated one.
+ */
+const RECAP_HEADING =
+  /^\s{0,3}(?:#{1,4}\s*|\*\*)?(?:final (?:safety )?reminders?|safety reminders?|sources(?:\s*\(official\))?|references|summary|recap|key takeaways)\b.*$/i;
+
+const DUPLICATE_LINE_PATTERNS: RegExp[] = [
+  /do not work without authoris|do not work without authoriz|don't work without authoris|don't work without authoriz/i,
+  /lca[^.]{0,60}(?:does not|doesn't)[^.]{0,30}preserve status/i,
+  /confirm[^.]{0,80}(?:deadline|filing strategy)[^.]{0,60}counsel|immigration counsel immediately/i,
+  /(?:change of status|b-?2)[^.]{0,120}(?:does not|doesn't)[^.]{0,40}(?:authoris|authoriz|permit|allow)[^.]{0,40}(?:work|employment)/i
+];
+
+const LIST_ITEM = /^\s{0,3}(?:[-*+]|\d{1,2}[.)])\s+/;
+
+export function stripRedundantRepeats(answer: string): string {
+  const lines = answer.split("\n");
+  const kept: string[] = [];
+  const seen = DUPLICATE_LINE_PATTERNS.map(() => false);
+  let droppingRecap = false;
+
+  for (const line of lines) {
+    // A recap or sources heading ends the useful answer: drop it and everything
+    // under it until a heading that is clearly a different section.
+    if (RECAP_HEADING.test(line)) {
+      droppingRecap = true;
+      continue;
+    }
+    if (droppingRecap) {
+      const isBlank = line.trim().length === 0;
+      const isContinuation = isBlank || LIST_ITEM.test(line) || /^\s+/.test(line);
+      if (isContinuation) continue;
+      droppingRecap = false;
+    }
+
+    const patternIndex = DUPLICATE_LINE_PATTERNS.findIndex((pattern) => pattern.test(line));
+    if (patternIndex >= 0) {
+      if (seen[patternIndex] && LIST_ITEM.test(line)) {
+        // Second copy, and it is its own bullet: drop the bullet whole.
+        continue;
+      }
+      seen[patternIndex] = true;
+    }
+
+    kept.push(line);
+  }
+
+  // Collapse the blank runs the removals leave behind, and never return an empty
+  // answer: if something went wrong, the original is the safer output.
+  const rebuilt = kept.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd();
+  return rebuilt.trim().length > 0 ? rebuilt : answer;
+}
+
 export function buildMandatorySafetyAddendum(
   question: string,
   topics: TopicBucket[],
@@ -2574,7 +2642,15 @@ export function buildMandatorySafetyAddendum(
   };
 
   if (isLayoffSituation(normalizedQuestion, topics)) {
-    const missingUnauthorizedWork = !/do not work without authorization|don't work without authorization|unauthorized work/i.test(answer);
+    // British spelling, deliberately. The model writes "authorisation" about half
+    // the time; every one of those answers was judged to be MISSING the line and
+    // had a second copy stapled to the end by the addendum below. Three of the
+    // four addendum fires in the 2026-08-20 run were this bug, which also made
+    // the reported prompt-compliance rate worse than the truth.
+    const missingUnauthorizedWork =
+      !/do not work without authoris|do not work without authoriz|don't work without authoris|don't work without authoriz|unauthoris(ed|ation)|unauthoriz(ed|ation)/i.test(
+        answer
+      );
     const missingLcaWarning = !/lca preparation alone does not preserve status|lca.*not.*preserve status|lca.*not.*filed h-1b petition/i.test(answer);
     const missingImmediateCounsel = !/confirm.*deadline.*counsel|confirm.*filing strategy.*counsel|immigration counsel immediately/i.test(answer);
     // \bdepart\b, not `depart`: the bare alternative matched inside "Department",
@@ -2615,7 +2691,7 @@ export function buildMandatorySafetyAddendum(
   // answer's own option menu rather than in what the user asked (adv-bridge-070).
   const raisesChangeOfStatus = /\bchange of status\b|\bb-?2\b|\bcos\b/i.test(answer);
   const statesNoWorkOnNewStatus =
-    /(change of status|b-?2)[^.]{0,120}(does not|doesn't|will not|won't)[^.]{0,40}(authorize|permit|allow)[^.]{0,40}(work|employment)|(does not|doesn't)[^.]{0,60}(authorize|permit|allow)[^.]{0,30}(you )?to work/i.test(
+    /(change of status|b-?2)[^.]{0,120}(does not|doesn't|will not|won't)[^.]{0,40}(authoris|authoriz|permit|allow)[^.]{0,40}(work|employment)|(does not|doesn't)[^.]{0,60}(authoris|authoriz|permit|allow)[^.]{0,30}(you )?to work/i.test(
       answer
     );
   if (raisesChangeOfStatus && !statesNoWorkOnNewStatus) {
@@ -2935,6 +3011,12 @@ export const STREAMING_SYSTEM_PROMPT = [
   // once is most of the fix, and it costs nothing in safety, because every
   // required line is still present exactly once.
   "Say each thing once. Do not restate a date, deadline, requirement or warning in more than one place, and never add a closing section that recaps points already made. A required safety line belongs where it is relevant, once — not in a summary and again in a reminder. Someone reading this is frightened and short on time; repetition reads as padding and buries the one sentence that matters.",
+  // Both of these duplicate the interface. The app renders official citations in
+  // their own panel beside the message, and the composer is right there -- an
+  // answer that ends by offering to continue is spending words on a button the
+  // person can already see.
+  "Do not end with a 'Sources' or 'References' list. Citations belong in the citation payload, which the app displays separately; repeating them as prose adds length and nothing else.",
+  "Do not end by offering to do more ('if you want, tell me X and I can...'). Ask the one question you need, as a question, or stop.",
   "Lead with the direct answer, then add only the context, caveats, or numbers that materially change what the user should do."
 ].join(" ");
 
@@ -3718,6 +3800,10 @@ export async function* streamAdvisorResponse(rawInput: {
   if (normalizedFullText !== fullText) {
     fullText = normalizedFullText;
   }
+
+  // Runs before the addendum so the addendum still sees the one surviving copy of
+  // each required line and does not staple a replacement for what was just cut.
+  fullText = stripRedundantRepeats(fullText);
 
   const addendum = buildMandatorySafetyAddendum(content, topics, fullText, threadState.delivered);
   if (addendum.text) {
