@@ -146,7 +146,12 @@ type RunSample = {
   judge: JudgeResult | null;
   answerText: string;
   citations: Citation[];
+  /** Whole case, including the grader when one runs. Not user-facing latency. */
   elapsedMs: number | null;
+  /** The Advisor alone, first byte of work to last token. */
+  answerMs: number | null;
+  /** What the person waits with an empty screen, since the answer streams. */
+  firstTokenMs: number | null;
   traceId: string | null;
   usage: TokenUsage | null;
   safetyPatch: SafetyPatch | null;
@@ -179,6 +184,8 @@ type EvalResult = {
   answerText: string;
   citations: Citation[];
   elapsedMs: number | null;
+  answerMs: number | null;
+  firstTokenMs: number | null;
   preview: string;
   traceId: string | null;
   usage: TokenUsage | null;
@@ -751,11 +758,20 @@ async function collectAdvisorAnswer(testCase: EvalCase) {
   let answerText = "";
   let doneEvent: any = null;
 
+  // Two clocks, because they answer different questions. `answerMs` is how long
+  // the Advisor itself takes. `firstTokenMs` is what the person actually waits:
+  // the answer streams, so the screen stops being empty at the first delta, not
+  // at the last one. The old single `elapsedMs` measured neither — it wrapped the
+  // grader too, so a judged run reported roughly double the real latency.
+  const answerStartedAt = Date.now();
+  let firstTokenMs: number | null = null;
+
   for await (const event of streamAdvisorResponse({
     content: testCase.question,
     history: testCase.history ?? []
   })) {
     if (event.type === "delta") {
+      if (firstTokenMs === null) firstTokenMs = Date.now() - answerStartedAt;
       answerText += event.text;
     } else if (event.type === "done") {
       doneEvent = event;
@@ -769,7 +785,9 @@ async function collectAdvisorAnswer(testCase: EvalCase) {
     answerText: answerPayload?.answer_markdown ?? answerText,
     answerPayload,
     traceId: doneEvent?.traceId ?? null,
-    systemPrompt
+    systemPrompt,
+    answerMs: Date.now() - answerStartedAt,
+    firstTokenMs
   };
 }
 
@@ -843,6 +861,8 @@ async function executeRun(
       answerText: answer.answerText,
       citations: toCitations(answer.answerPayload),
       elapsedMs: Date.now() - startedAt,
+      answerMs: answer.answerMs,
+      firstTokenMs: answer.firstTokenMs,
       traceId: answer.traceId,
       usage: buildUsage(testCase, answer.systemPrompt, answer.answerText),
       safetyPatch: detectSafetyPatch(answer.answerText)
@@ -855,6 +875,8 @@ async function executeRun(
       judge: null,
       answerText: "",
       citations: [],
+      answerMs: null,
+      firstTokenMs: null,
       elapsedMs: null,
       traceId: null,
       usage: null,
@@ -908,10 +930,13 @@ function aggregateSamples(testCase: EvalCase, samples: RunSample[], runsPerCase:
   const status: "pass" | "warn" | "fail" =
     statusCounts.fail > 0 ? "fail" : statusCounts.warn > 0 ? "warn" : "pass";
 
-  const elapsedValues = samples.map((sample) => sample.elapsedMs).filter((value): value is number => value != null);
-  const meanElapsed = elapsedValues.length > 0
-    ? Math.round(elapsedValues.reduce((total, value) => total + value, 0) / elapsedValues.length)
-    : null;
+  const meanOf = (pick: (sample: RunSample) => number | null) => {
+    const values = samples.map(pick).filter((value): value is number => value != null);
+    return values.length > 0 ? Math.round(values.reduce((total, value) => total + value, 0) / values.length) : null;
+  };
+  const meanElapsed = meanOf((sample) => sample.elapsedMs);
+  const meanAnswerMs = meanOf((sample) => sample.answerMs);
+  const meanFirstTokenMs = meanOf((sample) => sample.firstTokenMs);
 
   const checkStability = buildCheckStability(samples);
 
@@ -926,6 +951,8 @@ function aggregateSamples(testCase: EvalCase, samples: RunSample[], runsPerCase:
     answerText: representative.answerText,
     citations: representative.citations,
     elapsedMs: meanElapsed,
+    answerMs: meanAnswerMs,
+    firstTokenMs: meanFirstTokenMs,
     preview: representative.answerText.replace(/\s+/g, " ").slice(0, 180),
     traceId: representative.traceId,
     usage: meanUsage(samples.map((sample) => sample.usage).filter((usage): usage is TokenUsage => usage != null)),
@@ -1290,7 +1317,11 @@ function formatMarkdownReport(report: EvalRunReport) {
     lines.push(`Risk: ${result.riskLevel}`);
     if (result.traceId) lines.push(`Trace: ${result.traceId}`);
     if (result.elapsedMs != null) {
-      lines.push(`Elapsed: ${result.elapsedMs}ms${report.runsPerCase > 1 ? " (mean)" : ""}`);
+      const suffix = report.runsPerCase > 1 ? " (mean)" : "";
+      lines.push(
+        `Answer: ${result.answerMs ?? "?"}ms${suffix}, first word after ${result.firstTokenMs ?? "?"}ms${suffix} ` +
+          `(case incl. grader: ${result.elapsedMs}ms${suffix})`
+      );
     }
     if (result.usage) {
       lines.push(`Tokens (est.): ${result.usage.totalTokens} total, ${result.usage.answerTokens} answer`);

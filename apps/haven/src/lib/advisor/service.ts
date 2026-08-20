@@ -2927,6 +2927,14 @@ export const STREAMING_SYSTEM_PROMPT = [
   // Length
   "Be concise. Answer the question directly in as few words as it takes to be accurate and complete — no preamble, no restating the question, no filler.",
   "Default to a short answer (2–4 sentences or a tight bulleted list). Only go longer when the question genuinely requires multiple steps, dates, or conditions.",
+  // Answers were averaging ~1,000 words while this file asked for 2-4 sentences.
+  // The length was not padding: required safety points and the option menu were
+  // each being restated in three or four different sections -- the deadline
+  // appearing under "Short answer", again under "Required legal points", again
+  // under "What must be filed", again under "Final reminders". Saying each thing
+  // once is most of the fix, and it costs nothing in safety, because every
+  // required line is still present exactly once.
+  "Say each thing once. Do not restate a date, deadline, requirement or warning in more than one place, and never add a closing section that recaps points already made. A required safety line belongs where it is relevant, once — not in a summary and again in a reminder. Someone reading this is frightened and short on time; repetition reads as padding and buries the one sentence that matters.",
   "Lead with the direct answer, then add only the context, caveats, or numbers that materially change what the user should do."
 ].join(" ");
 
@@ -3471,16 +3479,26 @@ export async function* streamAdvisorResponse(rawInput: {
   }
 
   const retrievalSpan = trace?.span({ name: "retrieval", input: { topics } });
-  const knowledge = await retrieveKnowledge(content, topics, retrievalSpan);
-  const community = await retrieveCommunity(content, topics, snapshot, retrievalSpan);
-  const caseStats = wantsCaseOutcomeStats(content, topics)
-    ? await getCaseOutcomeStats(buildCaseSegmentFilters(snapshot.profile, content, topics), retrievalSpan)
-    : null;
 
-  // Live bulletin: only fetched for bulletin questions, so an OPT or layoff
-  // answer never carries a bulletin citation it did not use.
+  // These four were awaited one after another, so every answer paid the sum of
+  // four network round trips before the model saw a single token -- including an
+  // embedding call inside the community search. None of them reads another's
+  // output; they all take the same `content`, `topics` and `snapshot`. Run them
+  // together and the cost is the slowest one instead of all of them.
+  //
+  // Live bulletin stays gated on the topic: only fetched for bulletin questions,
+  // so an OPT or layoff answer never carries a bulletin citation it did not use.
   const isBulletinQuestion = topics.includes("visa-bulletin");
-  const liveBulletin = isBulletinQuestion ? await getLiveBulletinSnapshot() : null;
+  const [knowledge, community, caseStats, liveBulletin] = await Promise.all([
+    retrieveKnowledge(content, topics, retrievalSpan),
+    retrieveCommunity(content, topics, snapshot, retrievalSpan),
+    wantsCaseOutcomeStats(content, topics)
+      ? getCaseOutcomeStats(buildCaseSegmentFilters(snapshot.profile, content, topics), retrievalSpan)
+      : Promise.resolve(null),
+    isBulletinQuestion ? getLiveBulletinSnapshot() : Promise.resolve(null)
+  ]);
+
+  // Genuinely dependent: there is no position to render without a live bulletin.
   const bulletinPosition =
     isBulletinQuestion && liveBulletin ? await renderBulletinPositionForPrompt(snapshot.profile) : null;
 
