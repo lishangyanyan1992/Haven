@@ -836,6 +836,13 @@ export function modelMayDecideScope(input: {
  * `selectGuardrailIds` keeps its own, wider condition on purpose — see the note
  * there. This is the tighter of the two.
  */
+/** "day 40", "on day 12", "40 days in", "it has been 40 days". */
+const STATED_DAY_COUNT_PATTERN = /\b(?:on )?day \d{1,3}\b|\b\d{1,3} days? (?:in|since|ago|into)\b|\bbeen \d{1,3} days?\b/i;
+
+/** A month name or an ISO/US numeric date the user typed themselves. */
+const MENTIONS_A_DATE_PATTERN =
+  /\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b|\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/i;
+
 function isLayoffSituation(normalized: string, topics: TopicBucket[]) {
   if (!topics.includes("h1b") && !topics.includes("layoffs")) return false;
   return (
@@ -1084,6 +1091,15 @@ function selectGuardrailIds(query: string, topics: TopicBucket[], signals: Guard
     // The hard rules and the option menu were one guardrail. Split so the rules can
     // repeat on every layoff turn while the menu is delivered once (CD-13.4).
     ids.push("GR_LAYOFF_SAFETY_RULES", "GR_LAYOFF_OPTION_MENU");
+    // The option menu offers a B-2 change of status, so the rule that a change of
+    // status is not work authorization travels with it (adv-bridge-070).
+    ids.push("GR_CHANGE_OF_STATUS_NO_WORK");
+  }
+
+  // A conflict between a stated date and a stated day count decides a filing
+  // deadline, so it is never safe to resolve silently -- whatever the topic.
+  if (STATED_DAY_COUNT_PATTERN.test(normalized) && MENTIONS_A_DATE_PATTERN.test(normalized)) {
+    ids.push("GR_STATED_TIMELINE_CONFLICT");
   }
 
   if (topics.includes("student-status") && START_WORK_PATTERN.test(normalized)) {
@@ -2591,6 +2607,21 @@ export function buildMandatorySafetyAddendum(
       if (texts.length > 0) {
         notes.push(["H-1B safety note:", ...texts].join(" "));
       }
+    }
+  }
+
+  // The answer raised a change of status but never said it does not authorize work.
+  // Checked against the answer, not the question: the option usually arrives in the
+  // answer's own option menu rather than in what the user asked (adv-bridge-070).
+  const raisesChangeOfStatus = /\bchange of status\b|\bb-?2\b|\bcos\b/i.test(answer);
+  const statesNoWorkOnNewStatus =
+    /(change of status|b-?2)[^.]{0,120}(does not|doesn't|will not|won't)[^.]{0,40}(authorize|permit|allow)[^.]{0,40}(work|employment)|(does not|doesn't)[^.]{0,60}(authorize|permit|allow)[^.]{0,30}(you )?to work/i.test(
+      answer
+    );
+  if (raisesChangeOfStatus && !statesNoWorkOnNewStatus) {
+    const texts = take(["FIX_COS_NO_WORK"]);
+    if (texts.length > 0) {
+      notes.push(["Work authorization note:", ...texts].join(" "));
     }
   }
 

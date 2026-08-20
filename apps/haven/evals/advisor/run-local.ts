@@ -353,8 +353,50 @@ function loadOpenAIEnv() {
   }
 }
 
+/**
+ * Fixture dates that move with the run date.
+ *
+ * A case written as "laid off on July 20, 2026 and I'm on day 40" is only true for
+ * one day. Every day after that, the two halves of the sentence disagree, and the
+ * eval fails the Advisor for the fixture's own drift instead of for anything the
+ * Advisor did (this is what happened to adv-bridge-070 on 2026-08-20). Fixtures may
+ * therefore write dates as tokens resolved against the day the eval runs:
+ *
+ *   {{daysAgo:40}}          -> "July 11, 2026"   (long form, for question prose)
+ *   {{daysAgo:40|iso}}      -> "2026-07-11"      (for profileSnapshot fields)
+ *   {{daysAhead:180|iso}}   -> a future ISO date
+ *
+ * A fixture with no tokens is left exactly as written.
+ */
+const FIXTURE_DATE_TOKEN = /\{\{days(Ago|Ahead):(\d{1,5})(\|iso)?\}\}/g;
+
+function resolveFixtureDate(direction: string, days: number, iso: boolean): string {
+  const date = new Date();
+  date.setUTCHours(12, 0, 0, 0);
+  date.setUTCDate(date.getUTCDate() + (direction === "Ago" ? -days : days));
+  if (iso) return date.toISOString().slice(0, 10);
+  return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
+
+function resolveFixtureDates<T>(value: T): T {
+  if (typeof value === "string") {
+    return value.replace(FIXTURE_DATE_TOKEN, (_match, direction: string, days: string, iso?: string) =>
+      resolveFixtureDate(direction, Number(days), Boolean(iso))
+    ) as unknown as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => resolveFixtureDates(item)) as unknown as T;
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, resolveFixtureDates(item)])
+    ) as unknown as T;
+  }
+  return value;
+}
+
 function loadDataset(): Dataset {
-  return JSON.parse(fs.readFileSync(datasetPath, "utf8")) as Dataset;
+  return resolveFixtureDates(JSON.parse(fs.readFileSync(datasetPath, "utf8")) as Dataset);
 }
 
 function selectCases(dataset: Dataset, args: Map<string, string | boolean>) {

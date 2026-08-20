@@ -120,6 +120,45 @@ const ENTRIES: GuardrailEntry[] = [
       /(change of status|b-2)[\s\S]*(depart|consular)[\s\S]*(premium processing|escalat)|(depart|consular)[\s\S]*(change of status|b-2)[\s\S]*(premium processing|escalat)/i
   },
   {
+    // Added 2026-08-20 after eval case adv-bridge-070. The answer walked a laid-off
+    // H-1B worker through filing a B-2 change of status and never said the one thing
+    // that decides what they do on Monday: B-2 does not let them work. The layoff
+    // rules carry "Do not work without authorization", which is a different sentence
+    // to someone who has just been told they can stay in the country on B-2.
+    id: "GR_CHANGE_OF_STATUS_NO_WORK",
+    topic: "cross-cutting",
+    audience: "model",
+    repeat: "always",
+    intent: "Never let a change-of-status option be read as permission to keep working.",
+    lastReviewedBy: null,
+    lastReviewedAt: null,
+    text: "Whenever the answer raises a change of status (B-2 or any other visitor/dependent classification) as an option, say explicitly and in its own sentence that the new status does not authorize employment, and that a pending change-of-status application is not work authorization either. Say it where the option is described, not only in a closing disclaimer. Do not imply the person may keep working while the application is pending."
+  },
+  {
+    // Same case. The user's own message said "day 40" while the date they gave was 31
+    // days ago. The answer quietly recomputed from the date and carried on. Silently
+    // picking one of two conflicting facts is the wrong move when the fact decides a
+    // filing deadline.
+    id: "GR_STATED_TIMELINE_CONFLICT",
+    topic: "cross-cutting",
+    audience: "model",
+    repeat: "always",
+    intent: "Surface a contradiction in the user's own dates instead of resolving it silently.",
+    lastReviewedBy: null,
+    lastReviewedAt: null,
+    text: "If the user's stated day count and their stated date disagree (for example 'laid off July 20' and 'I'm on day 40' when today is 31 days after July 20), do not pick one and continue. Name both figures in one sentence, say which one you used and why, and ask them to confirm the correct date before relying on any deadline you calculate from it."
+  },
+  {
+    id: "FIX_COS_NO_WORK",
+    topic: "cross-cutting",
+    audience: "user",
+    repeat: "always",
+    intent: "The sentence that decides whether someone commits unauthorized work while waiting.",
+    lastReviewedBy: null,
+    lastReviewedAt: null,
+    text: "A change of status such as B-2 does not authorize you to work, and a pending change-of-status application is not work authorization."
+  },
+  {
     id: "GR_OPT_WORK_AUTHORIZATION",
     topic: "student-status",
     audience: "model",
