@@ -67,6 +67,20 @@ export type LawFirm = {
 
 type LegalDirectoryProps = {
   firms: LawFirm[];
+  /**
+   * Practice area to open on, from `?focus=` in the URL.
+   *
+   * This is how the Advisor hands somebody over. Saying "talk to an immigration
+   * attorney" and dropping them on an unfiltered list of sixty firms is the same
+   * dead end as saying "contact support" — the person still has to work out what
+   * kind of lawyer their problem needs, which is exactly what they came to Haven
+   * unsure about. Arriving on the H-1B firms answers that for them.
+   *
+   * Ignored when it does not match a practice area any firm actually lists, so a
+   * stale or hand-edited link degrades to the full directory rather than to an
+   * empty one.
+   */
+  initialPractice?: string;
 };
 
 const sortOptions = [
@@ -117,10 +131,15 @@ function isFirmVerified(firm: LawFirm) {
   return firm.claimStatus === "claimed";
 }
 
-export function LegalDirectory({ firms }: LegalDirectoryProps) {
+export function LegalDirectory({ firms, initialPractice }: LegalDirectoryProps) {
   const [query, setQuery] = useState("");
   const [stateFilter, setStateFilter] = useState("all");
-  const [practiceFilter, setPracticeFilter] = useState("all");
+  const [practiceFilter, setPracticeFilter] = useState(() => {
+    if (!initialPractice) return "all";
+    const known = firms.flatMap((firm) => firm.practiceFocus);
+    const matched = known.find((area) => area.toLowerCase() === initialPractice.trim().toLowerCase());
+    return matched ?? "all";
+  });
   const [languageFilter, setLanguageFilter] = useState("all");
   const [sortBy, setSortBy] = useState<(typeof sortOptions)[number]["value"]>("trust");
 

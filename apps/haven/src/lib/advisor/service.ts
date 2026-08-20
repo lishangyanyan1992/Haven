@@ -40,6 +40,8 @@ import {
   type TurnResolution
 } from "@/lib/advisor/thread-state";
 import { listThreads, persistExchange, type AdvisorThreadSummary } from "@/lib/advisor/threads";
+import { collectAttempts, renderAttemptsForPrompt } from "@/lib/advisor/attempted-steps";
+import { buildAttorneyHandoff, HANDOFF_DELIVERED } from "@/lib/advisor/attorney-handoff";
 import { listFacts, rememberFactsFrom, renderFactsForPrompt, type RememberedFact } from "@/lib/advisor/memory";
 import {
   detectProfileUpdates,
@@ -3614,6 +3616,10 @@ export async function* streamAdvisorResponse(rawInput: {
   const promptTimelineSummary = buildPromptTimelineSummary(content, topics, userContext);
   const promptDerivedSignals = buildPromptDerivedSignals(content, topics, userContext);
   const promptEmailEvidence = buildPromptEmailEvidence(content, userContext);
+  // Everything the user has already tried in this thread, so the answer stops
+  // handing them back a door they told us was locked. Thread-scoped and derived
+  // from the history the request already carries — see attempted-steps.ts.
+  const attemptedSteps = collectAttempts(content, rawHistory);
   const havenContextUsed = promptProfileSummary.slice(0, 4).filter(Boolean);
 
   const { text: systemPrompt, prompt: advisorPrompt } = await getPrompt(lf, ADVISOR_PROMPT_NAME, STREAMING_SYSTEM_PROMPT);
@@ -3648,6 +3654,15 @@ export async function* streamAdvisorResponse(rawInput: {
     "",
     `User question:\n${content}`,
     "",
+    // Directly under the question, above the guardrails, for the same reason the
+    // grace period sits above the timeline: prompt position is one of the few
+    // levers on what actually gets used. Placed further down — after the
+    // remembered facts, where it started — the model followed the letter of it
+    // (it stopped suggesting the closed step) and skipped the part that matters
+    // to the person reading, which is being told it heard them.
+    ...(attemptedSteps.length > 0
+      ? [buildContextBlock("What the user has already tried", renderAttemptsForPrompt(attemptedSteps)), ""]
+      : []),
     buildContextBlock("Decision guardrails", decisionGuardrails),
     "",
     ...(profileContradictsJobLoss
@@ -3662,6 +3677,7 @@ export async function* streamAdvisorResponse(rawInput: {
     ...(rememberedFacts.length > 0
       ? [buildContextBlock("What the user told you before (reported, not verified)", renderFactsForPrompt(rememberedFacts)), ""]
       : []),
+
     buildContextBlock("Haven profile summary", promptProfileSummary),
     "",
     // Above the timeline on purpose: it is the fact most likely to change the
@@ -3812,6 +3828,36 @@ export async function* streamAdvisorResponse(rawInput: {
     yield { type: "delta", text: addendumText };
   }
 
+  // Attorney handoff.
+  //
+  // The Advisor recommends counsel constantly and has to — but "talk to an
+  // immigration attorney" on its own is the same dead end as "please contact
+  // support". This attaches the three things the user cannot assemble alone: a
+  // directory link already filtered to their practice area, their own dates to
+  // take with them, and questions worth a paid half hour.
+  //
+  // Appended rather than asked of the model because the link and the dates are
+  // facts we hold, and matched against the finished answer rather than decided up
+  // front because the recommendation can come from a guardrail or the model.
+  const priorAssistantText = rawHistory
+    .filter((turn) => turn.role === "assistant")
+    .map((turn) => turn.content)
+    .join("\n\n");
+  const handoff = buildAttorneyHandoff({
+    topics,
+    answer: fullText,
+    context: {
+      layoffDate: snapshot.activeLayoffEvent?.layoffDate ?? null,
+      priorityDate: snapshot.profile.priorityDate ?? null
+    },
+    alreadyDelivered: HANDOFF_DELIVERED.test(priorAssistantText)
+  });
+  if (handoff) {
+    const handoffText = `\n\n${handoff.text}`;
+    fullText += handoffText;
+    yield { type: "delta", text: handoffText };
+  }
+
   // Stale-bulletin disclosure. detectStaleBulletin used to be consulted only
   // inside fallbackAnswer, which runs when generation fails — so on the normal
   // path, the path every real user takes, a stale bulletin produced no warning
@@ -3917,6 +3963,10 @@ export async function* streamAdvisorResponse(rawInput: {
       guardrailsSuppressed: [...guardrails.suppressed, ...addendum.suppressed],
       retrievalKnowledgeCount: knowledge.length,
       retrievalCommunityCount: community.length,
+      // Counted, not just injected: a thread where the user keeps ruling steps out
+      // is a thread that is going badly, and that is only visible if it is recorded.
+      attemptedStepCount: attemptedSteps.length,
+      attorneyHandoff: handoff?.practiceArea ?? "none",
       caseStatsTier: caseStats?.tier ?? "none",
       citationCount: citations.length,
       fallback,

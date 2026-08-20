@@ -690,8 +690,13 @@ const ENTRIES: GuardrailEntry[] = [
     text: [
       "I've asked twice and I'm still not confident I understand your situation well enough to answer safely — so I'd rather point you somewhere useful than guess again.",
       "",
-      "- **Talk to an immigration attorney** — [browse immigration lawyers](/lawyers). Worth doing now if anything in your situation is time-sensitive.",
-      "- **Ask people in the same situation** — [the Haven community](/community) sees questions like yours daily.",
+      // No link on the first two on purpose. The lawyer directory and the
+      // community feed were both parked in the August 2026 simplification, and
+      // this message is what somebody gets after being misunderstood twice —
+      // the worst possible moment to be handed a page that says Haven does not
+      // have this any more. Restore the links here when those routes come back.
+      "- **Talk to an immigration attorney** — a small or boutique firm that handles employment-based cases. Worth doing now if anything in your situation is time-sensitive.",
+      "- **Ask people in the same situation** — Reddit's r/h1b and r/immigration see questions like yours daily.",
       "- **Read the official guidance** — [Haven's source library](/resources) links the USCIS and eCFR pages directly.",
       "",
       "If you'd like to try me once more, the most useful things to include are your current visa, the relevant dates, and what decision you're trying to make."

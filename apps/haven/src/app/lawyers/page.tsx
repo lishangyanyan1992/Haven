@@ -79,7 +79,14 @@ const faqItems = [
   }
 ];
 
-export default async function LawyersPage() {
+export default async function LawyersPage({
+  searchParams
+}: {
+  searchParams?: Promise<{ focus?: string }>;
+}) {
+  // `?focus=H-1B` is how the Advisor hands somebody over with their problem
+  // attached, instead of dropping them on sixty unfiltered firms.
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const firms = await getMergedFirms();
   const sources = getLegalSources();
   const generatedAt = getLegalGeneratedAt();
@@ -246,7 +253,7 @@ export default async function LawyersPage() {
             </Link>
           </section>
 
-          <LegalDirectory firms={firms} />
+          <LegalDirectory firms={firms} initialPractice={resolvedSearchParams?.focus} />
 
           <section className="rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-5 md:p-6">
             <h2 className="text-h2">Frequently asked questions</h2>
