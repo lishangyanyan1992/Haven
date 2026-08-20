@@ -27,6 +27,7 @@
     "check:profile-updates": "tsx --tsconfig tsconfig.json evals/advisor/profile-updates.check.ts",
     "check:attempted-steps": "tsx --tsconfig tsconfig.json evals/advisor/attempted-steps.check.ts",
     "check:attorney-handoff": "tsx --tsconfig tsconfig.json evals/advisor/attorney-handoff.check.ts",
+    "check:answer-outcome": "tsx --tsconfig tsconfig.json evals/advisor/answer-outcome.check.ts",
     "check:scope": "tsx --tsconfig tsconfig.json evals/advisor/scope.check.ts",
     "check:source-freshness": "tsx --tsconfig tsconfig.json evals/advisor/source-freshness.check.ts",
     "check:trace-tags": "tsx --tsconfig tsconfig.json evals/advisor/trace-tags.check.ts",

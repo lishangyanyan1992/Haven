@@ -39,9 +39,10 @@ import {
   type ThreadState,
   type TurnResolution
 } from "@/lib/advisor/thread-state";
-import { listThreads, persistExchange, type AdvisorThreadSummary } from "@/lib/advisor/threads";
+import { getThreadMessages, listThreads, persistExchange, type AdvisorThreadSummary } from "@/lib/advisor/threads";
 import { collectAttempts, renderAttemptsForPrompt } from "@/lib/advisor/attempted-steps";
 import { buildAttorneyHandoff, HANDOFF_DELIVERED } from "@/lib/advisor/attorney-handoff";
+import { readAnswerOutcome, recordOutcome, IMMEDIATE_LANDED, type ImmediateOutcome } from "@/lib/advisor/answer-outcome";
 import { listFacts, rememberFactsFrom, renderFactsForPrompt, type RememberedFact } from "@/lib/advisor/memory";
 import {
   detectProfileUpdates,
@@ -3022,6 +3023,59 @@ export const STREAMING_SYSTEM_PROMPT = [
   "Lead with the direct answer, then add only the context, caveats, or numbers that materially change what the user should do."
 ].join(" ");
 
+/**
+ * Score the answer before this one, using what the user typed next.
+ *
+ * Reads the last exchange from the stored thread rather than from the submitted
+ * history, because the score has to attach to a trace and only the stored message
+ * carries its trace id. That also means it is judging the answer as it was
+ * delivered — with the safety addenda and notices appended — rather than whatever
+ * the client happens to have in memory.
+ *
+ * Every path returns quietly. There is no version of this worth surfacing to
+ * somebody waiting for an answer about their visa.
+ */
+/** Record an ending the Advisor chose, without waiting for a reply. */
+async function recordImmediateOutcome(traceId: string, outcome: ImmediateOutcome, evidence: string): Promise<void> {
+  await recordOutcome({ traceId, outcome, landed: IMMEDIATE_LANDED[outcome], evidence });
+}
+
+async function scorePreviousAnswer(input: {
+  conversationId?: string;
+  userId: string | null;
+  followUp: string;
+}): Promise<void> {
+  if (!input.conversationId || !input.userId) return;
+
+  try {
+    const messages = await getThreadMessages(input.userId, input.conversationId);
+
+    const lastAssistant = [...messages].reverse().find((message) => message.role === "assistant");
+    if (!lastAssistant?.traceId) return;
+
+    // The question that answer was responding to, which is what the follow-up is
+    // compared against. Without it a rephrasing cannot be told from a new topic.
+    const answerIndex = messages.indexOf(lastAssistant);
+    const previousQuestion = [...messages.slice(0, answerIndex)].reverse().find((m) => m.role === "user")?.content;
+    if (!previousQuestion) return;
+
+    const read = readAnswerOutcome({
+      previousQuestion,
+      previousAnswer: lastAssistant.content,
+      followUp: input.followUp
+    });
+
+    await recordOutcome({
+      traceId: lastAssistant.traceId,
+      outcome: read.outcome,
+      landed: read.landed,
+      evidence: read.evidence
+    });
+  } catch {
+    // Intentionally silent — see the doc comment.
+  }
+}
+
 export async function* streamAdvisorResponse(rawInput: {
   content: string;
   history?: Array<{ role: "user" | "assistant"; content: string }>;
@@ -3060,6 +3114,23 @@ export async function* streamAdvisorResponse(rawInput: {
   // back to the keyword result — a router that could take the Advisor down would
   // be a worse product than the keyword matching it replaces, however much better
   // it classifies.
+  // Score the previous answer, now that we can see what the user typed next.
+  //
+  // This is the only read on whether an answer helped that covers every
+  // conversation. The thumbs control covers the few who reach for it, and they are
+  // the delighted and the furious. What somebody types next is free, universal,
+  // and costs them nothing.
+  //
+  // Started here and never awaited: it writes to Langfuse and reads one row, and
+  // measurement must not be able to delay or fail a reply. It also runs before any
+  // of the early-return paths below, so a clarify menu or a scope redirect still
+  // scores the turn that preceded it.
+  void scorePreviousAnswer({
+    conversationId,
+    userId: identity.isMock ? null : identity.id,
+    followUp: content
+  });
+
   const intentPromise = classifyIntent({ content, history: rawHistory }).catch(() => null);
 
   const threadState = buildThreadState({
@@ -3349,6 +3420,11 @@ export async function* streamAdvisorResponse(rawInput: {
     });
     await flushLangfuse();
 
+    // Declining is the correct answer here and it is still not an answer. Scored
+    // so the rate covers every conversation rather than only the ones that reached
+    // the model — otherwise the metric quietly improves as Haven answers less.
+    void recordImmediateOutcome(traceId, "declined", `Outside scope: ${scope.area}`);
+
     if (threadId && !identity.isMock) {
       await persistExchange({
         threadId,
@@ -3496,6 +3572,12 @@ export async function* streamAdvisorResponse(rawInput: {
       }
     });
     await flushLangfuse();
+
+    // An ending the Advisor chose for itself, so it is scored now rather than
+    // waiting for a reply that may never come. Neither counts as landing: asking
+    // a good clarifying question is right, and the person still does not have an
+    // answer.
+    void recordImmediateOutcome(traceId, escalate ? "handed-off" : "clarified", repairPayload.refusal_or_escalation_reason ?? "");
 
     // Stored like any other turn. The clarifying exchange is part of the
     // conversation — losing it on reload would make a resumed thread jump from the

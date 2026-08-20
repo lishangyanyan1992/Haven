@@ -52,11 +52,6 @@ export const archivedRoutes: ArchivedRoute[] = [
     reason: "Same reason as the feed. The import pipeline behind it keeps running — it feeds the chat."
   },
   {
-    prefix: "/lawyers",
-    label: "Lawyer directory",
-    reason: "Marketplace expansion, off-message while we prove the core answer. Revive when the chat is steady."
-  },
-  {
     prefix: "/cases",
     label: "Cases",
     reason: "Unused surface from an earlier direction."
