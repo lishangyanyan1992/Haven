@@ -4,13 +4,10 @@ import { motion } from "framer-motion";
 import { ArrowRight, CalendarCheck, FileText, FolderOpen, MessageCircle, Search, Sparkles } from "lucide-react";
 
 import { WaitlistTrigger } from "@/components/app/waitlist-modal";
+import { getImmigWizardUrl } from "@/lib/immig-wizard";
 import { cn } from "@/lib/utils";
 
-const IMMIG_WIZARD_URL = "https://immig.haven-h1b.com/";
 
-function getImmigWizardUrl() {
-  return IMMIG_WIZARD_URL;
-}
 
 export function TimelineFeaturePreview() {
   return (
@@ -223,6 +220,13 @@ export function DocumentVaultFeaturePreview() {
 
 export function WaitlistFeaturePreview() {
   const immigWizardUrl = getImmigWizardUrl();
+
+  // The whole card is the ImmigWizard pitch — the heading, the "Answer
+  // plain-English questions" copy, the "Start now" button. With the wizard
+  // archived over UPL there is nothing here to keep: a card advertising guided
+  // form preparation with a dead button would be worse than no card, because it
+  // still makes the offer.
+  if (!immigWizardUrl) return null;
 
   return (
     <div className="mt-8 rounded-[1.5rem] border border-[rgba(186,123,114,0.18)] bg-[rgba(255,255,255,0.9)] p-4 shadow-[0_12px_30px_-18px_rgba(100,56,48,0.2)]">

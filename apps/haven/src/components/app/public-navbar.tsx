@@ -5,9 +5,10 @@ import { HavenBrand } from "@/components/app/haven-brand";
 import { MobilePublicNav } from "@/components/app/mobile-public-nav";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { getImmigWizardUrl } from "@/lib/immig-wizard";
 
 const HAVEN_HOME_URL = "https://haven-h1b.com/";
-const IMMIG_WIZARD_URL = "https://immig.haven-h1b.com/";
+
 
 const navItems = [
   { href: "/", label: "Ask" },
@@ -22,10 +23,6 @@ const resourceNavItems = [
   { href: "/day-1-cpt-schools", label: "Day 1 CPT Schools" },
   { href: "/about", label: "About" }
 ];
-
-function getImmigWizardUrl() {
-  return IMMIG_WIZARD_URL;
-}
 
 export function getPublicImmigWizardUrl() {
   return getImmigWizardUrl();
