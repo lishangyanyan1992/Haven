@@ -44,7 +44,8 @@ import { collectAttempts, renderAttemptsForPrompt } from "@/lib/advisor/attempte
 import { buildAttorneyHandoff, HANDOFF_DELIVERED } from "@/lib/advisor/attorney-handoff";
 import { readAnswerOutcome, recordOutcome, IMMEDIATE_LANDED, type ImmediateOutcome } from "@/lib/advisor/answer-outcome";
 import { checkSituation, renderSituationForPrompt } from "@/lib/advisor/situation-check";
-import { APPENDED_BLOCK_LABELS } from "@/lib/advisor/answer-shape";
+import { APPENDED_BLOCK_LABELS, splitAnswer } from "@/lib/advisor/answer-shape";
+import { decideStoryLead, renderStoryLeadForPrompt } from "@/lib/advisor/story-fit";
 import { listFacts, rememberFactsFrom, renderFactsForPrompt, type RememberedFact } from "@/lib/advisor/memory";
 import {
   detectProfileUpdates,
@@ -3923,6 +3924,23 @@ export async function* streamAdvisorResponse(rawInput: {
     countryOfBirth: snapshot.profile.countryOfBirth
   });
   const situationLines = renderSituationForPrompt(situation, rawHistory.length === 0);
+
+  // Whether a community story opens this answer.
+  //
+  // The product's claim is that it holds two hundred people who have been through
+  // this. But leading with a story on "how long is my grace period" would be
+  // misinformation dressed as evidence — the answer is sixty days and somebody's
+  // anecdote about ninety costs them their status. So the decision turns on
+  // whether the answer lives in the regulations or in what happened to people,
+  // and the signal for that was already being computed: the required points.
+  const requiredPoints = requiredPointsForAnswer(content, topics, guardrailIds);
+  const storyLead = decideStoryLead({
+    question: content,
+    requiredPointCount: requiredPoints.length,
+    stories: community,
+    profileScore: (story) =>
+      scoreProfileMatch(story.tags ?? [], snapshot.profile, topics.includes("visa-bulletin") || topics.includes("adjustment-of-status"))
+  });
   const havenContextUsed = promptProfileSummary.slice(0, 4).filter(Boolean);
 
   const { text: systemPrompt, prompt: advisorPrompt } = await getPrompt(lf, ADVISOR_PROMPT_NAME, STREAMING_SYSTEM_PROMPT);
@@ -3969,6 +3987,8 @@ export async function* streamAdvisorResponse(rawInput: {
     ...(situationLines.length > 0
       ? [buildContextBlock("What you know about them, and what you do not", situationLines), ""]
       : []),
+    buildContextBlock("Whether a community story opens this answer", renderStoryLeadForPrompt(storyLead)),
+    "",
     buildContextBlock("Decision guardrails", decisionGuardrails),
     "",
     ...(profileContradictsJobLoss
@@ -4156,7 +4176,25 @@ export async function* streamAdvisorResponse(rawInput: {
   // so the safety lines are not what gets cut.
   fullText = stripTrailingOffer(fullText);
 
-  const addendum = buildMandatorySafetyAddendum(content, topics, fullText, threadState.delivered);
+  // Checked against what the reader will actually SEE, not against the whole
+  // answer.
+  //
+  // The collapsible detail introduced a failure the addendum could not see. Asked
+  // "I was laid off last week, what should I do first?", the model did say "do not
+  // work without authorisation" — inside the working, below the fold. The addendum
+  // searched the full text, found it, and appended nothing. Measured: the single
+  // most important line in the layoff answer was one click away from a person who
+  // had just lost their job.
+  //
+  // So the backstop now reads the visible region. A required line that exists only
+  // in the collapsed part counts as missing and gets appended, which puts it in
+  // the always-shown block. Nothing about which lines are required changed; what
+  // changed is where they have to be.
+  const visibleSoFar = (() => {
+    const split = splitAnswer(fullText);
+    return split.details ? `${split.lead}\n\n${split.appended}` : fullText;
+  })();
+  const addendum = buildMandatorySafetyAddendum(content, topics, visibleSoFar, threadState.delivered);
   if (addendum.text) {
     const addendumText = `\n\n${addendum.text}`;
     fullText += addendumText;
@@ -4290,10 +4328,13 @@ export async function* streamAdvisorResponse(rawInput: {
       // is a thread that is going badly, and that is only visible if it is recorded.
       attemptedStepCount: attemptedSteps.length,
       situationFactsMissing: situation.missing.map((fact) => fact.label),
+      storyLeadKind: storyLead.kind,
+      storyLeadTitle: storyLead.story?.title ?? null,
+      storyLeadReason: storyLead.reason,
       // Recorded so length is watchable next to the outcome score. Nobody would
       // have noticed the 700-word drift without measuring it by hand.
       answerWords: fullText.trim().split(/\s+/).filter(Boolean).length,
-      requiredPointCount: requiredPointsForAnswer(content, topics, guardrailIds).length,
+      requiredPointCount: requiredPoints.length,
       attorneyHandoff: handoff?.practiceArea ?? "none",
       caseStatsTier: caseStats?.tier ?? "none",
       citationCount: citations.length,

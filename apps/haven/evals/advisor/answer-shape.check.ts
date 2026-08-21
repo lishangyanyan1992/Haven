@@ -123,6 +123,32 @@ async function main() {
     check(`"${label}" is recognised as appended safety text`, result.appended.startsWith(label), result.appended.slice(0, 50));
   }
 
+  // ------------------------------------- the collapse must not hide a required line
+  //
+  // The regression this caught, live: asked "I was laid off last week, what should
+  // I do first?", the model DID say "do not work without authorisation" — inside
+  // the working, below the fold. The safety backstop searched the whole answer,
+  // found it, and appended nothing. So the most important sentence in the layoff
+  // answer sat one click away from somebody who had just lost their job.
+  //
+  // The fix is that the backstop reads the visible region instead of the whole
+  // text. This asserts the shape that makes that possible: whatever is collapsed,
+  // `lead` plus `appended` is a self-contained thing a person can act on.
+  const withHiddenRule = splitAnswer(
+    `${LEAD}\n\n## What the rules say\nDo not work without authorization. ${LONG_DETAIL}` +
+      `\n\nH-1B safety note: Do not work without authorization.`
+  );
+  check(
+    "a required line surviving only in the collapsed part is still visible via the appended block",
+    /do not work without authorization/i.test(`${withHiddenRule.lead}\n${withHiddenRule.appended}`),
+    `lead+appended: ${withHiddenRule.lead}\n${withHiddenRule.appended}`
+  );
+  check(
+    "and the visible region is never empty when something was collapsed",
+    withHiddenRule.details.length === 0 || withHiddenRule.lead.trim().length > 0,
+    "the lead was empty while detail was hidden"
+  );
+
   console.log(`\n${pass} passed, ${failures.length} failed`);
   if (failures.length > 0) process.exit(1);
 }

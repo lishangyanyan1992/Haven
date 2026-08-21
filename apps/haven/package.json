@@ -33,6 +33,7 @@
     "check:trailing-offer": "tsx --tsconfig tsconfig.json evals/advisor/trailing-offer.check.ts",
     "check:required-points": "tsx --tsconfig tsconfig.json evals/advisor/required-points.check.ts",
     "check:answer-shape": "tsx --tsconfig tsconfig.json evals/advisor/answer-shape.check.ts",
+    "check:story-fit": "tsx --tsconfig tsconfig.json evals/advisor/story-fit.check.ts",
     "check:scope": "tsx --tsconfig tsconfig.json evals/advisor/scope.check.ts",
     "check:source-freshness": "tsx --tsconfig tsconfig.json evals/advisor/source-freshness.check.ts",
     "check:trace-tags": "tsx --tsconfig tsconfig.json evals/advisor/trace-tags.check.ts",
