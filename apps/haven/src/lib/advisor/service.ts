@@ -376,13 +376,32 @@ const JOB_LOSS_PATTERN = new RegExp(`(${JOB_LOSS_TERMS.join("|")})`);
  * These are matched on the object rather than on a bare noun. `receipt` alone
  * appears in ordinary sentences about documents; `start on the receipt` does not.
  */
-const POST_LAYOFF_MECHANICS = [
+/**
+ * Wording that arises after a layoff *and* just as often without one.
+ *
+ * Transfers, receipts and start dates are the mechanics of a post-layoff scramble
+ * — and they are equally the mechanics of somebody changing jobs on purpose on a
+ * Tuesday. Good enough to route a question to the layoff topic, where the cost of
+ * being wrong is some extra retrieval. Not good enough to conclude the person has
+ * lost their job, where the cost of being wrong is a six-point layoff briefing
+ * stapled to "how long does a transfer take".
+ */
+const POST_LAYOFF_MECHANICS_AMBIGUOUS = [
   // Starting work on a filing rather than an approval — the portability question.
   /\b(start|starting|begin|beginning|join|joining)\b[^.?!]{0,40}\b(receipt|petition|transfer|filing|approval|i-?797)\b/,
   /\b(receipt|petition|transfer|filing|approval|i-?797)\b[^.?!]{0,40}\b(start|starting|begin|beginning|join|joining) (work|working|the|at|a new)\b/,
   /\breceipt (notice|number)\b/,
   /\bh-?1-?b transfer\b/,
-  /\btransfer (was |been |is )?(filed|pending|approved)\b/,
+  /\btransfer (was |been |is )?(filed|pending|approved)\b/
+];
+
+/**
+ * Wording that only arises once a job has actually ended.
+ *
+ * Nobody on a voluntary move talks about their clock running, gardening leave, or
+ * what they were paid through. These are safe to treat as a layoff on their own.
+ */
+const POST_LAYOFF_MECHANICS_DEFINITE = [
   // The deadline, named as a clock rather than as a number of days.
   /\b(my|the) clock\b/,
   /\bclock (is |already )?(running|started|ticking)\b/,
@@ -393,8 +412,16 @@ const POST_LAYOFF_MECHANICS = [
   /\bpaid (me )?through\b/
 ];
 
+const POST_LAYOFF_MECHANICS = [...POST_LAYOFF_MECHANICS_AMBIGUOUS, ...POST_LAYOFF_MECHANICS_DEFINITE];
+
+/** Routing-grade: broad on purpose, because the cost of a false positive is retrieval. */
 function mentionsPostLayoffMechanics(normalized: string) {
   return POST_LAYOFF_MECHANICS.some((pattern) => pattern.test(normalized));
+}
+
+/** Briefing-grade: only wording that means the job has actually ended. */
+function mentionsDefiniteJobLoss(normalized: string) {
+  return POST_LAYOFF_MECHANICS_DEFINITE.some((pattern) => pattern.test(normalized));
 }
 
 const STRONG_IN_SCOPE =
@@ -934,6 +961,13 @@ export function routeAdvisorQuestion(input: {
   history?: Array<{ role: "user" | "assistant"; content: string }>;
   /** From the user's Haven profile. */
   i485Filed?: boolean;
+  /**
+   * The person has an open layoff on record.
+   *
+   * Someone thirty days into a grace period asking a neutrally-worded question is
+   * still in a layoff, and nothing in the wording says so.
+   */
+  hasOpenLayoff?: boolean;
 }): AdvisorRoute {
   const { content, history = [], i485Filed = false } = input;
   const classification = classifyTopicsWithContext(content, history);
@@ -996,7 +1030,7 @@ export function routeAdvisorQuestion(input: {
 
   return {
     topics,
-    guardrailIds: selectGuardrailIds(content, topics, { travelMentioned, jobLossMentioned }),
+    guardrailIds: selectGuardrailIds(content, topics, { travelMentioned, jobLossMentioned, hasOpenLayoff: input.hasOpenLayoff }),
     currentMatched,
     previousMatched: classification.previousMatched,
     resolution: currentMatched ? "matched" : classification.previousMatched ? "carried" : "unmatched",
@@ -1032,6 +1066,15 @@ export interface GuardrailSignals {
    * chip.
    */
   jobLossMentioned: boolean;
+  /**
+   * The person has an open layoff on their Haven record.
+   *
+   * Someone thirty days into a grace period who asks a neutrally-worded question
+   * is still in a layoff, and the wording alone would not say so. Optional because
+   * the topic-list selector has no profile to read; absent means "not known", never
+   * "no".
+   */
+  hasOpenLayoff?: boolean;
 }
 
 /**
@@ -1086,18 +1129,59 @@ function selectGuardrailIds(query: string, topics: TopicBucket[], signals: Guard
   // deadline for filing my I-485?" should not have its sources cut down to layoff
   // material. Same subject, different tolerance, so they are two predicates with
   // one shared floor rather than one predicate serving both badly.
-  if (
-    (topics.includes("h1b") || topics.includes("layoffs")) &&
-    (signals.jobLossMentioned ||
-      /(grace period|60-day|day 60|transfer|paycheck|last day|deadline|what to file|who files)/.test(normalized) ||
-      mentionsPostLayoffMechanics(normalized))
-  ) {
+  //
+  // Two questions were sharing one trigger, and the wider one was winning.
+  //
+  // The old word list included "transfer" and "deadline". Most H-1B transfers have
+  // nothing to do with a job loss — they are people changing jobs on purpose — so
+  // "How long does an H-1B transfer usually take?" selected the full layoff
+  // guardrail and, through it, six mandatory statements: the 60-day grace period,
+  // do not work without authorisation, an LCA is not enough, portability needs a
+  // properly filed petition, name two options, confirm with counsel. None of them
+  // answers how long a transfer takes.
+  //
+  // That is the whole reason answers run long. Against six specific "state that…"
+  // orders, "be concise" cannot win and should not have to — the orders were
+  // simply aimed at the wrong question.
+  //
+  // So the trigger splits by whether this is actually a job-loss situation:
+  //
+  // - Words that only arise after a job ends — grace period, day 60, last day,
+  //   paycheck — plus an explicit mention, plus an open layoff on the person's
+  //   record. This is a real layoff and keeps every rule it had.
+  // - Words that arise just as often without one — transfer, deadline, what to
+  //   file. These get the two rules that genuinely apply to them and no briefing.
+  //
+  // Nothing is removed from a laid-off person's answer. What changes is that
+  // somebody asking a neutral question stops being handed a layoff briefing.
+  const layoffOnlyWording =
+    /(grace period|60-day|60 day|day 60|paycheck|last day|laid off|terminated|let go|severance|stopped paying|no longer paying|without pay)/.test(
+      normalized
+    );
+  // The ambiguous mechanics belong here, not in the layoff test. "Can I start on
+  // the receipt or wait for approval?" names no job loss and is the single most
+  // dangerous transfer question in the corpus — it still has to be guarded, just
+  // by the three rules that govern starting work rather than by a grace-period
+  // briefing that may not apply to them.
+  const neutralWording =
+    /(transfer|deadline|what to file|who files)/.test(normalized) ||
+    POST_LAYOFF_MECHANICS_AMBIGUOUS.some((pattern) => pattern.test(normalized));
+  const isJobLossSituation =
+    signals.jobLossMentioned || signals.hasOpenLayoff === true || layoffOnlyWording || mentionsDefiniteJobLoss(normalized);
+
+  if ((topics.includes("h1b") || topics.includes("layoffs")) && isJobLossSituation) {
     // The hard rules and the option menu were one guardrail. Split so the rules can
     // repeat on every layoff turn while the menu is delivered once (CD-13.4).
     ids.push("GR_LAYOFF_SAFETY_RULES", "GR_LAYOFF_OPTION_MENU");
     // The option menu offers a B-2 change of status, so the rule that a change of
     // status is not work authorization travels with it (adv-bridge-070).
     ids.push("GR_CHANGE_OF_STATUS_NO_WORK");
+  } else if ((topics.includes("h1b") || topics.includes("layoffs")) && neutralWording) {
+    // Not a layoff, but still a question where two specific beliefs get people
+    // into trouble: that an LCA or a receipt notice is permission to work. Those
+    // two rules are the reason "transfer" was on the old list at all, and they are
+    // kept — it is the other four, and the option menu, that did not belong.
+    ids.push("GR_TRANSFER_BASICS");
   }
 
   // A conflict between a stated date and a stated day count decides a filing
@@ -3104,8 +3188,13 @@ export const STREAMING_SYSTEM_PROMPT = [
   "When you are not sure, or the answer depends on something that changes month to month, say so and point to the source instead of guessing. 'The USCIS filing-chart page decides this each month, and here it is' is a better answer than a confident wrong one. Never present a stale or uncertain fact as current.",
 
   // Length
+  // A number, because an adjective loses to a specific instruction every time.
+  // Fifteen of the rules in this prompt touch length, and answers still ran
+  // 530-725 words of model text. "Be concise" cannot beat "state that X" — one
+  // says what to write, the other says how to feel about it.
+  "LENGTH BUDGET: aim for under 200 words. A question with a factual answer — how long something takes, whether a document is needed — should be well under that. Only a question that genuinely turns on several dates or conditions earns 300, and nothing earns more. If you are over, the cause is almost always general rules you were not asked for: cut those, never the part specific to this person.",
   "Be concise. Answer the question directly in as few words as it takes to be accurate and complete — no preamble, no restating the question, no filler.",
-  "Default to a short answer (2–4 sentences or a tight bulleted list). Only go longer when the question genuinely requires multiple steps, dates, or conditions.",
+  "Answer the question that was asked, and stop. If somebody asks how long a transfer takes, tell them how long it takes — do not also brief them on grace periods, work authorisation, and filing strategy because those are adjacent. Adjacent is not relevant, and burying the answer in things they did not ask about is how the one sentence that mattered gets missed.",
   // Answers were averaging ~1,000 words while this file asked for 2-4 sentences.
   // The length was not padding: required safety points and the option menu were
   // each being restated in three or four different sections -- the deadline
@@ -3205,7 +3294,8 @@ export async function* streamAdvisorResponse(rawInput: {
   const route = routeAdvisorQuestion({
     content,
     history: rawHistory,
-    i485Filed: snapshot.profile.i485Filed
+    i485Filed: snapshot.profile.i485Filed,
+    hasOpenLayoff: Boolean(snapshot.activeLayoffEvent)
   });
 
   // The intent router, now driving rather than shadowing.
@@ -4187,6 +4277,10 @@ export async function* streamAdvisorResponse(rawInput: {
       // is a thread that is going badly, and that is only visible if it is recorded.
       attemptedStepCount: attemptedSteps.length,
       situationFactsMissing: situation.missing.map((fact) => fact.label),
+      // Recorded so length is watchable next to the outcome score. Nobody would
+      // have noticed the 700-word drift without measuring it by hand.
+      answerWords: fullText.trim().split(/\s+/).filter(Boolean).length,
+      requiredPointCount: requiredPointsForAnswer(content, topics, guardrailIds).length,
       attorneyHandoff: handoff?.practiceArea ?? "none",
       caseStatsTier: caseStats?.tier ?? "none",
       citationCount: citations.length,

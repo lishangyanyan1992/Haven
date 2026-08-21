@@ -92,12 +92,49 @@ async function main() {
       result.outcome === "ANSWERS" && result.route.topics.includes("layoffs"),
       `outcome=${result.outcome} topics=${result.route.topics.join(",")}`
     );
+    // "Guarded", not "guarded by that specific id".
+    //
+    // Two of these five name no job loss at all — "my H-1B transfer is pending,
+    // can I switch now?" is equally somebody moving jobs on purpose. They used to
+    // take the full layoff briefing, which meant six mandatory statements
+    // including a grace period that may not apply to them, and that briefing is
+    // most of why answers ran to 700 words.
+    //
+    // What actually makes these two dangerous is narrower: starting work on a
+    // receipt rather than an approval. GR_TRANSFER_BASICS carries exactly that —
+    // do not work without authorisation, an LCA is not permission, a receipt is
+    // evidence of filing and not a grant. Someone with a layoff on file still gets
+    // the full set, because `hasOpenLayoff` reaches the selector.
+    //
+    // So this asserts the decision is guarded, and lets the selector choose which
+    // guard fits. Asserting the id would force every neutral question back into
+    // the briefing.
+    const guarded =
+      result.route.guardrailIds.includes("GR_LAYOFF_SAFETY_RULES") ||
+      result.route.guardrailIds.includes("GR_TRANSFER_BASICS");
     check(
-      `${name} carries the layoff safety rules`,
-      result.route.guardrailIds.includes("GR_LAYOFF_SAFETY_RULES"),
+      `${name} is guarded against starting work too early`,
+      guarded,
       `guardrails=${result.route.guardrailIds.join(",") || "none"}`
     );
   }
+
+  // And the split itself: a job loss on record turns a neutrally-worded question
+  // back into the full briefing. Without this, somebody thirty days into a grace
+  // period who asks a calm question loses the deadline that is running out on them.
+  const neutralQuestion = "My H-1B transfer is pending. Can I switch to the new job now?";
+  const withLayoffOnFile = routeAdvisorQuestion({ content: neutralQuestion, hasOpenLayoff: true });
+  check(
+    "a neutral question from someone with a layoff on file still gets the full rules",
+    withLayoffOnFile.guardrailIds.includes("GR_LAYOFF_SAFETY_RULES"),
+    withLayoffOnFile.guardrailIds.join(",") || "none"
+  );
+  const withoutLayoff = routeAdvisorQuestion({ content: neutralQuestion });
+  check(
+    "and the same question from someone employed does not",
+    !withoutLayoff.guardrailIds.includes("GR_LAYOFF_SAFETY_RULES"),
+    withoutLayoff.guardrailIds.join(",") || "none"
+  );
 
   // The widened patterns must not swallow questions that are not about a layoff.
   // "receipt", "transfer" and "last day" all appear in ordinary sentences.

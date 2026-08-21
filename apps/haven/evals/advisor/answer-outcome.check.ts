@@ -179,6 +179,27 @@ async function main() {
   console.log(`\nINFO  catches ${caught}/${rephrasings.length} genuine rephrasings — the two it misses share no vocabulary with the original.`);
   check("it catches most rephrasings that reuse the wording", caught >= 5, `caught ${caught}`);
 
+  // -------------------------------------------------------------- silence
+  //
+  // Silence cannot be labelled — satisfied and gave-up look identical. It can be
+  // split, and the split is where the value is: silence after a clarifying
+  // question is somebody who was asked to explain themselves and never came back,
+  // which is actionable today. Silence after a real answer is the ambiguous group
+  // and the only one worth spending a survey on.
+  const { silenceKindFor } = await import("@/lib/advisor/answer-outcome");
+  const silenceCases: Array<[string, string]> = [
+    ["clarified", "after-clarify"],
+    ["handed-off", "after-handoff"],
+    ["declined", "after-decline"],
+    ["followed-on", "after-answer"],
+    ["closed", "after-answer"]
+  ];
+  for (const [outcome, expected] of silenceCases) {
+    const got = silenceKindFor(outcome as never);
+    check(`silence after ${outcome} is recorded as ${expected}`, got === expected, got);
+  }
+  check("silence with no recorded outcome counts as after an answer", silenceKindFor(null) === "after-answer", silenceKindFor(null));
+
   console.log(`\n${pass} passed, ${failures.length} failed`);
   if (failures.length > 0) process.exit(1);
 }

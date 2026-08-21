@@ -159,6 +159,23 @@ const ENTRIES: GuardrailEntry[] = [
     text: "A change of status such as B-2 does not authorize you to work, and a pending change-of-status application is not work authorization."
   },
   {
+    // The two rules that made "transfer" worth guarding, without the layoff
+    // briefing that used to travel with them. Somebody changing jobs on purpose
+    // needs these; they do not need the 60-day grace period recited at them.
+    id: "GR_TRANSFER_BASICS",
+    topic: "h1b",
+    audience: "model",
+    repeat: "once-per-thread",
+    intent:
+      "The two beliefs that get people into trouble around a transfer, for questions that are not about a job loss.",
+    // Recognised as delivered once the answer has made either point, so a
+    // follow-up in the same thread is not made to repeat it.
+    deliveredWhen: /(lca[^.]{0,60}(not|isn'?t)[^.]{0,40}(permission|petition|authoris|authoriz))|(receipt notice[^.]{0,60}(evidence|not a (separate )?(grant|permission)))/i,
+    lastReviewedBy: null,
+    lastReviewedAt: null,
+    text: "H-1B transfer basics. If the answer touches when they may START WORK, all three of these must be in it: do not work without authorisation; a filed LCA is not permission to work and is not a filed petition, because portability turns on a properly filed nonfrivolous H-1B petition; and a receipt notice is evidence that a petition was filed, not a separate grant of permission. If they asked purely about timing — how long something takes, who files it — answer that and state none of the three. This is the whole difference between guarding a decision and burying an answer."
+  },
+  {
     id: "GR_OPT_WORK_AUTHORIZATION",
     topic: "student-status",
     audience: "model",

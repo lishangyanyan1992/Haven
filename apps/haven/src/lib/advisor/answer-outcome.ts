@@ -22,10 +22,12 @@
  *
  * Two things it deliberately does not attempt:
  *
- * - **Silence.** Somebody who reads an answer and closes the tab may be satisfied
- *   or may have given up, and nothing in the data separates those. Guessing would
- *   put a number on it that feels like knowledge. Silence is left unscored, and
- *   the share of conversations that end in silence is itself worth watching.
+ * - **Labelling silence.** Somebody who reads an answer and closes the tab may be
+ *   satisfied or may have given up, and nothing in the data separates those.
+ *   Guessing would put a number on it that feels like knowledge. What *is* worth
+ *   recording is what the silence followed — see `SILENCE_AFTER` below — because
+ *   silence after a clarifying question is a different event from silence after a
+ *   real answer, and only one of them is ambiguous.
  * - **Correctness.** This measures whether the answer landed, not whether it was
  *   right. A confidently wrong answer that satisfies the user scores well here and
  *   is the worst outcome in the product. The guardrail suites are what guard that;
@@ -269,5 +271,78 @@ export async function recordOutcome(input: {
     await flushLangfuse();
   } catch {
     // Intentionally silent — see the doc comment.
+  }
+}
+
+
+/**
+ * What the last answer in a conversation was, when no follow-up ever came.
+ *
+ * Silence cannot be labelled — satisfied and gave-up look identical from here.
+ * But it can be *split*, and the split is most of the value:
+ *
+ * - Silence after a clarifying question is somebody who was asked to explain
+ *   themselves and did not come back. That is abandonment, not satisfaction, and
+ *   it is actionable today: the clarifying question was too much work, or it
+ *   arrived on a question the Advisor should have understood.
+ * - Silence after a handoff or a decline is the expected ending. Haven said it
+ *   could not help and the person left. Counting it as failure would mean the
+ *   number improves by declining less, which is backwards.
+ * - Silence after a real answer is the genuinely ambiguous one, and the only
+ *   group worth spending a survey on.
+ *
+ * Recorded as its own score rather than folded into `answer-landed`, because
+ * averaging a guess into a measured rate is how a measured rate stops being one.
+ */
+export type SilenceKind = "after-answer" | "after-clarify" | "after-handoff" | "after-decline";
+
+export const SILENCE_SCORE = "conversation-ended-quietly";
+
+/**
+ * Which kind of silence a trace's ending represents.
+ *
+ * Derived from the outcome already recorded for that answer, so there is one
+ * definition of "this was a clarify" rather than two that drift.
+ */
+export function silenceKindFor(lastOutcome: RecordedOutcome | null): SilenceKind {
+  switch (lastOutcome) {
+    case "clarified":
+      return "after-clarify";
+    case "handed-off":
+      return "after-handoff";
+    case "declined":
+      return "after-decline";
+    default:
+      return "after-answer";
+  }
+}
+
+/**
+ * Record that a conversation ended without a follow-up.
+ *
+ * Deliberately not called from the answer path — nothing at answer time knows the
+ * conversation is over. This is for a sweep that runs later over threads whose
+ * last message is older than the cutoff. Until that sweep exists, the function is
+ * the definition of the measurement rather than the measurement itself, which is
+ * the honest place to stop: the split above is the decision worth committing, and
+ * inventing a cutoff would just bury an arbitrary number in a cron job.
+ */
+export async function recordSilence(input: { traceId: string; kind: SilenceKind }): Promise<void> {
+  try {
+    const { getLangfuseClient, flushLangfuse } = await import("@/lib/langfuse");
+    const lf = getLangfuseClient();
+    if (!lf) return;
+
+    lf.score({
+      traceId: input.traceId,
+      name: SILENCE_SCORE,
+      value: input.kind,
+      dataType: "CATEGORICAL",
+      comment: "No follow-up message was ever sent in this conversation."
+    });
+
+    await flushLangfuse();
+  } catch {
+    // Intentionally silent — measurement must never cost anybody a reply.
   }
 }
