@@ -13,12 +13,27 @@ import { PENDING_QUESTION_KEY } from "@/lib/pending-question";
  * The question is kept in session storage and handed to the advisor once the
  * person has an account, so nobody has to type it twice. Onboarding comes
  * first on purpose — the answer is only worth reading if it knows the case.
+ *
+ * The starters are grouped on purpose. Haven handles the emergency and the slow
+ * decision, and people only believe that if they see both kinds side by side.
  */
-const STARTERS = [
-  "I didn't get picked in the H-1B lottery. What are my options?",
-  "I was just laid off on an H-1B. What do I do first?",
-  "My status runs out soon and I don't have a job yet.",
-  "My H-1B transfer is taking forever. Can I start the new job?"
+const STARTER_GROUPS = [
+  {
+    label: "Right now",
+    starters: [
+      "I didn't get picked in the H-1B lottery. What are my options?",
+      "I was just laid off on an H-1B. What do I do first?",
+      "My status runs out soon and I don't have a job yet."
+    ]
+  },
+  {
+    label: "Long term",
+    starters: [
+      "My green card wait is years long. What are my other options?",
+      "Would I qualify for an O-1A or EB-1A?",
+      "I'm on F-1 OPT. What's the realistic path to staying long term?"
+    ]
+  }
 ];
 
 const QUESTION_LIMIT = 1000;
@@ -65,7 +80,7 @@ export function HomeQuestionBox() {
               handoff(question);
             }
           }}
-          placeholder="What's happening with your case? Write it the way you'd tell a friend."
+          placeholder="Tell us what's happening."
           ref={inputRef}
           rows={3}
           value={question}
@@ -88,19 +103,26 @@ export function HomeQuestionBox() {
         </div>
       </form>
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        {STARTERS.map((starter) => (
-          <button
-            className="rounded-full border border-[var(--color-border)] bg-[var(--haven-white)] px-4 py-2 text-left text-[13px] text-[var(--haven-ink-mid)] transition-colors hover:border-[var(--haven-ink)] hover:text-[var(--haven-ink)]"
-            key={starter}
-            onClick={() => {
-              setQuestion(starter);
-              inputRef.current?.focus();
-            }}
-            type="button"
-          >
-            {starter}
-          </button>
+      <div className="mt-5 flex flex-col gap-4">
+        {STARTER_GROUPS.map((group) => (
+          <div key={group.label}>
+            <p className="text-label">{group.label}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {group.starters.map((starter) => (
+                <button
+                  className="rounded-full border border-[var(--color-border)] bg-[var(--haven-white)] px-4 py-2 text-left text-[13px] text-[var(--haven-ink-mid)] transition-colors hover:border-[var(--haven-ink)] hover:text-[var(--haven-ink)]"
+                  key={starter}
+                  onClick={() => {
+                    setQuestion(starter);
+                    inputRef.current?.focus();
+                  }}
+                  type="button"
+                >
+                  {starter}
+                </button>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
     </div>

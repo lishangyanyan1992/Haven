@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, FileText, MessageCircle, Users, UserCheck } from "lucide-react";
+import { ArrowRight, FileText, Users, UserCheck } from "lucide-react";
 
 import { BlogCard } from "@/components/app/blog-card";
 import { HavenBrand } from "@/components/app/haven-brand";
@@ -12,42 +12,93 @@ import { absoluteUrl } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 
 const HOME_DESCRIPTION =
-  "Ask what you're facing — a missed H-1B lottery, a layoff, status running out — and get an answer built from what people in the same situation actually did.";
+  "Haven helps global talent navigate U.S. immigration. Tell us what you're facing and get an answer built from what people in the same situation actually did — from a layoff or a lottery miss to a green card years out.";
 
 const steps = [
   {
-    icon: MessageCircle,
-    title: "Ask in your own words",
-    description: "No forms to decode. Describe what happened the way you'd tell a friend."
-  },
-  {
     icon: UserCheck,
-    title: "Tell us your situation once",
+    title: "Tell us your situation",
     description: "Visa, dates, employer. It takes a minute, and it's why the answer fits your case instead of a generic one."
   },
   {
     icon: Users,
-    title: "Get what people actually did",
-    description: "Your answer is built from the experiences of people who were where you are — what worked, what cost them time."
+    title: "Ask, and see what people did",
+    description: "Ask in plain words. Your answer is built from people who were where you are — what worked, and what cost them time."
   }
 ];
 
 export const metadata: Metadata = {
-  title: "Haven — Immigration answers from people who've been through it",
+  title: "Haven — Immigration answers for global talent in the U.S.",
   description: HOME_DESCRIPTION,
   alternates: {
     canonical: "/"
   },
   openGraph: {
     url: absoluteUrl("/"),
-    title: "Haven — Immigration answers from people who've been through it",
+    title: "Haven — Immigration answers for global talent in the U.S.",
     description: HOME_DESCRIPTION
   },
   twitter: {
-    title: "Haven — Immigration answers from people who've been through it",
+    title: "Haven — Immigration answers for global talent in the U.S.",
     description: HOME_DESCRIPTION
   }
 };
+
+/**
+ * Shows the differentiator rather than asserting it: many real accounts on one
+ * visa path, narrowing into a single answer weighed against your own case.
+ * Deliberately no invented case counts — the claim stays qualitative.
+ */
+function CrowdWisdomGraphic() {
+  const accounts = [
+    { label: "Most common", text: "Filed for H-4 to hold status while job hunting" },
+    { label: "Also worked", text: "Found a cap-exempt employer and transferred" },
+    { label: "Cost them time", text: "Waited on the transfer before starting the new job" }
+  ];
+
+  return (
+    <div className="rounded-[1.5rem] border border-[rgba(74,92,84,0.16)] bg-[rgba(255,255,255,0.72)] p-5 shadow-[0_12px_30px_-18px_rgba(44,54,48,0.28)] sm:p-6">
+      <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-[var(--haven-ink-mid)]">
+        Real accounts, same visa path
+      </p>
+
+      <div className="mt-4 space-y-2.5">
+        {accounts.map((account) => (
+          <div
+            className="rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] px-4 py-3"
+            key={account.text}
+          >
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--haven-ink-mid)]">
+              {account.label}
+            </p>
+            <p className="mt-1 text-[14px] leading-snug text-[var(--haven-ink)]">{account.text}</p>
+          </div>
+        ))}
+      </div>
+
+      <div aria-hidden="true" className="flex justify-center py-3">
+        <svg fill="none" height="30" viewBox="0 0 120 30" width="120">
+          <g stroke="var(--haven-ink-mid)" strokeLinecap="round" strokeOpacity="0.45" strokeWidth="1.5">
+            <path d="M14 0 V8 Q14 17 60 17" />
+            <path d="M60 0 V17" />
+            <path d="M106 0 V8 Q106 17 60 17" />
+            <path d="M60 17 V25" />
+            <path d="M55 21 L60 26 L65 21" strokeLinejoin="round" />
+          </g>
+        </svg>
+      </div>
+
+      <div className="rounded-[var(--radius-xl)] bg-[var(--haven-ink)] px-4 py-3.5">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[rgba(247,244,239,0.72)]">
+          Your answer
+        </p>
+        <p className="mt-1 text-[14px] leading-snug text-[var(--haven-cream)]">
+          Weighed against your visa, your dates, and your employer.
+        </p>
+      </div>
+    </div>
+  );
+}
 
 export default function HomePage() {
   const recentPosts = getRecentBlogPosts(3);
@@ -62,12 +113,13 @@ export default function HomePage() {
       <main>
         <section className="bg-[var(--haven-cream)]">
           <div className="content-container-visual flex flex-col items-center pt-10 pb-14 text-center md:pt-12 md:pb-16 lg:pt-14 lg:pb-20">
-            <h1 className="text-display max-w-[22ch]">
-              You are not the first person <em>this</em> has happened to.
+            <h1 className="text-display max-w-[24ch]">
+              We help global talent navigate U.S. immigration.
             </h1>
-            <p className="text-body mt-5 max-w-[54ch]">
-              Ask what you&apos;re facing. Haven answers with what people in the same situation actually did — the
-              lottery they missed, the layoff clock, the status running out.
+            <p className="text-body mt-5 max-w-[56ch]">
+              Tell us what you&apos;re facing. Haven answers with what people in the same situation actually did — real
+              outcomes from thousands of cases, so you can see where you actually stand. Whether it&apos;s a layoff this
+              week or a green card years out.
             </p>
 
             <div className="mt-8 w-full max-w-[46rem] text-left">
@@ -83,11 +135,11 @@ export default function HomePage() {
 
         <section className={cn(pageSectionClass, "bg-[var(--haven-white)]")} id="how-it-works">
           <div className={pageSectionInnerClass}>
-            <div className="max-w-[62ch]">
+            <div className="max-w-[76ch]">
               <p className="text-label">How it works</p>
-              <h2 className="text-h1 mt-4 max-w-[26ch]">Three steps, then an answer you can act on.</h2>
+              <h2 className="text-h1 mt-4 text-balance">Two steps, then an answer you can act on.</h2>
             </div>
-            <div className="mt-10 grid gap-4 md:grid-cols-3 md:gap-5">
+            <div className="mt-10 grid gap-4 md:grid-cols-2 md:gap-5">
               {steps.map((step, index) => (
                 <article
                   key={step.title}
@@ -107,18 +159,21 @@ export default function HomePage() {
 
         <section className={cn(pageSectionClass, "bg-[var(--haven-sky-light)]")}>
           <div className={pageSectionInnerClass}>
-            <div className="max-w-[62ch]">
-              <p className="text-label">Why the answers are different</p>
-              <h2 className="text-h1 mt-4 max-w-[30ch]">Wisdom of the crowd, not a search result.</h2>
-              <p className="text-body mt-4">
-                Most immigration advice online is either a forum thread you can&apos;t verify or a page written for
-                everyone. Haven reads thousands of moderated, real accounts from people on the same visa path, keeps
-                what held up, and answers your specific question with it.
-              </p>
-              <p className="text-body mt-4">
-                We start with the hardest moments — the lottery, the layoff, the deadline — because that&apos;s when a
-                wrong answer costs the most. Longer-term planning comes next.
-              </p>
+            <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
+              <div className="max-w-[62ch]">
+                <p className="text-label">Why the answers are different</p>
+                <h2 className="text-h1 mt-4 text-balance">The wisdom of the crowd, applied to your case.</h2>
+                <p className="text-body mt-4">
+                  Immigration decisions can feel arbitrary, and most advice online is either a forum thread you
+                  can&apos;t verify or a page written for everyone. Haven reads thousands of moderated, real accounts
+                  from people on the same visa path, keeps what held up, and answers your specific question with it.
+                </p>
+                <p className="text-body mt-4">
+                  That works for the hardest moments — the lottery, the layoff, the deadline — and for the slower
+                  decisions too: which green card path fits, when to file, what a change of employer costs you.
+                </p>
+              </div>
+              <CrowdWisdomGraphic />
             </div>
           </div>
         </section>
@@ -145,7 +200,7 @@ export default function HomePage() {
                   .
                 </p>
               </div>
-              <Link className={buttonVariants({ variant: "outline" })} href="/guides">
+              <Link className={buttonVariants({ variant: "outline" })} href="/resources?category=h1b">
                 Browse the guides
               </Link>
             </div>
@@ -183,7 +238,7 @@ export default function HomePage() {
         <div className="content-container-visual flex flex-col gap-4 py-8 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-6">
             <HavenBrand compact />
-            <Link className="text-caption text-[var(--haven-ink-mid)] transition-colors hover:text-[var(--haven-ink)]" href="/guides">
+            <Link className="text-caption text-[var(--haven-ink-mid)] transition-colors hover:text-[var(--haven-ink)]" href="/resources?category=h1b">
               Guides
             </Link>
             <Link className="text-caption text-[var(--haven-ink-mid)] transition-colors hover:text-[var(--haven-ink)]" href="/blog">

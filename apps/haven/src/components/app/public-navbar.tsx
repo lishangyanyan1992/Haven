@@ -11,13 +11,12 @@ const IMMIG_WIZARD_URL = "https://immig.haven-h1b.com/";
 
 const navItems = [
   { href: "/", label: "Ask" },
-  { href: "/guides", label: "Guides" },
   { href: "/blog", label: "Blog" }
 ];
 
 // Everything that is not the question box lives behind one menu.
 const resourceNavItems = [
-  { href: "/resources", label: "Resources" },
+  { href: "/resources", label: "Guides" },
   { href: "/tools", label: "Tools" },
   { href: "/jobs", label: "Sponsor Jobs" },
   { href: "/day-1-cpt-schools", label: "Day 1 CPT Schools" },
