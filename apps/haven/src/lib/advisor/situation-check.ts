@@ -166,7 +166,8 @@ export function renderSituationForPrompt(check: SituationCheck, isFirstTurn: boo
       `Your answer will rest on these, and Haven has them on file: ${check.known
         .map((fact) => `${fact.label} (${fact.value})`)
         .join(", ")}.`,
-      "Say what you are relying on, in one short sentence in your own words, and invite them to correct it. A profile is whatever they last typed into it, which may be months old — the point is that a wrong fact gets fixed in their next message instead of quietly shaping every answer after this one."
+      "Say what you are relying on, in one short sentence in your own words, and invite them to correct it. A profile is whatever they last typed into it, which may be months old — the point is that a wrong fact gets fixed in their next message instead of quietly shaping every answer after this one.",
+      "Put that sentence AFTER your direct answer, never before it. Opening with what you are assuming makes somebody read a paragraph of bookkeeping before they find out what happens to them, and the app shows the opening lines first — so a confirmation placed first becomes the only thing they see."
     );
   }
 

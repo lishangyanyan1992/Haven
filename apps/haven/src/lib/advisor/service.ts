@@ -44,6 +44,7 @@ import { collectAttempts, renderAttemptsForPrompt } from "@/lib/advisor/attempte
 import { buildAttorneyHandoff, HANDOFF_DELIVERED } from "@/lib/advisor/attorney-handoff";
 import { readAnswerOutcome, recordOutcome, IMMEDIATE_LANDED, type ImmediateOutcome } from "@/lib/advisor/answer-outcome";
 import { checkSituation, renderSituationForPrompt } from "@/lib/advisor/situation-check";
+import { APPENDED_BLOCK_LABELS } from "@/lib/advisor/answer-shape";
 import { listFacts, rememberFactsFrom, renderFactsForPrompt, type RememberedFact } from "@/lib/advisor/memory";
 import {
   detectProfileUpdates,
@@ -2849,7 +2850,7 @@ export function buildMandatorySafetyAddendum(
       ]);
 
       if (texts.length > 0) {
-        notes.push(["H-1B safety note:", ...texts].join(" "));
+        notes.push([APPENDED_BLOCK_LABELS[0], ...texts].join(" "));
       }
     }
   }
@@ -2873,7 +2874,7 @@ export function buildMandatorySafetyAddendum(
   if (raisesChangeOfStatus && !statesNoWorkOnNewStatus) {
     const texts = take(["FIX_COS_NO_WORK"]);
     if (texts.length > 0) {
-      notes.push(["Work authorization note:", ...texts].join(" "));
+      notes.push([APPENDED_BLOCK_LABELS[1], ...texts].join(" "));
     }
   }
 
@@ -2884,7 +2885,7 @@ export function buildMandatorySafetyAddendum(
     if (missingOptRisk || missingI20) {
       const texts = take([missingI20 ? "FIX_CPT_I20" : null, missingOptRisk ? "FIX_CPT_OPT_RISK" : null]);
       if (texts.length > 0) {
-        notes.push(["CPT safety note:", ...texts].join(" "));
+        notes.push([APPENDED_BLOCK_LABELS[2], ...texts].join(" "));
       }
     }
   }
@@ -2905,7 +2906,7 @@ export function buildMandatorySafetyAddendum(
       ]);
 
       if (texts.length > 0) {
-        notes.push(["I-485 travel safety note:", ...texts].join(" "));
+        notes.push([APPENDED_BLOCK_LABELS[3], ...texts].join(" "));
       }
     }
   }
@@ -2920,7 +2921,7 @@ export function buildMandatorySafetyAddendum(
         missingDeadlines ? "FIX_NIW_DEADLINES" : null
       ]);
       if (texts.length > 0) {
-        notes.push(["NIW strategy note:", ...texts].join(" "));
+        notes.push([APPENDED_BLOCK_LABELS[4], ...texts].join(" "));
       }
     }
   }
@@ -2935,7 +2936,7 @@ export function buildMandatorySafetyAddendum(
         missingImmediateReview ? "FIX_CSPA_IMMEDIATE_REVIEW" : null
       ]);
       if (texts.length > 0) {
-        notes.push(["CSPA safety note:", ...texts].join(" "));
+        notes.push([APPENDED_BLOCK_LABELS[5], ...texts].join(" "));
       }
     }
   }
@@ -3192,7 +3193,19 @@ export const STREAMING_SYSTEM_PROMPT = [
   // Fifteen of the rules in this prompt touch length, and answers still ran
   // 530-725 words of model text. "Be concise" cannot beat "state that X" — one
   // says what to write, the other says how to feel about it.
-  "LENGTH BUDGET: aim for under 200 words. A question with a factual answer — how long something takes, whether a document is needed — should be well under that. Only a question that genuinely turns on several dates or conditions earns 300, and nothing earns more. If you are over, the cause is almost always general rules you were not asked for: cut those, never the part specific to this person.",
+  // The shape, not the budget.
+  //
+  // Sixteen brevity instructions moved nothing — measured, one question, four
+  // runs: 557, 594, 761, 577 words. So the answer stops being asked to be short
+  // and starts being asked to be *ordered*, with the important part first and a
+  // marker after it. The app shows the lead and puts the rest behind a toggle.
+  // That is a request the model can actually satisfy, because it is about
+  // structure rather than restraint, and it degrades safely: a missing marker
+  // renders exactly as answers do today.
+  "ANSWER SHAPE. Open with the direct answer to the question they asked, in at most three sentences and under 110 words. Say the thing itself — the number, the date, the yes or no, the one action — not what the answer depends on. Then, on its own line, write exactly this and nothing else: <!--details-->. Everything after it is your working: the conditions, the rules, the caveats, the options, the sources. The app shows the part above the marker first and lets the reader open the rest, so nothing is lost by putting detail below it — and everything is lost by putting the answer below it.",
+  "If you genuinely cannot answer in three sentences — you need a fact from them first, or the honest answer is that it depends — then say that, in those three sentences, and put why underneath the marker. 'It depends on your last day of employment, which I do not have' is a direct answer.",
+  "Emit the marker exactly once, on its own line, even if the answer is short. Never write the word 'details' as a heading in its place, and never mention the marker to the reader.",
+  "Do not label the opening 'Direct answer', 'Short answer', or anything similar. The app already presents it as the answer, so the label is a wasted line at the top of the only part most people read. Just say the thing.",
   "Be concise. Answer the question directly in as few words as it takes to be accurate and complete — no preamble, no restating the question, no filler.",
   "Answer the question that was asked, and stop. If somebody asks how long a transfer takes, tell them how long it takes — do not also brief them on grace periods, work authorisation, and filing strategy because those are adjacent. Adjacent is not relevant, and burying the answer in things they did not ask about is how the one sentence that mattered gets missed.",
   // Answers were averaging ~1,000 words while this file asked for 2-4 sentences.

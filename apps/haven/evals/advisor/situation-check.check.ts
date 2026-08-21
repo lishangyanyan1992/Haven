@@ -105,6 +105,14 @@ async function main() {
     /in your own words/i.test(knownLines),
     knownLines
   );
+  // Measured before this line existed: all three live answers opened with the
+  // confirmation, so the app's lead was "Relying on what you have on file: your
+  // last day is 2026-07-08" and the actual answer was behind a toggle.
+  check(
+    "the confirmation comes after the answer, not before it",
+    /AFTER your direct answer/.test(knownLines),
+    knownLines
+  );
 
   // A topic with nothing to confirm produces nothing. Silence has to be an option
   // or the gate becomes a tax on every question.

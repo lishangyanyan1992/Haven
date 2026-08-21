@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Bot,
   BrainCircuit,
+  ChevronDown,
+  ChevronUp,
   ExternalLink,
   MessageSquare,
   Plus,
@@ -17,6 +19,8 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+
+import { splitAnswer } from "@/lib/advisor/answer-shape";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -659,6 +663,18 @@ function AdvisorAnswerCard({
 
   const displayText = message.answerPayload?.answer_markdown ?? message.content;
 
+  // Long answers are shown as a lead plus a toggle rather than a wall.
+  //
+  // Not applied while the answer is still streaming: a split that moves as tokens
+  // arrive would make text jump between two places on the screen, and somebody
+  // reading a deadline as it appears should not have it relocate under a button.
+  // Until it finishes, this renders exactly as it always did.
+  const shaped = useMemo(
+    () => (isPending ? null : splitAnswer(displayText)),
+    [displayText, isPending]
+  );
+  const [detailsOpen, setDetailsOpen] = useState(false);
+
   const sourcesPanel = traceId && message.answerPayload ? (
     <details className="rounded-[var(--radius-lg)] bg-[var(--haven-sand)] p-4">
       <summary className="cursor-pointer list-none text-body-sm font-medium">Sources and context</summary>
@@ -752,7 +768,7 @@ function AdvisorAnswerCard({
             does not render embedded HTML by default, which is what we want for text
             that originates from a model. */}
         <div className="text-body-sm leading-7 [&_a]:underline [&_a]:underline-offset-2 [&_code]:rounded [&_code]:bg-[var(--haven-sand)] [&_code]:px-1 [&_h1]:mb-2 [&_h1]:mt-4 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:mt-4 [&_h2]:text-base [&_h2]:font-semibold [&_h3]:mb-1 [&_h3]:mt-3 [&_h3]:font-semibold [&_li]:my-1 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_strong]:font-semibold [&_table]:my-2 [&_table]:block [&_table]:overflow-x-auto [&_td]:border [&_td]:border-[var(--color-border)] [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-[var(--color-border)] [&_th]:px-2 [&_th]:py-1 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5">
-          {displayText && (
+          {displayText && !shaped?.details && (
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
@@ -761,6 +777,49 @@ function AdvisorAnswerCard({
             >
               {displayText}
             </ReactMarkdown>
+          )}
+
+          {shaped?.details && (
+            <>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{ a: ({ ...props }) => <a {...props} rel="noreferrer" target="_blank" /> }}
+              >
+                {shaped.lead}
+              </ReactMarkdown>
+
+              <button
+                aria-expanded={detailsOpen}
+                className="my-3 flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--haven-sand)] px-3 py-1.5 text-caption transition-colors hover:border-[var(--haven-sage-mid)] hover:bg-[var(--haven-sage-light)]"
+                onClick={() => setDetailsOpen((open) => !open)}
+                type="button"
+              >
+                {detailsOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                {detailsOpen ? "Hide the detail" : "Show how this works, and the conditions"}
+              </button>
+
+              {detailsOpen && (
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{ a: ({ ...props }) => <a {...props} rel="noreferrer" target="_blank" /> }}
+                >
+                  {shaped.details}
+                </ReactMarkdown>
+              )}
+
+              {/* Appended safety text and the attorney handoff. Never collapsed —
+                  these are the sentences most likely to change what somebody does,
+                  and hiding one behind a toggle would be worse than the wall of
+                  text this replaces. */}
+              {shaped.appended && (
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{ a: ({ ...props }) => <a {...props} rel="noreferrer" target="_blank" /> }}
+                >
+                  {shaped.appended}
+                </ReactMarkdown>
+              )}
+            </>
           )}
           {isPending && !displayText && (
             <span className="flex gap-1.5 py-1">
