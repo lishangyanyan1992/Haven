@@ -89,16 +89,25 @@ function differenceInWholeMonths(laterDate: Date, earlierDate: Date) {
   return Math.max(months, 0);
 }
 
+/**
+ * How far the person is from being able to act, said so it cannot be misread.
+ *
+ * This used to read "5 months ahead of cutoff", which sounds like good news and
+ * means the opposite: their priority date is *later* than the cutoff, so the queue
+ * has to move five more months before it reaches them. On a screen someone is
+ * scanning while frightened, "ahead" is the wrong word in the wrong direction.
+ */
 function formatGapLabel(priorityDate: Date, cutoffDate: Date) {
   const months = differenceInWholeMonths(priorityDate, cutoffDate);
   const years = Math.floor(months / 12);
   const remainingMonths = months % 12;
 
-  if (years === 0) {
-    return `${remainingMonths} month${remainingMonths === 1 ? "" : "s"} ahead of cutoff`;
-  }
+  const duration =
+    years === 0
+      ? `${remainingMonths} month${remainingMonths === 1 ? "" : "s"}`
+      : `${years} year${years === 1 ? "" : "s"}, ${remainingMonths} month${remainingMonths === 1 ? "" : "s"}`;
 
-  return `${years} year${years === 1 ? "" : "s"}, ${remainingMonths} month${remainingMonths === 1 ? "" : "s"} ahead of cutoff`;
+  return `the cutoff still has to move ${duration} to reach this priority date`;
 }
 
 function formatDurationLabel(totalMonths: number) {
@@ -173,12 +182,46 @@ function getFallbackVelocity(category: BulletinPreferenceCategory, country: Bull
   );
 }
 
-function estimateCurrentRange(priorityDate: Date, latestBulletinYear: number, latestBulletinMonth: number, cutoffDate: Date) {
+/**
+ * A rough window for when the cutoff might reach this priority date.
+ *
+ * Returns null rather than a number when the projection would not mean anything —
+ * which is most of the time, and used not to be.
+ *
+ * The old version returned `centerYear - 1` to `centerYear + 3` with no floor,
+ * which produced ranges like "2025-2029" in August 2026: a five-year window whose
+ * first year had already happened. A person reads that as "it might already be my
+ * turn", which is both wrong and the most consequential thing you can be wrong
+ * about here.
+ *
+ * Two rules now:
+ *
+ * - The window never opens in the past. If the projection lands before the end of
+ *   this year, the honest answer is that nobody can say, not a range with a
+ *   comforting near edge.
+ * - It is symmetric and narrower. The old spread was lopsided toward optimism for
+ *   no stated reason; a plus-or-minus is at least an honest shape for a guess.
+ */
+function estimateCurrentRange(
+  priorityDate: Date,
+  latestBulletinYear: number,
+  latestBulletinMonth: number,
+  cutoffDate: Date,
+  today: Date = new Date()
+): string | null {
   const bulletinDate = new Date(Date.UTC(latestBulletinYear, latestBulletinMonth - 1, 1));
   const queueAgeDays = Math.max(0, (bulletinDate.getTime() - cutoffDate.getTime()) / 86400000);
   const projectedCurrentDate = new Date(priorityDate.getTime() + queueAgeDays * 86400000);
+
   const centerYear = projectedCurrentDate.getUTCFullYear();
-  return `${centerYear - 1}\u2013${centerYear + 3}`;
+  const thisYear = today.getUTCFullYear();
+
+  // The projection has already been overtaken, so it says nothing about the
+  // future. Silence is the correct output.
+  if (centerYear <= thisYear) return null;
+
+  const from = Math.max(centerYear - 1, thisYear + 1);
+  return `${from}\u2013${centerYear + 1}`;
 }
 
 function buildHistoryPoints(rows: VisaBulletinRow[]): PriorityDateHistoryPoint[] {
@@ -325,16 +368,25 @@ export async function getPriorityDateIntelligence(
     isCurrent: false,
     gapLabel,
     velocityLabel: velocity.label,
-    // The projection is anchored to the newest bulletin we hold. When that
-    // anchor is months old the range is measured from the wrong starting point,
-    // so the caveat has to travel with the value — this string is also injected
-    // into the Advisor's prompt as a derived signal.
-    estimatedGreenCardDateRange: isStale
-      ? `${estimatedGreenCardDateRange} (projected from the ${latestBulletinLabel} bulletin, ${bulletinAgeDays} days old)`
-      : estimatedGreenCardDateRange,
-    estimateLabel: isStale
-      ? `At ${velocity.label} average pace, current around ${estimatedGreenCardDateRange} — but this projects from the ${latestBulletinLabel} bulletin, which is ${bulletinAgeDays} days old.`
-      : `At ${velocity.label} average pace, current around ${estimatedGreenCardDateRange}.`,
+    // The projection is anchored to the newest bulletin we hold. When that anchor
+    // is months old the range is measured from the wrong starting point, so the
+    // caveat travels with the value — this string is also injected into the
+    // Advisor's prompt as a derived signal.
+    //
+    // And when the projection has already been overtaken by the calendar it is
+    // dropped entirely rather than shown with a caveat. A range whose near edge is
+    // in the past reads as "it might already be my turn", and no wording placed
+    // next to it undoes that.
+    estimatedGreenCardDateRange: !estimatedGreenCardDateRange
+      ? undefined
+      : isStale
+        ? `${estimatedGreenCardDateRange} (projected from the ${latestBulletinLabel} bulletin, ${bulletinAgeDays} days old)`
+        : estimatedGreenCardDateRange,
+    estimateLabel: !estimatedGreenCardDateRange
+      ? `Haven cannot project a date from the ${latestBulletinLabel} bulletin — it is ${bulletinAgeDays} days old and the estimate it produces has already been overtaken. Use the current bulletin instead.`
+      : isStale
+        ? `At ${velocity.label} average pace, current around ${estimatedGreenCardDateRange} — but this projects from the ${latestBulletinLabel} bulletin, which is ${bulletinAgeDays} days old.`
+        : `At ${velocity.label} average pace, current around ${estimatedGreenCardDateRange}.`,
     estimateDetails: [
       ...(isStale
         ? [
@@ -343,7 +395,13 @@ export async function getPriorityDateIntelligence(
         : []),
       `Haven starts with the ${latestBulletinLabel} final action bulletin and its cutoff of ${latestCutoffLabel}. That places the queue at that time about ${queueDepthLabel} deep.`,
       `It then uses the recent bulletin movement average of ${velocity.label} to project how long it may take for the cutoff to reach your priority date.`,
-      `The ${estimatedGreenCardDateRange} range is intentionally wide because bulletin movement can speed up, stall, or retrogress from month to month.`
+      ...(estimatedGreenCardDateRange
+        ? [
+            `The ${estimatedGreenCardDateRange} range is intentionally wide because bulletin movement can speed up, stall, or retrogress from month to month.`
+          ]
+        : [
+            `No range is shown because projecting from a bulletin this old produces a window that has already partly passed, which would be worse than saying nothing.`
+          ])
     ],
     visaBulletinPosition: withStalenessCaveat(
       `${category} ${country} cutoff is ${latestCutoffLabel} as of the ${latestBulletinLabel} bulletin. You are ${gapLabel}.`,

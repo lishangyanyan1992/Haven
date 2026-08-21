@@ -179,9 +179,23 @@ export function renderBulletinFreshnessForPrompt(
 }
 
 /**
- * The user's actual position under the latest bulletin — computed in SQL, to be
- * stated verbatim. Returns null when the profile lacks a priority date or
- * category, or when no live data covers their category/country.
+ * The user's actual position under the latest bulletin, computed in SQL.
+ *
+ * Written as sentences addressed to the reader, not as a record about them. The
+ * first version was a labelled data sheet — "Category/country: …", "Latest
+ * bulletin: …", "This user's priority date is NOT yet current" — carrying the
+ * instruction "state them exactly as written". The instruction was meant to stop
+ * the model computing its own cutoff dates, which is the one thing it must never
+ * do here. The model obeyed it literally and pasted the whole sheet into the
+ * answer, third-person label included, so a real user read a paragraph of Haven's
+ * internal notes discussing them as "this user".
+ *
+ * Both goals survive if the block is already in the voice the answer needs: the
+ * figures still cannot be recomputed, because there is nothing to recompute from,
+ * and quoting the block now produces a sentence rather than a database row.
+ *
+ * Returns null when the profile lacks a priority date or category, or when no live
+ * data covers their category/country.
  */
 export async function renderBulletinPositionForPrompt(
   profile: ImmigrationProfile
@@ -191,26 +205,20 @@ export async function renderBulletinPositionForPrompt(
     return null;
   }
 
-  const lines = [
-    `Category/country: ${intelligence.category} ${intelligence.country}.`,
-    `Latest bulletin: ${intelligence.latestBulletinLabel}.`,
-    `Final action cutoff: ${intelligence.latestCutoffLabel}.`,
-    intelligence.isCurrent
-      ? "This user's priority date IS current under the latest final action dates."
-      : "This user's priority date is NOT yet current under the latest final action dates."
-  ];
+  const position = intelligence.isCurrent
+    ? `Their priority date is current under the ${intelligence.latestBulletinLabel} final action dates for ${intelligence.category} ${intelligence.country}, where the cutoff is ${intelligence.latestCutoffLabel}.`
+    : `Their priority date is not current yet. Under the ${intelligence.latestBulletinLabel} final action dates for ${intelligence.category} ${intelligence.country}, the cutoff is ${intelligence.latestCutoffLabel}${intelligence.gapLabel ? ` — ${intelligence.gapLabel}` : ""}.`;
 
-  if (intelligence.gapLabel) {
-    lines.push(`Distance from cutoff: ${intelligence.gapLabel}.`);
-  }
+  const lines = [position];
+
   if (intelligence.estimateLabel) {
-    lines.push(`Projection (Haven estimate, not official): ${intelligence.estimateLabel}`);
+    lines.push(`Haven's own rough estimate, which is not official and not a promise: ${intelligence.estimateLabel}`);
   }
 
   lines.push(
-    "These figures are computed from the official bulletin table. State them exactly as written.",
-    "Do not compute, adjust, or project any cutoff date yourself.",
-    "A final action date governs approval, not filing — do not tell the user they may file based on this alone."
+    "Use these numbers as written. Never work out a cutoff date, a gap, or a projection of your own — every figure here came from the official bulletin table and yours would not.",
+    "Write them into your answer as ordinary sentences addressed to the person. Do not reproduce these lines as a labelled list, and never refer to them in the third person: they are reading this.",
+    "A final action date governs approval, not filing — do not tell them they may file based on this alone."
   );
 
   return lines;

@@ -46,6 +46,19 @@ import { isArchivedPath } from "@/lib/archived-routes";
 export type PracticeArea = "H-1B" | "EB-2 NIW" | "PERM" | "Student" | "Immigration";
 
 /**
+ * Which set of questions to hand them, which is a finer distinction than the
+ * filter.
+ *
+ * These are two different jobs and conflating them broke the link. A practice
+ * area has to be a string some firm actually lists, or the filtered directory
+ * comes back empty — "Green card" is not one of them, however natural it reads.
+ * The questions have no such constraint: they only have to be worth asking. So a
+ * green-card-queue question filters to the general immigration list and still
+ * arrives with questions about priority dates rather than the generic set.
+ */
+type QuestionSet = PracticeArea | "green-card-queue";
+
+/**
  * Which practice area a topic belongs to, most specific first.
  *
  * Ordered rather than mapped because a question usually carries several topics,
@@ -65,9 +78,31 @@ const AREA_BY_TOPIC: Array<[TopicBucket, PracticeArea]> = [
   ["job-change", "H-1B"]
 ];
 
+/**
+ * A green-card-queue question used to fall through to the generic questions, one
+ * of which was "What do you need from me to give me a straight answer?" — a poor
+ * thing to walk into a paid consultation holding. It still filters to the general
+ * immigration list, because that is what the firm data supports.
+ */
+const QUESTIONS_BY_TOPIC: Array<[TopicBucket, QuestionSet]> = [
+  ["visa-bulletin", "green-card-queue"],
+  ["adjustment-of-status", "green-card-queue"]
+];
+
 export function practiceAreaFor(topics: readonly TopicBucket[]): PracticeArea {
   for (const [topic, area] of AREA_BY_TOPIC) {
     if (topics.includes(topic)) return area;
+  }
+  return "Immigration";
+}
+
+function questionSetFor(topics: readonly TopicBucket[]): QuestionSet {
+  // A named practice area is the more specific signal, so it wins.
+  for (const [topic, area] of AREA_BY_TOPIC) {
+    if (topics.includes(topic)) return area;
+  }
+  for (const [topic, set] of QUESTIONS_BY_TOPIC) {
+    if (topics.includes(topic)) return set;
   }
   return "Immigration";
 }
@@ -80,7 +115,7 @@ export function practiceAreaFor(topics: readonly TopicBucket[]): PracticeArea {
  * options" — the point is to arrive with something an attorney can answer quickly
  * rather than spend the consultation establishing the basics.
  */
-const QUESTIONS: Record<PracticeArea, string[]> = {
+const QUESTIONS: Record<QuestionSet, string[]> = {
   "H-1B": [
     "Which of my options actually fits my dates, and which one is fastest?",
     "What has to be filed before my grace period ends, and who files it?",
@@ -100,6 +135,11 @@ const QUESTIONS: Record<PracticeArea, string[]> = {
     "Do my dates still work, and is anything about to lapse?",
     "Which of my options keeps me in status while I sort the rest out?",
     "What should my school be doing, and what should I be doing myself?"
+  ],
+  "green-card-queue": [
+    "Given my priority date and category, what is realistic timing — and what would change it?",
+    "What can I have ready now so I can file the week it becomes possible?",
+    "Does anything about my current status put the green card at risk while I wait?"
   ],
   Immigration: [
     "Given my dates, what is the deadline I should actually be working to?",
@@ -158,9 +198,28 @@ function formatDate(iso: string): string {
  * recommendation can come from a guardrail, from the model, or from both, and a
  * handoff attached to an answer that never mentioned an attorney would read as a
  * non-sequitur — or worse, as Haven pushing paid help unprompted.
+ *
+ * The first version matched the bare word, which fired on any passing mention. A
+ * real answer about which visa bulletin chart to watch each month ended with a
+ * full find-a-lawyer block because one sub-point said a job change "requires
+ * careful analysis and attorney review". That is not a recommendation to go and
+ * hire somebody, and stapling a directory to it makes Haven look like it is
+ * selling something.
+ *
+ * So it now needs an actual instruction: a verb pointed at the person, or a
+ * should/need construction. "Attorney review" on its own no longer qualifies.
  */
-const RECOMMENDS_COUNSEL =
-  /\b(immigration )?(attorney|lawyer|counsel)\b/i;
+const RECOMMENDS_COUNSEL = new RegExp(
+  [
+    // "speak to / talk to / consult / contact / see / call / hire / find an attorney"
+    String.raw`\b(speak|talk|consult|contact|see|call|hire|find|get|retain|reach out)\b[^.]{0,40}\b(immigration )?(attorney|lawyer|counsel)\b`,
+    // "an attorney should look at this" / "counsel needs to review"
+    String.raw`\b(immigration )?(attorney|lawyer|counsel)\b[^.]{0,40}\b(should|needs? to|has to|must)\b`,
+    // "you should have an attorney ..." / "worth having a lawyer ..."
+    String.raw`\b(should|need|worth|recommend)\b[^.]{0,40}\b(an?|your) (immigration )?(attorney|lawyer|counsel)\b`
+  ].join("|"),
+  "i"
+);
 
 /**
  * The disclaimer line, which is not decoration.
@@ -219,7 +278,7 @@ export function buildAttorneyHandoff(input: {
     ...whatToBring(input.context, today).map((item) => `- ${item}`),
     "",
     "Worth asking:",
-    ...QUESTIONS[practiceArea].map((question) => `- ${question}`),
+    ...QUESTIONS[questionSetFor(input.topics)].map((question) => `- ${question}`),
     ...(directoryLive ? ["", NOT_A_REFERRAL] : [])
   ];
 

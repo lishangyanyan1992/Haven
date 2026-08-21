@@ -61,6 +61,24 @@ async function main() {
 
   // The narrowest topic chooses the firms. A PERM question that also mentions a
   // layoff should reach PERM firms, not the general list.
+  // The two jobs are separate and must stay separate: the filter has to name a
+  // real practice area or the directory comes back empty, while the questions only
+  // have to be worth asking. Conflating them shipped a `?focus=Green card` link
+  // that would have matched nothing — caught here, not in production.
+  const greenCardHandoff = build(["visa-bulletin"], "You should speak to an immigration attorney about this.", {
+    priorityDate: "2022-02-02"
+  });
+  check(
+    "a green-card-queue question still filters to a real practice area",
+    greenCardHandoff?.text.includes("/lawyers?focus=Immigration") ?? false,
+    greenCardHandoff?.text ?? "(nothing)"
+  );
+  check(
+    "and still gets priority-date questions rather than the generic set",
+    /priority date and category/i.test(greenCardHandoff?.text ?? ""),
+    greenCardHandoff?.text ?? "(nothing)"
+  );
+
   check(
     "the most specific topic wins",
     practiceAreaFor(["layoffs", "perm"] as never) === "PERM",

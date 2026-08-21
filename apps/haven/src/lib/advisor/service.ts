@@ -43,6 +43,7 @@ import { getThreadMessages, listThreads, persistExchange, type AdvisorThreadSumm
 import { collectAttempts, renderAttemptsForPrompt } from "@/lib/advisor/attempted-steps";
 import { buildAttorneyHandoff, HANDOFF_DELIVERED } from "@/lib/advisor/attorney-handoff";
 import { readAnswerOutcome, recordOutcome, IMMEDIATE_LANDED, type ImmediateOutcome } from "@/lib/advisor/answer-outcome";
+import { checkSituation, renderSituationForPrompt } from "@/lib/advisor/situation-check";
 import { listFacts, rememberFactsFrom, renderFactsForPrompt, type RememberedFact } from "@/lib/advisor/memory";
 import {
   detectProfileUpdates,
@@ -2360,10 +2361,10 @@ export function buildStaleBulletinNotice(
     : "Haven currently has no live Visa Bulletin data";
 
   return (
-    `${STALE_BULLETIN_MARKER} ${held}. A newer bulletin has almost certainly been published since. ` +
-    "Treat any month-specific cutoff or filing conclusion above as unverified, and confirm against the " +
+    `${STALE_BULLETIN_MARKER} ${held}. A newer one has almost certainly been published since, so ` +
+    "treat every month-specific cutoff and filing conclusion below as unverified, and check it against the " +
     "[official Visa Bulletin](https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin.html) " +
-    "and the USCIS filing-chart page before you act on it."
+    "and the USCIS filing-chart page before you act on any of it."
   );
 }
 
@@ -2586,6 +2587,86 @@ const DUPLICATE_LINE_PATTERNS: RegExp[] = [
 
 const LIST_ITEM = /^\s{0,3}(?:[-*+]|\d{1,2}[.)])\s+/;
 
+/**
+ * Openings of a trailing offer to do more work.
+ *
+ * The system prompt has forbidden this in two different wordings and the model
+ * ignored both. That is the signal to stop writing rules and cut it in code — the
+ * same conclusion this codebase has reached about grace-period arithmetic and
+ * about judging a community post: if the behaviour matters, do not leave it to
+ * persuasion.
+ *
+ * Why it matters more than tidiness. The offers are not idle: "I can track and
+ * summarize the USCIS filing chart each month for your priority date" describes a
+ * standing service Haven will not perform. The conversation ends when the answer
+ * does. Somebody who believes a monitor is now running is worse off than before
+ * they asked, and on this subject the thing they stopped watching has a deadline.
+ */
+const TRAILING_OFFER = new RegExp(
+  [
+    // "If you want, I can…" / "If you'd like, I can…" / "If you want me to…"
+    String.raw`if you(?:'d| would)? (?:want|like)(?:\s*,|\s+me\s+to\b)`,
+    String.raw`would you like me\b`,
+    String.raw`want me to\b`,
+    String.raw`shall i\b`,
+    String.raw`let me know if\b`,
+    String.raw`(?:i'?m )?happy to\b`,
+    String.raw`tell me (?:if|whether) you (?:want|would)\b`,
+    // A bare "I can:" or "I can also help with:" introducing a menu.
+    String.raw`i can(?: also)?(?: help(?: with)?)?\s*:\s*$`
+  ]
+    // Optional bullet or bold marker in front, and it must open the line — an
+    // offer buried mid-sentence is not what this removes.
+    .map((pattern) => String.raw`^\s*(?:[*\-\u2022]\s*)?(?:\*\*)?(?:${pattern})`)
+    .join("|"),
+  "i"
+);
+
+/**
+ * Cut a trailing offer to do more, and the menu underneath it.
+ *
+ * Two things this has to get right, and the first version got both wrong:
+ *
+ * - **The offer usually ends in bullets.** Scanning backwards and stopping at the
+ *   first bullet meant the real case — "If you want, I can:" followed by two
+ *   options — was never reached. Bullets are collected as candidates and only
+ *   discarded once an offer line above them confirms what they belong to.
+ * - **"If you want" is usually not an offer.** "If you want to keep working, the
+ *   transfer has to be filed first" is advice, and cutting it deletes the sentence
+ *   the person needed. The offer forms all point back at Haven — a comma before
+ *   "I can", or "me to" — so the pattern requires one.
+ *
+ * Only ever cuts from the tail, so a conditional in the body is unreachable.
+ */
+export function stripTrailingOffer(answer: string): string {
+  const lines = answer.split("\n");
+  const isBullet = (line: string) => /^\s*(?:[*\u2022-]|\d+[.)])\s+/.test(line);
+
+  let cutAt = -1;
+
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const line = lines[index];
+    if (!line.trim()) continue;
+
+    if (TRAILING_OFFER.test(line)) {
+      cutAt = index;
+      // Keep walking: a menu can be introduced by more than one offer line.
+      continue;
+    }
+
+    // A bullet might belong to an offer further up, so it is not yet a reason to
+    // stop. Anything else is the end of the real answer.
+    if (isBullet(line)) continue;
+    break;
+  }
+
+  if (cutAt === -1) return answer;
+
+  const kept = lines.slice(0, cutAt).join("\n").trimEnd();
+  // Never return an empty answer because the whole thing parsed as an offer.
+  return kept.length > 0 ? kept : answer;
+}
+
 export function stripRedundantRepeats(answer: string): string {
   const lines = answer.split("\n");
   const kept: string[] = [];
@@ -2692,7 +2773,15 @@ export function buildMandatorySafetyAddendum(
   // The answer raised a change of status but never said it does not authorize work.
   // Checked against the answer, not the question: the option usually arrives in the
   // answer's own option menu rather than in what the user asked (adv-bridge-070).
-  const raisesChangeOfStatus = /\bchange of status\b|\bb-?2\b|\bcos\b/i.test(answer);
+  // Narrowed to where the answer actually puts a change of status on the table.
+  // The bare phrase fired on a passing mention — a bulletin-monitoring answer that
+  // said "if a layoff happens, consult counsel about change of status" got a
+  // stapled warning that B-2 does not authorise work, on a question where nobody
+  // had raised B-2 or a layoff. A safety line delivered as a non-sequitur teaches
+  // people to skim past the ones that matter.
+  const raisesChangeOfStatus =
+    /\b(file|filing|apply|applying|submit|switch|switching|change|changing|move|moving|bridge)\b[^.]{0,60}\b(change of status|b-?2|h-?4|i-?539)\b/i.test(answer) ||
+    /\b(change of status|b-?2|h-?4|i-?539)\b[^.]{0,60}\b(is an option|as a bridge|before (the|your)|would (let|allow)|lets you|allows you|to remain|to stay)\b/i.test(answer);
   const statesNoWorkOnNewStatus =
     /(change of status|b-?2)[^.]{0,120}(does not|doesn't|will not|won't)[^.]{0,40}(authoris|authoriz|permit|allow)[^.]{0,40}(work|employment)|(does not|doesn't)[^.]{0,60}(authoris|authoriz|permit|allow)[^.]{0,30}(you )?to work/i.test(
       answer
@@ -2991,9 +3080,19 @@ export const STREAMING_SYSTEM_PROMPT = [
   // In-scope topic: I lost my job, how do I stay
   "For layoff, transfer and bridge-status questions, keep the right to remain separate from the right to work. The grace period is up to 60 days or until I-94 or petition validity ends, whichever is shorter — if the I-94 date is later, the 60-day date is the practical deadline. Portability turns on a properly filed nonfrivolous petition; a receipt notice is evidence of filing, not a substitute for it. A change of status to B-2 or H-4 must be filed before the authorised period expires, and neither authorises employment by itself. Do not treat a last paycheck, an employer withdrawal, or a petition in preparation as equivalent to cessation of employment or a filing.",
 
-  // Community evidence
-  "For timeline or processing-time questions, lead with official data. Community stories are supplementary real-world anecdote, always after the official answer and always framed as individual experiences — never as the authoritative answer.",
-  "Community stories are what this product has that a general chatbot does not. When any are provided and genuinely resemble the person's situation, include one after the official answer, in complete sentences, keeping the specifics that make it useful: what their situation was, what they actually did, in what order, and how it turned out. Do not compress a story into a parenthetical list of keywords. Name it by its own title only — never attribute it to a Haven page, cohort, or feature name, which are parts of this product and not sources. If none genuinely fit, say nothing rather than stretching one.",
+  // Community evidence — the reason this product exists
+  //
+  // This section used to say stories were "supplementary" and belonged "always
+  // after the official answer". That produced answers that were 90% general rules
+  // with an anecdote in the basement: a worse, slower ChatGPT. The rules are the
+  // commodity here — every model on earth knows the 60-day grace period. What
+  // nobody else has is 200 people who have already been through this, and what
+  // they actually did.
+  "What makes this product worth using is community stories — what people in the same situation actually did, and how it went. The general rules are not the product: every chatbot knows them, the person could have asked one for free, and reciting them at length is how this answer becomes indistinguishable from the thing they came here instead of. Rules earn their place only where a story cannot be acted on without them.",
+  "When stories are provided and genuinely resemble the person's situation, build the answer around them. Lead with what somebody in their position did — their situation, what they actually did, in what order, and how it turned out — in complete sentences, keeping the specifics that make it useful. Then say what it means for this person: what carries over to them, what does not, and what is different about their facts. That comparison is the answer. Do not compress a story into a parenthetical list of keywords.",
+  "Name a story by its own title only — never attribute it to a Haven page, cohort, or feature name, which are parts of this product and not sources. If none genuinely fit, say so plainly and keep the general answer short; a stretched story is worse than none, and padding with rules to fill the gap is worse than a short answer.",
+  "Never present a story as a rule or a recommendation. It is one person's experience: it shows what was possible for them, not what is permitted, and outcomes vary on facts you cannot see. Say so once, in your own words, rather than hedging every sentence.",
+  "For timeline or processing-time questions, official data still governs any number you state — a story is evidence about one case, never about the average.",
   "When a 'Community outcome data' block is provided it contains statistics pre-computed from Haven users in a similar situation. State those figures verbatim; never compute, estimate, round, or extrapolate your own. If it says NO_STATS, say there is not enough data for their profile yet and give general orientation only. Always frame these as what others did, not as a recommendation.",
 
   // Tone
@@ -3001,6 +3100,7 @@ export const STREAMING_SYSTEM_PROMPT = [
   "Never accuse. Assume an honest mistake unless the person says otherwise. Do not open by refusing something they did not ask for, do not imply they were careless, and do not lecture. If you must decline part of a request, say so once, briefly, at the end rather than at the start.",
   "Be warm without being soft. Warmth here is taking the situation seriously and being useful — naming the deadline, saying what to do today. It is not sympathy language, and it is never false reassurance: do not say 'you'll be fine' or 'don't worry'.",
   "You are not a lawyer and must never sound like one. Do not say 'I advise', 'in my legal opinion', or 'you should file'. Say what the rules are, what an attorney would need from them, and what to ask.",
+  "If a note about stale Visa Bulletin data appears above your answer, it has already been shown to the user — do not repeat it, and do not open by restating it. Write as though they have read it: keep month-specific cutoffs tentative and say what they should check, without a second disclaimer.",
   "When you are not sure, or the answer depends on something that changes month to month, say so and point to the source instead of guessing. 'The USCIS filing-chart page decides this each month, and here it is' is a better answer than a confident wrong one. Never present a stale or uncertain fact as current.",
 
   // Length
@@ -3019,7 +3119,8 @@ export const STREAMING_SYSTEM_PROMPT = [
   // answer that ends by offering to continue is spending words on a button the
   // person can already see.
   "Do not end with a 'Sources' or 'References' list. Citations belong in the citation payload, which the app displays separately; repeating them as prose adds length and nothing else.",
-  "Do not end by offering to do more ('if you want, tell me X and I can...'). Ask the one question you need, as a question, or stop.",
+  "Do not end by offering to do more. No 'if you want, I can…', no menu of things you could do next, no offer to monitor, watch, track, or notify — you cannot do any of those, the conversation ends when this answer does, and offering makes Haven sound like it is about to act on their behalf when nothing will happen. Ask the one question you actually need, as a question, or stop.",
+  "A long answer is almost always the wrong answer here. If yours is running long, the cause is nearly always general rules crowding out the part that is specific to this person — cut the rules, not the specifics. Seven numbered sections is a sign something has gone wrong, not a sign of thoroughness.",
   "Lead with the direct answer, then add only the context, caveats, or numbers that materially change what the user should do."
 ].join(" ");
 
@@ -3702,6 +3803,23 @@ export async function* streamAdvisorResponse(rawInput: {
   // handing them back a door they told us was locked. Thread-scoped and derived
   // from the history the request already carries — see attempted-steps.ts.
   const attemptedSteps = collectAttempts(content, rawHistory);
+
+  // What the answer is about to assume, and what it does not know.
+  //
+  // Haven holds a priority date, a category, a status — so unlike a general
+  // chatbot it never has to ask, and that is exactly the trap: it inherits
+  // whatever was true the last time somebody edited their profile and advises with
+  // full confidence on top of it. Held facts get stated back so a wrong one is
+  // corrected in the next message; missing ones get asked for, and until they
+  // arrive the answer explains rather than recommends.
+  const situation = checkSituation(topics, {
+    visaType: snapshot.profile.visaType,
+    layoffDate: snapshot.activeLayoffEvent?.layoffDate ?? null,
+    priorityDate: snapshot.profile.priorityDate,
+    preferenceCategory: snapshot.profile.preferenceCategory,
+    countryOfBirth: snapshot.profile.countryOfBirth
+  });
+  const situationLines = renderSituationForPrompt(situation, rawHistory.length === 0);
   const havenContextUsed = promptProfileSummary.slice(0, 4).filter(Boolean);
 
   const { text: systemPrompt, prompt: advisorPrompt } = await getPrompt(lf, ADVISOR_PROMPT_NAME, STREAMING_SYSTEM_PROMPT);
@@ -3745,6 +3863,9 @@ export async function* streamAdvisorResponse(rawInput: {
     ...(attemptedSteps.length > 0
       ? [buildContextBlock("What the user has already tried", renderAttemptsForPrompt(attemptedSteps)), ""]
       : []),
+    ...(situationLines.length > 0
+      ? [buildContextBlock("What you know about them, and what you do not", situationLines), ""]
+      : []),
     buildContextBlock("Decision guardrails", decisionGuardrails),
     "",
     ...(profileContradictsJobLoss
@@ -3782,7 +3903,13 @@ export async function* streamAdvisorResponse(rawInput: {
         ]
       : []),
     ...(bulletinPosition
-      ? ["", buildContextBlock("This user's bulletin position (state verbatim; never compute your own dates)", bulletinPosition)]
+      ? [
+          "",
+          buildContextBlock(
+            "Where they stand in the bulletin (use these numbers; never compute your own, and never paste this block as a list)",
+            bulletinPosition
+          )
+        ]
       : []),
     "",
     buildContextBlock(
@@ -3855,6 +3982,25 @@ export async function* streamAdvisorResponse(rawInput: {
   let fallback = false;
   let fallbackReason: string | null = null;
 
+  // Stale-bulletin disclosure, emitted BEFORE the answer rather than after it.
+  //
+  // It used to be stapled to the end, and in a long answer that is where it went
+  // to die: a real reply opened with a hard cutoff date and a seven-point action
+  // plan built on it, then admitted in its final line that the bulletin behind all
+  // of that was 142 days old. A caveat that arrives after somebody has decided
+  // what to do has not been delivered. This is the one fact that decides whether
+  // any of the rest is safe to act on, so it goes first.
+  //
+  // Passed an empty answer because there is none yet — that parameter existed to
+  // stop the trailing copy duplicating something the model had already said. The
+  // system prompt carries the matching instruction not to repeat it below.
+  const staleNotice = buildStaleBulletinNotice(topics, knowledge, liveBulletin, "");
+  if (staleNotice) {
+    const noticeText = `${staleNotice}\n\n`;
+    fullText += noticeText;
+    yield { type: "delta", text: noticeText };
+  }
+
   if (client) {
     try {
       const stream = await client.chat.completions.create({
@@ -3903,6 +4049,10 @@ export async function* streamAdvisorResponse(rawInput: {
   // each required line and does not staple a replacement for what was just cut.
   fullText = stripRedundantRepeats(fullText);
 
+  // Runs after the repeat pass so it sees the final tail, and before the addendum
+  // so the safety lines are not what gets cut.
+  fullText = stripTrailingOffer(fullText);
+
   const addendum = buildMandatorySafetyAddendum(content, topics, fullText, threadState.delivered);
   if (addendum.text) {
     const addendumText = `\n\n${addendum.text}`;
@@ -3938,18 +4088,6 @@ export async function* streamAdvisorResponse(rawInput: {
     const handoffText = `\n\n${handoff.text}`;
     fullText += handoffText;
     yield { type: "delta", text: handoffText };
-  }
-
-  // Stale-bulletin disclosure. detectStaleBulletin used to be consulted only
-  // inside fallbackAnswer, which runs when generation fails — so on the normal
-  // path, the path every real user takes, a stale bulletin produced no warning
-  // at all. Applied here it covers every answer, deterministically, rather than
-  // depending on the model to volunteer it.
-  const staleNotice = buildStaleBulletinNotice(topics, knowledge, liveBulletin, fullText);
-  if (staleNotice) {
-    const noticeText = `\n\n${staleNotice}`;
-    fullText += noticeText;
-    yield { type: "delta", text: noticeText };
   }
 
   // Profile updates the user stated in this message.
@@ -4048,6 +4186,7 @@ export async function* streamAdvisorResponse(rawInput: {
       // Counted, not just injected: a thread where the user keeps ruling steps out
       // is a thread that is going badly, and that is only visible if it is recorded.
       attemptedStepCount: attemptedSteps.length,
+      situationFactsMissing: situation.missing.map((fact) => fact.label),
       attorneyHandoff: handoff?.practiceArea ?? "none",
       caseStatsTier: caseStats?.tier ?? "none",
       citationCount: citations.length,
