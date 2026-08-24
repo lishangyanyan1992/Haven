@@ -136,11 +136,54 @@ async function main() {
     withoutLayoff.guardrailIds.join(",") || "none"
   );
 
+  // ------------------------------------------------ the countdown, in plain words
+  //
+  // The third near-miss of this exact shape. "How many days do I have left?" is
+  // what somebody types when the number is the only thing they want, and it
+  // matched nothing — so a person on day 43 of a grace period was handed a menu
+  // asking which topic they meant. Found by a test written for something else,
+  // which is how the previous two were found as well.
+  const countdown = [
+    "How many days do I have left?",
+    "How much time do I have left?",
+    "How long do I have?",
+    "How many days do I have?",
+    "How much longer do I have?",
+    "Days left before I have to leave?"
+  ];
+  for (const question of countdown) {
+    const result = send(question);
+    check(
+      `"${question}" is answered, not sent to the menu`,
+      result.outcome === "ANSWERS" && result.route.topics.includes("layoffs"),
+      `outcome=${result.outcome} topics=${result.route.topics.join(",")}`
+    );
+  }
+
+  // And it must carry the safety rules, because it is the highest-stakes question
+  // in the product asked in its shortest form.
+  check(
+    "the countdown question carries the layoff safety rules",
+    send("How many days do I have left?").route.guardrailIds.includes("GR_LAYOFF_SAFETY_RULES"),
+    send("How many days do I have left?").route.guardrailIds.join(",") || "none"
+  );
+
+  // The countdown pattern must not swallow a processing-time question. Being
+  // routed to the layoffs *topic* is harmless and deliberate — it only widens
+  // retrieval — so what matters is that it does not inherit the layoff briefing.
+  // required-points.check.ts owns that assertion; this is the routing half.
+  check(
+    "a processing-time question does not get the layoff safety rules",
+    !send("How long does an H-1B transfer usually take?").route.guardrailIds.includes("GR_LAYOFF_SAFETY_RULES"),
+    send("How long does an H-1B transfer usually take?").route.guardrailIds.join(",") || "none"
+  );
+
   // The widened patterns must not swallow questions that are not about a layoff.
   // "receipt", "transfer" and "last day" all appear in ordinary sentences.
   const notLayoff: Array<[string, string]> = [
     ["a document question", "What documents should I keep copies of?"],
-    ["a bulletin question", "What does the visa bulletin say about EB-2 India this month?"]
+    ["a bulletin question", "What does the visa bulletin say about EB-2 India this month?"],
+    ["a validity question", "How long is my I-797 valid for?"]
   ];
   for (const [name, question] of notLayoff) {
     const result = send(question);

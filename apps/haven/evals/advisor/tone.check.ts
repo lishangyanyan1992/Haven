@@ -120,13 +120,35 @@ async function main() {
     );
   }
 
+  // Community stories used to be governed by a standing prompt rule, and this
+  // block used to grep the prompt for the phrase. That rule was deleted on
+  // 2026-08-21 because the decision moved into code: story-fit.ts works out per
+  // question whether a story leads, and injects instructions saying so. Grepping
+  // the prompt would now pass or fail on wording that no longer decides anything,
+  // so the assertion follows the behaviour to where it lives.
+  {
+    const { renderStoryLeadForPrompt } = await import("@/lib/advisor/story-fit");
+    const leading = renderStoryLeadForPrompt({
+      story: { title: "T", topic: "layoffs", summary: "s", legalCaveat: "c", tags: [], similarity: 0.9 } as never,
+      kind: "experience",
+      reason: "test"
+    }).join(" ");
+    check(
+      "a fitting story is required to open the answer",
+      /Open with the story titled/i.test(leading) && /what they actually did/i.test(leading),
+      leading
+    );
+    const none = renderStoryLeadForPrompt({ story: null, kind: "experience", reason: "test" }).join(" ");
+    check("and no fitting story means a short answer rather than padding", /Do not stretch one/i.test(none), none);
+  }
+
   const promptRules: Array<[string, RegExp]> = [
     ["names who is reading", /laid off this morning|frightened|second or third language/i],
     ["forbids accusation", /never accuse|assume an honest mistake/i],
     ["forbids sounding like a lawyer", /not a lawyer|never sound like one/i],
     ["forbids false reassurance", /you'?ll be fine|don'?t worry/i],
     ["requires pointing to the source when unsure", /point to the source|instead of guessing/i],
-    ["requires community stories when they fit", /community stories/i],
+
     ["names a stale-prone profile fact when it changed the answer", /materially changes your answer|invite correction/i]
   ];
   console.log("");

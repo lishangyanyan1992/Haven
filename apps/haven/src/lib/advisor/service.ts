@@ -388,6 +388,16 @@ const JOB_LOSS_PATTERN = new RegExp(`(${JOB_LOSS_TERMS.join("|")})`);
  * lost their job, where the cost of being wrong is a six-point layoff briefing
  * stapled to "how long does a transfer take".
  */
+/**
+ * The countdown question, asked without any layoff word in it.
+ *
+ * One copy, used by topic detection and by guardrail selection. The last two
+ * near-misses of this shape were each fixed in one of those two places and not the
+ * other, so the question was recognised but unguarded, or guarded but unrecognised.
+ */
+const ASKS_HOW_LONG_IS_LEFT =
+  /\b(how (many|much) (days?|time|longer)|how long) (do|have) i (have|got)\b|\b(days?|time) (do i have )?(left|remaining)\b|\bhow long (do i have|until)\b|\bwhen (exactly )?(does|do) (my|the) (clock|window|time|grace)\b/;
+
 const POST_LAYOFF_MECHANICS_AMBIGUOUS = [
   // Starting work on a filing rather than an approval — the portability question.
   /\b(start|starting|begin|beginning|join|joining)\b[^.?!]{0,40}\b(receipt|petition|transfer|filing|approval|i-?797)\b/,
@@ -771,10 +781,21 @@ function detectTopics(input: string): Set<TopicBucket> {
   // question in its plainest form, matched nothing and was answered with the menu
   // of topics. Someone counting down their own deadline was asked to pick a
   // category.
+  //
+  // The third near-miss of the same shape, found by a test written for something
+  // else entirely. "How many days do I have left?" is the countdown question in
+  // its plainest possible form — it is what somebody types when the number is the
+  // only thing they want — and it matched nothing, so a person on day 43 of their
+  // grace period was handed a menu asking which topic they meant.
+  //
+  // The pattern deliberately does not require the word "day": "how much time do I
+  // have" and "how long do I have" are the same question, and requiring the noun
+  // is exactly the kind of near-miss this comment has now recorded three times.
   if (
     mentionsJobLoss(normalized) ||
     /(60[- ]day|day 60|day sixty|sixty days?)/.test(normalized) ||
     /grace period/.test(normalized) ||
+    ASKS_HOW_LONG_IS_LEFT.test(normalized) ||
     BRIDGE_STATUS_PATTERN.test(normalized) ||
     mentionsPostLayoffMechanics(normalized)
   )
@@ -1159,7 +1180,13 @@ function selectGuardrailIds(query: string, topics: TopicBucket[], signals: Guard
   const layoffOnlyWording =
     /(grace period|60-day|60 day|day 60|paycheck|last day|laid off|terminated|let go|severance|stopped paying|no longer paying|without pay)/.test(
       normalized
-    );
+    ) ||
+    // "How many days do I have left?" carries no layoff word and is the countdown
+    // question in its shortest form. It could in principle be about I-94 validity,
+    // so this is a deliberate over-trigger: being handed grace-period rules when
+    // you meant your I-94 is a wasted paragraph, and missing them when you are on
+    // day 43 is the failure this product exists to prevent.
+    ASKS_HOW_LONG_IS_LEFT.test(normalized);
   // The ambiguous mechanics belong here, not in the layoff test. "Can I start on
   // the receipt or wait for approval?" names no job loss and is the single most
   // dangerous transfer question in the corpus — it still has to be guarded, just
@@ -3129,6 +3156,60 @@ const ADVISOR_PROMPT_NAME = "haven-advisor-system";
  * it already; what remains here is the part that must hold even if guardrail
  * selection misses.
  */
+/**
+ * The system prompt.
+ *
+ * WHAT WAS DELETED ON 2026-08-21, AND WHY IT SHOULD STAY DELETED
+ *
+ * This had grown to 39 rules and 1,955 words, and rules compete: a model given
+ * forty instructions satisfies the specific ones and treats the vague ones as
+ * decoration. Four of them were measured doing nothing at all. Cutting to 31 and
+ * 1,517 words is not tidying — it is the only lever left on whether the remaining
+ * rules land, because nothing was ever going to be fixed by adding a fortieth.
+ *
+ * Three deletion criteria, and every removal met one of them. Nothing was cut for
+ * being merely wordy, and no rule was removed unless the behaviour it asked for is
+ * still produced some other way.
+ *
+ * 1. ALREADY ENFORCED IN CODE. The answer is edited after generation regardless of
+ *    what the prompt says, so the rule only competed for attention.
+ *      - "Do not end with a Sources or References list" -> RECAP_HEADING drops
+ *        that whole section.
+ *      - "Do not end by offering to do more" -> stripTrailingOffer. That one was
+ *        written into the prompt twice, ignored twice, and only stopped when it
+ *        became code; leaving the text in was pure superstition.
+ *
+ * 2. MEASURED, NO EFFECT. Four runs of one question with the rules present:
+ *    557, 594, 761, 577 words, against a prompt asking for 2-4 sentences.
+ *      - "Be concise."
+ *      - "A long answer is almost always the wrong answer here."
+ *      - "Lead with the direct answer" (also a weaker restatement of ANSWER SHAPE)
+ *    A rule that does not change the output is not free — it dilutes the ones that
+ *    would.
+ *
+ * 3. SAID AGAIN, PER QUESTION, BY A BLOCK BUILT IN CODE. These were always-on
+ *    copies of guidance that is now injected only when it is relevant, which is
+ *    both more specific and better targeted. On every unrelated question the
+ *    always-on copy was noise competing with the answer.
+ *      - Asking for the last day of employment -> the situation-check block, which
+ *        names the missing fact rather than describing the category.
+ *      - The I-485 filing-chart instruction -> requiredPointsForAnswer emits it for
+ *        every visa-bulletin question.
+ *      - "Community stories are what makes this product worth using" -> the
+ *        story-fit block, which decides in code whether a story leads *this*
+ *        answer and says so.
+ *
+ * WHAT WAS DELIBERATELY KEPT, INCLUDING THINGS THAT LOOK REDUNDANT
+ *
+ * The safety floor stays whole. So does every rule about how a story may be
+ * characterised — those still apply when a story appears without leading, which
+ * the story-fit block does not cover. So does "answer the question that was asked
+ * and stop", which is new and aimed at the actual defect rather than at length.
+ *
+ * BEFORE ADDING A RULE: check it is not already enforced after generation, and
+ * that no per-question block already says it. If neither is true, add it — and
+ * then measure whether it changed anything, because four of the last few did not.
+ */
 export const STREAMING_SYSTEM_PROMPT = [
   // Identity and shape
   "You are Haven Advisor, an information assistant for US employment-based visas and green cards. You are not a lawyer.",
@@ -3156,12 +3237,10 @@ export const STREAMING_SYSTEM_PROMPT = [
   // they are the answer.
   // Asking is cheap; guessing is not. Weekday phrasings ("last Friday") are
   // deliberately not parsed, so this is the path most people's date arrives by.
-  "If the answer depends on when their employment ended and no 'Grace period' block is present, ask for the last day of employment in one short line at the end — and say why it changes the answer. Ask once; never open with it, and never withhold the rest of the answer waiting for it.",
   "When the Haven timeline gives a date that bears on the question — their last day of work, when their grace period ends, what has been filed and when — use it explicitly rather than describing the rule in general terms. A person asking about their deadline should be told their deadline. If the timeline shows a pending filing, say what is pending before you describe what happens to someone with nothing pending.",
   "When a profile fact materially changes your answer, name the fact you used and invite correction in one short line — for example 'I am going on your profile saying you are still employed; tell me if that has changed.' A profile is a snapshot the user last edited at some point, and employment status, PERM stage and dates go stale without either side noticing. Do not do this for facts that did not change the answer, and never turn it into a list of everything you hold.",
 
   // In-scope topic: where am I in the green card line
-  "For I-485 filing questions involving Final Action Dates or Dates for Filing, the controlling instruction is USCIS's monthly adjustment filing-chart page — never answer yes or no from the Department of State Visa Bulletin alone. Prefer conditional wording: they may be able to file only if USCIS authorises Dates for Filing for that month and the priority date is earlier than the relevant cutoff, assuming all other eligibility requirements are met. Note the exception: if the category is current on Final Action Dates, or the Final Action cutoff is later than the Dates for Filing date, they may file on Final Action that month.",
 
   // In-scope topic: I lost my job, how do I stay
   "For layoff, transfer and bridge-status questions, keep the right to remain separate from the right to work. The grace period is up to 60 days or until I-94 or petition validity ends, whichever is shorter — if the I-94 date is later, the 60-day date is the practical deadline. Portability turns on a properly filed nonfrivolous petition; a receipt notice is evidence of filing, not a substitute for it. A change of status to B-2 or H-4 must be filed before the authorised period expires, and neither authorises employment by itself. Do not treat a last paycheck, an employer withdrawal, or a petition in preparation as equivalent to cessation of employment or a filing.",
@@ -3174,7 +3253,6 @@ export const STREAMING_SYSTEM_PROMPT = [
   // commodity here — every model on earth knows the 60-day grace period. What
   // nobody else has is 200 people who have already been through this, and what
   // they actually did.
-  "What makes this product worth using is community stories — what people in the same situation actually did, and how it went. The general rules are not the product: every chatbot knows them, the person could have asked one for free, and reciting them at length is how this answer becomes indistinguishable from the thing they came here instead of. Rules earn their place only where a story cannot be acted on without them.",
   "When stories are provided and genuinely resemble the person's situation, build the answer around them. Lead with what somebody in their position did — their situation, what they actually did, in what order, and how it turned out — in complete sentences, keeping the specifics that make it useful. Then say what it means for this person: what carries over to them, what does not, and what is different about their facts. That comparison is the answer. Do not compress a story into a parenthetical list of keywords.",
   "Name a story by its own title only — never attribute it to a Haven page, cohort, or feature name, which are parts of this product and not sources. If none genuinely fit, say so plainly and keep the general answer short; a stretched story is worse than none, and padding with rules to fill the gap is worse than a short answer.",
   "Never present a story as a rule or a recommendation. It is one person's experience: it shows what was possible for them, not what is permitted, and outcomes vary on facts you cannot see. Say so once, in your own words, rather than hedging every sentence.",
@@ -3207,7 +3285,6 @@ export const STREAMING_SYSTEM_PROMPT = [
   "If you genuinely cannot answer in three sentences — you need a fact from them first, or the honest answer is that it depends — then say that, in those three sentences, and put why underneath the marker. 'It depends on your last day of employment, which I do not have' is a direct answer.",
   "Emit the marker exactly once, on its own line, even if the answer is short. Never write the word 'details' as a heading in its place, and never mention the marker to the reader.",
   "Do not label the opening 'Direct answer', 'Short answer', or anything similar. The app already presents it as the answer, so the label is a wasted line at the top of the only part most people read. Just say the thing.",
-  "Be concise. Answer the question directly in as few words as it takes to be accurate and complete — no preamble, no restating the question, no filler.",
   "Answer the question that was asked, and stop. If somebody asks how long a transfer takes, tell them how long it takes — do not also brief them on grace periods, work authorisation, and filing strategy because those are adjacent. Adjacent is not relevant, and burying the answer in things they did not ask about is how the one sentence that mattered gets missed.",
   // Answers were averaging ~1,000 words while this file asked for 2-4 sentences.
   // The length was not padding: required safety points and the option menu were
@@ -3221,10 +3298,6 @@ export const STREAMING_SYSTEM_PROMPT = [
   // their own panel beside the message, and the composer is right there -- an
   // answer that ends by offering to continue is spending words on a button the
   // person can already see.
-  "Do not end with a 'Sources' or 'References' list. Citations belong in the citation payload, which the app displays separately; repeating them as prose adds length and nothing else.",
-  "Do not end by offering to do more. No 'if you want, I can…', no menu of things you could do next, no offer to monitor, watch, track, or notify — you cannot do any of those, the conversation ends when this answer does, and offering makes Haven sound like it is about to act on their behalf when nothing will happen. Ask the one question you actually need, as a question, or stop.",
-  "A long answer is almost always the wrong answer here. If yours is running long, the cause is nearly always general rules crowding out the part that is specific to this person — cut the rules, not the specifics. Seven numbered sections is a sign something has gone wrong, not a sign of thoroughness.",
-  "Lead with the direct answer, then add only the context, caveats, or numbers that materially change what the user should do."
 ].join(" ");
 
 /**
