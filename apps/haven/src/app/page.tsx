@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, FileText, Users, UserCheck } from "lucide-react";
+import { ArrowRight, FileText, ShieldAlert, Users, UserCheck } from "lucide-react";
 
 import { BlogCard } from "@/components/app/blog-card";
 import { HavenBrand } from "@/components/app/haven-brand";
@@ -113,7 +113,11 @@ export default function HomePage() {
       <main>
         <section className="bg-[var(--haven-cream)]">
           <div className="content-container-visual flex flex-col items-center pt-10 pb-14 text-center md:pt-12 md:pb-16 lg:pt-14 lg:pb-20">
-            <h1 className="text-display max-w-[24ch]">
+            <p className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--haven-white)] px-3.5 py-1.5 text-[13px] font-medium text-[var(--haven-ink-mid)]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--haven-ink)]" />
+              Beta — free to use, unlimited questions
+            </p>
+            <h1 className="text-display mt-5 max-w-[24ch]">
               We help global talent navigate U.S. immigration.
             </h1>
             <p className="text-body mt-5 max-w-[56ch]">
@@ -126,10 +130,17 @@ export default function HomePage() {
               <HomeQuestionBox />
             </div>
 
-            <p className="text-caption mt-6 max-w-[52ch]">
-              Haven provides information from real experiences, not legal advice. For a decision you can&apos;t undo,
-              check with a qualified attorney.
-            </p>
+            <div className="mt-7 w-full max-w-[46rem] rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] px-5 py-4 text-left sm:px-6 sm:py-5">
+              <p className="flex items-start gap-2.5 text-[16px] font-semibold leading-snug text-[var(--haven-ink)]">
+                <ShieldAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" />
+                Haven does not give legal advice.
+              </p>
+              <p className="text-body-sm mt-2 text-[var(--haven-ink-mid)]">
+                Every answer is a summary of what other people went through — their stories, not a recommendation
+                about your case. We never tell you what to do. For any decision you can&apos;t undo, talk to a
+                licensed immigration attorney.
+              </p>
+            </div>
           </div>
         </section>
 
