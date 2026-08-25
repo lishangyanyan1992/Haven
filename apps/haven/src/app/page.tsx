@@ -140,6 +140,10 @@ export default function HomePage() {
                 about your case. We never tell you what to do. For any decision you can&apos;t undo, talk to a
                 licensed immigration attorney.
               </p>
+              <p className="text-body-sm mt-3 border-t border-[var(--color-border)] pt-3 text-[var(--haven-ink-mid)]">
+                Haven is in beta, so an answer can come back wrong, thin, or confusing. If one looks off, flag it and
+                we&apos;ll fix it.
+              </p>
             </div>
           </div>
         </section>

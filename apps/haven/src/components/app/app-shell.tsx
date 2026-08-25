@@ -30,7 +30,7 @@ export async function AppShell({
   const { profile, dashboard } = shellSnapshot;
   const advisorUsage = await getAdvisorUsage();
   const isCrisisActive = Boolean(crisisState);
-  const crisisProgressWidth = crisisState ? `${Math.max((crisisState.dayNumber / 60) * 100, 2)}%` : "74%";
+  const crisisProgressScale = crisisState ? Math.min(Math.max(crisisState.dayNumber / 60, 0.02), 1) : 0.74;
 
   const snapshotHeadline =
     profile.preferenceCategory && profile.preferenceCategory !== "Not sure" && profile.countryOfBirth
@@ -83,7 +83,7 @@ export async function AppShell({
                 : snapshotBody}
             </p>
             <div className="mt-4 countdown-bar">
-              <div className={cn("countdown-bar-fill", isCrisisActive && "urgent")} style={{ width: crisisProgressWidth }} />
+              <div className={cn("countdown-bar-fill", isCrisisActive && "urgent")} style={{ transform: `scaleX(${crisisProgressScale})` }} />
             </div>
             <p className="mt-2 text-caption">
               {isCrisisActive

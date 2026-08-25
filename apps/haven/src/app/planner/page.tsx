@@ -19,7 +19,7 @@ export default async function PlannerPage() {
   const dayNumber = crisisState?.dayNumber ?? 0;
   const daysRemaining = crisisState?.daysRemaining ?? 0;
   const expired = crisisState?.expired ?? false;
-  const dayProgressWidth = crisisState ? `${Math.min(Math.max((dayNumber / 60) * 100, 2), 100)}%` : "0%";
+  const dayProgressScale = crisisState ? Math.min(Math.max(dayNumber / 60, 0.02), 1) : 0;
 
   return (
     <AppShell activePath="/planner" crisisState={crisisState} snapshot={snapshot}>
@@ -63,7 +63,7 @@ export default async function PlannerPage() {
               </Badge>
             </div>
             <div className="mt-4 countdown-bar">
-              <div className="countdown-bar-fill urgent" style={{ width: dayProgressWidth }} />
+              <div className="countdown-bar-fill urgent" style={{ transform: `scaleX(${dayProgressScale})` }} />
             </div>
           </div>
         </section>

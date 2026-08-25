@@ -99,9 +99,7 @@ export default async function DashboardPage({
   const checklistProgress = crisisState ? Math.round((crisisState.completedItemKeys.length / checklistItems.length) * 100) : 0;
   // Clamped at both ends now that dayNumber is a real count rather than a value
   // pinned to 1..60 — past the ceiling the bar is simply full.
-  const crisisProgressWidth = crisisState
-    ? `${Math.min(Math.max((crisisState.dayNumber / 60) * 100, 2), 100)}%`
-    : "0%";
+  const crisisProgressScale = crisisState ? Math.min(Math.max(crisisState.dayNumber / 60, 0.02), 1) : 0;
   const changeSections = {
     overview: JSON.stringify(
       crisisState
@@ -180,7 +178,7 @@ export default async function DashboardPage({
                       .
                     </p>
                     <div className="mt-5 countdown-bar bg-[rgba(117,61,40,0.12)]">
-                      <div className="countdown-bar-fill urgent" style={{ width: crisisProgressWidth }} />
+                      <div className="countdown-bar-fill urgent" style={{ transform: `scaleX(${crisisProgressScale})` }} />
                     </div>
                     <div className="mt-4 flex flex-wrap items-center gap-3 text-body-sm text-[var(--haven-blush-ink)]">
                       <span>
