@@ -45,28 +45,20 @@ async function persistFeedback(input: {
 
     if (!message) return;
 
-    const { data: existing } = await admin
-      .from("advisor_feedback")
-      .select("id")
-      .eq("user_id", input.userId)
-      .eq("message_id", message.id)
-      .maybeSingle();
-
     // A rating and the follow-up detail are one opinion, so the second write
-    // updates the first rather than adding a row.
-    if (existing) {
-      const patch: { rating: number; feedback_text?: string } = { rating: input.rating };
-      if (input.comment) patch.feedback_text = input.comment;
-      await admin.from("advisor_feedback").update(patch).eq("id", existing.id);
-      return;
-    }
-
-    await admin.from("advisor_feedback").insert({
+    // updates the first rather than adding a row. The table carries a unique
+    // (message_id, user_id), so this is left to the database instead of a
+    // read-then-write that two quick clicks could interleave.
+    const row: { user_id: string; message_id: string; rating: number; feedback_text?: string } = {
       user_id: input.userId,
       message_id: message.id,
       rating: input.rating,
-      feedback_text: input.comment ?? null,
-    });
+    };
+    // Only overwrite the stored text when there is new text: the detail arrives
+    // after the rating, and a bare rating must not blank out a written reason.
+    if (input.comment) row.feedback_text = input.comment;
+
+    await admin.from("advisor_feedback").upsert(row, { onConflict: "message_id,user_id" });
   } catch {
     // Swallowed for the same reason the Langfuse write is.
   }
@@ -87,7 +79,9 @@ export async function POST(request: Request) {
   const { traceId, score, comment } = body.data;
   const numericScore = score === "up" ? 1 : 0;
 
-  await persistFeedback({ userId: user.id, traceId, rating: numericScore, comment });
+  // advisor_feedback.rating is constrained to -1..1, where a negative rating is
+  // the downvote. Langfuse keeps its own 1/0 boolean scale, so the two differ.
+  await persistFeedback({ userId: user.id, traceId, rating: score === "up" ? 1 : -1, comment });
 
   const lf = getLangfuseClient();
   if (lf) {
