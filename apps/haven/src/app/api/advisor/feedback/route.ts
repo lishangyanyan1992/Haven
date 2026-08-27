@@ -28,6 +28,9 @@ export async function POST(request: Request) {
   const lf = getLangfuseClient();
   if (lf) {
     lf.score({
+      // Deterministic id so a rating and the follow-up "what was wrong" detail
+      // upsert into one score instead of counting as two pieces of feedback.
+      id: `${traceId}-user-feedback`,
       traceId,
       name: "user-feedback",
       value: numericScore,

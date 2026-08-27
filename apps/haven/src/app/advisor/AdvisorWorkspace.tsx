@@ -630,6 +630,8 @@ function UserMessageCard({ message }: { message: AdvisorMessage }) {
   );
 }
 
+const REPORT_REASONS = ["Wrong facts", "Didn't fit my case", "Confusing", "Out of date"];
+
 function AdvisorAnswerCard({
   message,
   isPending,
@@ -645,21 +647,47 @@ function AdvisorAnswerCard({
 }) {
   const [feedback, setFeedback] = useState<"up" | "down" | null>(null);
   const [feedbackSent, setFeedbackSent] = useState(false);
+  // A thumbs-down on its own only says an answer was bad, never what was wrong
+  // with it, which is not enough to fix anything. Asking is the whole point.
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportTags, setReportTags] = useState<string[]>([]);
+  const [reportNote, setReportNote] = useState("");
 
-  const submitFeedback = useCallback(async (score: "up" | "down") => {
-    if (feedbackSent || !traceId || isPending) return;
-    setFeedback(score);
-    setFeedbackSent(true);
+  const send = useCallback(async (score: "up" | "down", comment?: string) => {
+    if (!traceId) return;
     try {
       await fetch("/api/advisor/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ traceId, score }),
+        body: JSON.stringify(comment ? { traceId, score, comment } : { traceId, score }),
       });
     } catch {
       // Fire and forget — never surface observability errors to the user.
     }
-  }, [feedbackSent, traceId, isPending]);
+  }, [traceId]);
+
+  const submitFeedback = useCallback((score: "up" | "down") => {
+    if (feedbackSent || !traceId || isPending) return;
+    setFeedback(score);
+    if (score === "down") {
+      // Record the downvote now, so walking away from the form still counts.
+      // The detail below upserts onto this same score rather than adding one.
+      void send("down");
+      setReportOpen(true);
+      return;
+    }
+    setReportOpen(false);
+    setFeedbackSent(true);
+    void send("up");
+  }, [feedbackSent, traceId, isPending, send]);
+
+  const submitReport = useCallback(() => {
+    const note = reportNote.trim();
+    const parts = [...reportTags, ...(note ? [note] : [])];
+    setFeedbackSent(true);
+    setReportOpen(false);
+    void send("down", parts.length ? parts.join(" — ").slice(0, 500) : undefined);
+  }, [reportTags, reportNote, send]);
 
   const displayText = message.answerPayload?.answer_markdown ?? message.content;
 
@@ -879,26 +907,88 @@ function AdvisorAnswerCard({
             )}
 
             {traceId && (
-              <div className="flex items-center gap-3 pt-1">
-                <p className="text-caption text-[var(--color-text-secondary)]">Was this helpful?</p>
-                <button
-                  aria-label="Helpful"
-                  className={`rounded-full p-1.5 transition-colors ${feedback === "up" ? "bg-[var(--haven-sage-light)] text-[var(--haven-ink)]" : "text-[var(--color-text-secondary)] hover:text-[var(--haven-ink)]"}`}
-                  disabled={feedbackSent}
-                  onClick={() => void submitFeedback("up")}
-                >
-                  <ThumbsUp className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  aria-label="Not helpful"
-                  className={`rounded-full p-1.5 transition-colors ${feedback === "down" ? "bg-red-50 text-red-500" : "text-[var(--color-text-secondary)] hover:text-red-400"}`}
-                  disabled={feedbackSent}
-                  onClick={() => void submitFeedback("down")}
-                >
-                  <ThumbsDown className="h-3.5 w-3.5" />
-                </button>
-                {feedbackSent && (
-                  <p className="text-caption text-[var(--color-text-secondary)]">Thanks for the feedback.</p>
+              <div className="pt-1">
+                <div className="flex items-center gap-3">
+                  <p className="text-caption text-[var(--color-text-secondary)]">
+                    Something wrong with this answer?
+                  </p>
+                  <button
+                    aria-label="This answer was helpful"
+                    className={`rounded-full p-1.5 transition-colors ${feedback === "up" ? "bg-[var(--haven-sage-light)] text-[var(--haven-ink)]" : "text-[var(--color-text-secondary)] hover:text-[var(--haven-ink)]"}`}
+                    disabled={feedbackSent}
+                    onClick={() => submitFeedback("up")}
+                  >
+                    <ThumbsUp className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    aria-label="Report a problem with this answer"
+                    className={`rounded-full p-1.5 transition-colors ${feedback === "down" ? "bg-red-50 text-red-500" : "text-[var(--color-text-secondary)] hover:text-red-400"}`}
+                    disabled={feedbackSent}
+                    onClick={() => submitFeedback("down")}
+                  >
+                    <ThumbsDown className="h-3.5 w-3.5" />
+                  </button>
+                  {feedbackSent && (
+                    <p className="text-caption text-[var(--color-text-secondary)]">
+                      {feedback === "down" ? "Thanks — we'll look at this one." : "Thanks for the feedback."}
+                    </p>
+                  )}
+                </div>
+
+                {reportOpen && (
+                  <div className="mt-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--haven-sand)] p-4">
+                    <p className="text-body-sm font-medium text-[var(--haven-ink)]">What was off?</p>
+                    <div className="mt-2.5 flex flex-wrap gap-2">
+                      {REPORT_REASONS.map((reason) => {
+                        const picked = reportTags.includes(reason);
+
+                        return (
+                          <button
+                            aria-pressed={picked}
+                            className={`rounded-full border px-3 py-1.5 text-[13px] transition-colors ${picked ? "border-[var(--haven-ink)] bg-[var(--haven-ink)] text-[var(--haven-cream)]" : "border-[var(--color-border)] bg-[var(--haven-white)] text-[var(--haven-ink-mid)] hover:border-[var(--haven-ink)]"}`}
+                            key={reason}
+                            onClick={() =>
+                              setReportTags((current) =>
+                                current.includes(reason)
+                                  ? current.filter((item) => item !== reason)
+                                  : [...current, reason]
+                              )
+                            }
+                            type="button"
+                          >
+                            {reason}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <label className="sr-only" htmlFor={`report-note-${traceId}`}>
+                      Anything else about what was wrong
+                    </label>
+                    <textarea
+                      className="mt-3 min-h-[72px] w-full resize-none rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--haven-white)] p-3 text-body-sm text-[var(--haven-ink)] outline-none placeholder:text-[var(--color-text-secondary)]"
+                      id={`report-note-${traceId}`}
+                      maxLength={400}
+                      onChange={(event) => setReportNote(event.target.value)}
+                      placeholder="Optional: what did it get wrong?"
+                      value={reportNote}
+                    />
+                    <div className="mt-3 flex items-center gap-3">
+                      <button
+                        className="rounded-full bg-[var(--haven-ink)] px-4 py-2 text-[13px] font-medium text-[var(--haven-cream)] transition-colors hover:bg-[var(--haven-ink-mid)]"
+                        onClick={submitReport}
+                        type="button"
+                      >
+                        Send report
+                      </button>
+                      <button
+                        className="text-caption text-[var(--color-text-secondary)] transition-colors hover:text-[var(--haven-ink)]"
+                        onClick={submitReport}
+                        type="button"
+                      >
+                        Skip
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
             )}
