@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 
 import { env } from "@/lib/env";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -36,6 +37,9 @@ const MAX_PAGES = 10;
 const RATE_JUMP_RATIO = 1.5;
 // Below this many turns the percentages are noise, so comparisons are skipped.
 const MIN_SAMPLE = 20;
+// Written complaints are read by a person, so the report carries a readable
+// number of them rather than the whole week's worth.
+const MAX_REPORTED_COMPLAINTS = 10;
 
 type TraceMetadata = {
   guardrailsFired?: unknown;
@@ -68,6 +72,55 @@ function median(values: number[]) {
   if (values.length === 0) return 0;
   const sorted = [...values].sort((a, b) => a - b);
   return sorted[Math.floor(sorted.length / 2)];
+}
+
+type FeedbackWindow = {
+  total: number;
+  down: number;
+  complaints: Array<{ at: string; text: string }>;
+};
+
+function emptyFeedbackWindow(): FeedbackWindow {
+  return { total: 0, down: 0, complaints: [] };
+}
+
+/**
+ * Read the ratings people left on answers.
+ *
+ * These are also scored into Langfuse, but a score there is only found by
+ * someone who goes looking. A downvote with a written reason is the most
+ * actionable signal the Advisor produces, so it belongs in the report that
+ * already gets sent when something looks wrong.
+ */
+async function fetchFeedback(fromISO: string, toISO: string): Promise<FeedbackWindow> {
+  const window = emptyFeedbackWindow();
+
+  try {
+    const admin = createSupabaseAdminClient() as any;
+    const { data, error } = await admin
+      .from("advisor_feedback")
+      .select("rating, feedback_text, created_at")
+      .gte("created_at", fromISO)
+      .lt("created_at", toISO)
+      .order("created_at", { ascending: false });
+
+    if (error || !Array.isArray(data)) return window;
+
+    for (const row of data as Array<{ rating: number; feedback_text: string | null; created_at: string }>) {
+      window.total += 1;
+      if (row.rating > 0) continue;
+
+      window.down += 1;
+      const text = row.feedback_text?.trim();
+      if (text && window.complaints.length < MAX_REPORTED_COMPLAINTS) {
+        window.complaints.push({ at: row.created_at, text });
+      }
+    }
+  } catch {
+    // A feedback read failing should not take down the rest of the check.
+  }
+
+  return window;
 }
 
 /**
@@ -146,9 +199,12 @@ export async function GET(request: Request) {
   const lastWeekFrom = new Date(now - 2 * LOOKBACK_DAYS * day).toISOString();
 
   try {
-    const [thisWeekTraces, lastWeekTraces] = await Promise.all([
-      fetchTraces(thisWeekFrom, new Date(now).toISOString()),
-      fetchTraces(lastWeekFrom, thisWeekFrom)
+    const nowISO = new Date(now).toISOString();
+    const [thisWeekTraces, lastWeekTraces, feedbackNow, feedbackPrev] = await Promise.all([
+      fetchTraces(thisWeekFrom, nowISO),
+      fetchTraces(lastWeekFrom, thisWeekFrom),
+      fetchFeedback(thisWeekFrom, nowISO),
+      fetchFeedback(lastWeekFrom, thisWeekFrom)
     ]);
 
     const current = summarize(thisWeekTraces);
@@ -161,14 +217,21 @@ export async function GET(request: Request) {
         safetyNetFireRate: rate(current.patched, current.turns),
         unmatchedRate: rate(current.unmatched, current.turns),
         distressTurns: current.distress,
-        medianAnswerWords: median(current.answerWords)
+        medianAnswerWords: median(current.answerWords),
+        ratings: feedbackNow.total,
+        downvotes: feedbackNow.down,
+        downvoteRate: rate(feedbackNow.down, feedbackNow.total),
+        complaints: feedbackNow.complaints
       },
       previous: {
         turns: previous.turns,
         safetyNetFireRate: rate(previous.patched, previous.turns),
         unmatchedRate: rate(previous.unmatched, previous.turns),
         distressTurns: previous.distress,
-        medianAnswerWords: median(previous.answerWords)
+        medianAnswerWords: median(previous.answerWords),
+        ratings: feedbackPrev.total,
+        downvotes: feedbackPrev.down,
+        downvoteRate: rate(feedbackPrev.down, feedbackPrev.total)
       },
       alerts: [] as string[]
     };
@@ -195,6 +258,19 @@ export async function GET(request: Request) {
             "the phrasings or new subjects the classifier is missing."
         );
       }
+    }
+
+    // A downvote someone bothered to explain is the one signal here that names
+    // its own fix, so it is reported on sight rather than waiting for a trend.
+    if (feedbackNow.complaints.length > 0) {
+      report.alerts.push(
+        `${feedbackNow.complaints.length} explained downvote(s) on Advisor answers this week: ` +
+          feedbackNow.complaints.map((item) => `"${item.text}"`).join(" | ")
+      );
+    } else if (feedbackNow.down > 0) {
+      report.alerts.push(
+        `${feedbackNow.down} downvote(s) on Advisor answers this week, none with a written reason.`
+      );
     }
 
     // Distress is reported on its own terms, not as a week-over-week ratio: one

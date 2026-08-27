@@ -19,6 +19,8 @@
  * its own right, so a policy regression cannot quietly widen it.
  */
 
+import * as Sentry from "@sentry/nextjs";
+
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { AdvisorAnswerPayload, AdvisorMessage } from "@/types/domain";
 
@@ -57,7 +59,11 @@ export async function persistExchange(input: {
   try {
     const admin = createSupabaseAdminClient() as any;
 
-    await admin.from("advisor_messages").insert([
+    // supabase-js reports failures in the returned `error` rather than throwing,
+    // so the try/catch below never saw them and a rejected insert was
+    // indistinguishable from a successful one. Swallowing is still right — the
+    // answer is already delivered — but it has to be swallowed knowingly.
+    const { error: messagesError } = await admin.from("advisor_messages").insert([
       {
         thread_id: input.threadId,
         user_id: input.userId,
@@ -73,6 +79,13 @@ export async function persistExchange(input: {
         retrieval_metadata: { traceId: input.traceId }
       }
     ]);
+
+    if (messagesError) {
+      Sentry.captureMessage(
+        `advisor persistExchange could not save messages: ${messagesError.message ?? String(messagesError)}`,
+        "error"
+      );
+    }
 
     // Inserting a message does not touch the thread row, and the sidebar is ordered
     // by recency, so an active conversation would sink below stale ones without
