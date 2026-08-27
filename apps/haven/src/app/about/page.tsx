@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { BookOpen, Clock, FolderOpen, ShieldAlert, Users } from "lucide-react";
 
 import { PublicNavbar } from "@/components/app/public-navbar";
 import { buttonVariants } from "@/components/ui/button";
 import { absoluteUrl } from "@/lib/seo";
-import { buildBreadcrumbStructuredData, getAuthorProfile, getOrganizationStructuredData } from "@/lib/site";
+import { buildBreadcrumbStructuredData, getOrganizationStructuredData } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "About Haven — Immigration Planning for H-1B Holders",
@@ -112,27 +111,12 @@ const faqs = [
 ];
 
 export default function AboutPage() {
-  const founder = getAuthorProfile("Haven founder");
   const breadcrumbData = buildBreadcrumbStructuredData([
     { name: "Home", path: "/" },
     { name: "About", path: "/about" }
   ]);
   const organizationData = getOrganizationStructuredData();
 
-  const personData = {
-    "@context": "https://schema.org",
-    "@type": "Person",
-    name: "Yanyan",
-    jobTitle: "Founder",
-    worksFor: {
-      "@type": "Organization",
-      name: "Haven",
-      url: absoluteUrl("/").toString()
-    },
-    description:
-      "Yanyan built Haven after experiencing two H-1B layoffs firsthand. She is focused on reducing uncertainty for global talent navigating U.S. immigration.",
-    url: absoluteUrl("/about#founder").toString()
-  };
 
   const aboutPageData = {
     "@context": "https://schema.org",
@@ -170,10 +154,6 @@ export default function AboutPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationData) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(personData) }}
       />
       <script
         type="application/ld+json"
@@ -251,47 +231,6 @@ export default function AboutPage() {
           </div>
         </section>
 
-        {/* Founder */}
-        <section className="border-t border-[var(--color-border)] bg-[var(--haven-white)]">
-          <div className="content-container-visual py-16 lg:py-20 xl:py-24">
-            <article id="founder" className="max-w-[72ch] rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-7">
-              <p className="text-label">Founder</p>
-              <div className="relative mt-5 aspect-square max-w-[220px] overflow-hidden rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-cream)]">
-                <Image
-                  src="/about/yanyan-passport.jpg"
-                  alt="Portrait of Yanyan, founder of Haven"
-                  width={600}
-                  height={600}
-                  className="h-full w-full object-cover"
-                  sizes="220px"
-                />
-              </div>
-              <h2 className="text-h1 mt-4">{founder.name}</h2>
-              <p className="text-body mt-4">
-                Yanyan built Haven after experiencing two H-1B layoffs firsthand and seeing how difficult it can be to
-                build a life in the United States while navigating immigration uncertainty.
-              </p>
-              <p className="text-body mt-4">
-                Those experiences made one thing clear: the hardest part is not just finding information. It is staying
-                proactive, making time-sensitive decisions with incomplete visibility, and navigating a system with no
-                shared source of truth.
-              </p>
-              <blockquote className="mt-6 border-l-2 border-[var(--haven-ink)] pl-5">
-                <p className="text-body italic text-[var(--haven-ink-mid)]">
-                  &ldquo;I built Haven because I couldn&apos;t find one place that told me what to do next — not just
-                  what the rules were, but what my specific next step was, given my situation, my employer, and my
-                  deadline.&rdquo;
-                </p>
-                <footer className="mt-2 text-[13px] font-medium text-[var(--haven-ink)]">— Yanyan, Founder</footer>
-              </blockquote>
-              <div className="mt-6">
-                <Link className={buttonVariants({ variant: "outline" })} href="/blog/why-i-started-haven">
-                  Read the founder story
-                </Link>
-              </div>
-            </article>
-          </div>
-        </section>
 
         {/* Editorial */}
         <section className="border-t border-[var(--color-border)] bg-[var(--haven-cream)]">
