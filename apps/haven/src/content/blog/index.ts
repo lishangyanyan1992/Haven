@@ -1,3 +1,4 @@
+import { dojH1bRecruitmentDiscriminationCrackdown2026Post } from "@/content/blog/posts/doj-h1b-recruitment-discrimination-crackdown-2026";
 import { stateDepartmentVisaInterviewPausePublicCharge2026Post } from "@/content/blog/posts/state-department-visa-interview-pause-public-charge-2026";
 import { uscis30DayRfeDeadlinesH1bEbGreenCard2026Post } from "@/content/blog/posts/uscis-30-day-rfe-deadlines-h1b-eb-green-card-2026";
 import { dhs103kH1bCapFeeProposedRule2026Post } from "@/content/blog/posts/dhs-103k-h1b-cap-fee-proposed-rule-2026";
@@ -122,6 +123,7 @@ const guideBlogPosts = guides.map(guideToBlogPost);
 
 // Add a new post import here and it will appear in the blog automatically.
 export const blogPosts = [
+  dojH1bRecruitmentDiscriminationCrackdown2026Post,
   stateDepartmentVisaInterviewPausePublicCharge2026Post,
   uscis30DayRfeDeadlinesH1bEbGreenCard2026Post,
   dhs103kH1bCapFeeProposedRule2026Post,
