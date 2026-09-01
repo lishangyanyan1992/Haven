@@ -1,3 +1,4 @@
+import { sixtyDayGracePeriodOiraClearanceFederalRegister2026Post } from "@/content/blog/posts/60-day-grace-period-oira-clearance-federal-register-2026";
 import { dojH1bRecruitmentDiscriminationCrackdown2026Post } from "@/content/blog/posts/doj-h1b-recruitment-discrimination-crackdown-2026";
 import { stateDepartmentVisaInterviewPausePublicCharge2026Post } from "@/content/blog/posts/state-department-visa-interview-pause-public-charge-2026";
 import { uscis30DayRfeDeadlinesH1bEbGreenCard2026Post } from "@/content/blog/posts/uscis-30-day-rfe-deadlines-h1b-eb-green-card-2026";
@@ -123,6 +124,7 @@ const guideBlogPosts = guides.map(guideToBlogPost);
 
 // Add a new post import here and it will appear in the blog automatically.
 export const blogPosts = [
+  sixtyDayGracePeriodOiraClearanceFederalRegister2026Post,
   dojH1bRecruitmentDiscriminationCrackdown2026Post,
   stateDepartmentVisaInterviewPausePublicCharge2026Post,
   uscis30DayRfeDeadlinesH1bEbGreenCard2026Post,
