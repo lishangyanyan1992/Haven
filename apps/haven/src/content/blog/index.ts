@@ -1,3 +1,4 @@
+import { nfapEmploymentBasedGreenCardBacklog2026Post } from "@/content/blog/posts/nfap-employment-based-green-card-backlog-2026";
 import { sixtyDayGracePeriodOiraClearanceFederalRegister2026Post } from "@/content/blog/posts/60-day-grace-period-oira-clearance-federal-register-2026";
 import { dojH1bRecruitmentDiscriminationCrackdown2026Post } from "@/content/blog/posts/doj-h1b-recruitment-discrimination-crackdown-2026";
 import { stateDepartmentVisaInterviewPausePublicCharge2026Post } from "@/content/blog/posts/state-department-visa-interview-pause-public-charge-2026";
@@ -124,6 +125,7 @@ const guideBlogPosts = guides.map(guideToBlogPost);
 
 // Add a new post import here and it will appear in the blog automatically.
 export const blogPosts = [
+  nfapEmploymentBasedGreenCardBacklog2026Post,
   sixtyDayGracePeriodOiraClearanceFederalRegister2026Post,
   dojH1bRecruitmentDiscriminationCrackdown2026Post,
   stateDepartmentVisaInterviewPausePublicCharge2026Post,
