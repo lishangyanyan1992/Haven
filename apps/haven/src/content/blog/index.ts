@@ -90,6 +90,7 @@ import { usImmigrationLegalFrameworkPost } from "@/content/blog/posts/us-immigra
 import { welcomeToTheHavenBlogPost } from "@/content/blog/posts/welcome-to-the-haven-blog";
 import { dolH1bPermWageRule2026CommentPeriodPost } from "@/content/blog/posts/dol-h1b-perm-wage-rule-2026-comment-period";
 import { may2026EbVisaBulletinFinalActionDatesPost } from "@/content/blog/posts/may-2026-eb-visa-bulletin-final-action-dates";
+import { dhs60DayGracePeriodNprmCommentPeriodOpensPost } from "@/content/blog/posts/dhs-60-day-grace-period-nprm-comment-period-opens";
 import { guides } from "@/content/guides";
 import type { Guide } from "@/content/guides/types";
 import type { BlogPost } from "@/content/blog/types";
@@ -219,5 +220,6 @@ export const blogPosts = [
   welcomeToTheHavenBlogPost,
   permDelayWhatToTrackPost,
   beforeYouAcceptH1bTransferPost,
+  dhs60DayGracePeriodNprmCommentPeriodOpensPost,
   ...guideBlogPosts
 ];
