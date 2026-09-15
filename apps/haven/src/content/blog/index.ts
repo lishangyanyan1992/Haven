@@ -92,6 +92,7 @@ import { dolH1bPermWageRule2026CommentPeriodPost } from "@/content/blog/posts/do
 import { may2026EbVisaBulletinFinalActionDatesPost } from "@/content/blog/posts/may-2026-eb-visa-bulletin-final-action-dates";
 import { dhs60DayGracePeriodNprmCommentPeriodOpensPost } from "@/content/blog/posts/dhs-60-day-grace-period-nprm-comment-period-opens";
 import { cognizantPermFilingsSuspendedDolFraudProbePost } from "@/content/blog/posts/cognizant-perm-filings-suspended-dol-fraud-probe";
+import { h4EadAutomaticExtensionInjunctionCarterRulingPost } from "@/content/blog/posts/h4-ead-automatic-extension-injunction-carter-ruling";
 import { guides } from "@/content/guides";
 import type { Guide } from "@/content/guides/types";
 import type { BlogPost } from "@/content/blog/types";
@@ -223,5 +224,6 @@ export const blogPosts = [
   beforeYouAcceptH1bTransferPost,
   dhs60DayGracePeriodNprmCommentPeriodOpensPost,
   cognizantPermFilingsSuspendedDolFraudProbePost,
+  h4EadAutomaticExtensionInjunctionCarterRulingPost,
   ...guideBlogPosts
 ];
