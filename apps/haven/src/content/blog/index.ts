@@ -95,6 +95,7 @@ import { cognizantPermFilingsSuspendedDolFraudProbePost } from "@/content/blog/p
 import { h4EadAutomaticExtensionInjunctionCarterRulingPost } from "@/content/blog/posts/h4-ead-automatic-extension-injunction-carter-ruling";
 import { october2026VisaBulletinFy2027ResetEb2IndiaPost } from "@/content/blog/posts/october-2026-visa-bulletin-fy2027-reset-eb2-india";
 import { h1bLayoffScrutinyExecutiveOrder2026Post } from "@/content/blog/posts/h1b-layoff-scrutiny-executive-order-2026";
+import { trumpExtendsH1bFeeProclamation2027Post } from "@/content/blog/posts/trump-extends-h1b-fee-proclamation-2027";
 import { guides } from "@/content/guides";
 import type { Guide } from "@/content/guides/types";
 import type { BlogPost } from "@/content/blog/types";
@@ -229,5 +230,6 @@ export const blogPosts = [
   h4EadAutomaticExtensionInjunctionCarterRulingPost,
   october2026VisaBulletinFy2027ResetEb2IndiaPost,
   h1bLayoffScrutinyExecutiveOrder2026Post,
+  trumpExtendsH1bFeeProclamation2027Post,
   ...guideBlogPosts
 ];
