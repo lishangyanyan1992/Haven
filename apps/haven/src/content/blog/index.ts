@@ -97,6 +97,7 @@ import { october2026VisaBulletinFy2027ResetEb2IndiaPost } from "@/content/blog/p
 import { h1bLayoffScrutinyExecutiveOrder2026Post } from "@/content/blog/posts/h1b-layoff-scrutiny-executive-order-2026";
 import { trumpExtendsH1bFeeProclamation2027Post } from "@/content/blog/posts/trump-extends-h1b-fee-proclamation-2027";
 import { americansFirstImmigrationActPointsSystem2026Post } from "@/content/blog/posts/americans-first-immigration-act-points-system-2026";
+import { uscisDefinitionOfDayFilingDeadlines2026Post } from "@/content/blog/posts/uscis-definition-of-day-filing-deadlines-2026";
 import { guides } from "@/content/guides";
 import type { Guide } from "@/content/guides/types";
 import type { BlogPost } from "@/content/blog/types";
@@ -233,5 +234,6 @@ export const blogPosts = [
   h1bLayoffScrutinyExecutiveOrder2026Post,
   trumpExtendsH1bFeeProclamation2027Post,
   americansFirstImmigrationActPointsSystem2026Post,
+  uscisDefinitionOfDayFilingDeadlines2026Post,
   ...guideBlogPosts
 ];
