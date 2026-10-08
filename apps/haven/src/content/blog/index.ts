@@ -99,6 +99,7 @@ import { trumpExtendsH1bFeeProclamation2027Post } from "@/content/blog/posts/tru
 import { americansFirstImmigrationActPointsSystem2026Post } from "@/content/blog/posts/americans-first-immigration-act-points-system-2026";
 import { uscisDefinitionOfDayFilingDeadlines2026Post } from "@/content/blog/posts/uscis-definition-of-day-filing-deadlines-2026";
 import { secondFederalCourtBlocks100kH1bFeeCalifornia2026Post } from "@/content/blog/posts/second-federal-court-blocks-100k-h1b-fee-california-2026";
+import { coalitionSuesUscisAosPolicies2026Post } from "@/content/blog/posts/coalition-sues-uscis-aos-policies-2026";
 import { guides } from "@/content/guides";
 import type { Guide } from "@/content/guides/types";
 import type { BlogPost } from "@/content/blog/types";
@@ -237,5 +238,6 @@ export const blogPosts = [
   americansFirstImmigrationActPointsSystem2026Post,
   uscisDefinitionOfDayFilingDeadlines2026Post,
   secondFederalCourtBlocks100kH1bFeeCalifornia2026Post,
+  coalitionSuesUscisAosPolicies2026Post,
   ...guideBlogPosts
 ];
