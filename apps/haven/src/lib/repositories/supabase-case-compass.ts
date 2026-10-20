@@ -2,6 +2,7 @@ import { getPriorityDateIntelligence, getPriorityDateSignalOverrides } from "@/l
 import type { HavenRepository } from "@/lib/repositories/contracts";
 import { computeDerivedSignals, mergeSnapshotProfile } from "@/lib/haven";
 import { havenSnapshot } from "@/lib/repositories/mock-data";
+import { baseSnapshot, emptyProfileSnapshot, mockDataAllowed } from "@/lib/repositories/fallback-data";
 import { createSupabasePublicClient } from "@/lib/supabase/public";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type {
@@ -379,12 +380,16 @@ async function buildSnapshotContext(): Promise<SnapshotContext> {
       supabase,
       userId: null,
       communityUnreadCount: 0,
-      snapshot: havenSnapshot,
+      snapshot: baseSnapshot(),
       priorityDateIntelligence: null
     };
   }
 
-  const [{ data: profileRow }, { data: derivedSignalRow }, { data: layoffRow }] = await Promise.all([
+  const [
+    { data: profileRow, error: profileError },
+    { data: derivedSignalRow },
+    { data: layoffRow, error: layoffError }
+  ] = await Promise.all([
     supabase.from("user_profiles").select("*").eq("id", user.id).maybeSingle(),
     supabase.from("derived_signals").select("*").eq("user_id", user.id).maybeSingle(),
     // The open layoff, if there is one. `resolved_at is null` is what "open"
@@ -402,6 +407,19 @@ async function buildSnapshotContext(): Promise<SnapshotContext> {
       .maybeSingle()
   ]);
 
+  // A failed read is not an empty one. Without this, a profile query error
+  // looked exactly like a new user with no profile: the Advisor answered
+  // without its "profile unavailable" notice and the export returned blanks.
+  // Throwing hands the failure to the callers, which mark it unavailable. The
+  // layoff read is held to the same rule because a silently missing layoff
+  // date drops the person's 60-day countdown from the answer.
+  if (profileError) {
+    throw new Error(`Unable to load profile: ${profileError.message}`);
+  }
+  if (layoffError) {
+    throw new Error(`Unable to load layoff record: ${layoffError.message}`);
+  }
+
   const activeLayoffEvent = layoffRow
     ? {
         layoffDate: layoffRow.layoff_date,
@@ -415,7 +433,7 @@ async function buildSnapshotContext(): Promise<SnapshotContext> {
       supabase,
       userId: user.id,
       communityUnreadCount: 0,
-      snapshot: havenSnapshot,
+      snapshot: emptyProfileSnapshot(user),
       priorityDateIntelligence: null
     };
   }
@@ -589,7 +607,9 @@ async function loadInboxSnapshot(
     emailInbox: inbox,
     emailThreads: threads,
     emailContacts: contacts,
-    documents: documentRows ? buildDocuments(documentRows) : context.snapshot.documents
+    // A failed documents query is not the same as having the demo persona's
+    // documents. Empty in production; the demo set only in development.
+    documents: documentRows ? buildDocuments(documentRows) : mockDataAllowed() ? context.snapshot.documents : []
   };
 }
 

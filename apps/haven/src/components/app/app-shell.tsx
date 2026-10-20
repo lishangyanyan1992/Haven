@@ -9,7 +9,7 @@ import { CrisisBanner } from "@/components/app/crisis-banner";
 import { MixpanelAuthTracker } from "@/components/app/mixpanel-auth-tracker";
 import { Badge } from "@/components/ui/badge";
 import type { CrisisState } from "@/lib/get-crisis-state";
-import { getSnapshot } from "@/lib/repositories/case-compass";
+import { getSnapshot, isProfileUnavailable } from "@/lib/repositories/case-compass";
 import type { HavenWorkspaceSnapshot } from "@/types/domain";
 
 type AppShellSnapshot = Pick<HavenWorkspaceSnapshot, "communityUnreadCount" | "profile" | "dashboard">;
@@ -32,35 +32,48 @@ export async function AppShell({
   const isCrisisActive = Boolean(crisisState);
   const crisisProgressScale = crisisState ? Math.min(Math.max(crisisState.dayNumber / 60, 0.02), 1) : 0.74;
 
-  const snapshotHeadline =
-    profile.preferenceCategory && profile.preferenceCategory !== "Not sure" && profile.countryOfBirth
-      ? `${profile.visaType} · ${profile.preferenceCategory} ${profile.countryOfBirth}`
-      : profile.visaType ?? "H-1B";
+  // The profile could not be loaded. Say so, rather than showing blanks or —
+  // as this used to — the demo persona's visa and dates.
+  const profileUnavailable = isProfileUnavailable(profile);
 
-  const snapshotBody = profile.i140Approved
+  const snapshotHeadline = profileUnavailable
+    ? "Profile unavailable"
+    : profile.preferenceCategory && profile.preferenceCategory !== "Not sure" && profile.countryOfBirth && profile.visaType
+      ? `${profile.visaType} · ${profile.preferenceCategory} ${profile.countryOfBirth}`
+      : profile.visaType || "Your profile";
+
+  const snapshotBody = profileUnavailable
+    ? "We couldn't load your profile just now. Try again in a few minutes."
+    : profile.i140Approved
     ? "I-140 approved. Your plan stays visible even when things feel noisy."
     : profile.priorityDate
       ? "Priority date on record. Haven is tracking your bulletin position."
       : "Your timeline is active. Haven tracks what matters as things change.";
 
   const daysUntilExpiry = dashboard.signals.daysUntilVisaExpiry;
-  const snapshotCaption = daysUntilExpiry != null
-    ? `${daysUntilExpiry} day${daysUntilExpiry === 1 ? "" : "s"} until visa expiry.`
-    : "Your plan is up to date.";
+  const snapshotCaption = profileUnavailable
+    ? "Nothing shown here is from your record."
+    : daysUntilExpiry != null
+      ? `${daysUntilExpiry} day${daysUntilExpiry === 1 ? "" : "s"} until visa expiry.`
+      : "Your plan is up to date.";
 
   const avatarInitial = profile.fullName?.trim()?.[0]?.toUpperCase() ?? "?";
 
   return (
     <div className="min-h-screen bg-[var(--color-bg)]">
-      <MixpanelAuthTracker
-        userId={profile.id}
-        email={profile.email}
-        fullName={profile.fullName ?? undefined}
-        visaType={profile.visaType ?? undefined}
-        countryOfBirth={profile.countryOfBirth ?? undefined}
-        employmentStatus={profile.employmentStatus ?? undefined}
-        primaryGoal={profile.primaryGoal ?? undefined}
-      />
+      {/* No id means no loaded profile: identifying "" would merge every such
+          visitor into one analytics user. */}
+      {profile.id ? (
+        <MixpanelAuthTracker
+          userId={profile.id}
+          email={profile.email}
+          fullName={profile.fullName || undefined}
+          visaType={profile.visaType || undefined}
+          countryOfBirth={profile.countryOfBirth || undefined}
+          employmentStatus={profile.employmentStatus || undefined}
+          primaryGoal={profile.primaryGoal || undefined}
+        />
+      ) : null}
       <div className="app-shell-frame grid min-h-screen grid-cols-1 lg:grid-cols-[248px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)]">
         <aside className="border-b border-[var(--color-border)] bg-[var(--haven-sand)] px-4 py-5 lg:min-h-screen lg:border-b-0 lg:border-r">
           <div className="flex items-center justify-between gap-3 lg:block">

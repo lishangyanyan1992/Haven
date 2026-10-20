@@ -31,7 +31,8 @@ export function CommunityComposer({
       preferenceCategory: profile.preferenceCategory
     }
   );
-  const authorLabel = `${profile.visaType} · ${profile.preferenceCategory} · ${profile.countryOfBirth}`;
+  const authorLabel =
+    [profile.visaType, profile.preferenceCategory, profile.countryOfBirth].filter(Boolean).join(" · ") || "Haven member";
 
   const handleSubmit = () => {
     if (!title.trim() || !body.trim()) return;
@@ -66,7 +67,7 @@ export function CommunityComposer({
     <div className="rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)]">
       {!isExpanded ? (
         <button className="flex w-full items-center gap-4 p-5 text-left" onClick={() => setIsExpanded(true)} type="button">
-          <div className="avatar avatar-md avatar-community">{profile.countryOfBirth.charAt(0)}</div>
+          <div className="avatar avatar-md avatar-community">{profile.countryOfBirth.charAt(0) || "?"}</div>
           <div className="flex-1 rounded-full border border-[var(--color-border)] bg-[var(--haven-cream)] px-4 py-3 text-body-sm text-[var(--color-text-tertiary)]">
             Share something with the community...
           </div>

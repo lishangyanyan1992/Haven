@@ -17,7 +17,7 @@ import { getCrisisState } from "@/lib/get-crisis-state";
 import { mergeSnapshotProfile } from "@/lib/haven";
 import { getImmigrationUpdates } from "@/lib/immigration-updates";
 import { ONBOARDING_OVERRIDE_COOKIE, parseOverrideCookie, persistProfileDraft } from "@/lib/profile-sync";
-import { getDashboardPageData } from "@/lib/repositories/case-compass";
+import { getDashboardPageData, isProfileUnavailable } from "@/lib/repositories/case-compass";
 import { havenSnapshot } from "@/lib/repositories/mock-data";
 import { noIndexMetadata } from "@/lib/seo";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -93,6 +93,15 @@ export default async function DashboardPage({
   }
 
   const { profile, dashboard } = snapshot;
+  // Blank when the profile has no name or could not be loaded; `?? "there"`
+  // never fired on an empty string, so the greeting read "Good to see you, ."
+  const firstName = profile.fullName?.trim().split(" ")[0] || "there";
+  const profileUnavailable = isProfileUnavailable(profile);
+  const profileSummaryLine = profileUnavailable
+    ? "We couldn't load your profile just now, so nothing below is personalised. Try again in a few minutes."
+    : [profile.visaType, profile.preferenceCategory, profile.countryOfBirth, profile.employerName]
+        .filter(Boolean)
+        .join(" · ");
   const priorityDateIntelligence = initialSnapshot.priorityDateIntelligence;
   const showPriorityDateSection = profile.i140Approved;
   const checklistItems = buildChecklist(profile);
@@ -113,7 +122,7 @@ export default async function DashboardPage({
           }
         : {
             mode: "snapshot",
-            firstName: profile.fullName?.split(" ")[0] ?? "there",
+            firstName: firstName,
             visaType: profile.visaType,
             preferenceCategory: profile.preferenceCategory,
             countryOfBirth: profile.countryOfBirth,
@@ -144,7 +153,7 @@ export default async function DashboardPage({
     }),
     officialUpdates: JSON.stringify(updates)
   };
-  const dashboardStorageKey = `haven-dashboard-changes:${profile.id}`;
+  const dashboardStorageKey = `haven-dashboard-changes:${profile.id || "no-profile"}`;
   const dashboardLoginKey = user?.last_sign_in_at ?? user?.id ?? "dashboard-session";
 
   return (
@@ -218,12 +227,9 @@ export default async function DashboardPage({
                   <div className="max-w-[70ch]">
                     <p className="text-label">Your snapshot</p>
                     <h1 className="text-h1 mt-4">
-                      Good to see you, {profile.fullName?.split(" ")[0] ?? "there"}.
+                      Good to see you, {firstName}.
                     </h1>
-                    <p className="text-body mt-3">
-                      {profile.visaType} · {profile.preferenceCategory} · {profile.countryOfBirth}
-                      {profile.employerName ? ` · ${profile.employerName}` : ""}
-                    </p>
+                    {profileSummaryLine ? <p className="text-body mt-3">{profileSummaryLine}</p> : null}
                   </div>
                   {dashboard.signals.layoffReadinessScore !== "high" ? <CrisisActivationModal /> : null}
                 </div>

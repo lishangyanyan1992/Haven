@@ -5,8 +5,15 @@ import { env, hasSupabaseEnv } from "@/lib/env";
 import { flushLangfuse, getLangfuseClient, getPrompt } from "@/lib/langfuse";
 import type { LangfuseSpanClient, LangfuseTraceClient } from "langfuse";
 import { classifyIntent, compareRouters } from "@/lib/advisor/intent-router";
+import { ADVISOR_DEFAULT_MODEL, ADVISOR_DEFAULT_EMBEDDING_MODEL } from "@/lib/advisor/model-pin";
 import { decideScope, isRedirectedTopic } from "@/lib/advisor/scope";
-import { getSnapshot } from "@/lib/repositories/case-compass";
+import { ReviewedStream, StreamView } from "@/lib/advisor/stream-review";
+import {
+  getAdvisorSnapshot,
+  getSnapshot,
+  type ProfileContextSource,
+  type SnapshotWithSource
+} from "@/lib/repositories/case-compass";
 import { resolveTestPersona } from "@/lib/repositories/test-personas";
 import { readGracePeriod, renderGracePeriodForPrompt } from "@/lib/advisor/grace-period";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -162,7 +169,7 @@ function getOpenAIClient() {
   return new OpenAI({ apiKey: env.OPENAI_API_KEY });
 }
 
-export const ADVISOR_DEFAULT_MODEL = "gpt-5-mini";
+export { ADVISOR_DEFAULT_MODEL } from "@/lib/advisor/model-pin";
 
 // OPENAI_ADVISOR_MODEL first: OPENAI_CHAT_MODEL is shared with email extraction
 // and community drafting, which deliberately run a cheaper model. Reading only
@@ -174,7 +181,7 @@ function getChatModel() {
 }
 
 function getEmbeddingModel() {
-  return env.OPENAI_EMBEDDING_MODEL ?? "text-embedding-3-small";
+  return env.OPENAI_EMBEDDING_MODEL ?? ADVISOR_DEFAULT_EMBEDDING_MODEL;
 }
 
 /**
@@ -1140,6 +1147,23 @@ function selectGuardrailIds(query: string, topics: TopicBucket[], signals: Guard
     ids.push("GR_VISA_BULLETIN_FILING_CHART");
   }
 
+  // Forward-looking timing questions, which are a different failure from the
+  // filing-chart one above: that guardrail stops a wrong answer about this
+  // month, this one stops an invented answer about a future month. Matched on
+  // the question rather than the topic because "how long until I get my green
+  // card" carries no bulletin vocabulary at all and still wants a forecast — the
+  // pattern list is the forecast verbs, not the subject matter.
+  if (
+    /(next month|next year|how (long|much longer|many (months|years))|when will|will .* (be current|become current)|current (next|by)|forecast|predict|estimate .* (wait|time)|expect .* (current|green card))/.test(
+      normalized
+    )
+    && (topics.includes("visa-bulletin")
+      || topics.includes("adjustment-of-status")
+      || /(priority date|green card|current|bulletin|eb-?[123]|retrogress)/.test(normalized))
+  ) {
+    ids.push("GR_VISA_BULLETIN_NO_FORECAST");
+  }
+
   if (topics.includes("adjustment-of-status") && signals.travelMentioned) {
     ids.push("GR_I485_TRAVEL");
   }
@@ -1646,8 +1670,13 @@ function buildDataDisclosure(
   // Booleans are stated in words rather than as true/false, and only when true is
   // not the whole story — "I-140 approved: no" is a fact the user wants confirmed,
   // so both branches are shown for these two.
-  add("I-140 approved", profile.i140Approved ? `yes${profile.i140ApprovalDate ? ` (${profile.i140ApprovalDate})` : ""}` : "no");
-  add("I-485 filed", profile.i485Filed ? "yes" : "no");
+  // "no" is only a fact once the profile has been filled in. For somebody who
+  // has never saved one, these are defaults, not answers they gave.
+  const profileFilledIn = Boolean(profile.visaType);
+  if (profileFilledIn || profile.i140Approved) {
+    add("I-140 approved", profile.i140Approved ? `yes${profile.i140ApprovalDate ? ` (${profile.i140ApprovalDate})` : ""}` : "no");
+  }
+  if (profileFilledIn || profile.i485Filed) add("I-485 filed", profile.i485Filed ? "yes" : "no");
   add("Spouse status", profile.spouseVisaStatus);
   add("What you told us matters most", profile.topConcerns?.join(", "));
 
@@ -1673,22 +1702,50 @@ function buildDataDisclosure(
   return sections.join("\n\n");
 }
 
-export function buildAdvisorContext(snapshot: Awaited<ReturnType<typeof getSnapshot>>): AdvisorUserContext {
+/**
+ * What the model is told when the profile could not be loaded.
+ *
+ * Without it the model sees an empty profile block and may read the blanks as
+ * facts ("no I-485 filed", "not laid off"). This states the gap instead, so the
+ * answer explains the general rule and asks for what it needs.
+ */
+export const PROFILE_UNAVAILABLE_PROMPT_LINE =
+  "Profile unavailable: Haven could not load this person's saved profile for this answer. Do not assume their visa type, dates, employer, layoff status, or green card stage. Explain the general rule, say which of their facts would change the answer, and ask for them.";
+
+export function buildAdvisorContext(
+  snapshot: Awaited<ReturnType<typeof getSnapshot>>,
+  contextSource: ProfileContextSource = "profile"
+): AdvisorUserContext {
   const { profile, dashboard, timelineEvents, emailInbox, cohorts, warRoom } = snapshot;
+
+  if (contextSource === "unavailable") {
+    return {
+      gracePeriodSummary: [],
+      profileSummary: [PROFILE_UNAVAILABLE_PROMPT_LINE],
+      timelineSummary: [],
+      derivedSignalsSummary: [],
+      emailEvidenceSummary: [],
+      communitySummary: []
+    };
+  }
+
+  // A user who has not filled a field in has it blank, and "Visa type: " reads
+  // to the model as a value. Say "not on file" so it asks instead.
+  const onFile = (value: string | null | undefined) => (value && value.trim() ? value : "not on file");
 
   return {
     gracePeriodSummary: renderGracePeriodForPrompt(readGracePeriod(snapshot.activeLayoffEvent?.layoffDate)),
     profileSummary: [
-      `Visa type: ${profile.visaType}`,
-      `Country of birth: ${profile.countryOfBirth}`,
-      `Primary goal: ${profile.primaryGoal}`,
+      `Visa type: ${onFile(profile.visaType)}`,
+      `Country of birth: ${onFile(profile.countryOfBirth)}`,
+      `Primary goal: ${onFile(profile.primaryGoal)}`,
       profile.priorityDate ? `Priority date: ${profile.priorityDate}` : "Priority date: not on file",
       `Preference category: ${profile.preferenceCategory}`,
       `I-140 approved: ${profile.i140Approved ? "yes" : "no"}`,
       `I-485 filed: ${profile.i485Filed ? "yes" : "no"}`,
-      `PERM stage: ${profile.permStage}`,
-      `Employment status: ${profile.employmentStatus}`,
-      `Spouse visa status: ${profile.spouseVisaStatus}`,
+      `PERM stage: ${onFile(profile.permStage)}`,
+      `Employment status: ${onFile(profile.employmentStatus)}`,
+      `Spouse visa status: ${onFile(profile.spouseVisaStatus)}`,
       profile.currentVisaExpiryDate ? `Current visa expiry date: ${profile.currentVisaExpiryDate}` : "Current visa expiry date: not on file",
       profile.topConcerns.length > 0 ? `Top concerns: ${profile.topConcerns.join(", ")}` : null
     ].filter(Boolean) as string[],
@@ -1699,9 +1756,12 @@ export function buildAdvisorContext(snapshot: Awaited<ReturnType<typeof getSnaps
       dashboard.signals.estimatedGreenCardDateRange
         ? `Estimated green card date range: ${dashboard.signals.estimatedGreenCardDateRange}`
         : "Estimated green card date range unavailable",
-      `Layoff readiness: ${dashboard.signals.layoffReadinessScore}`
+      `Layoff readiness: ${onFile(dashboard.signals.layoffReadinessScore)}`
     ],
-    emailEvidenceSummary: emailInbox
+    // Only mail that actually arrived at the user's Haven address. Without an
+    // address the inbox page shows sample notices so it is not empty, and those
+    // must never reach the model as this person's I-140 approval or receipt.
+    emailEvidenceSummary: (snapshot.emailAlias ? emailInbox : [])
       .slice(0, 3)
       .map((record) => `${record.subject}: ${record.extractedFields.map((field) => `${field.label} ${field.value}`).join("; ")}`),
     communitySummary: [...cohorts.flatMap((cohort) => cohort.posts), ...warRoom.posts]
@@ -1738,8 +1798,15 @@ function familiarityFor(priorConversations: number): AdvisorFamiliarity {
 
 export function buildSuggestedPrompts(snapshot: AdvisorSeedSnapshot, session: AdvisorSessionContext) {
   const [firstConcern] = snapshot.profile.topConcerns;
+  const { preferenceCategory, countryOfBirth } = snapshot.profile;
+  // Only personalise when both halves are known. A blank or failed-to-load
+  // profile used to produce "How does my Not sure +  path affect…", and before
+  // that the demo persona's "EB-2 + India".
+  const knowsPath = Boolean(preferenceCategory && preferenceCategory !== "Not sure" && countryOfBirth);
   const prompts = [
-    `How does my ${snapshot.profile.preferenceCategory} + ${snapshot.profile.countryOfBirth} path affect what I should watch next?`,
+    knowsPath
+      ? `How does my ${preferenceCategory} + ${countryOfBirth} path affect what I should watch next?`
+      : "What does the current visa bulletin mean for my green card timeline?",
     concernToPrompt(firstConcern ?? "layoffs", "What should I ask Haven first about my immigration timeline?"),
     snapshot.profile.priorityDate
       ? `What does the current visa bulletin mean for my ${snapshot.profile.preferenceCategory} priority date?`
@@ -1984,6 +2051,69 @@ function buildPromptDerivedSignals(query: string, topics: TopicBucket[], userCon
   });
 }
 
+/**
+ * The user-facing notice for an answer built without the profile.
+ *
+ * Only when personalisation matters: a question about their own dates, status or
+ * queue position. A general "what is a PERM?" loses nothing without the profile,
+ * and a notice there would be noise. Deadline- and status-sensitive questions
+ * also get a line sending them to a professional before they act.
+ */
+export function buildProfileUnavailableNotice(input: {
+  contextSource: ProfileContextSource;
+  query: string;
+  topics: TopicBucket[];
+}): string | null {
+  if (input.contextSource !== "unavailable") return null;
+
+  const normalized = input.query.toLowerCase();
+  const personal =
+    wantsHavenProfileFacts(input.query) ||
+    input.topics.some((topic) => STATUS_DATE_TOPICS.includes(topic) || PRIORITY_DATE_TOPICS.includes(topic));
+  if (!personal) return null;
+
+  const sensitive =
+    isLayoffSituation(normalized, input.topics) ||
+    detectDangerousPremises(normalized).length > 0 ||
+    mentionsTravel(normalized) ||
+    input.topics.some((topic) => topic === "layoffs" || topic === "student-status" || topic === "adjustment-of-status");
+
+  return sensitive
+    ? `${guardrailText("MSG_PROFILE_UNAVAILABLE")}\n\n${guardrailText("MSG_PROFILE_UNAVAILABLE_REVIEW")}`
+    : guardrailText("MSG_PROFILE_UNAVAILABLE");
+}
+
+/**
+ * Should the model intent router run for this message?
+ *
+ * Returns why not, or null when it should. The router is a model call (about a
+ * second, and a cost), and for some messages its answer cannot change anything:
+ *
+ *  - `moderation`   the message was blocked; nothing downstream runs.
+ *  - `pattern-scope` the keyword patterns recognised the question and it falls in
+ *                   a declined area, or it discloses past unauthorised work. The
+ *                   model is not allowed to overrule a pattern decline (see
+ *                   `modelMayDecideScope`), so the redirect is already final.
+ *  - `self-knowledge` "what do you know about me?" is answered from storage.
+ *
+ * Everything else — in-scope questions, and unrecognised ones the model may
+ * rescue — still gets the router, because its topics widen the safety guardrails.
+ */
+export type RouterSkipReason = "moderation" | "pattern-scope" | "self-knowledge";
+
+export function routerSkipReason(input: {
+  moderationFlagged: boolean;
+  patternScopeInScope: boolean;
+  patternsMatched: boolean;
+  unauthorizedWorkMentioned: boolean;
+  selfKnowledge: boolean;
+}): RouterSkipReason | null {
+  if (input.moderationFlagged) return "moderation";
+  if (!input.patternScopeInScope && (input.patternsMatched || input.unauthorizedWorkMentioned)) return "pattern-scope";
+  if (input.selfKnowledge) return "self-knowledge";
+  return null;
+}
+
 async function moderateMessage(content: string, parent?: LangfuseParent) {
   const client = getOpenAIClient();
 
@@ -2116,7 +2246,39 @@ function scoreIntentBoost(query: string, chunk: RetrievedKnowledgeChunk) {
     if (/(unauthorized employment|unauthorized work|misleading|work authorization|adjustment-of-status problems)/.test(sourceText)) boost += 8;
   }
 
+  // Public charge. The rescission rule is the only source on it, and without a
+  // boost a public-charge question ranked it below every I-485 travel chunk and
+  // never retrieved it. Found by the retrieval check.
+  if (/(public charge|i-?944|benefits?.*green card|welfare|medicaid|snap)/.test(normalized)) {
+    if (/(public charge|inadmissibility)/.test(sourceText)) boost += 8;
+  }
+
   return boost;
+}
+
+/**
+ * How many passages one document may take of the six retrieval slots.
+ *
+ * Without a cap, two long documents with many matching chunks filled all six
+ * slots. "I was laid off last week, what happens to my H-1B?" retrieved the
+ * termination-options page and the portability regulation three times each and
+ * never the grace-period regulation (8 CFR 214.1) — the source for the
+ * sixty-day rule the answer is about. Found by the retrieval check.
+ */
+const MAX_CHUNKS_PER_DOCUMENT = 2;
+
+function capChunksPerDocument<T extends { chunkKey: string }>(ranked: T[], limit: number): T[] {
+  const perDocument = new Map<string, number>();
+  const kept: T[] = [];
+  for (const chunk of ranked) {
+    const documentSlug = chunk.chunkKey.split(":")[0];
+    const count = perDocument.get(documentSlug) ?? 0;
+    if (count >= MAX_CHUNKS_PER_DOCUMENT) continue;
+    perDocument.set(documentSlug, count + 1);
+    kept.push(chunk);
+    if (kept.length >= limit) break;
+  }
+  return kept;
 }
 
 export async function retrieveKnowledge(query: string, topics: TopicBucket[], parent?: LangfuseParent) {
@@ -2136,13 +2298,15 @@ export async function retrieveKnowledge(query: string, topics: TopicBucket[], pa
     return retrievalTopics.some((topic) => chunkTopics.includes(topic));
   });
 
-  const ranked = (filtered.length > 0 ? filtered : chunks)
-    .map((chunk) => ({
-      ...chunk,
-      similarity: scoreOverlap(query, `${chunk.title} ${chunk.content} ${chunk.topic}`) + scoreIntentBoost(query, chunk)
-    }))
-    .sort((left, right) => (right.similarity ?? 0) - (left.similarity ?? 0))
-    .slice(0, 6);
+  const ranked = capChunksPerDocument(
+    (filtered.length > 0 ? filtered : chunks)
+      .map((chunk) => ({
+        ...chunk,
+        similarity: scoreOverlap(query, `${chunk.title} ${chunk.content} ${chunk.topic}`) + scoreIntentBoost(query, chunk)
+      }))
+      .sort((left, right) => (right.similarity ?? 0) - (left.similarity ?? 0)),
+    6
+  );
 
   span?.end({
     output: {
@@ -2519,7 +2683,7 @@ function fallbackAnswer(
   const havenContextUsed = [
     ...buildPromptProfileSummary(question, topics, userContext).slice(0, 4),
     ...buildPromptDerivedSignals(question, topics, userContext).slice(0, 1)
-  ].filter(Boolean);
+  ].filter((line) => Boolean(line) && line !== PROFILE_UNAVAILABLE_PROMPT_LINE);
   const communityUsed = community.slice(0, 2).map((item) => `${item.title}: ${item.summary}`);
   const sourceBullets = knowledge
     .slice(0, 3)
@@ -3013,7 +3177,26 @@ function stripUnrequestedPriorityDate(question: string, answer: string, profileP
     .replace(new RegExp(`\\s*\\(${date}\\)`, "gi"), "");
 }
 
-function normalizeHighRiskAnswer(
+/**
+ * Would `normalizeHighRiskAnswer` touch an answer to this question?
+ *
+ * Mirrors its branches. Used to decide whether streamed text must be held back
+ * for review; everything else streams as it arrives.
+ */
+export function highRiskReviewApplies(
+  question: string,
+  topics: TopicBucket[],
+  profilePriorityDate: string | null = null
+): boolean {
+  const normalizedQuestion = question.toLowerCase();
+  if (topics.includes("adjustment-of-status") && mentionsTravel(normalizedQuestion)) return true;
+  if (isLayoffSituation(normalizedQuestion, topics)) return true;
+  if (topics.includes("cspa")) return true;
+  if (topics.includes("visa-bulletin")) return Boolean(profilePriorityDate);
+  return false;
+}
+
+export function normalizeHighRiskAnswer(
   question: string,
   topics: TopicBucket[],
   answer: string,
@@ -3129,6 +3312,9 @@ export function isAdvisorRateLimitError(error: unknown) {
 export type AdvisorStreamEvent =
   | { type: "start"; conversationId: string | null }
   | { type: "delta"; text: string }
+  // The whole answer so far, replacing what was streamed. Sent only when a
+  // reviewed or cleaned-up answer differs from text already shown.
+  | { type: "replace"; text: string }
   | { type: "done"; assistantMessage: AdvisorMessage; conversationId: string | null; traceId: string }
   | { type: "error"; message: string; isRateLimit: boolean };
 
@@ -3353,11 +3539,27 @@ async function scorePreviousAnswer(input: {
   }
 }
 
-export async function* streamAdvisorResponse(rawInput: {
-  content: string;
-  history?: Array<{ role: "user" | "assistant"; content: string }>;
-  conversationId?: string;
-}): AsyncGenerator<AdvisorStreamEvent> {
+type ModerationResult = { flagged: boolean; categories?: string[]; distress?: boolean };
+
+/**
+ * Seams for the deterministic checks. Production passes nothing; tests swap in
+ * stubs so the ordering of moderation, scope and the router can be asserted
+ * without network calls.
+ */
+export interface AdvisorStreamDeps {
+  loadSnapshot?: () => Promise<SnapshotWithSource>;
+  moderate?: (content: string, parent?: LangfuseParent) => Promise<ModerationResult>;
+  classifyIntent?: typeof classifyIntent;
+}
+
+export async function* streamAdvisorResponse(
+  rawInput: {
+    content: string;
+    history?: Array<{ role: "user" | "assistant"; content: string }>;
+    conversationId?: string;
+  },
+  deps: AdvisorStreamDeps = {}
+): AsyncGenerator<AdvisorStreamEvent> {
   const identity = await getAdvisorIdentity();
   const parsed = advisorRespondSchema.safeParse(rawInput);
 
@@ -3376,7 +3578,11 @@ export async function* streamAdvisorResponse(rawInput: {
 
   // Loaded before routing because the profile contributes to it: a pending I-485
   // turns a bare travel question into an adjustment-of-status travel question.
-  const snapshot = await getSnapshot();
+  //
+  // `contextSource` says whether this is the user's real profile, the local demo
+  // persona, or nothing at all because the load failed. A failed load never
+  // falls back to the demo persona in production.
+  const { snapshot, contextSource } = await (deps.loadSnapshot ?? getAdvisorSnapshot)();
 
   const route = routeAdvisorQuestion({
     content,
@@ -3385,13 +3591,6 @@ export async function* streamAdvisorResponse(rawInput: {
     hasOpenLayoff: Boolean(snapshot.activeLayoffEvent)
   });
 
-  // The intent router, now driving rather than shadowing.
-  //
-  // Started before moderation and awaited after it, so its ~1s overlaps work that
-  // had to happen anyway. Null on failure or timeout, and every use below falls
-  // back to the keyword result — a router that could take the Advisor down would
-  // be a worse product than the keyword matching it replaces, however much better
-  // it classifies.
   // Score the previous answer, now that we can see what the user typed next.
   //
   // This is the only read on whether an answer helped that covers every
@@ -3409,8 +3608,6 @@ export async function* streamAdvisorResponse(rawInput: {
     followUp: content
   });
 
-  const intentPromise = classifyIntent({ content, history: rawHistory }).catch(() => null);
-
   const threadState = buildThreadState({
     currentMatched: route.currentMatched,
     previousMatched: route.previousMatched,
@@ -3421,7 +3618,144 @@ export async function* streamAdvisorResponse(rawInput: {
   const model = getChatModel();
 
   const lf = getLangfuseClient();
-  const intentRead = await intentPromise;
+
+  // One trace per message; group a multi-turn conversation via sessionId so
+  // each question gets its own clean observation tree instead of piling up.
+  const traceId = crypto.randomUUID();
+  const trace = lf?.trace({
+    id: traceId,
+    name: "advisor-session",
+    sessionId: conversationId,
+    input: { question: content },
+    userId: identity.isMock ? undefined : identity.id,
+    tags: buildTraceTags(identity),
+    metadata: {
+      topics: route.topics,
+      contextSource,
+      experiential,
+      model,
+      promptName: ADVISOR_PROMPT_NAME,
+      // CD-13.2: a guessed classification must be visible in the trace. Without
+      // this, an answer built on DEFAULT_TOPICS looked exactly like one built on a
+      // real match, and nobody could count how often it happened.
+      classification: threadState.resolution,
+      consecutiveMisses: threadState.consecutiveMisses
+    }
+  });
+
+
+  const moderation = await (deps.moderate ?? moderateMessage)(content, trace);
+
+  if (moderation.flagged) {
+    // Only ever hand back a real thread id. This previously fell back to the
+    // literal "session", the client stored it, and the next request failed
+    // advisorRespondSchema's .uuid() check — surfacing as "Message content is
+    // required." So a single flagged message left the Advisor permanently broken
+    // for that session, with an error that named the wrong field. It landed
+    // hardest on distressed users: told to rephrase, then told their message was
+    // empty, every time after.
+    // Deliberately not persisted. This path returns before a thread is reserved, so
+    // there is usually nothing to attach to — but the more important reason is that
+    // writing a distress disclosure into a conversation history the user will see
+    // listed in their sidebar for months is not a kindness. The moderation category
+    // is on the trace for measurement; the message itself is not kept here.
+    const threadId = conversationId ?? null;
+    const guardrailId = moderation.distress ? "MSG_CRISIS_SUPPORT" : "MSG_MODERATION_REFUSAL";
+    const flaggedPayload: AdvisorAnswerPayload = {
+      answer_markdown: guardrailText(guardrailId),
+      confidence: "low",
+      // The legal disclaimer is noise under a crisis handoff — it answers a question
+      // nobody in that moment is asking, and it makes the response read as
+      // boilerplate at the one point where it must not.
+      disclaimer: moderation.distress
+        ? "These are independent crisis services. Haven is not a crisis or medical service."
+        : guardrailText("MSG_DISCLAIMER"),
+      external_citations: [],
+      haven_context_used: [],
+      community_context_used: [],
+      follow_up_questions: [],
+      refusal_or_escalation_reason: moderation.distress
+        ? "Distress signal detected; routed to external crisis support."
+        : "Message flagged by moderation.",
+    };
+    trace?.update({
+      metadata: {
+        topics: route.topics,
+        contextSource,
+        routerCalled: false,
+        routerSkipReason: "moderation",
+        experiential,
+        model,
+        promptName: ADVISOR_PROMPT_NAME,
+        retrievalKnowledgeCount: 0,
+        retrievalCommunityCount: 0,
+        caseStatsTier: "none",
+        citationCount: 0,
+        fallback: false,
+        fallbackReason: null,
+        // Surfaced on the trace so the category mix stays filterable in Langfuse,
+        // and so the share of flagged traffic that is distress rather than abuse is
+        // measurable now that the two are handled differently.
+        moderationCategories: moderation.categories,
+        moderationDistress: moderation.distress,
+        guardrailsFired: [guardrailId]
+      },
+      output: {
+        answer: flaggedPayload.answer_markdown,
+        cited: false,
+        citationCount: 0,
+        refusalOrEscalationReason: flaggedPayload.refusal_or_escalation_reason
+      }
+    });
+    await flushLangfuse();
+    yield {
+      type: "done",
+      assistantMessage: createAssistantMessage(threadId ?? "pending", flaggedPayload, traceId),
+      conversationId: threadId,
+      traceId
+    };
+    return;
+  }
+
+
+  // Deterministic scope, decided before any model router runs.
+  //
+  // Moderation above and this check are the safety floor. Both used to wait on
+  // the intent router, which was started first so its latency overlapped
+  // moderation — meaning blocked and redirected messages still paid for a model
+  // call whose answer could not change anything. A pattern-recognised decline is
+  // final (`modelMayDecideScope` never lets the model overrule one), so it is
+  // settled here and the router is skipped.
+  const normalizedContent = content.toLowerCase();
+  const scopeSignals = {
+    travel: mentionsTravel(normalizedContent),
+    unauthorizedWork: UNAUTHORIZED_WORK_PATTERN.test(normalizedContent),
+    strongInScope: hasStrongInScopeSignal(normalizedContent),
+    dangerousPremise: detectDangerousPremises(normalizedContent).length > 0
+  };
+  const patternScope = decideScope(
+    route.topics,
+    scopeSignals.travel,
+    scopeSignals.unauthorizedWork,
+    scopeSignals.strongInScope,
+    scopeSignals.dangerousPremise
+  );
+  const skipRouter = routerSkipReason({
+    moderationFlagged: false,
+    patternScopeInScope: patternScope.inScope,
+    patternsMatched: route.currentMatched,
+    unauthorizedWorkMentioned: scopeSignals.unauthorizedWork,
+    selfKnowledge: SELF_KNOWLEDGE_PATTERN.test(content)
+  });
+
+  // The intent router, for messages it can still affect. Null on failure or
+  // timeout, and every use below falls back to the keyword result — a router that
+  // could take the Advisor down would be a worse product than the keyword
+  // matching it replaces, however much better it classifies.
+  const intentRead = skipRouter
+    ? null
+    : await (deps.classifyIntent ?? classifyIntent)({ content, history: rawHistory }).catch(() => null);
+  const routerTrace = { routerCalled: !skipRouter, routerSkipReason: skipRouter };
 
   // Three different questions, three different inputs. Keeping them separate is
   // the whole lesson of the shadow phase: acting on one merged topic list would
@@ -3513,113 +3847,8 @@ export async function* streamAdvisorResponse(rawInput: {
   const guardrailIds = intentRead
     ? [...new Set([...route.guardrailIds, ...selectGuardrailIdsForTopics(content, safetyTopics)])]
     : route.guardrailIds;
-  // One trace per message; group a multi-turn conversation via sessionId so
-  // each question gets its own clean observation tree instead of piling up.
-  const traceId = crypto.randomUUID();
-  const trace = lf?.trace({
-    id: traceId,
-    name: "advisor-session",
-    sessionId: conversationId,
-    input: { question: content },
-    userId: identity.isMock ? undefined : identity.id,
-    tags: buildTraceTags(identity),
-    metadata: {
-      topics,
-      experiential,
-      model,
-      promptName: ADVISOR_PROMPT_NAME,
-      // CD-13.2: a guessed classification must be visible in the trace. Without
-      // this, an answer built on DEFAULT_TOPICS looked exactly like one built on a
-      // real match, and nobody could count how often it happened.
-      classification: threadState.resolution,
-      consecutiveMisses: threadState.consecutiveMisses
-    }
-  });
 
-  // Shadow the keyword router with the intent router.
-  //
-  // Started here and never awaited on the critical path: the comparison is
-  // recorded when the answer is already being assembled, so a slow or failed
-  // classification costs the user nothing. Nothing downstream reads it. The only
-  // output is trace metadata, and the only question this phase answers is how
-  // often the two routers disagree on real traffic, and in which direction.
-  //
-  // `onlyModel` is the number that decides whether this is worth shipping — those
-  // are topics a real user raised that the keyword list missed. `onlyKeyword` is
-  // the counterweight, and it matters just as much: if the model routinely drops
-  // topics the patterns catch, the live design must keep both signals rather than
-  // replace one with the other.
-  const shadowRouter = classifyIntent({ content, history: rawHistory }).catch(() => null);
 
-  const moderation = await moderateMessage(content, trace);
-
-  if (moderation.flagged) {
-    // Only ever hand back a real thread id. This previously fell back to the
-    // literal "session", the client stored it, and the next request failed
-    // advisorRespondSchema's .uuid() check — surfacing as "Message content is
-    // required." So a single flagged message left the Advisor permanently broken
-    // for that session, with an error that named the wrong field. It landed
-    // hardest on distressed users: told to rephrase, then told their message was
-    // empty, every time after.
-    // Deliberately not persisted. This path returns before a thread is reserved, so
-    // there is usually nothing to attach to — but the more important reason is that
-    // writing a distress disclosure into a conversation history the user will see
-    // listed in their sidebar for months is not a kindness. The moderation category
-    // is on the trace for measurement; the message itself is not kept here.
-    const threadId = conversationId ?? null;
-    const guardrailId = moderation.distress ? "MSG_CRISIS_SUPPORT" : "MSG_MODERATION_REFUSAL";
-    const flaggedPayload: AdvisorAnswerPayload = {
-      answer_markdown: guardrailText(guardrailId),
-      confidence: "low",
-      // The legal disclaimer is noise under a crisis handoff — it answers a question
-      // nobody in that moment is asking, and it makes the response read as
-      // boilerplate at the one point where it must not.
-      disclaimer: moderation.distress
-        ? "These are independent crisis services. Haven is not a crisis or medical service."
-        : guardrailText("MSG_DISCLAIMER"),
-      external_citations: [],
-      haven_context_used: [],
-      community_context_used: [],
-      follow_up_questions: [],
-      refusal_or_escalation_reason: moderation.distress
-        ? "Distress signal detected; routed to external crisis support."
-        : "Message flagged by moderation.",
-    };
-    trace?.update({
-      metadata: {
-        topics,
-        experiential,
-        model,
-        promptName: ADVISOR_PROMPT_NAME,
-        retrievalKnowledgeCount: 0,
-        retrievalCommunityCount: 0,
-        caseStatsTier: "none",
-        citationCount: 0,
-        fallback: false,
-        fallbackReason: null,
-        // Surfaced on the trace so the category mix stays filterable in Langfuse,
-        // and so the share of flagged traffic that is distress rather than abuse is
-        // measurable now that the two are handled differently.
-        moderationCategories: moderation.categories,
-        moderationDistress: moderation.distress,
-        guardrailsFired: [guardrailId]
-      },
-      output: {
-        answer: flaggedPayload.answer_markdown,
-        cited: false,
-        citationCount: 0,
-        refusalOrEscalationReason: flaggedPayload.refusal_or_escalation_reason
-      }
-    });
-    await flushLangfuse();
-    yield {
-      type: "done",
-      assistantMessage: createAssistantMessage(threadId ?? "pending", flaggedPayload, traceId),
-      conversationId: threadId,
-      traceId
-    };
-    return;
-  }
 
   // Same rule on the mock path: a sentinel that isn't a UUID would fail schema
   // validation on the next request, so emit null and let the client open a fresh
@@ -3645,13 +3874,15 @@ export async function* streamAdvisorResponse(rawInput: {
   // run regardless of scope, and before generation, because an out-of-scope
   // answer should not cost a model call or twenty seconds. See scope.ts for why
   // these six areas are declined and what each redirect still carries.
-  const normalizedContent = content.toLowerCase();
+  //
+  // When the router was skipped for a pattern decline, `scopeTopics` is the
+  // pattern topics and this repeats `patternScope` exactly.
   const scope = decideScope(
     scopeTopics,
-    mentionsTravel(normalizedContent),
-    UNAUTHORIZED_WORK_PATTERN.test(normalizedContent),
-    hasStrongInScopeSignal(normalizedContent),
-    detectDangerousPremises(normalizedContent).length > 0
+    scopeSignals.travel,
+    scopeSignals.unauthorizedWork,
+    scopeSignals.strongInScope,
+    scopeSignals.dangerousPremise
   );
   if (!scope.inScope) {
     const scopePayload: AdvisorAnswerPayload = {
@@ -3670,6 +3901,8 @@ export async function* streamAdvisorResponse(rawInput: {
 
     trace?.update({
       metadata: {
+        contextSource,
+        ...routerTrace,
         topics,
         experiential,
         model,
@@ -3742,7 +3975,13 @@ export async function* streamAdvisorResponse(rawInput: {
     }
 
     const disclosurePayload: AdvisorAnswerPayload = {
-      answer_markdown: buildDataDisclosure(snapshot.profile, facts),
+      // An unloaded profile is reported as unloaded. Listing the placeholder
+      // values would tell the person "I-140 approved: no" about a record we
+      // never read.
+      answer_markdown:
+        contextSource === "unavailable"
+          ? guardrailText("MSG_PROFILE_UNAVAILABLE_DISCLOSURE")
+          : buildDataDisclosure(snapshot.profile, facts),
       confidence: "high",
       // No legal disclaimer: nothing here is a statement about immigration law,
       // and appending one would make a direct answer read as boilerplate.
@@ -3756,6 +3995,8 @@ export async function* streamAdvisorResponse(rawInput: {
 
     trace?.update({
       metadata: {
+        contextSource,
+        ...routerTrace,
         topics,
         experiential,
         model,
@@ -3827,6 +4068,8 @@ export async function* streamAdvisorResponse(rawInput: {
 
     trace?.update({
       metadata: {
+        contextSource,
+        ...routerTrace,
         topics,
         experiential,
         model,
@@ -3889,7 +4132,7 @@ export async function* streamAdvisorResponse(rawInput: {
   // client sends no real ones, so the honest render is the turn order alone.
   const history = rawHistory.map((m) => ({ role: m.role, content: m.content }));
 
-  const userContext = buildAdvisorContext(snapshot);
+  const userContext = buildAdvisorContext(snapshot, contextSource);
 
   // Retrieval agents run under a shared parent span so the official-source and
   // community-story handoffs are visible as a nested tree under the trace.
@@ -4014,7 +4257,11 @@ export async function* streamAdvisorResponse(rawInput: {
     profileScore: (story) =>
       scoreProfileMatch(story.tags ?? [], snapshot.profile, topics.includes("visa-bulletin") || topics.includes("adjustment-of-status"))
   });
-  const havenContextUsed = promptProfileSummary.slice(0, 4).filter(Boolean);
+  // The profile-unavailable line is an instruction to the model, not a fact
+  // about the user, so it is never listed as Haven context used.
+  const havenContextUsed = promptProfileSummary
+    .slice(0, 4)
+    .filter((line) => Boolean(line) && line !== PROFILE_UNAVAILABLE_PROMPT_LINE);
 
   const { text: systemPrompt, prompt: advisorPrompt } = await getPrompt(lf, ADVISOR_PROMPT_NAME, STREAMING_SYSTEM_PROMPT);
 
@@ -4178,6 +4425,27 @@ export async function* streamAdvisorResponse(rawInput: {
   let fallback = false;
   let fallbackReason: string | null = null;
 
+  // What the client is showing, and the model text held back for review. See
+  // stream-review.ts: when a high-risk correction could apply, text is released
+  // one reviewed sentence-line at a time, so an uncorrected sentence is never on
+  // screen; otherwise it streams untouched.
+  const view = new StreamView();
+  const profilePriorityDate = snapshot.profile.priorityDate ?? null;
+  const reviewedStream = new ReviewedStream(
+    (text) => normalizeHighRiskAnswer(content, topics, text, profilePriorityDate),
+    highRiskReviewApplies(content, topics, profilePriorityDate)
+  );
+
+  // Profile-unavailable disclosure, first, for the same reason as the stale
+  // bulletin notice below: it decides how far the rest can be relied on.
+  const profileNotice = buildProfileUnavailableNotice({ contextSource, query: content, topics });
+  if (profileNotice) {
+    const noticeText = `${profileNotice}\n\n`;
+    fullText += noticeText;
+    const event = view.append(noticeText);
+    if (event) yield event;
+  }
+
   // Stale-bulletin disclosure, emitted BEFORE the answer rather than after it.
   //
   // It used to be stapled to the end, and in a long answer that is where it went
@@ -4194,8 +4462,10 @@ export async function* streamAdvisorResponse(rawInput: {
   if (staleNotice) {
     const noticeText = `${staleNotice}\n\n`;
     fullText += noticeText;
-    yield { type: "delta", text: noticeText };
+    const event = view.append(noticeText);
+    if (event) yield event;
   }
+  const preamble = fullText;
 
   if (client) {
     try {
@@ -4211,32 +4481,37 @@ export async function* streamAdvisorResponse(rawInput: {
       for await (const chunk of stream) {
         const delta = chunk.choices[0]?.delta?.content ?? "";
         if (delta) {
-          fullText += delta;
-          yield { type: "delta", text: delta };
+          const event = view.append(reviewedStream.push(delta));
+          if (event) yield event;
         }
       }
+      fullText = preamble + reviewedStream.rawText;
 
       generation?.end({ output: { answer: fullText, length: fullText.length, citations: citations.length } });
       trace?.update({ output: { answer: fullText, cited: citations.length > 0, citationCount: citations.length } });
     } catch (err) {
       generation?.end({ output: { error: String(err) }, level: "ERROR" });
       const fallbackPayload = fallbackAnswer(content, userContext, knowledge, community, topics, liveBulletin);
-      fullText = fallbackPayload.answer_markdown;
+      // Replaces whatever partial answer was shown before the error, rather than
+      // appending the fallback underneath it.
+      fullText = preamble + fallbackPayload.answer_markdown;
       fallback = true;
       fallbackReason = "stream error";
       trace?.update({ output: { answer: fullText, fallback: true, reason: fallbackReason } });
-      yield { type: "delta", text: fullText };
+      const event = view.syncTo(fullText);
+      if (event) yield event;
     }
   } else {
     const fallbackPayload = fallbackAnswer(content, userContext, knowledge, community, topics, liveBulletin);
-    fullText = fallbackPayload.answer_markdown;
+    fullText = preamble + fallbackPayload.answer_markdown;
     fallback = true;
     fallbackReason = "no openai client";
     trace?.update({ output: { answer: fullText, fallback: true, reason: fallbackReason } });
-    yield { type: "delta", text: fullText };
+    const event = view.syncTo(fullText);
+    if (event) yield event;
   }
 
-  const normalizedFullText = normalizeHighRiskAnswer(content, topics, fullText, snapshot.profile.priorityDate ?? null);
+  const normalizedFullText = normalizeHighRiskAnswer(content, topics, fullText, profilePriorityDate);
   if (normalizedFullText !== fullText) {
     fullText = normalizedFullText;
   }
@@ -4248,6 +4523,14 @@ export async function* streamAdvisorResponse(rawInput: {
   // Runs after the repeat pass so it sees the final tail, and before the addendum
   // so the safety lines are not what gets cut.
   fullText = stripTrailingOffer(fullText);
+
+  // The reviewed body is final from here. Send whatever the client has not seen
+  // yet — the held-back tail, or a full replacement if a cleanup pass changed
+  // text already shown — so the screen matches what is saved.
+  {
+    const event = view.syncTo(fullText);
+    if (event) yield event;
+  }
 
   // Checked against what the reader will actually SEE, not against the whole
   // answer.
@@ -4271,7 +4554,8 @@ export async function* streamAdvisorResponse(rawInput: {
   if (addendum.text) {
     const addendumText = `\n\n${addendum.text}`;
     fullText += addendumText;
-    yield { type: "delta", text: addendumText };
+    const event = view.append(addendumText);
+    if (event) yield event;
   }
 
   // Attorney handoff.
@@ -4301,7 +4585,8 @@ export async function* streamAdvisorResponse(rawInput: {
   if (handoff) {
     const handoffText = `\n\n${handoff.text}`;
     fullText += handoffText;
-    yield { type: "delta", text: handoffText };
+    const event = view.append(handoffText);
+    if (event) yield event;
   }
 
   // Profile updates the user stated in this message.
@@ -4314,7 +4599,10 @@ export async function* streamAdvisorResponse(rawInput: {
   // description of a database write is worse than none — the user would go and
   // correct the wrong field.
   let profileUpdates: ProfileUpdate[] = [];
-  if (!identity.isMock) {
+  // Skipped when the profile could not be loaded: "already current" cannot be
+  // judged against a record we never read, and the store that just failed is
+  // the one these writes go to.
+  if (!identity.isMock && contextSource !== "unavailable") {
     try {
       profileUpdates = filterAlreadyCurrent(
         detectProfileUpdates(content),
@@ -4358,7 +4646,8 @@ export async function* streamAdvisorResponse(rawInput: {
   const updateNotice = renderProfileUpdateNotice(profileUpdates);
   if (updateNotice) {
     fullText += updateNotice;
-    yield { type: "delta", text: updateNotice };
+    const event = view.append(updateNotice);
+    if (event) yield event;
   }
 
   trace?.update({
@@ -4385,6 +4674,8 @@ export async function* streamAdvisorResponse(rawInput: {
 
   trace?.update({
     metadata: {
+      contextSource,
+      ...routerTrace,
       topics,
       experiential,
       model,

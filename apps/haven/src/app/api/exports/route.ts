@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getSnapshot } from "@/lib/repositories/case-compass";
+import { getSnapshotWithSource } from "@/lib/repositories/case-compass";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function GET() {
@@ -10,7 +10,17 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const snapshot = await getSnapshot();
+  const { snapshot, contextSource } = await getSnapshotWithSource();
+
+  // An export is a statement of what Haven holds about this person. When the
+  // profile could not be loaded, an empty export would claim we hold nothing,
+  // and the old fallback exported the demo persona. Neither is true.
+  if (contextSource === "unavailable") {
+    return NextResponse.json(
+      { error: "We couldn't load your data just now. Please try again in a few minutes." },
+      { status: 503 }
+    );
+  }
 
   return NextResponse.json({
     exportedAt: new Date().toISOString(),

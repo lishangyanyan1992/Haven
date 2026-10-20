@@ -84,6 +84,7 @@ async function runCase(testCase: import("./edge-cases").EdgeCase): Promise<Resul
     history: [{ role: "user" as const, content: testCase.question }]
   })) {
     if (event.type === "delta") answer += event.text;
+    if (event.type === "replace") answer = event.text;
   }
 
   const declined = /\b(don'?t|do not) cover\b|\boutside what I cover\b/i.test(answer);

@@ -77,6 +77,7 @@ async function runOnePersona(personaId: string, groupFilter?: string) {
         history: [{ role: "user" as const, content: item.question }]
       })) {
         if (event.type === "delta") answer += event.text;
+        if (event.type === "replace") answer = event.text;
         if (event.type === "done") traceId = (event as { traceId?: string }).traceId ?? null;
       }
     } catch (error) {

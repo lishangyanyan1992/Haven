@@ -151,3 +151,27 @@ When `--history` is used, the runner compares the current run with the previous 
 ## Current scope
 
 The local runner is the current Stage 3/early Stage 4 baseline. It runs repeatable regression cases and optional LLM-as-judge scoring locally. It does not yet upload results to Langfuse experiments, add admin review, or persist eval runs in Supabase.
+
+## Deterministic safety checks (no API calls)
+
+These run offline, with no OpenAI, Supabase or Langfuse access, and are part of
+`npm run check:advisor` in CI.
+
+Official-source retrieval — each of ~20 representative questions must retrieve
+its expected official document (by slug from `src/lib/advisor/source-corpus.ts`)
+in the top six passages. Covers layoffs/grace period, H-1B portability, bridge
+status, AC21, the USCIS adjustment filing charts, travel, CSPA, NIW, PERM, CPT
+and public charge:
+
+```bash
+npm run check:source-retrieval
+```
+
+Advisor safety boundaries — a failed profile load never uses demo data and is
+disclosed in the answer; blocked, out-of-scope and "what do you know about me"
+messages never call the intent router; high-risk streamed text is reviewed
+before it reaches the screen:
+
+```bash
+npm run check:safety-boundary
+```
