@@ -1,4 +1,7 @@
 {
-  "reviewed": {},
+  "reviewed": {
+    "2026-14439": "2026-09-03: F/J/I fixed admission period, effective 2026-09-15. Added to corpus as fr-fixed-admission-period-rule; every chunk carries the effective date because it is not in force yet. Does not touch the H-1B 60-day grace period.",
+    "2026-14539": "2026-09-03: public charge 2022 rule rescinded, effective 2026-09-18. Added as fr-public-charge-rescission-rule; the actionable half is the Form I-485 edition cutover with no grace period."
+  },
   "lastRunAt": null
 }

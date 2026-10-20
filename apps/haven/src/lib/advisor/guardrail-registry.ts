@@ -83,6 +83,34 @@ const ENTRIES: GuardrailEntry[] = [
     text: "Visa bulletin/I-485 filing: never give a hard yes/no from Final Action Dates alone. State that USCIS's monthly adjustment filing-chart page controls whether employment-based applicants must use Final Action Dates or may use Dates for Filing. User-stated dates override Haven profile dates; do not insert a Haven profile priority date unless the user explicitly asks you to use their Haven profile. Preferred wording: 'You may be able to file only if USCIS authorizes Dates for Filing for that month and your priority date is earlier than that cutoff, assuming all other eligibility requirements are met.' Avoid opening with 'you cannot file' when Dates for Filing may be usable."
   },
   {
+    /**
+     * Added 2026-09-03, alongside the USCIS filing-chart source refresh.
+     *
+     * A note on why, because the first version of this comment was wrong and the
+     * error is worth keeping visible. It claimed the refresh had exposed a
+     * regression: two forward-looking eval cases started asserting once the
+     * stale-bulletin notice stopped firing. That run had no API key, so it was
+     * scoring `fallbackAnswer` rather than the model — the exact trap
+     * `edge-cases.check.ts` documents at the top of the file. On the real path
+     * the cases pass either way.
+     *
+     * So this guardrail does not fix an observed regression. It exists because
+     * the rule is right on its own terms: bulletin movement depends on
+     * visa-number demand that is not published ahead of the bulletin, and cutoffs
+     * stall and retrogress as well as advance, so a forecast is not a fact better
+     * data would supply. Stating it here means the refusal comes from the rule
+     * rather than from whatever the corpus happens to hold that week.
+     */
+    id: "GR_VISA_BULLETIN_NO_FORECAST",
+    topic: "visa-bulletin",
+    audience: "model",
+    repeat: "always",
+    intent: "Stop the Advisor predicting future bulletin movement, however fresh our data is.",
+    lastReviewedBy: null,
+    lastReviewedAt: null,
+    text: "Future visa bulletin movement: never predict whether a priority date will become current, how far a cutoff will advance, or how long a wait will be. Say plainly that you cannot know it — cutoff dates depend on visa-number demand that is not published ahead of the bulletin, and they can stall or retrogress as well as advance. Current and past bulletin data is fine to state; anything about a future month is not. Do not soften this into a probability, a range, or a 'typically' — those read as predictions. Point the person to the monthly Visa Bulletin and the USCIS filing-chart page for the month they are asking about, and where the question is really about planning, answer the planning question instead: what they can do now, and what would have to be true before the timing question has an answer."
+  },
+  {
     id: "GR_I485_TRAVEL",
     topic: "adjustment-of-status",
     audience: "model",

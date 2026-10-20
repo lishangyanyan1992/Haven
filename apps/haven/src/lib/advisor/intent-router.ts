@@ -49,6 +49,7 @@ import OpenAI from "openai";
 
 import { env } from "@/lib/env";
 import { TOPIC_BUCKETS, type TopicBucket } from "@/lib/advisor/topics";
+import { ADVISOR_DEFAULT_MODEL } from "@/lib/advisor/model-pin";
 
 /** Facts that change an answer, and that only the user can supply. */
 export const FACT_IDS = [
@@ -126,7 +127,7 @@ export interface IntentRead {
  * together would mean a routing change every time the answer model is tuned.
  */
 export function getRouterModel() {
-  return env.OPENAI_ADVISOR_ROUTER_MODEL ?? env.OPENAI_ADVISOR_MODEL ?? "gpt-5-mini";
+  return env.OPENAI_ADVISOR_ROUTER_MODEL ?? env.OPENAI_ADVISOR_MODEL ?? ADVISOR_DEFAULT_MODEL;
 }
 
 const SYSTEM_PROMPT = [

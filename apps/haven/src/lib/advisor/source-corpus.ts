@@ -35,8 +35,14 @@ export interface SeedKnowledgeDocument {
   versionLabel: string;
   effectiveDate?: string;
   /**
-   * ISO date (YYYY-MM-DD) on which a human last opened `url` and confirmed that
+   * ISO date (YYYY-MM-DD) on which someone last opened `url` and confirmed that
    * `bodyMarkdown` and `chunks` still reflect what the agency publishes.
+   *
+   * `verifiedBy` says who that someone was, and it is not decoration: an agent
+   * fetching the page and matching our claims against its text is a real check,
+   * but it is not the same check as a person who knows the law reading it, and
+   * collapsing the two would be exactly the "we checked" overclaim this field
+   * exists to prevent.
    *
    * Distinct from `versionLabel`, and the distinction is the whole point.
    * `versionLabel` is a claim about the source document ("2026 evergreen").
@@ -53,6 +59,17 @@ export interface SeedKnowledgeDocument {
    * suppresses is the one a user would have acted on.
    */
   lastVerified?: string;
+  /**
+   * Who performed the `lastVerified` check.
+   *
+   * "agent" means the page was fetched and our stored claims were matched
+   * against its live text — enough to catch a claim the page no longer makes,
+   * which is how the CPT/OPT misattribution below was found. It is not enough to
+   * catch a claim the page still makes but that the law has overtaken, so an
+   * agent check does not retire the need for a human one on the highest-stakes
+   * topics.
+   */
+  verifiedBy?: "human" | "agent";
   /**
    * The source's own version stamp at the moment our chunks were confirmed
    * against it.
@@ -240,6 +257,30 @@ export const trustedKnowledgeSources: SeedKnowledgeSource[] = [
     baseUrl: "https://www.uscis.gov/policy-manual/volume-6-part-f-chapter-5",
     topic: "self-petition",
     trustPriority: 75
+  },
+  {
+    // Two DHS final rules that take effect in September 2026 and land squarely on
+    // Haven's audience: the F/J/I fixed-admission-period rule and the public
+    // charge rescission that forces a hard Form I-485 edition cutover. Both were
+    // surfaced by source-watch before they came into force, which is the whole
+    // point of watching the Federal Register rather than only the agency pages —
+    // an agency page describes the rule the day it starts applying, which is a
+    // day too late for anyone planning around it.
+    slug: "fr-fixed-admission-period",
+    label: "DHS Final Rule: Fixed Time Period of Admission for F, J and I",
+    agency: "DHS/Federal Register",
+    baseUrl:
+      "https://www.federalregister.gov/documents/2026/07/17/2026-14439/establishing-a-fixed-time-period-of-admission-and-an-extension-of-stay-procedure-for-nonimmigrant",
+    topic: "student-status",
+    trustPriority: 16
+  },
+  {
+    slug: "fr-public-charge-rescission",
+    label: "DHS Final Rule: Public Charge Ground of Inadmissibility",
+    agency: "DHS/Federal Register",
+    baseUrl: "https://www.federalregister.gov/documents/2026/07/20/2026-14539/public-charge-ground-of-inadmissibility",
+    topic: "adjustment-of-status",
+    trustPriority: 24
   }
 ];
 
@@ -356,6 +397,9 @@ export const trustedKnowledgeDocuments: SeedKnowledgeDocument[] = [
     url: "https://www.uscis.gov/green-card/green-card-processes-and-procedures",
     topic: "adjustment-of-status",
     versionLabel: "2026 evergreen",
+    lastVerified: "2026-09-03",
+    verifiedBy: "agent",
+    sourceVersionDate: "2025-11-20",
     bodyMarkdown:
       "USCIS explains that employment-based green card processing depends on petition classification, visa availability, and eligibility to adjust status or process at a consulate. Adjustment of status availability changes based on the visa bulletin and USCIS filing chart announcements.",
     chunks: [
@@ -371,10 +415,11 @@ export const trustedKnowledgeDocuments: SeedKnowledgeDocument[] = [
     url:
       "https://www.uscis.gov/green-card/green-card-processes-and-procedures/visa-availability-priority-dates/adjustment-of-status-filing-charts-from-the-visa-bulletin",
     topic: "visa-bulletin",
-    versionLabel: "July 2026 filing-chart index",
-    lastVerified: "2026-08-16",
-    sourceVersionDate: "2026-08-03",
-    effectiveDate: "2026-07-01",
+    versionLabel: "September 2026 filing-chart index",
+    lastVerified: "2026-09-03",
+    verifiedBy: "agent",
+    sourceVersionDate: "2026-09-01",
+    effectiveDate: "2026-09-01",
     bodyMarkdown:
       "USCIS publishes a monthly adjustment-of-status filing chart decision. That USCIS page tells employment-based applicants whether they must use Final Action Dates or may use Dates for Filing for the month.",
     chunks: [
@@ -387,7 +432,14 @@ export const trustedKnowledgeDocuments: SeedKnowledgeDocument[] = [
       // to file — a wrong answer in the direction that costs the user time they
       // cannot get back.
       "There is an exception to the monthly designation: if a category is current on the Final Action Dates chart, or the Final Action Dates cutoff is later than the Dates for Filing date, applicants in that category may file using the Final Action Dates chart that month even when USCIS has designated Dates for Filing.",
-      "USCIS designates the chart within about a week of the Department of State publishing each Visa Bulletin, so early in a month the designation for that month may not be posted yet."
+      "USCIS designates the chart within about a week of the Department of State publishing each Visa Bulletin, so early in a month the designation for that month may not be posted yet.",
+      // The one month-specific fact in this document, and the only chunk here that
+      // expires. It names its own month for that reason: a stale copy then reads
+      // as "September said X", which a user can evaluate, rather than as a bare
+      // claim about whatever month they are actually in. The 35-day freshness
+      // policy on `visa-bulletin` and the stale-bulletin gate both catch it, but
+      // neither rewrites the sentence, so the sentence has to carry the date.
+      "For September 2026, USCIS designated the Final Action Dates chart for all employment-based preference categories, and the Dates for Filing chart for all family-sponsored preference categories. This designation is set monthly, so confirm the current month on the USCIS filing-chart page before acting."
     ]
   },
   {
@@ -397,6 +449,9 @@ export const trustedKnowledgeDocuments: SeedKnowledgeDocument[] = [
     url: "https://www.uscis.gov/policy-manual/volume-7-part-e-chapter-5",
     topic: "job-change",
     versionLabel: "2026 evergreen",
+    lastVerified: "2026-09-03",
+    verifiedBy: "agent",
+    sourceVersionDate: "2025-02-23",
     bodyMarkdown:
       "USCIS policy describes job portability after adjustment filing under INA 204(j), commonly associated with AC21. It is tied to a pending Form I-485 and a new job offer in the same or similar occupational classification.",
     chunks: [
@@ -412,6 +467,9 @@ export const trustedKnowledgeDocuments: SeedKnowledgeDocument[] = [
     url: "https://www.uscis.gov/i-485supj",
     topic: "job-change",
     versionLabel: "2026 evergreen",
+    lastVerified: "2026-09-03",
+    verifiedBy: "agent",
+    sourceVersionDate: "2026-08-19",
     bodyMarkdown:
       "USCIS uses Form I-485 Supplement J to confirm a bona fide job offer or to request job portability under INA 204(j).",
     chunks: [
@@ -427,6 +485,9 @@ export const trustedKnowledgeDocuments: SeedKnowledgeDocument[] = [
     url: "https://www.uscis.gov/green-card/while-your-green-card-application-is-pending-with-uscis",
     topic: "adjustment-of-status",
     versionLabel: "2026 evergreen",
+    lastVerified: "2026-09-03",
+    verifiedBy: "agent",
+    sourceVersionDate: "2026-02-12",
     bodyMarkdown:
       "USCIS explains issues that can arise while a green card application is pending, including temporary travel while Form I-485 is pending and the need to review Form I-131 instructions.",
     chunks: [
@@ -442,6 +503,9 @@ export const trustedKnowledgeDocuments: SeedKnowledgeDocument[] = [
     url: "https://www.uscis.gov/policy-manual/volume-7-part-a-chapter-3",
     topic: "adjustment-of-status",
     versionLabel: "2026 evergreen",
+    lastVerified: "2026-09-03",
+    verifiedBy: "agent",
+    sourceVersionDate: "2026-07-10",
     bodyMarkdown:
       "USCIS Policy Manual filing instructions explain that adjustment applicants who depart the United States generally abandon their applications unless advance parole was previously granted for the absence.",
     chunks: [
@@ -457,6 +521,9 @@ export const trustedKnowledgeDocuments: SeedKnowledgeDocument[] = [
     url: "https://www.uscis.gov/green-card/green-card-processes-and-procedures/child-status-protection-act-cspa",
     topic: "cspa",
     versionLabel: "2026 evergreen",
+    lastVerified: "2026-09-03",
+    verifiedBy: "agent",
+    sourceVersionDate: "2025-11-14",
     bodyMarkdown:
       "USCIS explains how the Child Status Protection Act can preserve child classification for certain applicants who age out before immigration processing completes.",
     chunks: [
@@ -472,6 +539,9 @@ export const trustedKnowledgeDocuments: SeedKnowledgeDocument[] = [
     url: "https://www.uscis.gov/policy-manual/volume-7-part-a-chapter-7",
     topic: "cspa",
     versionLabel: "2026 evergreen",
+    lastVerified: "2026-09-03",
+    verifiedBy: "agent",
+    sourceVersionDate: "2025-08-08",
     bodyMarkdown:
       "USCIS Policy Manual guidance describes the CSPA age formula, visa availability, petition pending time, and sought-to-acquire requirement.",
     chunks: [
@@ -488,6 +558,9 @@ export const trustedKnowledgeDocuments: SeedKnowledgeDocument[] = [
       "https://www.uscis.gov/working-in-the-united-states/how-uscis-determines-same-or-similar-occupational-classifications-for-job-portability-under-ac21",
     topic: "job-change",
     versionLabel: "2026 evergreen",
+    lastVerified: "2026-09-03",
+    verifiedBy: "agent",
+    sourceVersionDate: "2025-10-15",
     bodyMarkdown:
       "USCIS explains how it determines whether a new job is in the same or similar occupational classification for AC21 portability.",
     chunks: [
@@ -503,12 +576,14 @@ export const trustedKnowledgeDocuments: SeedKnowledgeDocument[] = [
     url: "https://www.uscis.gov/working-in-the-united-states/students-and-exchange-visitors/optional-practical-training-opt-for-f-1-students",
     topic: "student-status",
     versionLabel: "2026 evergreen",
+    lastVerified: "2026-09-03",
+    verifiedBy: "agent",
+    sourceVersionDate: "2025-11-24",
     bodyMarkdown:
       "USCIS explains Optional Practical Training for F-1 students, including categories of OPT and the need for employment authorization.",
     chunks: [
       "USCIS explains that OPT is temporary employment directly related to an F-1 student's major area of study and generally requires authorization.",
       "For post-completion OPT, the student should not begin work merely because the application is pending; the answer should tell the student to wait for valid work authorization/EAD and coordinate with the DSO and employer.",
-      "USCIS explains that F-1 students who participate in 12 months or more of full-time curricular practical training are not eligible for post-completion OPT.",
       "Practical next steps for delayed OPT include checking USCIS case status, preserving receipt and communication records, asking the employer about start-date/I-9 timing, and contacting the DSO or counsel before working."
     ]
   },
@@ -520,6 +595,9 @@ export const trustedKnowledgeDocuments: SeedKnowledgeDocument[] = [
       "https://www.uscis.gov/i-9-central/form-i-9-resources/handbook-for-employers-m-274/70-evidence-of-employment-authorization-for-certain-categories/74-exchange-visitors-and-students/742-f-1-and-m-1-nonimmigrant-students",
     topic: "student-status",
     versionLabel: "2026 evergreen",
+    lastVerified: "2026-09-03",
+    verifiedBy: "agent",
+    sourceVersionDate: "2025-08-28",
     bodyMarkdown:
       "USCIS employer guidance describes evidence of employment authorization for F-1 students, including EAD requirements for OPT.",
     chunks: [
@@ -536,12 +614,16 @@ export const trustedKnowledgeDocuments: SeedKnowledgeDocument[] = [
       "https://studyinthestates.dhs.gov/sevis-help-hub/student-records/fm-student-employment/f-1-curricular-practical-training-cpt",
     topic: "student-status",
     versionLabel: "2026 evergreen",
+    lastVerified: "2026-09-03",
+    verifiedBy: "agent",
+    sourceVersionDate: "2026-08-24",
     bodyMarkdown:
       "DHS Study in the States explains Curricular Practical Training for F-1 students and the DSO role in CPT authorization.",
     chunks: [
       "DHS describes CPT as F-1 practical training that must be authorized through the student's school process and tied to the curriculum.",
       "For CPT, the student should work with the DSO and ensure authorization is properly documented on the Form I-20 before employment begins.",
-      "Day 1 CPT should be treated cautiously: the answer should tell the user to verify accreditation, program fit, enrollment and attendance requirements, employer-course nexus, DSO authorization, and future visa risks."
+      "Day 1 CPT should be treated cautiously: the answer should tell the user to verify accreditation, program fit, enrollment and attendance requirements, employer-course nexus, DSO authorization, and future visa risks.",
+      "DHS states that one year of full-time CPT eliminates a student's eligibility for OPT."
     ]
   },
   {
@@ -551,6 +633,9 @@ export const trustedKnowledgeDocuments: SeedKnowledgeDocument[] = [
     url: "https://www.uscis.gov/policy-manual/volume-6-part-f-chapter-5",
     topic: "self-petition",
     versionLabel: "2026 evergreen",
+    lastVerified: "2026-09-03",
+    verifiedBy: "agent",
+    sourceVersionDate: "2025-12-18",
     bodyMarkdown:
       "USCIS Policy Manual guidance explains EB-2 eligibility and National Interest Waiver adjudication, including the Dhanasar framework.",
     chunks: [
@@ -566,6 +651,9 @@ export const trustedKnowledgeDocuments: SeedKnowledgeDocument[] = [
     url: "https://www.uscis.gov/newsroom/alerts/uscis-updates-guidance-on-eb-2-national-interest-waiver-petitions",
     topic: "self-petition",
     versionLabel: "2025 policy update",
+    lastVerified: "2026-09-03",
+    verifiedBy: "agent",
+    sourceVersionDate: "2025-01-15",
     bodyMarkdown:
       "USCIS announced policy guidance updates on EB-2 National Interest Waiver petitions, including how officers evaluate the proposed endeavor.",
     chunks: [
@@ -581,6 +669,9 @@ export const trustedKnowledgeDocuments: SeedKnowledgeDocument[] = [
     url: "https://www.uscis.gov/policy-manual/volume-7-part-b-chapter-6",
     topic: "work-authorization",
     versionLabel: "2026 evergreen",
+    lastVerified: "2026-09-03",
+    verifiedBy: "agent",
+    sourceVersionDate: "2025-02-23",
     bodyMarkdown:
       "USCIS policy explains unauthorized employment in the adjustment-of-status context and why truthful attorney review matters when unauthorized work occurred.",
     chunks: [
@@ -612,6 +703,8 @@ export const trustedKnowledgeDocuments: SeedKnowledgeDocument[] = [
     url: "https://flag.dol.gov/programs/perm",
     topic: "perm",
     versionLabel: "2026 evergreen",
+    lastVerified: "2026-09-03",
+    verifiedBy: "agent",
     bodyMarkdown:
       "The Department of Labor's PERM program covers the permanent labor certification process used in many employment-based green card cases. Employers file through FLAG, recruitment and wage requirements matter, and timing can affect downstream immigrant petition and adjustment steps.",
     chunks: [
@@ -619,8 +712,82 @@ export const trustedKnowledgeDocuments: SeedKnowledgeDocument[] = [
       "PERM timing affects later green card milestones because the labor certification date can drive the priority-date timeline in cases that require labor certification.",
       "Because DOL and USCIS each own different parts of the workflow, users should separate labor-certification status from later petition and adjustment steps when evaluating overall case progress."
     ]
+  },
+  {
+    /**
+     * Effective 15 September 2026 — twelve days after this was written.
+     *
+     * Every chunk states the date inside its own text, deliberately. The corpus
+     * has no not-yet-in-force machinery: a chunk saying "F-1 students are
+     * admitted for a fixed period" would be retrieved today and read as current
+     * law, which is wrong until the 15th and would have people acting on it
+     * early. Carrying the date in the sentence is what stops that, and it costs
+     * nothing once the rule is live.
+     *
+     * The rule is also subject to congressional review, so the effective date can
+     * still move. That caveat is a chunk rather than a comment because it is the
+     * user's caveat, not ours.
+     */
+    slug: "fr-fixed-admission-period-rule",
+    sourceSlug: "fr-fixed-admission-period",
+    title: "DHS Final Rule: Fixed Time Period of Admission for F, J and I Nonimmigrants",
+    url:
+      "https://www.federalregister.gov/documents/2026/07/17/2026-14439/establishing-a-fixed-time-period-of-admission-and-an-extension-of-stay-procedure-for-nonimmigrant",
+    topic: "student-status",
+    additionalTopics: ["work-authorization", "layoffs"],
+    versionLabel: "Final rule 2026-14439",
+    effectiveDate: "2026-09-15",
+    lastVerified: "2026-09-03",
+    verifiedBy: "agent",
+    sourceVersionDate: "2026-07-17",
+    bodyMarkdown:
+      "DHS published a final rule on 17 July 2026 (document 2026-14439) replacing duration of status with a fixed period of admission for F academic students, J exchange visitors and I media representatives. It is effective 15 September 2026, subject to congressional review, and amends 8 CFR parts 214, 248 and 274a.",
+    chunks: [
+      "Effective 15 September 2026, DHS replaces duration of status (D/S) for F, J and I nonimmigrants with admission for a fixed time period. Before that date, duration of status still applies.",
+      "From 15 September 2026, DHS admits F-1 and J-1 nonimmigrants for up to the program length shown on the Form I-20 or DS-2019, not to exceed four years, plus 30 days after the program end date to depart or seek another lawful status. F-2 and J-2 dependents may not exceed the principal's authorized stay.",
+      "Transition rule: F and J nonimmigrants already in the United States on 15 September 2026 who were admitted for duration of status and are validly maintaining status may stay to the program end date on their current I-20 or DS-2019 without filing an extension of stay, up to four years from 15 September 2026, plus 60 days for F nonimmigrants and 30 days for J nonimmigrants to depart.",
+      "Important for OPT: an F-1 admitted for duration of status who is in the United States on 15 September 2026 and who timely filed a post-completion OPT or STEM OPT application on or before that date does not need to file an extension of stay (Form I-539) - only the employment authorization application (Form I-765).",
+      "From 15 September 2026, an F or J nonimmigrant who needs more time - to finish a course of study, to start post-completion OPT, STEM OPT or academic training, or to begin a new program - must file an extension of stay with USCIS on Form I-539 up to the new program end date, capped at four years.",
+      "Departing the United States after 15 September 2026 matters more than before: an F or J nonimmigrant who leaves and is readmitted generally receives a new fixed admission period based on their most recent I-20 or DS-2019, and a pending extension of stay application can be treated as abandoned on readmission.",
+      "The effective date of this rule can still move: DHS classified it as a major rule subject to congressional review and said it will publish a further Federal Register document if the date changes or the rule is terminated. Anyone planning around 15 September 2026 should confirm the date is still in force.",
+      "This rule changes F, J and I status only. It does not change the H-1B 60-day grace period after a layoff, which remains governed by 8 CFR 214.1(l)."
+    ]
+  },
+  {
+    /**
+     * Effective 18 September 2026, and the operational half matters more to users
+     * than the legal half.
+     *
+     * The rescission itself widens officer discretion, which is not something a
+     * user acts on. The form edition cutover is: USCIS says there is no grace
+     * period, so an I-485 on the old edition postmarked on or after the 18th is
+     * rejected outright. A rejection is a lost filing date, and for someone whose
+     * priority date just became current that is the whole case.
+     */
+    slug: "fr-public-charge-rescission-rule",
+    sourceSlug: "fr-public-charge-rescission",
+    title: "DHS Final Rule: Public Charge Ground of Inadmissibility (2022 rule rescinded)",
+    url: "https://www.federalregister.gov/documents/2026/07/20/2026-14539/public-charge-ground-of-inadmissibility",
+    topic: "adjustment-of-status",
+    additionalTopics: ["work-authorization"],
+    versionLabel: "Final rule 2026-14539",
+    effectiveDate: "2026-09-18",
+    lastVerified: "2026-09-03",
+    verifiedBy: "agent",
+    sourceVersionDate: "2026-07-20",
+    bodyMarkdown:
+      "DHS published a final rule on 20 July 2026 (document 2026-14539) rescinding the 2022 public charge regulations and amending public charge bond provisions, effective 18 September 2026. USCIS is issuing a new Form I-485 edition dated 09/18/26 to match, with no grace period between editions.",
+    chunks: [
+      "Effective 18 September 2026, DHS rescinds the 2022 public charge regulations, removing the regulatory definitions and the fixed determination framework and returning officers to a case-by-case totality-of-the-circumstances assessment.",
+      "The rule applies to applications for adjustment of status postmarked or electronically submitted on or after 18 September 2026, and to applications for admission made on or after that date. Applications filed before then are handled under the earlier rules.",
+      "Benefit receipt is split by date: DHS will consider only public cash assistance for income maintenance and long-term institutionalization at government expense received before 18 September 2026, and any means-tested public benefits received on or after that date.",
+      "Form I-485 edition cutover, and USCIS says there is no grace period: before 18 September 2026 USCIS accepts only the 01/20/25 edition. On or after 18 September 2026 USCIS rejects the 01/20/25 edition and accepts only the 09/18/26 edition, judged by postmark or electronic submission date.",
+      "Practical consequence of the cutover: a Form I-485 sent on the wrong edition around 18 September 2026 is rejected rather than corrected, which loses the filing date. Anyone filing near that date should confirm which edition applies to their postmark date before sending.",
+      "USCIS said it would issue subregulatory guidance on or before 18 September 2026 to inform how officers apply the public charge assessment, so the practical standard may not be fully visible from the rule text alone."
+    ]
   }
 ];
+
 
 /**
  * Curated community stories.
@@ -675,4 +842,39 @@ export function buildFallbackCommunitySummaries() {
       tags: post.tags
     }))
   ];
+}
+
+/**
+ * A single fingerprint for the knowledge corpus as it stands right now.
+ *
+ * Prompt version and model name are already recorded on every eval run, but the
+ * third input to an answer — which documents the advisor could cite, at which
+ * agency version — was not. Two runs could carry the identical prompt/model
+ * stamp and still disagree because a source was re-verified or a document added
+ * in between, and nothing in the record would say so.
+ *
+ * Hashes the identity of each document rather than its body: slug, primary
+ * topic, version label, and the two dates that say what was checked and which
+ * agency revision was checked. Sorted, so the digest tracks content and not
+ * declaration order.
+ */
+export function getCorpusFingerprint() {
+  const lines = trustedKnowledgeDocuments
+    .map((doc) =>
+      [
+        doc.slug,
+        doc.topic,
+        doc.versionLabel,
+        doc.lastVerified ?? "unverified",
+        doc.sourceVersionDate ?? "unstamped"
+      ].join("|")
+    )
+    .sort();
+
+  return {
+    documentCount: trustedKnowledgeDocuments.length,
+    sourceCount: trustedKnowledgeSources.length,
+    verifiedCount: trustedKnowledgeDocuments.filter((doc) => doc.lastVerified).length,
+    hash: getSourceHash(lines.join("\n")).slice(0, 12)
+  };
 }

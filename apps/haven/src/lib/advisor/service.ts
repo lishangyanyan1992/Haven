@@ -5,6 +5,7 @@ import { env, hasSupabaseEnv } from "@/lib/env";
 import { flushLangfuse, getLangfuseClient, getPrompt } from "@/lib/langfuse";
 import type { LangfuseSpanClient, LangfuseTraceClient } from "langfuse";
 import { classifyIntent, compareRouters } from "@/lib/advisor/intent-router";
+import { ADVISOR_DEFAULT_MODEL, ADVISOR_DEFAULT_EMBEDDING_MODEL } from "@/lib/advisor/model-pin";
 import { decideScope, isRedirectedTopic } from "@/lib/advisor/scope";
 import { getSnapshot } from "@/lib/repositories/case-compass";
 import { resolveTestPersona } from "@/lib/repositories/test-personas";
@@ -162,7 +163,7 @@ function getOpenAIClient() {
   return new OpenAI({ apiKey: env.OPENAI_API_KEY });
 }
 
-export const ADVISOR_DEFAULT_MODEL = "gpt-5-mini";
+export { ADVISOR_DEFAULT_MODEL } from "@/lib/advisor/model-pin";
 
 // OPENAI_ADVISOR_MODEL first: OPENAI_CHAT_MODEL is shared with email extraction
 // and community drafting, which deliberately run a cheaper model. Reading only
@@ -174,7 +175,7 @@ function getChatModel() {
 }
 
 function getEmbeddingModel() {
-  return env.OPENAI_EMBEDDING_MODEL ?? "text-embedding-3-small";
+  return env.OPENAI_EMBEDDING_MODEL ?? ADVISOR_DEFAULT_EMBEDDING_MODEL;
 }
 
 /**
@@ -1138,6 +1139,23 @@ function selectGuardrailIds(query: string, topics: TopicBucket[], signals: Guard
 
   if (topics.includes("visa-bulletin") || /(dates for filing|final action|priority date|i-485)/.test(normalized)) {
     ids.push("GR_VISA_BULLETIN_FILING_CHART");
+  }
+
+  // Forward-looking timing questions, which are a different failure from the
+  // filing-chart one above: that guardrail stops a wrong answer about this
+  // month, this one stops an invented answer about a future month. Matched on
+  // the question rather than the topic because "how long until I get my green
+  // card" carries no bulletin vocabulary at all and still wants a forecast — the
+  // pattern list is the forecast verbs, not the subject matter.
+  if (
+    /(next month|next year|how (long|much longer|many (months|years))|when will|will .* (be current|become current)|current (next|by)|forecast|predict|estimate .* (wait|time)|expect .* (current|green card))/.test(
+      normalized
+    )
+    && (topics.includes("visa-bulletin")
+      || topics.includes("adjustment-of-status")
+      || /(priority date|green card|current|bulletin|eb-?[123]|retrogress)/.test(normalized))
+  ) {
+    ids.push("GR_VISA_BULLETIN_NO_FORECAST");
   }
 
   if (topics.includes("adjustment-of-status") && signals.travelMentioned) {
