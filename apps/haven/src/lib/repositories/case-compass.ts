@@ -2,6 +2,7 @@ import { cache } from "react";
 
 import { hasSupabaseEnv } from "@/lib/env";
 import { havenSnapshot } from "@/lib/repositories/mock-data";
+import { isProfileUnavailable, mockDataAllowed, unavailableSnapshot } from "@/lib/repositories/fallback-data";
 import { resolveTestPersona } from "@/lib/repositories/test-personas";
 import {
   getSupabaseCommunityPageData,
@@ -37,8 +38,21 @@ export type InboxPageData = AppShellSnapshot &
  * persona would be worse than none: the answer and the screen would describe
  * two different people.
  */
-function mockSnapshot(): HavenWorkspaceSnapshot {
+function demoSnapshot(): HavenWorkspaceSnapshot {
   return resolveTestPersona()?.snapshot ?? havenSnapshot;
+}
+
+/**
+ * What every page shows when it has no real data: the demo persona in local
+ * development, and an empty profile in production.
+ *
+ * Production used to fall back to the demo persona too, on a failed load or a
+ * missing Supabase config. A real user then saw "Good to see you, Priya" with
+ * someone else's visa, dates and employer, could export that as their data, and
+ * was identified to analytics as the demo user.
+ */
+function mockSnapshot(): HavenWorkspaceSnapshot {
+  return mockDataAllowed() ? demoSnapshot() : unavailableSnapshot();
 }
 
 function shellFromMock(): AppShellSnapshot {
@@ -48,6 +62,57 @@ function shellFromMock(): AppShellSnapshot {
     dashboard: mockSnapshot().dashboard
   };
 }
+
+/** Where the Advisor's picture of the user came from. Recorded on every trace. */
+export { isProfileUnavailable, mockDataAllowed, unavailableSnapshot };
+
+export type ProfileContextSource = "profile" | "unavailable" | "mock";
+
+export interface SnapshotWithSource {
+  snapshot: HavenWorkspaceSnapshot;
+  contextSource: ProfileContextSource;
+}
+
+
+
+/**
+ * The Advisor's snapshot, with where it came from.
+ *
+ * Separate from `getSnapshot` because the Advisor turns this into immigration
+ * guidance: a failed profile read must produce no personal context at all, never
+ * the demo persona's dates and employer presented as the user's own. Takes its
+ * loaders as arguments so the failure path can be tested without a database.
+ */
+export async function loadSnapshotWithSource(
+  deps: {
+    hasSupabase?: boolean;
+    loadProfile?: () => Promise<HavenWorkspaceSnapshot>;
+    allowMock?: boolean;
+    onError?: (error: unknown) => void;
+  } = {}
+): Promise<SnapshotWithSource> {
+  const hasSupabase = deps.hasSupabase ?? hasSupabaseEnv;
+  const loadProfile = deps.loadProfile ?? (() => supabaseHavenRepository.getSnapshot());
+  const allowMock = deps.allowMock ?? mockDataAllowed();
+
+  if (hasSupabase) {
+    try {
+      return { snapshot: await loadProfile(), contextSource: "profile" };
+    } catch (error) {
+      (deps.onError ?? ((err) => console.error("[advisor] profile load failed; answering without profile context", err)))(error);
+      return { snapshot: unavailableSnapshot(), contextSource: "unavailable" };
+    }
+  }
+
+  return allowMock
+    ? { snapshot: demoSnapshot(), contextSource: "mock" }
+    : { snapshot: unavailableSnapshot(), contextSource: "unavailable" };
+}
+
+export const getAdvisorSnapshot = cache(async (): Promise<SnapshotWithSource> => loadSnapshotWithSource());
+
+/** The same load, for anything that must know whether the data is real. */
+export const getSnapshotWithSource = getAdvisorSnapshot;
 
 export const getSnapshot = cache(async (): Promise<HavenWorkspaceSnapshot> => {
   if (hasSupabaseEnv) {

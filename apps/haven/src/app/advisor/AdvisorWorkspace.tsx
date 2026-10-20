@@ -340,8 +340,10 @@ export function AdvisorWorkspace({
             // this answer or it errors, the next question continues this conversation
             // instead of opening a second one against their daily limit.
             setConversationId(event.conversationId);
-          } else if (event.type === "delta") {
-            streamText += event.text;
+          } else if (event.type === "delta" || event.type === "replace") {
+            // `replace` carries the whole reviewed answer, sent when a safety
+            // correction or cleanup changed text already on screen.
+            streamText = event.type === "replace" ? event.text : streamText + event.text;
             setMessages([...nextMessages, {
               id: sid,
               threadId: "session",

@@ -2,6 +2,7 @@ import { getPriorityDateIntelligence, getPriorityDateSignalOverrides } from "@/l
 import type { HavenRepository } from "@/lib/repositories/contracts";
 import { computeDerivedSignals, mergeSnapshotProfile } from "@/lib/haven";
 import { havenSnapshot } from "@/lib/repositories/mock-data";
+import { baseSnapshot, emptyProfileSnapshot, mockDataAllowed } from "@/lib/repositories/fallback-data";
 import { createSupabasePublicClient } from "@/lib/supabase/public";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type {
@@ -379,7 +380,7 @@ async function buildSnapshotContext(): Promise<SnapshotContext> {
       supabase,
       userId: null,
       communityUnreadCount: 0,
-      snapshot: havenSnapshot,
+      snapshot: baseSnapshot(),
       priorityDateIntelligence: null
     };
   }
@@ -415,7 +416,7 @@ async function buildSnapshotContext(): Promise<SnapshotContext> {
       supabase,
       userId: user.id,
       communityUnreadCount: 0,
-      snapshot: havenSnapshot,
+      snapshot: emptyProfileSnapshot(user),
       priorityDateIntelligence: null
     };
   }
@@ -589,7 +590,9 @@ async function loadInboxSnapshot(
     emailInbox: inbox,
     emailThreads: threads,
     emailContacts: contacts,
-    documents: documentRows ? buildDocuments(documentRows) : context.snapshot.documents
+    // A failed documents query is not the same as having the demo persona's
+    // documents. Empty in production; the demo set only in development.
+    documents: documentRows ? buildDocuments(documentRows) : mockDataAllowed() ? context.snapshot.documents : []
   };
 }
 

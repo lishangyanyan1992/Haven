@@ -701,6 +701,39 @@ const ENTRIES: GuardrailEntry[] = [
     ].join("\n")
   },
   {
+    id: "MSG_PROFILE_UNAVAILABLE",
+    topic: "haven-product",
+    audience: "user",
+    repeat: "always",
+    intent:
+      "Shown before the answer when the saved profile could not be loaded and the question depends on the person's own dates or status. Says plainly that the answer is general, so nobody acts on it as if it were checked against their record.",
+    lastReviewedBy: null,
+    lastReviewedAt: null,
+    text: "**I couldn't load your saved Haven profile just now**, so this answer does not use your dates, visa details, or green card stage. It covers the general rules — tell me the facts that matter for your situation, or try again in a few minutes."
+  },
+  {
+    id: "MSG_PROFILE_UNAVAILABLE_REVIEW",
+    topic: "haven-product",
+    audience: "user",
+    repeat: "always",
+    intent:
+      "Added to the profile-unavailable notice when the question is deadline- or status-sensitive (a layoff, a safety guardrail fired). A general answer is not enough to act on there.",
+    lastReviewedBy: null,
+    lastReviewedAt: null,
+    text: "Because your deadlines depend on details I couldn't check, have an immigration attorney (or your DSO, if you're a student) confirm your dates before you act on this."
+  },
+  {
+    id: "MSG_PROFILE_UNAVAILABLE_DISCLOSURE",
+    topic: "haven-product",
+    audience: "user",
+    repeat: "always",
+    intent:
+      "Answer to \"what do you know about me?\" when the profile could not be loaded. Never lists placeholder values as if they were the person's facts.",
+    lastReviewedBy: null,
+    lastReviewedAt: null,
+    text: "I couldn't load your saved Haven profile just now, so I can't show what it holds. Nothing has been deleted — please try again in a few minutes, or open your profile page to see it directly."
+  },
+  {
     id: "MSG_CLARIFY_UNRECOGNIZED",
     topic: "cross-cutting",
     audience: "user",
