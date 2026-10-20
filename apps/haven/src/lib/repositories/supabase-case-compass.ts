@@ -385,7 +385,11 @@ async function buildSnapshotContext(): Promise<SnapshotContext> {
     };
   }
 
-  const [{ data: profileRow }, { data: derivedSignalRow }, { data: layoffRow }] = await Promise.all([
+  const [
+    { data: profileRow, error: profileError },
+    { data: derivedSignalRow },
+    { data: layoffRow, error: layoffError }
+  ] = await Promise.all([
     supabase.from("user_profiles").select("*").eq("id", user.id).maybeSingle(),
     supabase.from("derived_signals").select("*").eq("user_id", user.id).maybeSingle(),
     // The open layoff, if there is one. `resolved_at is null` is what "open"
@@ -402,6 +406,19 @@ async function buildSnapshotContext(): Promise<SnapshotContext> {
       .limit(1)
       .maybeSingle()
   ]);
+
+  // A failed read is not an empty one. Without this, a profile query error
+  // looked exactly like a new user with no profile: the Advisor answered
+  // without its "profile unavailable" notice and the export returned blanks.
+  // Throwing hands the failure to the callers, which mark it unavailable. The
+  // layoff read is held to the same rule because a silently missing layoff
+  // date drops the person's 60-day countdown from the answer.
+  if (profileError) {
+    throw new Error(`Unable to load profile: ${profileError.message}`);
+  }
+  if (layoffError) {
+    throw new Error(`Unable to load layoff record: ${layoffError.message}`);
+  }
 
   const activeLayoffEvent = layoffRow
     ? {
