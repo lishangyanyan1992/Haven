@@ -437,6 +437,22 @@ async function main() {
       };
     })(),
     {
+      name: "only the already-asked part of a bracket is dropped; a new request in it is kept",
+      ok: (() => {
+        const r = settleUnknownJobEnd(
+          [
+            lead,
+            "<!--details-->",
+            `${"Detail about how the grace period works, counted from the last day. ".repeat(5)}`,
+            "What is the expiration date on your current Form I\u201194?",
+            "What was your last day of employment? (Also tell me your I\u201194 expiration and whether you have left the U.S. since the layoff.)"
+          ].join("\n"),
+          { jobEndUnknown: true, asksAboutTimeLeft: true }
+        );
+        return (r.append ?? "").endsWith("Also tell me whether you have left the U.S. since the layoff.");
+      })()
+    },
+    {
       name: "a bracket the answer does not already ask is still carried",
       ok: (
         settleUnknownJobEnd(

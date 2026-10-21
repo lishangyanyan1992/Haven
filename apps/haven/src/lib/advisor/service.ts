@@ -2259,6 +2259,30 @@ function normalizeDashes(text: string): string {
   return text.replace(/[\u2010-\u2015\u2212]/g, "-");
 }
 
+/**
+ * A bracket request minus the parts the answer already asks; null when nothing
+ * is left. Split per request, so "your I-94 expiration and whether you have left
+ * the U.S." keeps the travel question when only the I-94 date is asked elsewhere.
+ * A part naming no known topic is always kept.
+ */
+function withoutAlreadyAsked(bracket: string, questionsLeft: string[]): string | null {
+  const normalized = normalizeDashes(bracket);
+  // normalizeDashes swaps characters one for one, so lengths line up.
+  const verb = normalized.match(/^((?:also,?|and|please)\s+)*(?:tell me|share|give me|send me|let me know|confirm|include|add)\s+/i)?.[0] ?? "";
+  const end = /\?\s*$/.test(bracket) ? "?" : ".";
+  const body = bracket.slice(verb.length).replace(/[.?!]\s*$/, "");
+  const parts = body.split(/,\s*(?:and\s+)?|\s+and\s+(?=(?:whether|if|your|any|the|when|what|how)\b)/i).filter((part) => part.trim());
+
+  const kept = parts.filter((part) => {
+    const topics = FOLLOW_UP_TOPICS.filter((topic) => topic.test(normalizeDashes(part)));
+    return topics.length === 0 || !topics.every((topic) => questionsLeft.some((question) => topic.test(question)));
+  });
+
+  if (kept.length === 0) return null;
+  if (kept.length === parts.length) return bracket;
+  return `${bracket.slice(0, verb.length)}${kept.join(" and ")}${end}`;
+}
+
 /** The model asking for the last day as a question. These copies are removable. */
 const LAST_DAY_QUESTION = /\b(what|when) (was|is|will be|were) (your|the) (last|final) (day|date)\b[^?]*\?|\bwhen did (your (job|employment)|you(r)? (stop|finish) work)[^?]*\?/i;
 
@@ -2317,17 +2341,14 @@ export function settleUnknownJobEnd(
     .replace(/\n{3,}/g, "\n\n")
     .trimEnd();
 
-  // A bracket the rest of the answer already asks is not carried. Live on
-  // 2026-10-21 the I-94 date was asked in the hidden "What I don't know" list and
-  // again in the visible ask.
+  // What the rest of the answer already asks is not carried. Live on 2026-10-21
+  // the I-94 date was asked in the hidden "What I don't know" list and again in
+  // the visible ask.
   const questionsLeft = splitSentences(normalizeDashes(cleaned)).filter((sentence) => /\?\s*$/.test(sentence));
-  const alreadyAsked = (bracket: string) => {
-    const topics = FOLLOW_UP_TOPICS.filter((topic) => topic.test(normalizeDashes(bracket)));
-    return topics.length > 0 && topics.every((topic) => questionsLeft.some((question) => topic.test(question)));
-  };
 
   const extra = carried
-    .filter((text) => !alreadyAsked(text))
+    .map((text) => withoutAlreadyAsked(text, questionsLeft))
+    .filter((text): text is string => text !== null)
     .map((text) => text.replace(/^((also,?|and|please)\s+)+/i, ""))
     .map((text) => (/^[A-Z][a-z]/.test(text) ? text.charAt(0).toLowerCase() + text.slice(1) : text))
     .map((text) => (/\?\s*$/.test(text) ? `Also, ${text.trim()}` : `Also ${text}`.replace(/[.!]?$/, ".")))
