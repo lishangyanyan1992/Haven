@@ -16,7 +16,7 @@
  *    applied, exactly as it does for the current turn.
  *
  * 2. **A remembered fact is evidence, not a conclusion.** It goes into the prompt
- *    attributed and dated ("On 8 Aug you said: …"), so the Advisor treats it as
+ *    attributed, with the day it was said (never read as the day it happened), so the Advisor treats it as
  *    something the user reported rather than as ground truth it may assert. The
  *    current message always outranks it: people's situations change, and the most
  *    recent statement is the most reliable one.
@@ -215,29 +215,75 @@ export async function forgetFact(userId: string, factId: string): Promise<boolea
 }
 
 /**
+ * Whether a sentence says *when* something happened.
+ *
+ * Loose on purpose: a full date, a month, a weekday or a relative phrase ("last
+ * week") all count. What matters is the other side — a sentence with none of
+ * these has no date, and the prompt has to say so in as many words, because the
+ * model will otherwise borrow one. On 2026-10-20 it did: the only date next to
+ * "I was laid off" was the day the sentence was saved, which was also today, and
+ * the answer counted a 60-day grace period from it. The user never said when.
+ *
+ * "may" alone is a verb ("I may be laid off"), so it only counts with a day.
+ */
+const MONTH = "jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?";
+const WHEN_PATTERN = new RegExp(
+  [
+    `\\b(?:${MONTH})\\b`,
+    "\\bmay\\s+\\d{1,2}\\b",
+    "\\b\\d{1,2}(?:st|nd|rd|th)?\\s+(?:of\\s+)?may\\b",
+    "\\b\\d{4}-\\d{1,2}-\\d{1,2}\\b",
+    "\\b\\d{1,2}[/.]\\d{1,2}(?:[/.]\\d{2,4})?\\b",
+    "\\b(?:mon|tues|wednes|thurs|fri|satur|sun)day\\b",
+    "\\b(?:yesterday|today|tonight|this morning|last (?:week|month|year|night)|this (?:week|month|year)|(?:a|one|two|three|four|five|six|\\d+) (?:days?|weeks?|months?) ago)\\b",
+    "\\b(?:19|20)\\d{2}\\b"
+  ].join("|"),
+  "i"
+);
+
+export function mentionsWhen(sentence: string): boolean {
+  return WHEN_PATTERN.test(sentence);
+}
+
+/**
  * Render facts for the prompt.
  *
- * Attributed and dated so the Advisor treats them as reported by the user rather
- * than as established fact, and explicitly outranked by the current message —
- * people's circumstances change, and the newest statement is the reliable one. The
+ * Attributed so the Advisor treats them as reported by the user rather than as
+ * established fact, and explicitly outranked by the current message — people's
+ * circumstances change, and the newest statement is the reliable one. The
  * instruction to say when it uses one is what keeps the memory visible in the
  * answer rather than quietly shaping it.
+ *
+ * The save date is labelled as the day the user *said* it, never as the day it
+ * happened, and a sentence with no date of its own is marked as having none. See
+ * mentionsWhen for the answer that made this necessary.
  */
 export function renderFactsForPrompt(facts: RememberedFact[]): string[] {
   if (facts.length === 0) return [];
 
-  const lines = facts.slice(0, MAX_FACTS_IN_PROMPT).map((fact) => {
-    const when = new Intl.DateTimeFormat("en-US", {
+  const shown = facts.slice(0, MAX_FACTS_IN_PROMPT);
+  const lines = shown.map((fact) => {
+    const said = new Intl.DateTimeFormat("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
       timeZone: "UTC"
     }).format(new Date(fact.createdAt));
-    return `On ${when} the user said: "${fact.quote}"`;
+    return mentionsWhen(fact.quote)
+      ? `"${fact.quote}" (said in a conversation on ${said})`
+      : `"${fact.quote}" (said in a conversation on ${said}; this sentence gives NO date for when it happened)`;
   });
+
+  const anyUndated = shown.some((fact) => !mentionsWhen(fact.quote));
 
   return [
     ...lines,
-    "These are things the user told you in earlier conversations, not verified facts. If anything in the current message contradicts one, the current message wins and the older statement is out of date. When one of these materially changes your answer, say which one you used, so the user can correct you."
+    "These are things the user told you in earlier conversations, not verified facts. If anything in the current message contradicts one, the current message wins and the older statement is out of date. When one of these materially changes your answer, say which one you used, so the user can correct you.",
+    "The date in brackets is when the user said it, not when it happened. Never use it as the date of the event. If a sentence gives a relative or partial date (\"on Friday\", \"in March\"), say what date you take it to mean and ask them to confirm before counting anything from it.",
+    ...(anyUndated
+      ? [
+          "A sentence marked as giving no date has no known date. Do not assume it happened today, on the day it was said, or on any other day, and do not compute a deadline, grace period end, or number of days left from it. Say plainly that you do not know that date yet, explain how the count works from it, and ask for it."
+        ]
+      : [])
   ];
 }

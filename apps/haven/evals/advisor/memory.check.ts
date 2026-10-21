@@ -150,6 +150,172 @@ async function main() {
   if (verbatimOk) pass += 1;
   else failures.push("verbatim guarantee");
 
+  // --- An undated statement must never become a date.
+  //
+  // 2026-10-20: one remembered fact, "I was laid off", saved that morning with no
+  // date. Asked "Until what date am I allowed to stay in the US on my current
+  // status?", the Advisor said they were laid off "on 2026-10-20" and gave a grace
+  // period ending 2026-12-19. It took the save date (also today) as the layoff
+  // date. These cases pin each layer of the fix.
+  const { mentionsWhen, renderFactsForPrompt } = await import("@/lib/advisor/memory");
+  const { jobEndDateUnknown, statesJobEndDeadline } = await import("@/lib/advisor/service");
+
+  const undated = { id: "f1", kind: "employment" as const, quote: "I was laid off", createdAt: "2026-10-20T03:00:00Z" };
+  const dated = { id: "f2", kind: "employment" as const, quote: "My last day was March 3rd.", createdAt: "2026-10-20T03:00:00Z" };
+  const rendered = renderFactsForPrompt([undated]).join("\n");
+
+  const datedCases: Array<{ name: string; ok: boolean }> = [
+    // Prompt wording.
+    { name: "undated fact is marked as giving no date", ok: /gives NO date/.test(rendered) },
+    {
+      name: "save date is never written as if it were the event date",
+      ok: !/^On [A-Z][a-z]{2} \d/m.test(rendered) && /when the user said it, not when it happened/.test(rendered)
+    },
+    {
+      name: "prompt forbids counting a deadline from an undated fact and says to ask",
+      ok: /do not compute a deadline/i.test(rendered) && /ask for it/i.test(rendered)
+    },
+    {
+      name: "a dated fact is not marked undated, and gets no undated instruction",
+      ok: !/NO date/.test(renderFactsForPrompt([dated]).join("\n"))
+    },
+    // Date detection on the user's sentence.
+    { name: "'I was laid off' has no date", ok: !mentionsWhen("I was laid off") },
+    { name: "'I may be laid off soon' has no date (may is a verb)", ok: !mentionsWhen("I may be laid off soon") },
+    { name: "'laid off on Friday' has a date", ok: mentionsWhen("I was laid off on Friday.") },
+    { name: "'last day was March 3rd' has a date", ok: mentionsWhen("My last day was March 3rd.") },
+    { name: "'laid off 2 weeks ago' has a date", ok: mentionsWhen("I got laid off 2 weeks ago") },
+    { name: "'last day was 10/02' has a date", ok: mentionsWhen("my last day was 10/02") },
+    // When the Advisor must treat the job's end date as unknown.
+    {
+      name: "the 2026-10-20 case: only an undated remembered layoff → date unknown",
+      ok: jobEndDateUnknown({
+        layoffDateOnFile: null,
+        userTexts: ["Until what date am I allowed to stay in the US on my current status?"],
+        rememberedFacts: [undated]
+      })
+    },
+    {
+      name: "a layoff date on file → known",
+      ok: !jobEndDateUnknown({ layoffDateOnFile: "2026-09-30", userTexts: ["How long can I stay?"], rememberedFacts: [undated] })
+    },
+    {
+      name: "the user gives the date in this conversation → known",
+      ok: !jobEndDateUnknown({
+        layoffDateOnFile: null,
+        userTexts: ["How long can I stay?", "My last day was October 2."],
+        rememberedFacts: [undated]
+      })
+    },
+    {
+      name: "a dated remembered fact → known",
+      ok: !jobEndDateUnknown({ layoffDateOnFile: null, userTexts: ["How long can I stay?"], rememberedFacts: [dated] })
+    },
+    {
+      name: "'I was laid off, how long can I stay?' with no date anywhere → unknown",
+      ok: jobEndDateUnknown({ layoffDateOnFile: null, userTexts: ["I was laid off, how long can I stay?"], rememberedFacts: [] })
+    },
+    {
+      name: "no job loss at all → nothing to ask",
+      ok: !jobEndDateUnknown({ layoffDateOnFile: null, userTexts: ["How does the visa bulletin work?"], rememberedFacts: [] })
+    },
+    // Review findings on PR #98.
+    {
+      name: "a date on another event in the same sentence does not date the layoff",
+      ok: jobEndDateUnknown({
+        layoffDateOnFile: null,
+        userTexts: ["I was laid off after my petition was approved on October 2. How long can I stay?"],
+        rememberedFacts: []
+      })
+    },
+    {
+      name: "'furloughed on October 2' counts as a supplied date",
+      ok: !jobEndDateUnknown({ layoffDateOnFile: null, userTexts: ["I was furloughed on October 2."], rememberedFacts: [] })
+    },
+    {
+      name: "a newer 'started a new job' fact retires an old undated layoff",
+      ok: !jobEndDateUnknown({
+        layoffDateOnFile: null,
+        userTexts: ["Can I travel on my H-1B?"],
+        rememberedFacts: [
+          undated,
+          { kind: "status", quote: "I started at a new employer last month.", createdAt: "2026-10-21T03:00:00Z" }
+        ]
+      })
+    },
+    {
+      name: "an older 'new job' fact does not retire a newer layoff",
+      ok: jobEndDateUnknown({
+        layoffDateOnFile: null,
+        userTexts: ["How long can I stay?"],
+        rememberedFacts: [
+          undated,
+          { kind: "status", quote: "I started at a new employer last month.", createdAt: "2026-01-01T00:00:00Z" }
+        ]
+      })
+    },
+    // Second review on PR #98.
+    {
+      name: "'When can I start a new job?' does not retire an undated layoff",
+      ok: jobEndDateUnknown({ layoffDateOnFile: null, userTexts: ["When can I start a new job?"], rememberedFacts: [undated] })
+    },
+    {
+      name: "'I have not started a new job' does not retire an undated layoff",
+      ok: jobEndDateUnknown({
+        layoffDateOnFile: null,
+        userTexts: ["I have not started a new job. How long can I stay?"],
+        rememberedFacts: [undated]
+      })
+    },
+    {
+      name: "'I started at a new company' in this conversation retires an undated remembered layoff",
+      ok: !jobEndDateUnknown({
+        layoffDateOnFile: null,
+        userTexts: ["I started at a new company last week. Can I travel?"],
+        rememberedFacts: [undated]
+      })
+    },
+    {
+      name: "'laid off, effective October 2' counts as a supplied date",
+      ok: !jobEndDateUnknown({ layoffDateOnFile: null, userTexts: ["I was laid off, effective October 2."], rememberedFacts: [] })
+    },
+    {
+      name: "a guessed date next to an I-94 caveat is still caught",
+      ok: statesJobEndDeadline("Your grace period ends on December 19, unless your I-94 expires sooner.")
+    },
+    // Backstop on the finished answer.
+    {
+      name: "'ends on Dec. 19' is not split apart at the abbreviation",
+      ok: statesJobEndDeadline("Your grace period ends on Dec. 19. Plan around that.")
+    },
+    {
+      name: "a real I-94 expiry date is not treated as a guess",
+      ok: !statesJobEndDeadline("Your grace period cannot extend beyond your I-94 expiry on December 19.")
+    },
+    {
+      name: "the answer actually given on 2026-10-20 is caught",
+      ok: statesJobEndDeadline(
+        "Because you reported being laid off on 2026-10-20, your 60-day grace period would end on 2026-12-19. You can stay until then."
+      )
+    },
+    {
+      name: "'until Dec 19' grace-period phrasing is caught",
+      ok: statesJobEndDeadline("Your grace period runs until Dec 19, so you have 60 days.")
+    },
+    {
+      name: "the right answer (counted from the last day, no date) is not flagged",
+      ok: !statesJobEndDeadline(
+        "Your grace period is up to 60 days from your last day of employment, or until your I-94 ends if that comes first. What was your last day?"
+      )
+    }
+  ];
+
+  for (const testCase of datedCases) {
+    console.log(`${testCase.ok ? "PASS" : "FAIL"}  ${testCase.name}`);
+    if (testCase.ok) pass += 1;
+    else failures.push(testCase.name);
+  }
+
   console.log(`\n${pass} passed, ${failures.length} failed`);
 
   if (failures.length > 0) {
