@@ -1,6 +1,7 @@
 import type { AdvisorStreamEvent } from "@/lib/advisor/service";
 import { isAdvisorRateLimitError, streamAdvisorResponse } from "@/lib/advisor/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isInvitedEmail } from "@/lib/access";
 
 export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient();
@@ -8,6 +9,9 @@ export async function POST(request: Request) {
 
   if (!user) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!(await isInvitedEmail(user.email))) {
+    return Response.json({ error: "Haven is invitation only." }, { status: 403 });
   }
 
   const body = await request.json();

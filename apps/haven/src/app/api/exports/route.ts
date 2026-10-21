@@ -2,12 +2,16 @@ import { NextResponse } from "next/server";
 
 import { getSnapshotWithSource } from "@/lib/repositories/case-compass";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isInvitedEmail } from "@/lib/access";
 
 export async function GET() {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!(await isInvitedEmail(user.email))) {
+    return NextResponse.json({ error: "Haven is invitation only." }, { status: 403 });
   }
 
   const { snapshot, contextSource } = await getSnapshotWithSource();

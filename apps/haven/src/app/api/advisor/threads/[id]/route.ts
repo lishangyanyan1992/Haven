@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { deleteThread, getThreadMessages } from "@/lib/advisor/threads";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isInvitedEmail } from "@/lib/access";
 
 const threadIdSchema = z.string().uuid();
 
@@ -19,6 +20,9 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   const user = await requireUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!(await isInvitedEmail(user.email))) {
+    return NextResponse.json({ error: "Haven is invitation only." }, { status: 403 });
   }
 
   const { id } = await context.params;
@@ -54,6 +58,9 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   const user = await requireUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!(await isInvitedEmail(user.email))) {
+    return NextResponse.json({ error: "Haven is invitation only." }, { status: 403 });
   }
 
   const { id } = await context.params;

@@ -139,7 +139,7 @@ export function MobilePublicNav({
                 href="/register"
                 onClick={() => setIsOpen(false)}
               >
-                Get Started
+                Request an invite
               </Link>
             </div>
           </div>

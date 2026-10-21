@@ -13,6 +13,7 @@ import { persistProfileDraft } from "@/lib/profile-sync";
 import { env } from "@/lib/env";
 import { SIGNED_IN_HOME } from "@/lib/archived-routes";
 import { captureSignupCompleted } from "@/lib/posthog-server";
+import { isInvitedEmail } from "@/lib/access";
 
 const EMAIL_INGEST_DOMAIN = env.EMAIL_INGEST_DOMAIN ?? "import.haven-h1b.com";
 import {
@@ -144,6 +145,11 @@ export async function signInAction(formData: FormData) {
     redirect(`/login?email=${encodeURIComponent(email)}&message=invalid_credentials`);
   }
 
+  if (!(await isInvitedEmail(email))) {
+    await supabase.auth.signOut();
+    redirect("/register?message=not_invited");
+  }
+
   const userId = signInData?.user?.id;
   const fullName = String(signInData?.user?.user_metadata?.full_name ?? email.split("@")[0]);
   const destination = userId
@@ -165,6 +171,10 @@ export async function signUpAction(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   const admin = createSupabaseAdminClient() as any;
+
+  if (!(await isInvitedEmail(email))) {
+    redirect("/register?message=not_invited");
+  }
 
   // Check if a profile already exists (stub or complete)
   const { data: existingProfile } = await admin
@@ -243,6 +253,7 @@ export async function submitWaitlistAction(input: {
   interestKey: string;
   interestLabel: string;
   sourcePath?: string;
+  metadata?: Record<string, string>;
 }) {
   const parsed = waitlistSignupSchema.safeParse({
     ...input,
@@ -273,6 +284,7 @@ export async function submitWaitlistAction(input: {
         interest_key: parsed.data.interestKey,
         interest_label: parsed.data.interestLabel,
         source_path: parsed.data.sourcePath,
+        metadata: sanitizeWaitlistMetadata(input.metadata),
         updated_at: now
       },
       {
@@ -567,4 +579,25 @@ export async function labelContactAction(formData: FormData) {
     .eq("user_id", user.id);
 
   revalidatePath("/inbox");
+}
+
+
+function sanitizeWaitlistMetadata(metadata: Record<string, string> | undefined) {
+  const clean: Record<string, string> = {};
+  if (!metadata) return clean;
+  for (const [key, value] of Object.entries(metadata).slice(0, 10)) {
+    if (typeof value === "string" && /^[a-z_]{1,40}$/.test(key)) {
+      clean[key] = value.trim().slice(0, 300);
+    }
+  }
+  return clean;
+}
+
+/** The invite chat asks this before showing the sign-up form. */
+export async function checkInviteAction(input: { email: string }) {
+  const email = String(input.email ?? "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 320) {
+    return { status: "invalid" as const };
+  }
+  return { status: (await isInvitedEmail(email)) ? ("invited" as const) : ("not_invited" as const) };
 }

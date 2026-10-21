@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getLangfuseClient, flushLangfuse } from "@/lib/langfuse";
+import { isInvitedEmail } from "@/lib/access";
 
 const feedbackSchema = z.object({
   traceId: z.string().min(1),
@@ -69,6 +70,9 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!(await isInvitedEmail(user.email))) {
+    return NextResponse.json({ error: "Haven is invitation only." }, { status: 403 });
   }
 
   const body = feedbackSchema.safeParse(await request.json());

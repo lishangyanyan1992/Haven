@@ -32,7 +32,7 @@ export default async function LoginPage({
           <p className="text-body-sm">
             No account yet?{" "}
             <Link className="font-medium text-[var(--haven-ink)] underline-offset-4 hover:underline" href="/register">
-              Start free
+              Request an invite
             </Link>
           </p>
         </div>
