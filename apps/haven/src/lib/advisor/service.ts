@@ -156,9 +156,24 @@ export type AdvisorUsage = {
   remaining: number;
   renewalLabel: string;
   nextRenewalAt: string | null;
+  /** True for an admin account: no daily conversation limit applies. */
+  unlimited?: boolean;
 };
 
 const ADVISOR_CONVERSATION_LIMIT = 5;
+
+/**
+ * Accounts with no daily conversation limit.
+ *
+ * The owner tests the Advisor on the live site, and five conversations a day ran
+ * out mid-retest on 2026-10-21. Matched against the signed-in Supabase user's
+ * email, never anything the client sends.
+ */
+const UNLIMITED_ADVISOR_EMAILS = new Set(["lshangyanyan@gmail.com"]);
+
+export function hasUnlimitedAdvisor(email: string | null | undefined): boolean {
+  return Boolean(email) && UNLIMITED_ADVISOR_EMAILS.has(String(email).trim().toLowerCase());
+}
 const ADVISOR_CONVERSATION_WINDOW_HOURS = 24;
 
 class AdvisorRateLimitError extends Error {
@@ -1631,6 +1646,17 @@ export const getAdvisorUsage = cache(async (): Promise<AdvisorUsage> => {
     };
   }
 
+  if (hasUnlimitedAdvisor(identity.email)) {
+    return {
+      limit: ADVISOR_CONVERSATION_LIMIT,
+      used: 0,
+      remaining: ADVISOR_CONVERSATION_LIMIT,
+      renewalLabel: "no limit",
+      nextRenewalAt: null,
+      unlimited: true
+    };
+  }
+
   const admin = createSupabaseAdminClient() as any;
   const windowStartMs = Date.now() - ADVISOR_CONVERSATION_WINDOW_HOURS * 60 * 60 * 1000;
   const windowStartIso = new Date(windowStartMs).toISOString();
@@ -1900,7 +1926,12 @@ function createAssistantMessage(threadId: string, payload: AdvisorAnswerPayload,
   };
 }
 
-async function reserveAdvisorConversation(userId: string, content: string, conversationId?: string) {
+async function reserveAdvisorConversation(
+  userId: string,
+  content: string,
+  conversationId?: string,
+  options: { unlimited?: boolean } = {}
+) {
   if (!hasSupabaseEnv) {
     return conversationId ?? "session";
   }
@@ -1925,7 +1956,9 @@ async function reserveAdvisorConversation(userId: string, content: string, conve
   }
 
   const windowStart = new Date(Date.now() - ADVISOR_CONVERSATION_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
-  const { count, error: countError } = await admin
+  const { count, error: countError } = options.unlimited
+    ? { count: 0, error: null }
+    : await admin
     .from("advisor_threads")
     .select("id", { count: "exact", head: true })
     .eq("user_id", userId)
@@ -4284,7 +4317,9 @@ export async function* streamAdvisorResponse(
   // thread instead of sending an id the server will reject.
   const threadId = identity.isMock
     ? conversationId ?? null
-    : await reserveAdvisorConversation(identity.id, content, conversationId);
+    : await reserveAdvisorConversation(identity.id, content, conversationId, {
+        unlimited: hasUnlimitedAdvisor(identity.email)
+      });
 
   // The thread row is created here, before generation, and it counts against the
   // user's daily allowance from this moment. Announcing the id now rather than at
