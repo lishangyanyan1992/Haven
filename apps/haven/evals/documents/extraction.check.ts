@@ -101,6 +101,10 @@ check("no line is split in half", parts.every((p) => p.split("\n").every((l) => 
 const paragraph = Array.from({ length: 40 }, (_, i) => `word${i} Admit Until Date 09/30/2027`).join(" ");
 const pieces = splitPage(paragraph);
 check("a long paragraph is split, not cut off", pieces.length > 1 && pieces.join(" ").includes("word39"), pieces.length);
+check(
+  "bookmark /Count is not taken as pages",
+  countPages({ fileName: "x.pdf", mimeType: "application/pdf", bytes: Buffer.from("%PDF-1.5 << /Type /Outlines /Count 35 >> << /Count 20 /Kids [] /Type /Pages >> /ObjStm") }) === 20
+);
 check("page tree /Count is used when page objects are hidden", countPages({ fileName: "x.pdf", mimeType: "application/pdf", bytes: Buffer.from("%PDF-1.5 /Type /Pages /Count 3 /ObjStm") }) === 3);
 
 // The model reads three pages of a PDF whose page objects are compressed (so

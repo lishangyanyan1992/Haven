@@ -73,7 +73,13 @@ export function countPages(input: DocumentInput): number {
   if (mime === "application/pdf") {
     const raw = input.bytes.toString("latin1");
     const objects = raw.match(/\/Type\s*\/Page(?![a-zA-Z])/g)?.length ?? 0;
-    const counts = [...raw.matchAll(/\/Count\s+(\d+)/g)].map((m) => Number(m[1]));
+    // Only a page-tree node's /Count counts pages; bookmarks (outlines) use
+    // /Count too, for their entries. So take it only from a dictionary that also
+    // says /Type /Pages, in either order. The root has the largest.
+    const counts = [
+      ...raw.matchAll(/\/Type\s*\/Pages\b[^>]*?\/Count\s+(\d+)/g),
+      ...raw.matchAll(/\/Count\s+(\d+)[^>]*?\/Type\s*\/Pages\b/g)
+    ].map((m) => Number(m[1]));
     return Math.max(1, objects, ...counts);
   }
   if (mime === "text/plain") {
