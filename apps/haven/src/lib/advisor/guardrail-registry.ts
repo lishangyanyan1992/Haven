@@ -641,6 +641,17 @@ const ENTRIES: GuardrailEntry[] = [
     ].join("\n")
   },
   {
+    id: "MSG_SCOPE_PERM_ASIDE",
+    topic: "perm",
+    audience: "user",
+    repeat: "always",
+    intent:
+      "PERM named inside an in-scope layoff question. The rest is answered; this one line says the PERM part is not, and who has it.",
+    lastReviewedBy: "product",
+    lastReviewedAt: "2026-10-21",
+    text: "One thing I've left out: I don't cover PERM yet, so for anything about your PERM case, your employer's immigration team or the attorney handling it is the right place to ask."
+  },
+  {
     id: "MSG_SCOPE_UNAUTHORIZED_WORK",
     topic: "work-authorization",
     audience: "user",

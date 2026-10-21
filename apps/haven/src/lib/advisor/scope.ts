@@ -107,6 +107,30 @@ const REDIRECT_PRIORITY: TopicBucket[] = ["cspa", "self-petition", "student-stat
 const YIELDS_TO_HAVEN_PRODUCT: TopicBucket[] = ["perm"];
 
 /**
+ * Declined topics that become a one-line aside when the question is clearly an
+ * in-scope one.
+ *
+ * Found by running 20 real r/h1b layoff posts through the Advisor (21 Oct 2026):
+ * 3 of the 20 were declined outright because they named PERM in passing, while
+ * their main asks — switching to H-4, an H-1B transfer while H-4 is pending,
+ * what to do in the grace period — were exactly the layoff question. Somebody
+ * laid off mid-PERM mentions PERM because it is true of them, and turning the
+ * whole message away cost them the answers we do hold.
+ *
+ * This is not the quiet partial coverage `decideScope` warns against: the aside
+ * says, before the answer, that the PERM part is not covered and who to ask.
+ * The gate is the same strong in-scope signal the yielding topics use, so "my
+ * employer started PERM and my H-1B max-out is in March" — no layoff, grace
+ * period, B-2 or H-4 wording — is still declined as PERM.
+ *
+ * PERM only. The other declined topics carry deadlines that an aside at the top
+ * of a long answer would bury.
+ */
+const ASIDE_ON_STRONG_IN_SCOPE: Partial<Record<TopicBucket, string>> = {
+  perm: "MSG_SCOPE_PERM_ASIDE"
+};
+
+/**
  * Declined topics that yield when the question clearly raises an in-scope one.
  *
  * The recurring defect in this codebase — five instances now — is a topic label
@@ -161,7 +185,7 @@ const YIELDS_TO_STRONG_IN_SCOPE: TopicBucket[] = ["student-status", "self-petiti
 export const UNAUTHORIZED_WORK_REDIRECT = "MSG_SCOPE_UNAUTHORIZED_WORK";
 
 export type ScopeDecision =
-  | { inScope: true }
+  | { inScope: true; aside?: { area: TopicBucket; guardrailId: string } }
   | { inScope: false; area: TopicBucket | "travel"; guardrailId: string };
 
 /**
@@ -213,14 +237,20 @@ export function decideScope(
   }
 
   const isHavenProductQuestion = topics.includes("haven-product");
+  let aside: { area: TopicBucket; guardrailId: string } | undefined;
 
   for (const topic of REDIRECT_PRIORITY) {
     const guardrailId = REDIRECTED[topic];
     if (!guardrailId || !topics.includes(topic)) continue;
     if (isHavenProductQuestion && YIELDS_TO_HAVEN_PRODUCT.includes(topic)) continue;
     if (strongInScopeSignal && YIELDS_TO_STRONG_IN_SCOPE.includes(topic)) continue;
+    const asideId = ASIDE_ON_STRONG_IN_SCOPE[topic];
+    if (strongInScopeSignal && asideId) {
+      aside = { area: topic, guardrailId: asideId };
+      continue;
+    }
     return { inScope: false, area: topic, guardrailId };
   }
 
-  return { inScope: true };
+  return aside ? { inScope: true, aside } : { inScope: true };
 }

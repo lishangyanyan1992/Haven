@@ -35,6 +35,8 @@ type ScopeCase = {
   question: string;
   /** null = must be answered; otherwise the area it must be declined as. */
   declinedAs: string | null;
+  /** For answered cases: the declined area set aside in one line, if any. */
+  aside?: string;
 };
 
 const CASES: ScopeCase[] = [
@@ -167,6 +169,27 @@ const CASES: ScopeCase[] = [
   {
     question: "My employer started PERM in January 2026 and recruitment is done. My H-1B max-out date is in March.",
     declinedAs: "perm"
+  },
+  // A layoff question that names PERM in passing is answered, with the PERM part
+  // set aside in one line. All three were declined outright before, in a test of
+  // 20 real r/h1b layoff posts (21 Oct 2026), while their main asks were in scope.
+  {
+    question:
+      "I was laid off today. My old employer had started PERM but it's still pending and no I-140 was filed. Should I keep looking for jobs on my remaining H-1B time, or switch to H-4 and apply for an H-4 EAD?",
+    declinedAs: null,
+    aside: "perm"
+  },
+  {
+    question:
+      "I was laid off yesterday. My previous employer filed PERM 13 months ago and it's still pending. Besides finding a new sponsor, are there ways to bridge the time so I don't have to leave?",
+    declinedAs: null,
+    aside: "perm"
+  },
+  {
+    question:
+      "I got laid off in my 6th year of H-1B with PERM in progress. I plan to apply for H-4 through my spouse. If I find a job during the grace period while the H-4 is pending, how does the H-1B transfer work?",
+    declinedAs: null,
+    aside: "perm"
   }
 ];
 
@@ -229,14 +252,20 @@ async function main() {
     );
 
     const actual = decision.inScope ? null : decision.area;
-    const ok = actual === testCase.declinedAs;
+    const actualAside = decision.inScope ? decision.aside?.area ?? null : null;
+    const ok = actual === testCase.declinedAs && actualAside === (testCase.aside ?? null);
 
     check(
       `${testCase.declinedAs == null ? "answers" : `declines as ${testCase.declinedAs}`} — "${testCase.question.slice(0, 46)}"`,
       ok,
-      `topics=${route.topics.join(",") || "-"} decision=${actual ?? "in scope"}`
+      `topics=${route.topics.join(",") || "-"} decision=${actual ?? "in scope"}${actualAside ? ` aside=${actualAside}` : ""}`
     );
   }
+
+  // The aside is one line by design: it sits above the answer, and a paragraph
+  // there would push the answer itself down the screen.
+  const asideText = guardrailText("MSG_SCOPE_PERM_ASIDE");
+  check("PERM aside is a single line that names who to ask", !asideText.includes("\n") && /immigration team|attorney/i.test(asideText), asideText);
 
   for (const fact of SAFETY_FACTS) {
     check(fact.name, fact.must.test(guardrailText(fact.id)), fact.id);

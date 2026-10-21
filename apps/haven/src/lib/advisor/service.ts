@@ -4093,6 +4093,12 @@ export interface AdvisorStreamDeps {
   loadSnapshot?: () => Promise<SnapshotWithSource>;
   moderate?: (content: string, parent?: LangfuseParent) => Promise<ModerationResult>;
   classifyIntent?: typeof classifyIntent;
+  /**
+   * The answer writer. Tests pass a stub (or null for the no-key fallback) so the
+   * full stream — notices, prompt, streamed and saved text — can be asserted
+   * without a model call.
+   */
+  chatClient?: Pick<OpenAI, "chat"> | null;
 }
 
 export async function* streamAdvisorResponse(
@@ -4875,6 +4881,18 @@ export async function* streamAdvisorResponse(
     "",
     `User question:\n${content}`,
     "",
+    // A declined topic named inside an in-scope question (see ASIDE_ON_STRONG_IN_SCOPE
+    // in scope.ts). The one-line aside is already shown above the answer; without
+    // this the model answers the declined part anyway, ungrounded.
+    ...(scope.aside
+      ? [
+          buildContextBlock("Left out of this answer", [
+            `The question also touches ${scope.aside.area === "perm" ? "PERM / labor certification" : scope.aside.area}, which Haven does not cover. A one-line note saying so is already shown above your answer.`,
+            "Answer every other part of the question fully, written as if that part had not been asked. Do not mention it, do not say anything was left out or excluded, and never refer to these instructions — the note above already tells the user."
+          ]),
+          ""
+        ]
+      : []),
     // Directly under the question, above the guardrails, for the same reason the
     // grace period sits above the timeline: prompt position is one of the few
     // levers on what actually gets used. Placed further down — after the
@@ -5002,7 +5020,7 @@ export async function* streamAdvisorResponse(
     })()
   ].join("\n");
 
-  const client = getOpenAIClient();
+  const client = deps.chatClient !== undefined ? deps.chatClient : getOpenAIClient();
   const generation = trace?.generation({
     name: "openai-advisor-stream",
     model,
@@ -5033,6 +5051,15 @@ export async function* streamAdvisorResponse(
   const profileNotice = buildProfileUnavailableNotice({ contextSource, query: content, topics });
   if (profileNotice) {
     const noticeText = `${profileNotice}\n\n`;
+    fullText += noticeText;
+    const event = view.append(noticeText);
+    if (event) yield event;
+  }
+
+  // The declined part of an otherwise in-scope question, said up front so the
+  // answer below is not read as covering it.
+  if (scope.aside) {
+    const noticeText = `${guardrailText(scope.aside.guardrailId)}\n\n`;
     fullText += noticeText;
     const event = view.append(noticeText);
     if (event) yield event;
@@ -5277,7 +5304,8 @@ export async function* streamAdvisorResponse(
       profileUpdates: profileUpdates.map((update) => `${update.field}=${String(update.value)}`),
       fallback,
       fallbackReason,
-      staleBulletinNotice: Boolean(staleNotice)
+      staleBulletinNotice: Boolean(staleNotice),
+      scopeAsideArea: scope.aside?.area ?? null
     }
   });
 
