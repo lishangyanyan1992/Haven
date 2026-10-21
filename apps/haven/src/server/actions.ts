@@ -13,6 +13,7 @@ import { persistProfileDraft } from "@/lib/profile-sync";
 import { env } from "@/lib/env";
 import { SIGNED_IN_HOME } from "@/lib/archived-routes";
 import { isInvitedEmail } from "@/lib/access";
+import { captureSignupCompleted } from "@/lib/posthog-server";
 
 const EMAIL_INGEST_DOMAIN = env.EMAIL_INGEST_DOMAIN ?? "import.haven-h1b.com";
 import {
@@ -55,7 +56,9 @@ export async function resolvePostAuthRedirect(
     .maybeSingle();
 
   if (!profile) {
-    // First time this user has hit Haven — bootstrap a stub profile
+    // First time this user has hit Haven — bootstrap a stub profile. With
+    // invite-only sign-up this first sign-in is when the account starts.
+    await captureSignupCompleted(userId);
     await admin.from("user_profiles").upsert({
       id: userId,
       full_name: fullName ?? email.split("@")[0] ?? "New Haven user",

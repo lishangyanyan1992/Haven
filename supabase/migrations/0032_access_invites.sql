@@ -42,6 +42,8 @@ grant execute on function public.haven_has_access() to authenticated;
 -- with every existing "own rows" policy, so an account without an invite
 -- can no longer read or change its own data with its login. The server's
 -- admin client bypasses row security and is unaffected.
+-- wizard_sessions is left out on purpose: the separate ImmigWizard app uses
+-- it with the same logins and is not part of the Haven invite.
 do $$
 declare
   t text;
@@ -53,7 +55,7 @@ begin
     'document_reading_usage', 'email_aliases', 'email_contacts',
     'email_ingest_records', 'email_notification_deliveries', 'email_threads',
     'layoff_checklist_completions', 'layoff_events', 'timeline_events',
-    'user_documents', 'user_profiles', 'wizard_sessions'
+    'user_documents', 'user_profiles'
   ]
   loop
     if to_regclass('public.' || t) is not null then
