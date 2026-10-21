@@ -67,7 +67,7 @@ Recommended:
 
 ## How the Advisor works
 
-The Advisor is a **fixed workflow, not an agent**. Code decides every step and the order they run in. The AI is called at three points: checking the message is safe, guessing the topic when keywords miss, and writing the answer. It never chooses which tools to call.
+The Advisor is a **fixed workflow, not an agent**. Code decides every step and the order they run in. The AI is called at three points: checking the message is safe, reading the topic alongside the keyword rules, and writing the answer. It never chooses which tools to call.
 
 ```mermaid
 flowchart TD
@@ -76,8 +76,8 @@ flowchart TD
   M -- "flagged or in crisis" --> X1(["Refusal or crisis hand-off"])
   M --> K["Topic keywords + scope signals<br/><i>Haven rules</i>"]
   K -- "declined topic<br/>(travel, CSPA, NIW, AC21,<br/>student, PERM-only)" --> X2(["One-message redirect<br/>with the key deadline"])
-  K -- "keywords unsure" --> IR["Intent router<br/><i>gpt-5-mini</i>"]
-  K -- "keywords sure" --> S
+  K -- "question about saved user data" --> S
+  K -- "everything else" --> IR["Intent router: reads the topic too<br/><i>gpt-5-mini</i>"]
   IR --> S["Final scope decision<br/><i>Haven rules</i>"]
   S -- "declined" --> X2
   S -- "'What do you know about me?'" --> X3(["Answered from saved data"])
@@ -148,7 +148,15 @@ flowchart TD
 
 ### Scope in one paragraph
 
-The Advisor covers two areas: **"I lost my job, how do I stay?"** and **"Where am I in the green card line?"** It declines everything else with a one-message redirect that still names the deadline that matters. There's one exception. A layoff question that mentions PERM in passing is answered, and a one-line note above the answer says PERM isn't covered (see `src/lib/advisor/scope.ts`).
+The Advisor covers two areas: **"I lost my job, how do I stay?"** and **"Where am I in the green card line?"** It declines everything else with a one-message redirect that still names the deadline that matters.
+
+Some declined topics, when they're only background to an in-scope question, don't trigger the redirect:
+
+- **Student status or a self-petition (NIW, EB-1A),** mentioned in a question that clearly raises layoffs, the grace period, B-2, H-4 or the visa bulletin, is answered in full. An example is "I have an NIW approved, what does this month's visa bulletin mean for me?"
+- **PERM in a question about the user's own Haven data or documents** is answered in full.
+- **PERM in a layoff question** is answered, with a one-line note above the answer saying PERM isn't covered.
+
+CSPA, AC21 job changes, travel with a pending I-485, and past unauthorized work always get the redirect, even in passing, because each carries a deadline or risk that shouldn't be buried. The rules live in `src/lib/advisor/scope.ts`.
 
 ## Implementation notes
 
