@@ -58,7 +58,10 @@ export const APPENDED_BLOCK_LABELS = [
   "CPT safety note:",
   "I-485 travel safety note:",
   "NIW strategy note:",
-  "CSPA safety note:"
+  "CSPA safety note:",
+  // The last-day ask and correction (service.ts). Without a label here they were
+  // appended to the model's prose and could end up behind the toggle.
+  "Your last day of work:"
 ] as const;
 
 const escapeForRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

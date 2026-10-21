@@ -412,6 +412,10 @@ const JOB_LOSS_PATTERN = new RegExp(`(${JOB_LOSS_TERMS.join("|")})`);
 const ASKS_HOW_LONG_IS_LEFT =
   /\b(how (many|much) (days?|time|longer)|how long) (do|have) i (have|got)\b|\b(days?|time) (do i have )?(left|remaining)\b|\bhow long (do i have|until)\b|\bwhen (exactly )?(does|do) (my|the) (clock|window|time|grace)\b/;
 
+/** How long, or until when, they may stay in the US on their status. */
+export const ASKS_HOW_LONG_CAN_STAY =
+  /\bhow long (can|may|could|am) i (stay|remain|be allowed to stay)\b|\b(until|till|by) (what|which) date\b[^.?!]{0,40}\b(stay|remain|leave|status)\b|\b(allowed|permitted|able|authori[sz]ed) to (stay|remain) in the (us|u\.s\.?|united states|country)\b|\bauthori[sz]ed (period of )?stay\b|\bwhen (does|do|will) my (status|visa|i-?94|authori[sz]ed stay) (end|expire|run out)\b|\bhow long (is|will) my (status|visa) (valid|last)\b/;
+
 const POST_LAYOFF_MECHANICS_AMBIGUOUS = [
   // Starting work on a filing rather than an approval — the portability question.
   /\b(start|starting|begin|beginning|join|joining)\b[^.?!]{0,40}\b(receipt|petition|transfer|filing|approval|i-?797)\b/,
@@ -780,6 +784,12 @@ function detectTopics(input: string): Set<TopicBucket> {
   // the ones it needed. This was invisible: the answer still arrived, just built on
   // the wrong material.
   if (/(h-?1b|specialty occupation|transfer|amendment|\bcap\b|grace period)/.test(normalized)) topics.add("h1b");
+  // "Until what date am I allowed to stay in the US on my current status?" and
+  // "How long can I stay?" named no topic and got the clarifying menu, twice, and
+  // then the attorney handoff. It is the stay question in its plainest form. Filed
+  // under h1b like the default; routeAdvisorQuestion adds the student topic when
+  // the profile says F-1.
+  if (ASKS_HOW_LONG_CAN_STAY.test(normalized)) topics.add("h1b");
   if (
     /(visa bulletin|dates for filing|final action)/.test(normalized) ||
     GREEN_CARD_PATH_PATTERN.test(normalized) ||
@@ -1005,6 +1015,8 @@ export function routeAdvisorQuestion(input: {
    * still in a layoff, and nothing in the wording says so.
    */
   hasOpenLayoff?: boolean;
+  /** From the profile. Decides which status a bare "how long can I stay?" is about. */
+  visaType?: string | null;
 }): AdvisorRoute {
   const { content, history = [], i485Filed = false } = input;
   const classification = classifyTopicsWithContext(content, history);
@@ -1064,6 +1076,17 @@ export function routeAdvisorQuestion(input: {
   // delivered. Recording the match keeps the miss counter honest too — this turn
   // was understood, so it must not push the thread toward the two-strike handoff.
   const currentMatched = classification.currentMatched || travelAugmented;
+
+  // A stay question from a student is about F-1/OPT, not the H-1B topic the
+  // pattern files it under. Added alongside rather than instead: over-triggering
+  // is the safe direction for guardrails.
+  if (
+    ASKS_HOW_LONG_CAN_STAY.test(normalized) &&
+    /\b(f-?1|opt|stem)\b/i.test(input.visaType ?? "") &&
+    !topics.includes("student-status")
+  ) {
+    topics.push("student-status");
+  }
 
   return {
     topics,
@@ -2137,9 +2160,83 @@ export function statesJobEndDeadline(answer: string): boolean {
 /**
  * Shown under an answer that dated a job loss nobody dated. Scoped to dates
  * counted from the job ending, so a real I-94 limit above it still stands.
+ *
+ * Both lines open with an appended-block label so they always stay visible.
  */
-export const UNKNOWN_JOB_END_CORRECTION =
-  "**I don't have your last day of work**, so don't rely on any grace-period end date above that wasn't counted from it. The time you have is counted from your last day of employment, and any limit from your I-94 still applies. What was your last day?";
+export const UNKNOWN_JOB_END_CORRECTION = `${APPENDED_BLOCK_LABELS[6]} I don't have it, so don't rely on any grace-period end date above that wasn't counted from it. The time you have is counted from your last day of employment, and any limit from your I-94 still applies. What was your last day?`;
+
+/** Shown when the answer did not ask, or asked only behind the toggle. */
+export const UNKNOWN_JOB_END_ASK = `${APPENDED_BLOCK_LABELS[6]} I don't know it yet, and everything after a job ends is counted from that day. What was your last day of employment?`;
+
+/** The model asking for the last day, in any of the ways it phrases it. */
+const LAST_DAY_QUESTION = /\b(what|when) (was|is|will be|were) (your|the) (last|final) (day|date)\b[^?]*\?|\bwhen did (your (job|employment)|you(r)? (stop|finish) work)[^?]*\?/i;
+
+/**
+ * Make sure somebody whose job ended on an unknown day is asked for it where they
+ * will see it.
+ *
+ * Tested live on 2026-10-21: the answer did ask "What was your last day of
+ * employment?" — at the bottom of the working, behind "Show how this works". The
+ * one question that decides every date in the answer was a click away. Prompt
+ * position had been tried; this does not depend on where the model puts it.
+ *
+ * When it has to append, any copy of the question in the model's text is taken
+ * out so the answer asks once.
+ */
+export function settleUnknownJobEnd(
+  answer: string,
+  options: { jobEndUnknown: boolean; asksAboutTimeLeft: boolean }
+): { answer: string; append: string | null; reason: "corrected" | "asked" | null } {
+  if (!options.jobEndUnknown) return { answer, append: null, reason: null };
+
+  const invented = statesJobEndDeadline(answer);
+  const split = splitAnswer(answer);
+  const visible = split.details ? `${split.lead}\n\n${split.appended}` : answer;
+  const askedVisibly = LAST_DAY_QUESTION.test(visible);
+
+  if (!invented && (askedVisibly || !options.asksAboutTimeLeft)) return { answer, append: null, reason: null };
+
+  // "Question: What was your last day of employment? (Also tell me …)" goes as a
+  // whole: the label, the question and a bracket that hangs off it. What the
+  // bracket asked for (often the I-94 end date) moves into the visible ask, so
+  // the user is not asked for it in a second round.
+  const copy = new RegExp(
+    String.raw`(?:\*\*)?(?:question:)?(?:\*\*)?\s*(?:${LAST_DAY_QUESTION.source})(?:\s*\((?<bracket>[^)]*)\))?`,
+    "gi"
+  );
+  const carried: string[] = [];
+  const cleaned = answer
+    .split("\n")
+    .flatMap((line) => {
+      if (!LAST_DAY_QUESTION.test(line)) return [line];
+      const rest = line
+        .replace(copy, (...args) => {
+          // With a named group, the last argument is the groups object.
+          const bracket = (args[args.length - 1] as { bracket?: string }).bracket?.trim();
+          if (bracket) carried.push(bracket);
+          return "";
+        })
+        .trimEnd();
+      // A list item or line that held only the question goes with it.
+      return /^\s*([-*]|\d+\.)?\s*$/.test(rest) ? [] : [rest];
+    })
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trimEnd();
+
+  const extra = carried
+    .map((text) => text.replace(/^also\s+/i, ""))
+    .map((text) => (/^[A-Z][a-z]/.test(text) ? text.charAt(0).toLowerCase() + text.slice(1) : text))
+    .map((text) => `Also ${text}`.replace(/[.!?]?$/, "."))
+    .join(" ");
+  const ask = invented ? UNKNOWN_JOB_END_CORRECTION : UNKNOWN_JOB_END_ASK;
+
+  return {
+    answer: cleaned.trim().length > 0 ? cleaned : answer,
+    append: extra ? `${ask} ${extra}` : ask,
+    reason: invented ? "corrected" : "asked"
+  };
+}
 
 /** The checklist line for the same case, so the model asks instead of guessing. */
 export const UNKNOWN_JOB_END_REQUIRED_POINT =
@@ -3902,7 +3999,8 @@ export async function* streamAdvisorResponse(
     content,
     history: rawHistory,
     i485Filed: snapshot.profile.i485Filed,
-    hasOpenLayoff: Boolean(snapshot.activeLayoffEvent)
+    hasOpenLayoff: Boolean(snapshot.activeLayoffEvent),
+    visaType: snapshot.profile.visaType
   });
 
   // Score the previous answer, now that we can see what the user typed next.
@@ -4912,6 +5010,11 @@ export async function* streamAdvisorResponse(
     fullText = stripTrailingOffer(removeCopiesOfAppendedLines(fullText, addendum.fired));
   }
 
+  // The last-day question, where they will see it. Decided here, before the body
+  // is synced, because it may take the model's hidden copy out.
+  const lastDay = settleUnknownJobEnd(fullText, { jobEndUnknown, asksAboutTimeLeft });
+  fullText = lastDay.answer;
+
   // The reviewed body is final from here. Send whatever the client has not seen
   // yet — the held-back tail, or a full replacement if a cleanup pass changed
   // text already shown — so the screen matches what is saved.
@@ -4927,15 +5030,16 @@ export async function* streamAdvisorResponse(
     if (event) yield event;
   }
 
-  // Backstop for the checklist line above. If the answer still put a date on a
-  // job loss nobody dated, say so under it rather than let a made-up deadline
-  // stand. Appended, not rewritten: cutting sentences out of a deadline answer
-  // can leave one that reads as complete and is not.
-  if (jobEndUnknown && statesJobEndDeadline(fullText)) {
-    const correctionText = `\n\n${UNKNOWN_JOB_END_CORRECTION}`;
-    fullText += correctionText;
-    trace?.update({ metadata: { unknownJobEndCorrected: true } });
-    const event = view.append(correctionText);
+  // Backstop for the checklist line above, and the visible ask. If the answer
+  // still put a date on a job loss nobody dated, say so under it rather than let a
+  // made-up deadline stand; if it never asked for the last day where they can see
+  // it, ask here. Appended, not rewritten: cutting sentences out of a deadline
+  // answer can leave one that reads as complete and is not.
+  if (lastDay.append) {
+    const lastDayText = `\n\n${lastDay.append}`;
+    fullText += lastDayText;
+    trace?.update({ metadata: { unknownJobEnd: lastDay.reason } });
+    const event = view.append(lastDayText);
     if (event) yield event;
   }
 

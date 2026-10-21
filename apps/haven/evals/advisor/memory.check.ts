@@ -310,6 +310,64 @@ async function main() {
     }
   ];
 
+  // --- Found testing live on 2026-10-21: the Advisor asked for the last day, but
+  // --- only behind "Show how this works". The ask must be where they can see it.
+  const { settleUnknownJobEnd, UNKNOWN_JOB_END_ASK, UNKNOWN_JOB_END_CORRECTION } = await import("@/lib/advisor/service");
+  const { splitAnswer } = await import("@/lib/advisor/answer-shape");
+  const lead =
+    "Generally: H-1B status normally allows up to six years of lawful stay in the U.S., and if you are laid off you generally have up to a 60-day grace period (or until your I-94 expires, whichever is earlier) to find a new employer, change status, or depart.";
+  const hiddenAsk = [
+    lead,
+    "<!--details-->",
+    "Key rules: your I-94 control date determines when your authorized stay ends unless extended. After a layoff you typically have up to 60 days of grace during which you may remain in the U.S. to find new work or seek a change of status, but you must stop working for the prior employer.",
+    "",
+    "What I don't know yet",
+    "",
+    "I do not know the date your employment ended. Everything after a job ends is counted from that date.",
+    "Question: What was your last day of employment? (Also tell me your current I-94 end date if you know it.)"
+  ].join("\n");
+  const settledHidden = settleUnknownJobEnd(hiddenAsk, { jobEndUnknown: true, asksAboutTimeLeft: true });
+  const visibleAfter = (text: string) => {
+    const split = splitAnswer(text);
+    return `${split.lead}\n${split.appended}`;
+  };
+  const withAsk = `${settledHidden.answer}\n\n${settledHidden.append ?? ""}`;
+
+  datedCases.push(
+    {
+      name: "a last-day question only behind the toggle gets asked visibly",
+      ok: (settledHidden.append ?? "").startsWith(UNKNOWN_JOB_END_ASK) && /What was your last day/.test(visibleAfter(withAsk))
+    },
+    {
+      name: "and the hidden copy is taken out, so it is asked once",
+      ok: (withAsk.match(/last day of employment\?/g) ?? []).length === 1 && !/Question:/.test(withAsk)
+    },
+    {
+      name: "what the hidden question's bracket asked for (the I-94 date) moves into the visible ask",
+      ok: /What was your last day of employment\? Also tell me your current I-94 end date if you know it\.$/.test(settledHidden.append ?? "")
+    },
+    {
+      name: "a visible ask is left alone",
+      ok:
+        settleUnknownJobEnd(`${lead} What was your last day of employment?`, { jobEndUnknown: true, asksAboutTimeLeft: true })
+          .append === null
+    },
+    {
+      name: "an invented date gets the correction, which also stays visible",
+      ok: (() => {
+        const r = settleUnknownJobEnd(
+          "Because you were laid off on 2026-10-20, your grace period ends on 2026-12-19.",
+          { jobEndUnknown: true, asksAboutTimeLeft: true }
+        );
+        return r.append === UNKNOWN_JOB_END_CORRECTION && /I don't have it/.test(visibleAfter(`${r.answer}\n\n${r.append}`));
+      })()
+    },
+    {
+      name: "nothing is added when the last day is known",
+      ok: settleUnknownJobEnd(hiddenAsk, { jobEndUnknown: false, asksAboutTimeLeft: true }).append === null
+    }
+  );
+
   for (const testCase of datedCases) {
     console.log(`${testCase.ok ? "PASS" : "FAIL"}  ${testCase.name}`);
     if (testCase.ok) pass += 1;
