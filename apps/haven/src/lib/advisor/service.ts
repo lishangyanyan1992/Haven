@@ -2176,7 +2176,7 @@ export const UNKNOWN_JOB_END_ASK = `${APPENDED_BLOCK_LABELS[6]} I don't know it 
  */
 // Requests are addressed to "me": "I can't tell you the deadline without your
 // last day" explains, it does not ask, and must not count.
-const ASKS_FOR_LAST_DAY = /\b(tell me|share|give me|send me|let me know)\b[^.?!]{0,40}\b(last|final) (day|date)\b|\b(what|when) (was|is|will be|were) (your|the) (last|final) (day|date)\b/i;
+const ASKS_FOR_LAST_DAY = /\b(tell me|share|give me|send me|let me know)\b[^.?!]{0,40}\b(last|final) (day|date)\b|\b(please |can you |could you )?confirm (your|the) (last|final) (day|date)\b|\b(what|when) (was|is|will be|were) (your|the) (last|final) (day|date)\b/i;
 
 /** A bracket after the question that asks for something more ("Also tell me …"). */
 const BRACKET_REQUEST = /^((also,?|and|please)\s+)*(tell|share|give|send|include|add|let me know|confirm)\b|\?\s*$/i;

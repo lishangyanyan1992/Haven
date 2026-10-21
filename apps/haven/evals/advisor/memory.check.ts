@@ -365,6 +365,14 @@ async function main() {
       })()
     },
     {
+      name: "'Please confirm your last day of employment' counts as asking",
+      ok:
+        settleUnknownJobEnd(
+          `${lead} Please confirm your last day of employment.\n<!--details-->\n${"Detail about how the grace period and the I-94 interact, counted from the last day. ".repeat(4)}`,
+          { jobEndUnknown: true, asksAboutTimeLeft: true }
+        ).append === null
+    },
+    {
       name: "'I can't tell you … without your last day' does not count as asking",
       ok:
         settleUnknownJobEnd(
