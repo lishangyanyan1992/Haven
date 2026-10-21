@@ -2848,12 +2848,13 @@ export function requiredPointsForAnswer(
  *
  * - Only the SECOND and later occurrences are removed, never the first. Whatever
  *   this function does, every required safety line still appears in the answer.
- * - Only whole list items are removed, never part of a sentence. A duplicate
+ * - Only inside list items, and only a whole sentence or clause that says the
+ *   required line and nothing else. The rest of the bullet stays. A duplicate
  *   embedded in prose is left alone; a mangled sentence in a legal answer would
  *   be far worse than a repeated one.
  */
 const RECAP_HEADING =
-  /^\s{0,3}(?:#{1,4}\s*|\*\*)?(?:final (?:safety )?reminders?|safety reminders?|sources(?:\s*\(official\))?|references|summary|recap|key takeaways)\b.*$/i;
+  /^\s{0,3}(?:#{1,4}\s*|\*\*)?(?:final (?:safety )?reminders?|(?:required )?safety reminders?|sources(?:\s*\(official\))?|references|summary|recap|key takeaways)\b.*$/i;
 
 const DUPLICATE_LINE_PATTERNS: RegExp[] = [
   /do not work without authoris|do not work without authoriz|don't work without authoris|don't work without authoriz/i,
@@ -2964,20 +2965,191 @@ export function stripRedundantRepeats(answer: string): string {
       droppingRecap = false;
     }
 
-    const patternIndex = DUPLICATE_LINE_PATTERNS.findIndex((pattern) => pattern.test(line));
-    if (patternIndex >= 0) {
-      if (seen[patternIndex] && LIST_ITEM.test(line)) {
-        // Second copy, and it is its own bullet: drop the bullet whole.
-        continue;
+    // Every pattern, not just the first that matches. A bullet carrying two
+    // required lines used to mark only the first as seen, so a later bullet
+    // repeating the second was never recognised as a repeat.
+    const matched = DUPLICATE_LINE_PATTERNS.flatMap((pattern, index) => (pattern.test(line) ? [index] : []));
+    let next = line;
+    if (matched.length > 0) {
+      // In a bullet, a line already said is cut as a whole sentence or clause,
+      // and only when that sentence says nothing else. Whatever else the bullet
+      // says stays: "LCA preparation alone does not preserve status; keep your pay
+      // stubs" loses the repeat and keeps the pay stubs.
+      if (LIST_ITEM.test(line)) {
+        for (const index of matched) {
+          if (seen[index]) next = removeMatchingSentences(next, index);
+        }
+        if (next !== line && isEmptyListItem(next)) continue;
       }
-      seen[patternIndex] = true;
+      for (const index of matched) seen[index] = true;
     }
 
-    kept.push(line);
+    kept.push(next);
   }
 
   // Collapse the blank runs the removals leave behind, and never return an empty
   // answer: if something went wrong, the original is the safer output.
+  const rebuilt = kept.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd();
+  return rebuilt.trim().length > 0 ? rebuilt : answer;
+}
+
+// Abbreviations whose full stop does not end a sentence.
+const NOT_A_SENTENCE_END = /(?:\bU\.S|\be\.g|\bi\.e|\betc|\bvs|\bNo|\bSec|\bCFR)\.$/i;
+
+/** Start offsets of each sentence in one line of text. */
+function sentenceStarts(line: string): number[] {
+  const starts = [0];
+  const gap = /\s+/g;
+  for (let match = gap.exec(line); match; match = gap.exec(line)) {
+    const before = line.slice(0, match.index);
+    const after = line.slice(match.index + match[0].length);
+    if (!after) break;
+    // A citation in brackets right after a full stop belongs to that sentence.
+    if (after.startsWith("(")) continue;
+    // Nothing inside brackets ends a sentence: "(USCIS guidance; 8 CFR 214.1)".
+    if ((before.match(/\(/g) ?? []).length > (before.match(/\)/g) ?? []).length) continue;
+    // A semicolon ends a clause that can go on its own, so a repeat after one
+    // does not take the unrelated first half of the sentence with it.
+    // A dash between two clauses does the same job, and so does the colon
+    // after a bullet's label ("Confirm the deadline with counsel: based on…").
+    if (/;$/.test(before) || /\s[—–]$/.test(before) || /[A-Za-z)]:$/.test(before)) {
+      starts.push(match.index + match[0].length);
+      continue;
+    }
+    // The next sentence opens with a capital, a digit or markdown emphasis.
+    if (!/^[A-Z0-9*_"'“]/.test(after)) continue;
+    const endsSentence =
+      (/[.!?]["'”)\]*_]*$/.test(before) && !NOT_A_SENTENCE_END.test(before.replace(/["'”)\]*_]+$/, ""))) ||
+      /[.!?]\s*\([^()]*\)\.?$/.test(before);
+    if (endsSentence) starts.push(match.index + match[0].length);
+  }
+  return starts;
+}
+
+/**
+ * The words each required line is written with, by the registry and by the model
+ * when it paraphrases. A sentence made only of these (plus filler and citations)
+ * says the required line and nothing else, so it is safe to cut as a repeat.
+ */
+const DUPLICATE_LINE_EXTRA_WORDS: string[] = [
+  "do not don't never work working without authorization authorisation authorized authorised proper valid until any employment start begin new employer job yet",
+  "lca lcas labor condition application preparation prep preparing prepared draft drafting paperwork documents petition petitions filing filings file filed not does doesn't do preserve preserves protect protects maintain status h-1b nonfrivolous properly key event enough sufficient same employer new permit permits allow allows authorize authorise work working",
+  "confirm verify check exact deadline deadlines date dates grace grace-period period 60-day filing strategy immigration counsel attorney lawyer employer employer's employer’s last day",
+  "change of status change-of-status cos b-2 b2 h-4 h4 i-539 pending application filing does not doesn't will won't authorize authorise authorization authorisation permit allow work employment itself"
+];
+
+const DUPLICATE_LINE_FIX_IDS = ["FIX_NO_UNAUTHORIZED_WORK", "FIX_LCA_NOT_PROTECTION", "FIX_IMMEDIATE_COUNSEL", "FIX_COS_NO_WORK"];
+
+// Words that never carry a fact or an instruction of their own.
+const FILLER_WORDS = new Set(
+  (
+    "a an and are as at be by for from in is it its of on or so that the this to with you your yours " +
+    "alone itself own also still always right away now immediately promptly important remember note explicitly please must should just only even"
+  ).split(" ")
+);
+
+// Non-breaking and other Unicode hyphens, which the model uses inside "H‑1B".
+const wordsOf = (text: string) => (text.toLowerCase().replace(/[\u2010\u2011]/g, "-").match(/[a-z0-9][\w'’-]*/g) ?? []);
+
+const lineVocabulary = new Map<number, ReadonlySet<string>>();
+function vocabularyFor(index: number): ReadonlySet<string> {
+  let vocabulary = lineVocabulary.get(index);
+  if (!vocabulary) {
+    vocabulary = new Set([...wordsOf(guardrailText(DUPLICATE_LINE_FIX_IDS[index])), ...wordsOf(DUPLICATE_LINE_EXTRA_WORDS[index])]);
+    lineVocabulary.set(index, vocabulary);
+  }
+  return vocabulary;
+}
+
+const isEmptyListItem = (line: string) => !/[A-Za-z0-9]/.test(line.replace(/^\s*(?:[-*+]|\d{1,2}[.)])\s*/, ""));
+
+/**
+ * Remove each whole sentence or clause in `line` that repeats required line
+ * `index` and says nothing else.
+ *
+ * "Says nothing else" is strict: every word outside the match has to be filler,
+ * a citation, or a word the required line is itself written with. One word of
+ * anything else — "and keep copies of your pay stubs" — and the sentence stays.
+ * A repeat is the lesser harm than deleting an instruction the safety note at
+ * the end does not give back.
+ */
+function removeMatchingSentences(line: string, index: number): string {
+  const pattern = DUPLICATE_LINE_PATTERNS[index];
+  const vocabulary = vocabularyFor(index);
+  let current = line;
+  let searchFrom = 0;
+  // Bounded: each pass removes one sentence or moves past one match it kept.
+  for (let pass = 0; pass < 50; pass += 1) {
+    const match = new RegExp(pattern.source, pattern.flags.replace("g", "")).exec(current.slice(searchFrom));
+    if (!match) break;
+    // Widen to whole words: the patterns stop mid-word ("authoriz"), and the
+    // leftover "ation" would otherwise count as something else said.
+    let matchStart = searchFrom + match.index;
+    let matchEnd = matchStart + match[0].length;
+    while (matchStart > 0 && /[\w'’-]/.test(current[matchStart - 1])) matchStart -= 1;
+    while (matchEnd < current.length && /[\w'’-]/.test(current[matchEnd])) matchEnd += 1;
+    const starts = sentenceStarts(current);
+    const from = [...starts].reverse().find((start) => start <= matchStart) ?? 0;
+    const to = starts.find((start) => start >= matchEnd) ?? current.length;
+    const sentence = current.slice(from, to);
+    const rest = (sentence.slice(0, matchStart - from) + sentence.slice(matchEnd - from))
+      // A citation in brackets is not a second fact.
+      .replace(/\([^()]*\)/g, " ")
+      .replace(/^\s*(?:(?:[-*+]|\d{1,2}[.)])\s+)?/, "");
+    const saysSomethingElse = wordsOf(rest).some((word) => !FILLER_WORDS.has(word) && !vocabulary.has(word));
+    if (saysSomethingElse) {
+      // A match can start in one clause and end in the next, which makes the
+      // sentence look like it says more than it does. Look again from just
+      // after this start, so a match wholly inside the later clause is found.
+      searchFrom = searchFrom + match.index + 1;
+      continue;
+    }
+    // Keep any list marker or indentation in front of the first sentence.
+    const prefix = from === 0 ? (current.match(/^\s*(?:(?:[-*+]|\d{1,2}[.)])\s+)?/)?.[0] ?? "") : "";
+    const head = from === 0 ? prefix : current.slice(0, from);
+    const next = `${head}${current.slice(to)}`
+      .replace(/\s+$/, "")
+      // A clause cut from the end leaves a dangling semicolon or dash; close the sentence.
+      .replace(/\s*(?:;|:|[—–])$/, ".")
+      // A clause cut from the start leaves the next one in lower case.
+      .replace(/^(\s*(?:(?:[-*+]|\d{1,2}[.)])\s+)?)([a-z])/, (_, lead: string, letter: string) => `${lead}${letter.toUpperCase()}`);
+    if (next === current) break;
+    current = next;
+    searchFrom = head.length;
+  }
+  return current;
+}
+
+/**
+ * Removes the hidden copy of a line the addendum is about to show.
+ *
+ * The addendum checks only the part of the answer shown before "more detail",
+ * so a required line the model put in the hidden part gets appended to the
+ * visible block. That is the right call — the line has to be seen — but it left
+ * the hidden copy in place, and anyone who expanded the detail read it twice.
+ * Seven of ten answers in the 2026-10-20 smoke run failed on exactly this.
+ *
+ * Only runs for lines the addendum is appending, so the guarantee is unchanged:
+ * every required line still appears once, in the visible block. Whole sentences
+ * are removed, never part of one, and only ones that say nothing else; a list
+ * item left empty goes with it.
+ */
+export function removeCopiesOfAppendedLines(answer: string, appendedIds: string[]): string {
+  const indexes = appendedIds
+    .map((id) => DUPLICATE_LINE_FIX_IDS.indexOf(id))
+    .filter((index) => index >= 0);
+  if (indexes.length === 0) return answer;
+
+  const kept: string[] = [];
+  for (const line of answer.split("\n")) {
+    let next = line;
+    for (const index of indexes) {
+      if (DUPLICATE_LINE_PATTERNS[index].test(next)) next = removeMatchingSentences(next, index);
+    }
+    if (next !== line && isEmptyListItem(next)) continue;
+    kept.push(next);
+  }
+
   const rebuilt = kept.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd();
   return rebuilt.trim().length > 0 ? rebuilt : answer;
 }
@@ -3008,12 +3180,17 @@ export function buildMandatorySafetyAddendum(
     // had a second copy stapled to the end by the addendum below. Three of the
     // four addendum fires in the 2026-08-20 run were this bug, which also made
     // the reported prompt-compliance rate worse than the truth.
+    // Each check also accepts the wording the repeat pass recognises
+    // (DUPLICATE_LINE_PATTERNS). Where the two disagreed — "an LCA doesn't
+    // preserve status" — this judged the line missing, stapled on a second copy,
+    // and the answer then said it twice.
     const missingUnauthorizedWork =
+      !DUPLICATE_LINE_PATTERNS[0].test(answer) &&
       !/do not work without authoris|do not work without authoriz|don't work without authoris|don't work without authoriz|unauthoris(ed|ation)|unauthoriz(ed|ation)/i.test(
         answer
       );
-    const missingLcaWarning = !/lca preparation alone does not preserve status|lca.*not.*preserve status|lca.*not.*filed h-1b petition/i.test(answer);
-    const missingImmediateCounsel = !/confirm.*deadline.*counsel|confirm.*filing strategy.*counsel|immigration counsel immediately/i.test(answer);
+    const missingLcaWarning = !DUPLICATE_LINE_PATTERNS[1].test(answer) && !/lca preparation alone does not preserve status|lca.*not.*preserve status|lca.*not.*filed h-1b petition/i.test(answer);
+    const missingImmediateCounsel = !DUPLICATE_LINE_PATTERNS[2].test(answer) && !/confirm.*deadline.*counsel|confirm.*filing strategy.*counsel|immigration counsel immediately/i.test(answer);
     // \bdepart\b, not `depart`: the bare alternative matched inside "Department",
     // and "Department of Labor" / "Department of State" appear in a large share of
     // immigration answers. Their presence convinced this check the answer had
@@ -3063,7 +3240,7 @@ export function buildMandatorySafetyAddendum(
     /(change of status|b-?2)[^.]{0,120}(does not|doesn't|will not|won't)[^.]{0,40}(authoris|authoriz|permit|allow)[^.]{0,40}(work|employment)|(does not|doesn't)[^.]{0,60}(authoris|authoriz|permit|allow)[^.]{0,30}(you )?to work/i.test(
       answer
     );
-  if (raisesChangeOfStatus && !statesNoWorkOnNewStatus) {
+  if (raisesChangeOfStatus && !statesNoWorkOnNewStatus && !DUPLICATE_LINE_PATTERNS[3].test(answer)) {
     const texts = take(["FIX_COS_NO_WORK"]);
     if (texts.length > 0) {
       notes.push([APPENDED_BLOCK_LABELS[1], ...texts].join(" "));
@@ -4524,14 +4701,6 @@ export async function* streamAdvisorResponse(
   // so the safety lines are not what gets cut.
   fullText = stripTrailingOffer(fullText);
 
-  // The reviewed body is final from here. Send whatever the client has not seen
-  // yet — the held-back tail, or a full replacement if a cleanup pass changed
-  // text already shown — so the screen matches what is saved.
-  {
-    const event = view.syncTo(fullText);
-    if (event) yield event;
-  }
-
   // Checked against what the reader will actually SEE, not against the whole
   // answer.
   //
@@ -4551,6 +4720,23 @@ export async function* streamAdvisorResponse(
     return split.details ? `${split.lead}\n\n${split.appended}` : fullText;
   })();
   const addendum = buildMandatorySafetyAddendum(content, topics, visibleSoFar, threadState.delivered);
+
+  // A line the addendum is about to show may already sit in the hidden detail.
+  // Take that copy out so the answer says it once, in the visible block.
+  if (addendum.text) {
+    // Cutting a clause can leave an offer to do more as the last line; the
+    // offer pass runs again so it does not survive.
+    fullText = stripTrailingOffer(removeCopiesOfAppendedLines(fullText, addendum.fired));
+  }
+
+  // The reviewed body is final from here. Send whatever the client has not seen
+  // yet — the held-back tail, or a full replacement if a cleanup pass changed
+  // text already shown — so the screen matches what is saved.
+  {
+    const event = view.syncTo(fullText);
+    if (event) yield event;
+  }
+
   if (addendum.text) {
     const addendumText = `\n\n${addendum.text}`;
     fullText += addendumText;
