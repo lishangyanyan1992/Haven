@@ -372,6 +372,22 @@ async function main() {
           { jobEndUnknown: true, asksAboutTimeLeft: true }
         ).append === null
     },
+    ...["I cannot confirm your last day of employment from what I have.", "Haven can't confirm the last day you worked."].map((sentence) => ({
+      name: `'${sentence}' does not count as asking`,
+      ok:
+        settleUnknownJobEnd(
+          `${lead} ${sentence}\n<!--details-->\n${"Detail about how the grace period and the I-94 interact, counted from the last day. ".repeat(4)}`,
+          { jobEndUnknown: true, asksAboutTimeLeft: true }
+        ).append === UNKNOWN_JOB_END_ASK
+    })),
+    {
+      name: "'Confirm your last day of employment.' opening a sentence counts as asking",
+      ok:
+        settleUnknownJobEnd(
+          `${lead} Confirm your last day of employment.\n<!--details-->\n${"Detail about how the grace period and the I-94 interact, counted from the last day. ".repeat(4)}`,
+          { jobEndUnknown: true, asksAboutTimeLeft: true }
+        ).append === null
+    },
     {
       name: "'I can't tell you … without your last day' does not count as asking",
       ok:
