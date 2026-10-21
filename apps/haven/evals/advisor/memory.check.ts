@@ -380,6 +380,14 @@ async function main() {
           { jobEndUnknown: true, asksAboutTimeLeft: true }
         ).append === UNKNOWN_JOB_END_ASK
     })),
+    ...["- Confirm your last day of employment.", "1. Confirm your last day of employment."].map((bullet) => ({
+      name: `a list item '${bullet}' counts as asking`,
+      ok:
+        settleUnknownJobEnd(
+          `${lead}\n\n${bullet}\n<!--details-->\n${"Detail about how the grace period and the I-94 interact, counted from the last day. ".repeat(4)}`,
+          { jobEndUnknown: true, asksAboutTimeLeft: true }
+        ).append === null
+    })),
     {
       name: "'Confirm your last day of employment.' opening a sentence counts as asking",
       ok:
