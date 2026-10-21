@@ -31,6 +31,7 @@
     "check:situation-check": "tsx --tsconfig tsconfig.json evals/advisor/situation-check.check.ts",
     "check:bulletin-position": "tsx --tsconfig tsconfig.json evals/advisor/bulletin-position.check.ts",
     "check:trailing-offer": "tsx --tsconfig tsconfig.json evals/advisor/trailing-offer.check.ts",
+    "check:addendum-repeat": "tsx --tsconfig tsconfig.json evals/advisor/addendum-repeat.check.ts",
     "check:required-points": "tsx --tsconfig tsconfig.json evals/advisor/required-points.check.ts",
     "check:answer-shape": "tsx --tsconfig tsconfig.json evals/advisor/answer-shape.check.ts",
     "check:story-fit": "tsx --tsconfig tsconfig.json evals/advisor/story-fit.check.ts",
