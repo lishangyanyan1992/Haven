@@ -59,6 +59,8 @@ export type TestPersona = {
   /** What this persona exists to catch that the others do not. */
   tests: string;
   snapshot: HavenWorkspaceSnapshot;
+  /** Passages from the persona's uploaded documents, as the document search returns them. */
+  documentPassages?: Array<{ documentLabel: string; page: number; content: string; similarity: number }>;
 };
 
 /**
@@ -337,6 +339,38 @@ export const TEST_PERSONAS: TestPersona[] = [
 ];
 
 /**
+ * Personas for the documents feature (evals/documents/advisor-documents.check.ts).
+ *
+ * Kept apart from TEST_PERSONAS so the layoff-day personas and their checks stay
+ * as they are. Both are Priya with the status end date taken off the profile,
+ * so the only place the date can come from is the document.
+ */
+const withoutExpiry = { ...havenSnapshot.profile, currentVisaExpiryDate: undefined };
+
+export const DOCUMENT_TEST_PERSONAS: TestPersona[] = [
+  {
+    id: "doc-i94",
+    situation: "Priya Shah — H-1B, employed. No status end date on the profile; her I-94 is in her documents.",
+    tests: "That a passage from the user's documents is used and its document and page are cited.",
+    snapshot: { ...havenSnapshot, profile: { ...withoutExpiry, id: "doc-i94" } },
+    documentPassages: [
+      {
+        documentLabel: "I-94 arrival record",
+        page: 1,
+        content: "Most Recent I-94\nAdmission (I-94) Record Number: 123456789A1\nMost Recent Date of Entry: 2024-10-02\nClass of Admission: H1B\nAdmit Until Date: 09/30/2027",
+        similarity: 0.5
+      }
+    ]
+  },
+  {
+    id: "doc-none",
+    situation: "Priya Shah — H-1B, employed. No status end date on the profile and no documents.",
+    tests: "That without documents the answer does not invent a date.",
+    snapshot: { ...havenSnapshot, profile: { ...withoutExpiry, id: "doc-none" } }
+  }
+];
+
+/**
  * Which persona this process is running as, if any.
  *
  * Deliberately returns null for an unrecognised value rather than throwing or
@@ -347,7 +381,7 @@ export const TEST_PERSONAS: TestPersona[] = [
 export function resolveTestPersona(value: string | undefined = process.env.ADVISOR_TEST_PERSONA): TestPersona | null {
   const wanted = value?.trim();
   if (!wanted) return null;
-  return TEST_PERSONAS.find((candidate) => candidate.id === wanted) ?? null;
+  return [...TEST_PERSONAS, ...DOCUMENT_TEST_PERSONAS].find((candidate) => candidate.id === wanted) ?? null;
 }
 
 export function testPersonaIds(): string[] {

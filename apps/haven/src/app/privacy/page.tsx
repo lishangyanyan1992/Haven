@@ -89,7 +89,10 @@ export default function PrivacyPage() {
       <ul>
         <li>
           <strong>OpenAI</strong> — processes Advisor questions. When you ask the Advisor something, your question and
-          the relevant parts of your Haven profile are sent to OpenAI to generate the answer.
+          the relevant parts of your Haven profile are sent to OpenAI to generate the answer. If you upload documents on
+          your Documents page, each one is sent to OpenAI to be read, and passages from your documents that relate to a
+          question are included when you ask the Advisor. Documents are used only to answer your own questions, and
+          deleting a document deletes everything Haven read from it.
         </li>
         <li>
           <strong>Supabase</strong> — stores your account, profile, timeline, and conversations.

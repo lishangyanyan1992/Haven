@@ -31,6 +31,10 @@ const envSchema = z.object({
   // were a mix of a founder running twenty probe questions and whatever traffic
   // existed. Set this in any script or shell that is not a real user.
   ADVISOR_TRACE_TAG: z.string().optional(),
+  // Who sees the Documents page (and whose chat reads their documents) while it
+  // is being tested: comma-separated emails,
+  // or "*" for everyone. Unset means no one, so shipping the code changes nothing.
+  DOCUMENT_READING_ALLOWLIST: z.string().optional(),
   ADVISOR_SOURCE_SYNC_SECRET: z.string().optional(),
   COMMUNITY_IMPORT_SECRET: z.string().optional(),
   COMMUNITY_IMPORT_REVIEWER_EMAILS: z.string().optional(),
@@ -71,6 +75,7 @@ export const env = envSchema.parse({
   OPENAI_ADVISOR_ROUTER_MODEL: process.env.OPENAI_ADVISOR_ROUTER_MODEL,
   OPENAI_EMBEDDING_MODEL: process.env.OPENAI_EMBEDDING_MODEL,
   ADVISOR_TRACE_TAG: process.env.ADVISOR_TRACE_TAG,
+  DOCUMENT_READING_ALLOWLIST: process.env.DOCUMENT_READING_ALLOWLIST,
   ADVISOR_SOURCE_SYNC_SECRET: process.env.ADVISOR_SOURCE_SYNC_SECRET,
   COMMUNITY_IMPORT_SECRET: process.env.COMMUNITY_IMPORT_SECRET,
   COMMUNITY_IMPORT_REVIEWER_EMAILS: process.env.COMMUNITY_IMPORT_REVIEWER_EMAILS,

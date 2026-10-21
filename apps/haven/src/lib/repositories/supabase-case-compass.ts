@@ -336,7 +336,11 @@ function buildDocuments(rows: DocumentRow[]): UserDocument[] {
     fileSizeBytes: Number(row.file_size_bytes),
     uploadedAt: row.uploaded_at,
     crisisCritical: row.crisis_critical,
-    notes: row.notes ?? undefined
+    notes: row.notes ?? undefined,
+    // Defaulted so the vault still renders if this code ships before the
+    // migration that adds the column.
+    readingStatus: (row.reading_status ?? "not_requested") as UserDocument["readingStatus"],
+    readingError: row.reading_error ?? undefined
   }));
 }
 

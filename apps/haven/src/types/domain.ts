@@ -247,7 +247,13 @@ export interface UserDocument {
   uploadedAt: string;
   crisisCritical: boolean;
   notes?: string;
+  /** Whether Haven has read the document's contents. Absent on demo data. */
+  readingStatus?: DocumentReadingStatus;
+  /** Plain-language reason, set only when readingStatus is "failed". */
+  readingError?: string;
 }
+
+export type DocumentReadingStatus = "not_requested" | "pending" | "reading" | "done" | "failed" | "deferred";
 
 export interface DashboardSnapshot {
   nextActions: string[];

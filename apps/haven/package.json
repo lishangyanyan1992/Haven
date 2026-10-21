@@ -44,6 +44,8 @@
     "check:grace-period": "tsx --tsconfig tsconfig.json evals/advisor/grace-period.check.ts",
     "check:safety-boundary": "tsx --tsconfig tsconfig.json evals/advisor/advisor-safety-boundary.check.ts",
     "check:source-retrieval": "tsx --tsconfig tsconfig.json evals/advisor/source-retrieval.check.ts",
+    "check:document-extraction": "tsx --tsconfig tsconfig.json evals/documents/extraction.check.ts",
+    "check:document-advisor": "tsx --tsconfig tsconfig.json evals/documents/advisor-documents.check.ts",
     "community:summaries": "tsx --tsconfig tsconfig.json scripts/build-community-summaries.ts"
   },
   "dependencies": {

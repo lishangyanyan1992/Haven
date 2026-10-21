@@ -1,0 +1,9 @@
+PASSPORT
+Type: P    Country Code: XYZ    Passport No.: X1234567
+Surname: SAMPLE
+Given Names: PERSON D
+Nationality: REPUBLIC OF EXAMPLE
+Date of birth: 01 JAN 1995
+Date of issue: 14 JUN 2022
+Date of expiry: 13 JUN 2032
+Authority: MINISTRY OF FOREIGN AFFAIRS

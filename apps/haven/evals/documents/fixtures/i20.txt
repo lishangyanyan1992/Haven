@@ -1,0 +1,9 @@
+Department of Homeland Security
+Form I-20, Certificate of Eligibility for Nonimmigrant Student Status
+SEVIS ID: N0012345678
+SURNAME: SAMPLE   GIVEN NAME: PERSON B
+CLASS: F-1
+SCHOOL NAME: Lakeview State University
+PROGRAM OF STUDY: Master of Science, Computer Science
+PROGRAM START DATE: 08/25/2025
+PROGRAM END DATE: 05/15/2027
