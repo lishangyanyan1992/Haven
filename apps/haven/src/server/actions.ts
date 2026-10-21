@@ -13,6 +13,8 @@ import { persistProfileDraft } from "@/lib/profile-sync";
 import { env } from "@/lib/env";
 import { SIGNED_IN_HOME } from "@/lib/archived-routes";
 import { isInvitedEmail } from "@/lib/access";
+import { getFirmMembership } from "@/lib/firms/access";
+import { claimFirmInvite, markFirmClientCompleted } from "@/lib/firms/intake";
 import { captureSignupCompleted } from "@/lib/posthog-server";
 
 const EMAIL_INGEST_DOMAIN = env.EMAIL_INGEST_DOMAIN ?? "import.haven-h1b.com";
@@ -145,6 +147,19 @@ export async function signInAction(formData: FormData) {
     // password" from "no account". Telling a user whether an email is
     // registered is a user-enumeration vulnerability.
     redirect(`/login?email=${encodeURIComponent(email)}&message=invalid_credentials`);
+  }
+
+  // Lawyers go to their firm dashboard. They aren't clients, so they skip
+  // the client invite check and client profile setup.
+  if (await getFirmMembership(signInData?.user?.id)) {
+    redirect("/firm");
+  }
+
+  // A pending invite from a firm's intake link becomes a real invite here,
+  // now that the person has shown they hold the mailbox. Must run before
+  // the invite check below.
+  if (signInData?.user) {
+    await claimFirmInvite(signInData.user);
   }
 
   if (!(await isInvitedEmail(email))) {
@@ -289,6 +304,7 @@ export async function completeOnboardingAction(formData: FormData) {
     user_id: user.id,
     alias: `${(user.email ?? "user").split("@")[0]}-${user.id.slice(0, 6)}@${EMAIL_INGEST_DOMAIN}`
   });
+  await markFirmClientCompleted(user.id);
 
   const cookieStore = await cookies();
   cookieStore.delete(ONBOARDING_OVERRIDE_COOKIE);

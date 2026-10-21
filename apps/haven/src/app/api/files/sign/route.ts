@@ -230,7 +230,7 @@ export async function POST(request: Request) {
     // so the upload itself is no slower; the daily job picks up anything this
     // misses. Hidden behind the test switch until it is opened up.
     let readingQueued = false;
-    if (documentContextAvailableFor(user.email)) {
+    if (await documentContextAvailableFor(user.email)) {
       try {
         await admin.from("user_documents").update({ reading_status: "pending" }).eq("id", document.id);
         readingQueued = true;

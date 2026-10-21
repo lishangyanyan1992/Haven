@@ -69,3 +69,6 @@ jobs:
 
       - name: Guardrail registry, stale bulletin, travel gate
         run: npm run check:advisor
+
+      - name: Firm isolation, status and intake
+        run: npm run check:firms

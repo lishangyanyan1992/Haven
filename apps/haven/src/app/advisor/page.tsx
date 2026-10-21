@@ -28,7 +28,7 @@ export default async function AdvisorPage() {
     const {
       data: { user }
     } = await supabase.auth.getUser();
-    showDocumentsLink = documentContextAvailableFor(user?.email);
+    showDocumentsLink = await documentContextAvailableFor(user?.email);
   }
 
   return (

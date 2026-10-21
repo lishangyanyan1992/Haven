@@ -5,6 +5,7 @@
  */
 
 import { env } from "@/lib/env";
+import { isJoinedFirmClientEmail } from "@/lib/firms/intake";
 import { HAVEN_VAULT_BUCKET } from "@/lib/document-vault";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
@@ -22,11 +23,16 @@ function admin() {
   return createSupabaseAdminClient();
 }
 
-/** The test switch. Off for everyone unless DOCUMENT_READING_ALLOWLIST names them. */
-export function documentContextAvailableFor(email: string | null | undefined) {
+/**
+ * Who gets documents: anyone the test switch (DOCUMENT_READING_ALLOWLIST)
+ * names, plus every client who joined a law firm, since uploading documents
+ * is part of a firm's intake.
+ */
+export async function documentContextAvailableFor(email: string | null | undefined) {
   const list = (env.DOCUMENT_READING_ALLOWLIST ?? "").split(",").map((v) => v.trim().toLowerCase()).filter(Boolean);
   if (list.includes("*")) return true;
-  return Boolean(email) && list.includes(String(email).toLowerCase());
+  if (Boolean(email) && list.includes(String(email).toLowerCase())) return true;
+  return isJoinedFirmClientEmail(email);
 }
 
 // ── Queue ─────────────────────────────────────────────────────────────────────
@@ -77,7 +83,7 @@ export async function readQueuedDocument(documentId: string): Promise<ReadOutcom
   // the rollback, and it has to stop queued and deferred reads too, not just
   // hide the page. The document goes back to "not read yet".
   const { data: owner } = await db.from("user_profiles").select("email").eq("id", claimed.user_id).maybeSingle();
-  if (!documentContextAvailableFor(owner?.email)) {
+  if (!(await documentContextAvailableFor(owner?.email))) {
     await finish("not_requested");
     return "skipped";
   }

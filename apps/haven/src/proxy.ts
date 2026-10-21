@@ -4,7 +4,7 @@ import { createServerClient } from "@supabase/ssr";
 
 import { applySharedCookieOptions } from "@haven/auth/cookie-options";
 import { authEnv, hasSupabaseEnv } from "@haven/auth/env";
-import { isArchivedPath } from "@/lib/archived-routes";
+import { SIGNED_IN_HOME, isArchivedPath } from "@/lib/archived-routes";
 import { INVITE_ONLY_PATH, OWNER_EMAIL } from "@/lib/access-constants";
 
 const protectedPrefixes = ["/dashboard", "/onboarding", "/profile", "/timeline", "/planner", "/advisor", "/inbox", "/settings", "/documents"];
@@ -17,7 +17,8 @@ export async function proxy(request: NextRequest) {
     return NextResponse.rewrite(new URL("/gone", request.url), { status: 404 });
   }
 
-  const requiresAuth = protectedPrefixes.some((prefix) => path.startsWith(prefix));
+  const isFirmArea = path === "/firm" || path.startsWith("/firm/");
+  const requiresAuth = isFirmArea || protectedPrefixes.some((prefix) => path.startsWith(prefix));
 
   if (!requiresAuth || !hasSupabaseEnv) {
     return NextResponse.next();
@@ -47,11 +48,25 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  // The firm area is for lawyers only. Everyone else goes to their own home.
+  if (isFirmArea) {
+    const { data: firmId, error } = await supabase.rpc("haven_firm_id" as never);
+    if (error || !firmId) {
+      return NextResponse.redirect(new URL(SIGNED_IN_HOME, request.url));
+    }
+    return response;
+  }
+
   // Invitation only: a signed-in account without an invite is turned away.
+  // Lawyers aren't clients, so they're sent to their firm dashboard instead.
   const email = (user.email ?? "").trim().toLowerCase();
   if (email !== OWNER_EMAIL) {
     const { data: hasAccess, error } = await supabase.rpc("haven_has_access" as never);
     if (error || hasAccess !== true) {
+      const { data: firmId } = await supabase.rpc("haven_firm_id" as never);
+      if (firmId) {
+        return NextResponse.redirect(new URL("/firm", request.url));
+      }
       const inviteUrl = new URL(INVITE_ONLY_PATH, request.url);
       inviteUrl.searchParams.set("message", "not_invited");
       return NextResponse.redirect(inviteUrl);
@@ -78,6 +93,7 @@ export const config = {
     "/planner/:path*",
     "/advisor/:path*",
     "/inbox/:path*",
-    "/settings/:path*"
+    "/settings/:path*",
+    "/firm/:path*"
   ]
 };
