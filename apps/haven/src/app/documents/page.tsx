@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/app/app-shell";
 import { DocumentContextUploader } from "@/components/app/document-context-uploader";
+import { RefreshWhileReading } from "@/components/app/refresh-while-reading";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import GonePage from "@/app/gone/page";
@@ -38,9 +39,11 @@ export default async function DocumentsPage() {
 
   const [snapshot, crisisState] = await Promise.all([getInboxPageData(), getCrisisState()]);
   const documents = snapshot.documents.filter((d) => d.sourceKind === "manual_upload");
+  const stillReading = documents.some((d) => d.readingStatus === "pending" || d.readingStatus === "reading");
 
   return (
     <AppShell activePath="/documents" crisisState={crisisState} snapshot={snapshot}>
+      <RefreshWhileReading active={stillReading} />
       <div className="mx-auto max-w-[760px] space-y-6">
         <section>
           <h1 className="text-h1">Your documents</h1>

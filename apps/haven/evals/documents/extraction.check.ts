@@ -97,6 +97,32 @@ const long = Array.from({ length: 60 }, (_, i) => `Line ${i}: Priority Date: 06/
 const parts = splitPage(long);
 check("long page splits into several passages", parts.length > 1, parts.length);
 check("no line is split in half", parts.every((p) => p.split("\n").every((l) => /^Line \d+: Priority Date: 06\/14\/2022$/.test(l))));
+// A paragraph with no line breaks, longer than a passage, must survive whole.
+const paragraph = Array.from({ length: 40 }, (_, i) => `word${i} Admit Until Date 09/30/2027`).join(" ");
+const pieces = splitPage(paragraph);
+check("a long paragraph is split, not cut off", pieces.length > 1 && pieces.join(" ").includes("word39"), pieces.length);
+check("page tree /Count is used when page objects are hidden", countPages({ fileName: "x.pdf", mimeType: "application/pdf", bytes: Buffer.from("%PDF-1.5 /Type /Pages /Count 3 /ObjStm") }) === 3);
+
+// The model reads three pages of a PDF whose page objects are compressed (so
+// the local count says 1). All three pages must be kept.
+const threePages = {
+  responses: {
+    create: async () => ({
+      output_text: JSON.stringify({
+        readable: true,
+        is_immigration_document: true,
+        pages: [1, 2, 3].map((page) => ({ page, text: `Page ${page}\nReceipt Number: IOE000000000${page}` }))
+      })
+    })
+  }
+} as unknown as Parameters<typeof readDocument>[1];
+const compressed = await readDocument({ fileName: "c.pdf", mimeType: "application/pdf", bytes: Buffer.from("%PDF-1.5 /ObjStm") }, threePages);
+check(
+  "pages the model read are kept even when the local count is lower",
+  compressed.ok && new Set(compressed.passages.map((p) => p.page)).size === 3,
+  compressed
+);
+
 const plain = await readDocument({ fileName: "x.txt", mimeType: "text/plain", bytes: Buffer.from("Receipt Number: IOE1") });
 check("plain text is read without the model", plain.ok && plain.model === "plain-text" && plain.passages[0]?.content.includes("IOE1"));
 

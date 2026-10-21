@@ -14,7 +14,8 @@ import {
   countPages,
   embedPassages,
   openaiClient,
-  readDocument
+  readDocument,
+  unreadableReason
 } from "@/lib/document-context/read";
 
 function admin() {
@@ -61,9 +62,21 @@ export async function readQueuedDocument(documentId: string): Promise<ReadOutcom
     .maybeSingle();
   if (!claimed) return "skipped";
 
-  const finish = async (status: "done" | "failed" | "deferred" | "pending", extra: Record<string, unknown> = {}) => {
+  const finish = async (
+    status: "done" | "failed" | "deferred" | "pending" | "not_requested",
+    extra: Record<string, unknown> = {}
+  ) => {
     await db.from("user_documents").update({ reading_status: status, ...extra }).eq("id", documentId);
   };
+
+  // The test switch is checked again here, not only at upload: emptying it is
+  // the rollback, and it has to stop queued and deferred reads too, not just
+  // hide the page. The document goes back to "not read yet".
+  const { data: owner } = await db.from("user_profiles").select("email").eq("id", claimed.user_id).maybeSingle();
+  if (!documentContextAvailableFor(owner?.email)) {
+    await finish("not_requested");
+    return "skipped";
+  }
 
   const { data: file, error: downloadError } = await db.storage.from(HAVEN_VAULT_BUCKET).download(claimed.storage_path);
   if (downloadError || !file) {
@@ -73,6 +86,15 @@ export async function readQueuedDocument(documentId: string): Promise<ReadOutcom
 
   const input = { fileName: claimed.original_name, mimeType: claimed.mime_type, bytes: Buffer.from(await file.arrayBuffer()) };
   const pages = countPages(input);
+
+  // Refuse what can never be read before spending any of the day's pages on it.
+  // Otherwise an over-limit file either waits as "tomorrow" forever or uses up
+  // the budget only to be rejected.
+  const refusal = unreadableReason(input);
+  if (refusal) {
+    await finish("failed", { reading_error: refusal, page_count: pages, read_at: new Date().toISOString() });
+    return "failed";
+  }
 
   const { data: fits, error: capError } = await db.rpc("reserve_document_reading_pages", {
     p_user_id: claimed.user_id,

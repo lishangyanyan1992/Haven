@@ -63,14 +63,18 @@ export function isReadableMimeType(mimeType: string) {
 
 /**
  * Pages in the document, without a PDF library: page objects are written as
- * `/Type /Page` (the page tree root is `/Pages`). Good enough for a cap; a
- * wrong count costs a slightly early or late "will be read tomorrow".
+ * `/Type /Page`, and the page tree root as `/Type /Pages ... /Count N`. Either
+ * can be hidden inside a compressed object stream, so this can undercount. It
+ * is used only for the daily cap and the page limit, never to throw away pages
+ * the model actually read.
  */
 export function countPages(input: DocumentInput): number {
   const mime = baseMime(input.mimeType);
   if (mime === "application/pdf") {
-    const matches = input.bytes.toString("latin1").match(/\/Type\s*\/Page(?![a-zA-Z])/g);
-    return Math.max(1, matches?.length ?? 1);
+    const raw = input.bytes.toString("latin1");
+    const objects = raw.match(/\/Type\s*\/Page(?![a-zA-Z])/g)?.length ?? 0;
+    const counts = [...raw.matchAll(/\/Count\s+(\d+)/g)].map((m) => Number(m[1]));
+    return Math.max(1, objects, ...counts);
   }
   if (mime === "text/plain") {
     return Math.max(1, Math.ceil(input.bytes.toString("utf8").length / 3000));
@@ -173,7 +177,16 @@ export function splitPage(text: string): string[] {
   let current: string[] = [];
   let length = 0;
 
-  for (const line of lines) {
+  // A line longer than a passage (a paragraph with no line breaks) is cut into
+  // passage-sized pieces first, so nothing past the first piece is lost.
+  const pieces = lines.flatMap((line) => {
+    if (line.length <= CHUNK_CHARS) return [line];
+    const out: string[] = [];
+    for (let i = 0; i < line.length; i += CHUNK_CHARS - CHUNK_OVERLAP) out.push(line.slice(i, i + CHUNK_CHARS));
+    return out;
+  });
+
+  for (const line of pieces) {
     if (length + line.length > CHUNK_CHARS && current.length > 0) {
       chunks.push(current.join("\n"));
       // Carry the tail forward as overlap.
@@ -186,7 +199,7 @@ export function splitPage(text: string): string[] {
       current = carry;
       length = carried;
     }
-    current.push(line.slice(0, CHUNK_CHARS));
+    current.push(line);
     length += line.length;
   }
   if (current.length > 0) chunks.push(current.join("\n"));
@@ -238,8 +251,9 @@ export async function readDocument(input: DocumentInput, client?: OpenAI): Promi
     return { ok: false, reason: "This doesn't look like an immigration document, so Haven didn't read it." };
   }
 
-  const pageCount = countPages(input);
-  const pages = parsed.data.pages.filter((p) => p.page >= 1 && p.page <= pageCount && p.text.trim().length > 0);
+  // Keep every page the model read. countPages can undercount compressed PDFs,
+  // so it must not decide which pages survive; the page limit still applies.
+  const pages = parsed.data.pages.filter((p) => p.page >= 1 && p.page <= MAX_PAGES_PER_DOCUMENT && p.text.trim().length > 0);
   const passages = toPassages(pages);
   if (passages.length === 0) return { ok: false, reason: "Haven couldn't find any text in this document." };
   return { ok: true, passages, model: DOCUMENT_READER_MODEL };

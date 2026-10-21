@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { hasSupabaseEnv } from "@/lib/env";
 
 import { AppShell } from "@/components/app/app-shell";
 import { documentContextAvailableFor } from "@/lib/document-context/store";
@@ -19,11 +20,16 @@ export default async function AdvisorPage() {
     getAdvisorUsage()
   ]);
   const seed = await getAdvisorWorkspaceSeed(snapshot);
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
-  const showDocumentsLink = documentContextAvailableFor(user?.email);
+  // Demo mode runs without Supabase, and the server client throws there; the
+  // link only matters to signed-in accounts on the test switch anyway.
+  let showDocumentsLink = false;
+  if (hasSupabaseEnv) {
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user }
+    } = await supabase.auth.getUser();
+    showDocumentsLink = documentContextAvailableFor(user?.email);
+  }
 
   return (
     <AppShell activePath="/advisor" crisisState={crisisState} snapshot={snapshot}>
