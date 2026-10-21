@@ -53,7 +53,7 @@ import { readAnswerOutcome, recordOutcome, IMMEDIATE_LANDED, type ImmediateOutco
 import { checkSituation, renderSituationForPrompt } from "@/lib/advisor/situation-check";
 import { APPENDED_BLOCK_LABELS, splitAnswer } from "@/lib/advisor/answer-shape";
 import { decideStoryLead, renderStoryLeadForPrompt } from "@/lib/advisor/story-fit";
-import { listFacts, rememberFactsFrom, renderFactsForPrompt, type RememberedFact } from "@/lib/advisor/memory";
+import { listFacts, mentionsWhen, rememberFactsFrom, renderFactsForPrompt, type RememberedFact } from "@/lib/advisor/memory";
 import {
   detectProfileUpdates,
   filterAlreadyCurrent,
@@ -2015,6 +2015,71 @@ function buildPromptProfileSummary(query: string, topics: TopicBucket[], userCon
  * layoff — somebody four days from their ceiling asking "can I start on the
  * receipt?" needs the count more than the person who says "I was laid off".
  */
+/**
+ * The Advisor knows this person's job ended but nobody has said when.
+ *
+ * On 2026-10-20 the only thing Haven held was a remembered "I was laid off", with
+ * no date. Asked how long they could stay, the Advisor said they were laid off
+ * "on 2026-10-20" — the day the sentence was saved, and also today — and counted
+ * a grace period from it. A made-up deadline, delivered with full confidence, in
+ * the one place a deadline is the whole question.
+ *
+ * True when there is a job loss (in this conversation or remembered), no last day
+ * on file, and no sentence about the job ending that says when.
+ */
+const JOB_END_SENTENCE = /(laid off|lay ?off|terminat|fired|let go|redundan|resign|last (working )?day|final day|notice period|lost (my|the) job|job (ended|ends))/i;
+
+export function jobEndDateUnknown(input: {
+  layoffDateOnFile: string | null | undefined;
+  userTexts: string[];
+  rememberedFacts: Array<{ kind: string; quote: string }>;
+  documentLines?: string[];
+}): boolean {
+  if (input.layoffDateOnFile && String(input.layoffDateOnFile).trim()) return false;
+
+  const employmentFacts = input.rememberedFacts.filter((fact) => fact.kind === "employment");
+  const knowsOfJobLoss =
+    employmentFacts.length > 0 || input.userTexts.some((text) => mentionsJobLoss(text.toLowerCase()));
+  if (!knowsOfJobLoss) return false;
+
+  const sentences = [...input.userTexts, ...employmentFacts.map((fact) => fact.quote), ...(input.documentLines ?? [])]
+    .flatMap((text) => text.split(/(?<=[.!?])\s+|\n+/));
+  const dated = sentences.some((sentence) => JOB_END_SENTENCE.test(sentence) && mentionsWhen(sentence));
+  return !dated;
+}
+
+/**
+ * Whether an answer puts a calendar date on the job ending or on the time left.
+ *
+ * Only used when jobEndDateUnknown is true, so any such date came from nowhere the
+ * user gave us. Matches concrete dates only (2026-12-19, Dec 19, 19 December);
+ * "60 days after your last day" is the right answer and must not trip it.
+ */
+const CONCRETE_DATE = new RegExp(
+  [
+    "\\b\\d{4}-\\d{1,2}-\\d{1,2}\\b",
+    "\\b\\d{1,2}/\\d{1,2}(/\\d{2,4})?\\b",
+    "\\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\.?\\s+\\d{1,2}(st|nd|rd|th)?\\b",
+    "\\b\\d{1,2}(st|nd|rd|th)?\\s+(of\\s+)?(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\b"
+  ].join("|"),
+  "i"
+);
+const DEADLINE_SENTENCE = /(laid off|lay ?off|terminat|last (working )?day|job ended|grace period|\b60[- ]day|\b60 days|\b90[- ]day|\b90 days|days left|days remaining|must (leave|depart)|stay (in the u\.?s\.?|until)|allowed to stay|unemployment)/i;
+
+export function statesJobEndDeadline(answer: string): boolean {
+  return answer
+    .split(/(?<=[.!?])\s+|\n+/)
+    .some((sentence) => DEADLINE_SENTENCE.test(sentence) && CONCRETE_DATE.test(sentence));
+}
+
+/** Shown under an answer that dated a job loss nobody dated. */
+export const UNKNOWN_JOB_END_CORRECTION =
+  "**I don't have your last day of work.** Any end date above that isn't counted from that day is a guess, not your deadline — the time you have is counted from your last day of employment. What was your last day?";
+
+/** The checklist line for the same case, so the model asks instead of guessing. */
+export const UNKNOWN_JOB_END_REQUIRED_POINT =
+  "You do not know the date their job ended. Do not state one, and do not give a grace-period end date or a number of days left. Explain that the time is counted from their last day of employment and ask what that day was.";
+
 export function buildPromptGracePeriod(topics: TopicBucket[], userContext: AdvisorUserContext) {
   const wantsDates = topics.some(
     (topic) => STATUS_DATE_TOPICS.includes(topic) || PRIORITY_DATE_TOPICS.includes(topic)
@@ -4437,7 +4502,20 @@ export async function* streamAdvisorResponse(
   // full confidence on top of it. Held facts get stated back so a wrong one is
   // corrected in the next message; missing ones get asked for, and until they
   // arrive the answer explains rather than recommends.
-  const situation = checkSituation(topics, {
+  // A remembered "I was laid off" makes the last day a fact the answer turns on,
+  // even when this question never mentions the job. Without this the date was
+  // never asked for, and the model filled the gap with today (see
+  // jobEndDateUnknown).
+  const jobEndUnknown = jobEndDateUnknown({
+    layoffDateOnFile: snapshot.activeLayoffEvent?.layoffDate ?? null,
+    userTexts: [content, ...rawHistory.filter((turn) => turn.role === "user").map((turn) => turn.content)],
+    rememberedFacts,
+    documentLines: documentPassageLines
+  });
+  const asksAboutTimeLeft = topics.some((topic) => STATUS_DATE_TOPICS.includes(topic));
+  const situationTopics: TopicBucket[] =
+    jobEndUnknown && asksAboutTimeLeft && !topics.includes("layoffs") ? [...topics, "layoffs"] : topics;
+  const situation = checkSituation(situationTopics, {
     visaType: snapshot.profile.visaType,
     layoffDate: snapshot.activeLayoffEvent?.layoffDate ?? null,
     priorityDate: snapshot.profile.priorityDate,
@@ -4611,7 +4689,10 @@ export async function* streamAdvisorResponse(
     // position is the cheapest lever available on that, and the addendum fire
     // rate is how we find out whether it moved.
     ...(() => {
-      const required = requiredPointsForAnswer(content, topics, guardrailIds);
+      const required = [
+        ...requiredPointsForAnswer(content, topics, guardrailIds),
+        ...(jobEndUnknown && asksAboutTimeLeft ? [UNKNOWN_JOB_END_REQUIRED_POINT] : [])
+      ];
       return required.length > 0
         ? [
             "",
@@ -4778,6 +4859,18 @@ export async function* streamAdvisorResponse(
     const addendumText = `\n\n${addendum.text}`;
     fullText += addendumText;
     const event = view.append(addendumText);
+    if (event) yield event;
+  }
+
+  // Backstop for the checklist line above. If the answer still put a date on a
+  // job loss nobody dated, say so under it rather than let a made-up deadline
+  // stand. Appended, not rewritten: cutting sentences out of a deadline answer
+  // can leave one that reads as complete and is not.
+  if (jobEndUnknown && statesJobEndDeadline(fullText)) {
+    const correctionText = `\n\n${UNKNOWN_JOB_END_CORRECTION}`;
+    fullText += correctionText;
+    trace?.update({ metadata: { unknownJobEndCorrected: true } });
+    const event = view.append(correctionText);
     if (event) yield event;
   }
 
