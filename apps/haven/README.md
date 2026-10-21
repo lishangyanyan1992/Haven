@@ -76,6 +76,7 @@ flowchart TD
   M -- "flagged or in crisis" --> X1(["Refusal or crisis hand-off"])
   M --> K["Topic keywords + scope signals<br/><i>Haven rules</i>"]
   K -- "declined topic<br/>(travel, CSPA, NIW, AC21,<br/>student, PERM-only)" --> X2(["One-message redirect<br/>with the key deadline"])
+  K -- "question about saved user data" --> S
   K -- "everything else" --> IR["Intent router: reads the topic too<br/><i>gpt-5-mini</i>"]
   IR --> S["Final scope decision<br/><i>Haven rules</i>"]
   S -- "declined" --> X2
@@ -151,7 +152,7 @@ The Advisor covers two areas: **"I lost my job, how do I stay?"** and **"Where a
 
 Some declined topics, when they're only background to an in-scope question, don't trigger the redirect:
 
-- **Student status or a self-petition (NIW, EB-1A),** mentioned in a question that clearly raises layoffs, the grace period, B-2, H-4 or the visa bulletin, is answered in full. An example is "I have an NIW approved, what does this month's bulletin mean for me?"
+- **Student status or a self-petition (NIW, EB-1A),** mentioned in a question that clearly raises layoffs, the grace period, B-2, H-4 or the visa bulletin, is answered in full. An example is "I have an NIW approved, what does this month's visa bulletin mean for me?"
 - **PERM in a question about the user's own Haven data or documents** is answered in full.
 - **PERM in a layoff question** is answered, with a one-line note above the answer saying PERM isn't covered.
 
