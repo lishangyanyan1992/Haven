@@ -416,6 +416,39 @@ async function main() {
         ).append ?? ""
       ).endsWith(want)
     })),
+    // Live on 2026-10-21: the I-94 date was asked in the hidden list and again,
+    // carried from the bracket, in the visible ask. Note the non-breaking hyphens.
+    (() => {
+      const live = [
+        "I can\u2019t determine the exact date you may remain in the U.S. \u2014 I need the date your employment ended because H\u20111B post\u2011termination stay is counted from your last day of employment.",
+        "<!--details-->",
+        "What I don\u2019t know (please provide):",
+        "",
+        "What is the expiration date on your current Form I\u201194?",
+        "Has any new employer filed a nonfrivolous H\u20111B petition or change\u2011of\u2011status petition for you since the layoff?",
+        "",
+        `${"After employment ends, H-1B workers generally have a grace period of up to 60 days or until the end of their I-94. ".repeat(3)}`,
+        "What was your last day of employment? (Also tell me your I\u201194 expiration and whether any new H\u20111B petition/change\u2011of\u2011status has been filed.)"
+      ].join("\n");
+      const r = settleUnknownJobEnd(live, { jobEndUnknown: true, asksAboutTimeLeft: true });
+      return {
+        name: "a bracket the answer already asks (I-94, petition) is not carried into the visible ask",
+        ok: r.append === UNKNOWN_JOB_END_ASK && (`${r.answer}\n${r.append}`.match(/I\u201194 expiration|Form I\u201194\?/g) ?? []).length === 1
+      };
+    })(),
+    {
+      name: "a bracket the answer does not already ask is still carried",
+      ok: (
+        settleUnknownJobEnd(
+          `${lead}\n<!--details-->\n${"Detail about how the grace period works, counted from the last day. ".repeat(5)}\nWhat was your last day of employment? (Also tell me your I\u201194 end date.)`,
+          { jobEndUnknown: true, asksAboutTimeLeft: true }
+        ).append ?? ""
+      ).endsWith("Also tell me your I\u201194 end date.")
+    },
+    {
+      name: "an I-94 limit written with a non-breaking hyphen is not treated as a guess",
+      ok: !statesJobEndDeadline("Your grace period cannot extend beyond your I\u201194 expiry on December 19.")
+    },
     {
       name: "a visible ask is left alone",
       ok:
