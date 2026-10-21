@@ -219,7 +219,50 @@ async function main() {
       name: "no job loss at all → nothing to ask",
       ok: !jobEndDateUnknown({ layoffDateOnFile: null, userTexts: ["How does the visa bulletin work?"], rememberedFacts: [] })
     },
+    // Review findings on PR #98.
+    {
+      name: "a date on another event in the same sentence does not date the layoff",
+      ok: jobEndDateUnknown({
+        layoffDateOnFile: null,
+        userTexts: ["I was laid off after my petition was approved on October 2. How long can I stay?"],
+        rememberedFacts: []
+      })
+    },
+    {
+      name: "'furloughed on October 2' counts as a supplied date",
+      ok: !jobEndDateUnknown({ layoffDateOnFile: null, userTexts: ["I was furloughed on October 2."], rememberedFacts: [] })
+    },
+    {
+      name: "a newer 'started a new job' fact retires an old undated layoff",
+      ok: !jobEndDateUnknown({
+        layoffDateOnFile: null,
+        userTexts: ["Can I travel on my H-1B?"],
+        rememberedFacts: [
+          undated,
+          { kind: "status", quote: "I started at a new employer last month.", createdAt: "2026-10-21T03:00:00Z" }
+        ]
+      })
+    },
+    {
+      name: "an older 'new job' fact does not retire a newer layoff",
+      ok: jobEndDateUnknown({
+        layoffDateOnFile: null,
+        userTexts: ["How long can I stay?"],
+        rememberedFacts: [
+          undated,
+          { kind: "status", quote: "I started at a new employer last month.", createdAt: "2026-01-01T00:00:00Z" }
+        ]
+      })
+    },
     // Backstop on the finished answer.
+    {
+      name: "'ends on Dec. 19' is not split apart at the abbreviation",
+      ok: statesJobEndDeadline("Your grace period ends on Dec. 19. Plan around that.")
+    },
+    {
+      name: "a real I-94 expiry date is not treated as a guess",
+      ok: !statesJobEndDeadline("Your grace period cannot extend beyond your I-94 expiry on December 19.")
+    },
     {
       name: "the answer actually given on 2026-10-20 is caught",
       ok: statesJobEndDeadline(

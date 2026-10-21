@@ -2029,22 +2029,59 @@ function buildPromptProfileSummary(query: string, topics: TopicBucket[], userCon
  */
 const JOB_END_SENTENCE = /(laid off|lay ?off|terminat|fired|let go|redundan|resign|last (working )?day|final day|notice period|lost (my|the) job|job (ended|ends))/i;
 
+/** Starting a new job after a remembered job loss means the old loss no longer counts. */
+const NEW_JOB_STARTED = /\b(started|start|joined|began)\b.{0,30}\b(job|employer|company|position|role)\b/i;
+
+/**
+ * Split into sentences without breaking "Dec. 19" or "Oct. 2" in two. A full stop
+ * followed by a digit is an abbreviation, not the end of a sentence.
+ */
+function splitSentences(text: string): string[] {
+  return text.split(/(?<=[.!?])\s+(?!\d)|\n+/);
+}
+
+/**
+ * The part of a sentence that is about the job ending.
+ *
+ * "I was laid off after my petition was approved on October 2" dates the
+ * approval, not the layoff. Cutting at the joining words keeps a date only when it
+ * sits in the same clause as the job loss.
+ */
+function jobEndClauses(sentence: string): string[] {
+  return sentence
+    .split(/,|;|\s+(?:after|before|when|while|because|since|but|and|once|until)\s+/i)
+    .filter((clause) => JOB_END_SENTENCE.test(clause) || mentionsJobLoss(clause.toLowerCase()));
+}
+
 export function jobEndDateUnknown(input: {
   layoffDateOnFile: string | null | undefined;
   userTexts: string[];
-  rememberedFacts: Array<{ kind: string; quote: string }>;
+  rememberedFacts: Array<{ kind: string; quote: string; createdAt?: string }>;
   documentLines?: string[];
 }): boolean {
   if (input.layoffDateOnFile && String(input.layoffDateOnFile).trim()) return false;
 
-  const employmentFacts = input.rememberedFacts.filter((fact) => fact.kind === "employment");
-  const knowsOfJobLoss =
-    employmentFacts.length > 0 || input.userTexts.some((text) => mentionsJobLoss(text.toLowerCase()));
+  const jobLossInConversation = input.userTexts.some((text) => mentionsJobLoss(text.toLowerCase()));
+
+  // A remembered job loss only counts if nothing newer says they started a new job.
+  const newestNewJob = Math.max(
+    -Infinity,
+    ...input.rememberedFacts
+      .filter((fact) => NEW_JOB_STARTED.test(fact.quote))
+      .map((fact) => Date.parse(fact.createdAt ?? "") || -Infinity)
+  );
+  const employmentFacts = input.rememberedFacts.filter(
+    (fact) => fact.kind === "employment" && (Date.parse(fact.createdAt ?? "") || -Infinity) >= newestNewJob
+  );
+  const startedNewJobNow = !jobLossInConversation && input.userTexts.some((text) => NEW_JOB_STARTED.test(text));
+
+  const knowsOfJobLoss = jobLossInConversation || (employmentFacts.length > 0 && !startedNewJobNow);
   if (!knowsOfJobLoss) return false;
 
-  const sentences = [...input.userTexts, ...employmentFacts.map((fact) => fact.quote), ...(input.documentLines ?? [])]
-    .flatMap((text) => text.split(/(?<=[.!?])\s+|\n+/));
-  const dated = sentences.some((sentence) => JOB_END_SENTENCE.test(sentence) && mentionsWhen(sentence));
+  const dated = [...input.userTexts, ...employmentFacts.map((fact) => fact.quote), ...(input.documentLines ?? [])]
+    .flatMap(splitSentences)
+    .flatMap(jobEndClauses)
+    .some(mentionsWhen);
   return !dated;
 }
 
@@ -2054,6 +2091,10 @@ export function jobEndDateUnknown(input: {
  * Only used when jobEndDateUnknown is true, so any such date came from nowhere the
  * user gave us. Matches concrete dates only (2026-12-19, Dec 19, 19 December);
  * "60 days after your last day" is the right answer and must not trip it.
+ *
+ * A sentence about the I-94 or another document's expiry is left alone: that date
+ * is real, it can end the grace period sooner, and calling it a guess would tell
+ * somebody to ignore an actual limit.
  */
 const CONCRETE_DATE = new RegExp(
   [
@@ -2065,16 +2106,20 @@ const CONCRETE_DATE = new RegExp(
   "i"
 );
 const DEADLINE_SENTENCE = /(laid off|lay ?off|terminat|last (working )?day|job ended|grace period|\b60[- ]day|\b60 days|\b90[- ]day|\b90 days|days left|days remaining|must (leave|depart)|stay (in the u\.?s\.?|until)|allowed to stay|unemployment)/i;
+const DOCUMENT_EXPIRY = /\b(i-?94|passport|ead|visa stamp|expir|valid until|petition end|approval notice)\b/i;
 
 export function statesJobEndDeadline(answer: string): boolean {
-  return answer
-    .split(/(?<=[.!?])\s+|\n+/)
-    .some((sentence) => DEADLINE_SENTENCE.test(sentence) && CONCRETE_DATE.test(sentence));
+  return splitSentences(answer).some(
+    (sentence) => DEADLINE_SENTENCE.test(sentence) && CONCRETE_DATE.test(sentence) && !DOCUMENT_EXPIRY.test(sentence)
+  );
 }
 
-/** Shown under an answer that dated a job loss nobody dated. */
+/**
+ * Shown under an answer that dated a job loss nobody dated. Scoped to dates
+ * counted from the job ending, so a real I-94 limit above it still stands.
+ */
 export const UNKNOWN_JOB_END_CORRECTION =
-  "**I don't have your last day of work.** Any end date above that isn't counted from that day is a guess, not your deadline — the time you have is counted from your last day of employment. What was your last day?";
+  "**I don't have your last day of work**, so don't rely on any grace-period end date above that wasn't counted from it. The time you have is counted from your last day of employment, and any limit from your I-94 still applies. What was your last day?";
 
 /** The checklist line for the same case, so the model asks instead of guessing. */
 export const UNKNOWN_JOB_END_REQUIRED_POINT =
