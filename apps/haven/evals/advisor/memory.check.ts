@@ -336,11 +336,15 @@ async function main() {
   datedCases.push(
     {
       name: "a last-day question only behind the toggle gets asked visibly",
-      ok: settledHidden.append === UNKNOWN_JOB_END_ASK && /What was your last day/.test(visibleAfter(withAsk))
+      ok: (settledHidden.append ?? "").startsWith(UNKNOWN_JOB_END_ASK) && /What was your last day/.test(visibleAfter(withAsk))
     },
     {
       name: "and the hidden copy is taken out, so it is asked once",
       ok: (withAsk.match(/last day of employment\?/g) ?? []).length === 1 && !/Question:/.test(withAsk)
+    },
+    {
+      name: "what the hidden question's bracket asked for (the I-94 date) moves into the visible ask",
+      ok: /What was your last day of employment\? Also tell me your current I-94 end date if you know it\.$/.test(settledHidden.append ?? "")
     },
     {
       name: "a visible ask is left alone",

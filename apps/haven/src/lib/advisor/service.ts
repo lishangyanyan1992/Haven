@@ -2197,16 +2197,26 @@ export function settleUnknownJobEnd(
   if (!invented && (askedVisibly || !options.asksAboutTimeLeft)) return { answer, append: null, reason: null };
 
   // "Question: What was your last day of employment? (Also tell me …)" goes as a
-  // whole: the label, the question and a bracket that hangs off it.
+  // whole: the label, the question and a bracket that hangs off it. What the
+  // bracket asked for (often the I-94 end date) moves into the visible ask, so
+  // the user is not asked for it in a second round.
   const copy = new RegExp(
-    String.raw`(?:\*\*)?(?:question:)?(?:\*\*)?\s*(?:${LAST_DAY_QUESTION.source})(?:\s*\([^)]*\))?`,
+    String.raw`(?:\*\*)?(?:question:)?(?:\*\*)?\s*(?:${LAST_DAY_QUESTION.source})(?:\s*\((?<bracket>[^)]*)\))?`,
     "gi"
   );
+  const carried: string[] = [];
   const cleaned = answer
     .split("\n")
     .flatMap((line) => {
       if (!LAST_DAY_QUESTION.test(line)) return [line];
-      const rest = line.replace(copy, "").trimEnd();
+      const rest = line
+        .replace(copy, (...args) => {
+          // With a named group, the last argument is the groups object.
+          const bracket = (args[args.length - 1] as { bracket?: string }).bracket?.trim();
+          if (bracket) carried.push(bracket);
+          return "";
+        })
+        .trimEnd();
       // A list item or line that held only the question goes with it.
       return /^\s*([-*]|\d+\.)?\s*$/.test(rest) ? [] : [rest];
     })
@@ -2214,9 +2224,16 @@ export function settleUnknownJobEnd(
     .replace(/\n{3,}/g, "\n\n")
     .trimEnd();
 
+  const extra = carried
+    .map((text) => text.replace(/^also\s+/i, ""))
+    .map((text) => (/^[A-Z][a-z]/.test(text) ? text.charAt(0).toLowerCase() + text.slice(1) : text))
+    .map((text) => `Also ${text}`.replace(/[.!?]?$/, "."))
+    .join(" ");
+  const ask = invented ? UNKNOWN_JOB_END_CORRECTION : UNKNOWN_JOB_END_ASK;
+
   return {
     answer: cleaned.trim().length > 0 ? cleaned : answer,
-    append: invented ? UNKNOWN_JOB_END_CORRECTION : UNKNOWN_JOB_END_ASK,
+    append: extra ? `${ask} ${extra}` : ask,
     reason: invented ? "corrected" : "asked"
   };
 }
