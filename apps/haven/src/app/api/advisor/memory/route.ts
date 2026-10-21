@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { forgetFact, listFacts } from "@/lib/advisor/memory";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isInvitedEmail } from "@/lib/access";
 
 async function requireUser() {
   const supabase = await createSupabaseServerClient();
@@ -25,6 +26,9 @@ export async function GET() {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (!(await isInvitedEmail(user.email))) {
+    return NextResponse.json({ error: "Haven is invitation only." }, { status: 403 });
+  }
 
   try {
     return NextResponse.json({ facts: await listFacts(user.id) });
@@ -41,6 +45,9 @@ export async function DELETE(request: Request) {
   const user = await requireUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!(await isInvitedEmail(user.email))) {
+    return NextResponse.json({ error: "Haven is invitation only." }, { status: 403 });
   }
 
   const body = forgetSchema.safeParse(await request.json().catch(() => null));

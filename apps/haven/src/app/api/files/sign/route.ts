@@ -7,6 +7,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isReadableMimeType } from "@/lib/document-context/read";
 import { documentContextAvailableFor, readQueuedDocument } from "@/lib/document-context/store";
+import { isInvitedEmail } from "@/lib/access";
 import {
   HAVEN_VAULT_BUCKET,
   MAX_DOCUMENT_BYTES,
@@ -26,7 +27,7 @@ async function requireUser() {
     data: { user }
   } = await supabase.auth.getUser();
 
-  if (!user) {
+  if (!user || !(await isInvitedEmail(user.email))) {
     return null;
   }
 
@@ -95,6 +96,9 @@ export async function GET(request: Request) {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (!(await isInvitedEmail(user.email))) {
+    return NextResponse.json({ error: "Haven is invitation only." }, { status: 403 });
+  }
 
   const { searchParams } = new URL(request.url);
   const documentId = searchParams.get("documentId");
@@ -135,6 +139,9 @@ export async function POST(request: Request) {
   const user = await requireUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!(await isInvitedEmail(user.email))) {
+    return NextResponse.json({ error: "Haven is invitation only." }, { status: 403 });
   }
 
   try {

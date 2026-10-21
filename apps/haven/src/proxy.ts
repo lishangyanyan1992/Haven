@@ -5,6 +5,7 @@ import { createServerClient } from "@supabase/ssr";
 import { applySharedCookieOptions } from "@haven/auth/cookie-options";
 import { authEnv, hasSupabaseEnv } from "@haven/auth/env";
 import { isArchivedPath } from "@/lib/archived-routes";
+import { INVITE_ONLY_PATH, OWNER_EMAIL } from "@/lib/access-constants";
 
 const protectedPrefixes = ["/dashboard", "/onboarding", "/profile", "/timeline", "/planner", "/advisor", "/inbox", "/settings", "/documents"];
 
@@ -44,6 +45,17 @@ export async function proxy(request: NextRequest) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirectTo", path);
     return NextResponse.redirect(loginUrl);
+  }
+
+  // Invitation only: a signed-in account without an invite is turned away.
+  const email = (user.email ?? "").trim().toLowerCase();
+  if (email !== OWNER_EMAIL) {
+    const { data: hasAccess, error } = await supabase.rpc("haven_has_access" as never);
+    if (error || hasAccess !== true) {
+      const inviteUrl = new URL(INVITE_ONLY_PATH, request.url);
+      inviteUrl.searchParams.set("message", "not_invited");
+      return NextResponse.redirect(inviteUrl);
+    }
   }
 
   return response;

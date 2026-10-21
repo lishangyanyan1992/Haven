@@ -112,7 +112,7 @@ export function PublicNavbar({ currentPath }: { currentPath: string }) {
             Sign in
           </Link>
           <Link className={cn(buttonVariants({ variant: "default" }), "hidden lg:inline-flex")} href="/register">
-            Get Started
+            Request an invite
           </Link>
           <MobilePublicNav
             currentPath={currentPath}

@@ -8,6 +8,7 @@ import { HavenBrand } from "@/components/app/haven-brand";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { rememberSignUpAttempt } from "@/lib/mixpanel";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -69,12 +70,23 @@ export default function ResetPasswordPage() {
 
     setStatus("loading");
     const supabase = createSupabaseBrowserClient();
-    const { error } = await supabase.auth.updateUser({ password });
+    const { data: current } = await supabase.auth.getUser();
+    // An invited person setting their first password is a new sign-up.
+    const isFirstInvitePassword = Boolean(
+      current.user?.invited_at && !current.user.user_metadata?.haven_signup_tracked
+    );
+    const { error } = await supabase.auth.updateUser(
+      isFirstInvitePassword ? { password, data: { haven_signup_tracked: true } } : { password }
+    );
 
     if (error) {
       setErrorMessage(error.message);
       setStatus("error");
       return;
+    }
+
+    if (isFirstInvitePassword && current.user?.email) {
+      rememberSignUpAttempt(current.user.email.toLowerCase());
     }
 
     setStatus("success");

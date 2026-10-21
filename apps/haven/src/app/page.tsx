@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, FileText, ShieldAlert, Users, UserCheck } from "lucide-react";
+import { ArrowRight, FileText, MessageCircle, Send, ShieldAlert } from "lucide-react";
 
 import { BlogCard } from "@/components/app/blog-card";
 import { HavenBrand } from "@/components/app/haven-brand";
-import { HomeQuestionBox } from "@/components/app/home-question-box";
 import { PublicNavbar, getPublicImmigWizardUrl } from "@/components/app/public-navbar";
 import { buttonVariants } from "@/components/ui/button";
 import { getRecentBlogPosts } from "@/lib/blog";
@@ -12,34 +11,39 @@ import { absoluteUrl } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 
 const HOME_DESCRIPTION =
-  "Haven helps global talent navigate U.S. immigration. Tell us what you're facing and get an answer built from what people in the same situation actually did — from a layoff or a lottery miss to a green card years out.";
+  "Haven is an invitation-only client assistant for immigration law firms. Invite your clients to upload their documents and get plain-language answers between appointments.";
 
 const steps = [
   {
-    icon: UserCheck,
-    title: "Tell us your situation",
-    description: "Visa, dates, employer. It takes a minute, and it's why the answer fits your case instead of a generic one."
+    icon: Send,
+    title: "Invite your clients",
+    description: "Send each client an invite from your firm. Haven is closed to everyone else."
   },
   {
-    icon: Users,
-    title: "Ask, and see what people did",
-    description: "Ask in plain words. Your answer is built from people who were where you are — what worked, and what cost them time."
+    icon: FileText,
+    title: "They upload their documents",
+    description: "Approval notices, I-20s, work permits. Haven reads them, so answers start from the client's own dates."
+  },
+  {
+    icon: MessageCircle,
+    title: "They ask, Haven answers",
+    description: "Plain-language answers built from what people in the same situation did. Anything that needs a lawyer goes back to you."
   }
 ];
 
 export const metadata: Metadata = {
-  title: "Haven — Immigration answers for global talent in the U.S.",
+  title: "Haven — A client assistant for immigration law firms",
   description: HOME_DESCRIPTION,
   alternates: {
     canonical: "/"
   },
   openGraph: {
     url: absoluteUrl("/"),
-    title: "Haven — Immigration answers for global talent in the U.S.",
+    title: "Haven — A client assistant for immigration law firms",
     description: HOME_DESCRIPTION
   },
   twitter: {
-    title: "Haven — Immigration answers for global talent in the U.S.",
+    title: "Haven — A client assistant for immigration law firms",
     description: HOME_DESCRIPTION
   }
 };
@@ -115,34 +119,34 @@ export default function HomePage() {
           <div className="content-container-visual flex flex-col items-center pt-10 pb-14 text-center md:pt-12 md:pb-16 lg:pt-14 lg:pb-20">
             <p className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--haven-white)] px-3.5 py-1.5 text-[13px] font-medium text-[var(--haven-ink-mid)]">
               <span className="h-1.5 w-1.5 rounded-full bg-[var(--haven-ink)]" />
-              Beta — free to use, unlimited questions
+              Invitation only · for immigration law firms
             </p>
-            <h1 className="text-display mt-5 max-w-[24ch]">
-              We help global talent navigate U.S. immigration.
+            <h1 className="text-display mt-5 max-w-[22ch]">
+              Your clients&apos; questions, answered between appointments.
             </h1>
-            <p className="text-body mt-5 max-w-[56ch]">
-              Tell us what you&apos;re facing. Haven answers with what people in the same situation actually did — real
-              outcomes from thousands of cases, so you can see where you actually stand. Whether it&apos;s a layoff this
-              week or a green card years out.
+            <p className="text-body mt-5 max-w-[58ch]">
+              Invite your clients to Haven. They upload their documents and ask in plain words. Haven answers with what
+              people in the same situation actually did, so your team spends less time on intake and repeat questions.
             </p>
 
-            <div className="mt-8 w-full max-w-[46rem] text-left">
-              <HomeQuestionBox />
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Link className={buttonVariants({ size: "lg" })} href="/register">
+                Request an invite for your firm
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link className={buttonVariants({ variant: "outline", size: "lg" })} href="/register">
+                My lawyer invited me
+              </Link>
             </div>
 
-            <div className="mt-7 w-full max-w-[46rem] rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] px-5 py-4 text-left sm:px-6 sm:py-5">
+            <div className="mt-10 w-full max-w-[46rem] rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] px-5 py-4 text-left sm:px-6 sm:py-5">
               <p className="flex items-start gap-2.5 text-[16px] font-semibold leading-snug text-[var(--haven-ink)]">
                 <ShieldAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" />
-                Haven does not give legal advice.
+                Haven doesn&apos;t replace you.
               </p>
               <p className="text-body-sm mt-2 text-[var(--haven-ink-mid)]">
-                Every answer is a summary of what other people went through — their stories, not a recommendation
-                about your case. We never tell you what to do. For any decision you can&apos;t undo, talk to a
-                licensed immigration attorney.
-              </p>
-              <p className="text-body-sm mt-3 border-t border-[var(--color-border)] pt-3 text-[var(--haven-ink-mid)]">
-                Haven is in beta, so an answer can come back wrong, thin, or confusing. If one looks off, flag it and
-                we&apos;ll fix it.
+                Haven does not give legal advice. It shares what other people in the same situation went through, and
+                tells clients to bring any decision they can&apos;t undo to their attorney: you.
               </p>
             </div>
           </div>
@@ -152,9 +156,9 @@ export default function HomePage() {
           <div className={pageSectionInnerClass}>
             <div className="max-w-[76ch]">
               <p className="text-label">How it works</p>
-              <h2 className="text-h1 mt-4 text-balance">Two steps, then an answer you can act on.</h2>
+              <h2 className="text-h1 mt-4 text-balance">Three steps, and your clients stop waiting on email.</h2>
             </div>
-            <div className="mt-10 grid gap-4 md:grid-cols-2 md:gap-5">
+            <div className="mt-10 grid gap-4 md:grid-cols-3 md:gap-5">
               {steps.map((step, index) => (
                 <article
                   key={step.title}
@@ -177,18 +181,49 @@ export default function HomePage() {
             <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
               <div className="max-w-[62ch]">
                 <p className="text-label">Why the answers are different</p>
-                <h2 className="text-h1 mt-4 text-balance">The wisdom of the crowd, applied to your case.</h2>
+                <h2 className="text-h1 mt-4 text-balance">Answers grounded in real outcomes, not a forum thread.</h2>
                 <p className="text-body mt-4">
-                  Immigration decisions can feel arbitrary, and most advice online is either a forum thread you
-                  can&apos;t verify or a page written for everyone. Haven reads thousands of moderated, real accounts
-                  from people on the same visa path, keeps what held up, and answers your specific question with it.
+                  Your clients are already searching Reddit at midnight. Haven gives them something better: thousands of
+                  moderated, real accounts from people on the same visa path, weighed against the client&apos;s own
+                  documents.
                 </p>
                 <p className="text-body mt-4">
-                  That works for the hardest moments — the lottery, the layoff, the deadline — and for the slower
-                  decisions too: which green card path fits, when to file, what a change of employer costs you.
+                  It covers the moments that send clients into a panic (the lottery, the layoff, the deadline) and the
+                  slow questions that eat your team&apos;s time: where a case stands, what a filing means, what comes next.
                 </p>
               </div>
               <CrowdWisdomGraphic />
+            </div>
+          </div>
+        </section>
+
+        <section className={cn(pageSectionClass, "bg-[var(--haven-white)]")} id="for-clients">
+          <div className={pageSectionInnerClass}>
+            <p className="text-label">For people going through immigration</p>
+            <h2 className="text-h1 mt-4 max-w-[28ch] text-balance">Haven works through your lawyer.</h2>
+            <div className="mt-10 grid gap-4 md:grid-cols-2 md:gap-5">
+              <article className="rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-cream)] p-6 xl:p-8">
+                <h3 className="text-h2">Invited by your lawyer?</h3>
+                <p className="text-body mt-2">Use the email they invited to create your account, then upload your documents and ask away.</p>
+                <Link className={cn(buttonVariants(), "mt-5")} href="/register">
+                  Accept my invite
+                </Link>
+              </article>
+              <article className="rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-cream)] p-6 xl:p-8">
+                <h3 className="text-h2">Don&apos;t have a lawyer yet?</h3>
+                <p className="text-body mt-2">
+                  Ask yours if they use Haven, or find an immigration attorney near you. Our guides and calculators stay
+                  free for everyone.
+                </p>
+                <div className="mt-5 flex flex-wrap gap-3">
+                  <Link className={buttonVariants({ variant: "outline" })} href="/lawyers">
+                    Find a lawyer
+                  </Link>
+                  <Link className={buttonVariants({ variant: "outline" })} href="/resources">
+                    Free guides
+                  </Link>
+                </div>
+              </article>
             </div>
           </div>
         </section>
@@ -197,7 +232,7 @@ export default function HomePage() {
           <div className={pageSectionInnerClass}>
             <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
               <div className="max-w-[62ch]">
-                <p className="text-label">Read first, sign up later</p>
+                <p className="text-label">Free for everyone</p>
                 <h2 className="text-h1 mt-4 max-w-[26ch]">Plain-language guides for layoffs, grace periods, and transfers.</h2>
                 <p className="text-body mt-4 max-w-[58ch]">
                   Open to everyone, no account needed — along with the{" "}
@@ -231,18 +266,18 @@ export default function HomePage() {
         <section className={cn(pageSectionClass, "content-container-visual bg-[var(--haven-cream)] pt-16 pb-20 md:pt-20 md:pb-20 lg:pt-24 lg:pb-24")}>
           <div className="rounded-[var(--radius-2xl)] bg-[var(--haven-ink)] px-6 py-10 text-[var(--haven-cream)] md:px-10 md:py-12">
             <h2 className="text-h1 max-w-[20ch] text-[var(--haven-cream)]">
-              Whatever just happened, someone has been here before.
+              Give your clients somewhere to go between appointments.
             </h2>
             <p className="mt-4 max-w-[52ch] text-[15px] leading-relaxed text-[rgba(253,250,246,0.72)]">
-              Ask your question and find out what they did next.
+              Haven is opening to a small group of immigration firms. Request an invite and we&apos;ll set yours up.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link className={buttonVariants({ variant: "cream", size: "lg" })} href="/register">
-                Ask your question
+                Request an invite
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link className={buttonVariants({ variant: "ghost-light", size: "lg" })} href="/login">
-                I already have an account
+                Sign in
               </Link>
             </div>
           </div>
