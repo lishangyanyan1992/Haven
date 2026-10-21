@@ -42,8 +42,9 @@ export interface Passage {
 }
 
 export type ReadResult =
-  | { ok: true; passages: Passage[]; model: string }
-  | { ok: false; reason: string };
+  /** `pages`: how many pages the model actually read, which can exceed countPages. */
+  | { ok: true; passages: Passage[]; model: string; pages: number }
+  | { ok: false; reason: string; pages?: number };
 
 // ── Before calling the model ──────────────────────────────────────────────────
 
@@ -74,12 +75,14 @@ export function countPages(input: DocumentInput): number {
     const raw = input.bytes.toString("latin1");
     const objects = raw.match(/\/Type\s*\/Page(?![a-zA-Z])/g)?.length ?? 0;
     // Only a page-tree node's /Count counts pages; bookmarks (outlines) use
-    // /Count too, for their entries. So take it only from a dictionary that also
-    // says /Type /Pages, in either order. The root has the largest.
-    const counts = [
-      ...raw.matchAll(/\/Type\s*\/Pages\b[^>]*?\/Count\s+(\d+)/g),
-      ...raw.matchAll(/\/Count\s+(\d+)[^>]*?\/Type\s*\/Pages\b/g)
-    ].map((m) => Number(m[1]));
+    // /Count too, for their entries. Each PDF object ends with `endobj`, so read
+    // /Count only from objects that are themselves /Type /Pages — whatever else
+    // (inherited resources, nested dictionaries) sits between the two keys.
+    // The root node has the largest count.
+    const counts = raw
+      .split(/\bendobj\b/)
+      .filter((object) => /\/Type\s*\/Pages\b/.test(object))
+      .map((object) => Number(object.match(/\/Count\s+(\d+)/)?.[1] ?? 0));
     return Math.max(1, objects, ...counts);
   }
   if (mime === "text/plain") {
@@ -241,9 +244,10 @@ export async function readDocument(input: DocumentInput, client?: OpenAI): Promi
 
   const mime = baseMime(input.mimeType);
   if (mime === "text/plain") {
-    const passages = toPassages(textPages(input.bytes.toString("utf8")));
+    const pages = textPages(input.bytes.toString("utf8"));
+    const passages = toPassages(pages);
     return passages.length > 0
-      ? { ok: true, passages, model: "plain-text" }
+      ? { ok: true, passages, model: "plain-text", pages: pages.length }
       : { ok: false, reason: "This file is empty." };
   }
 
@@ -257,12 +261,22 @@ export async function readDocument(input: DocumentInput, client?: OpenAI): Promi
     return { ok: false, reason: "This doesn't look like an immigration document, so Haven didn't read it." };
   }
 
-  // Keep every page the model read. countPages can undercount compressed PDFs,
-  // so it must not decide which pages survive; the page limit still applies.
-  const pages = parsed.data.pages.filter((p) => p.page >= 1 && p.page <= MAX_PAGES_PER_DOCUMENT && p.text.trim().length > 0);
-  const passages = toPassages(pages);
-  if (passages.length === 0) return { ok: false, reason: "Haven couldn't find any text in this document." };
-  return { ok: true, passages, model: DOCUMENT_READER_MODEL };
+  // The model's own page count is the real one. countPages is only an estimate
+  // (it can undercount compressed PDFs), so it never decides which pages are
+  // kept. Past the limit the whole document is refused, with the reason, rather
+  // than kept with its later pages quietly missing.
+  const read = parsed.data.pages.filter((p) => p.page >= 1 && p.text.trim().length > 0);
+  const pagesRead = Math.max(0, ...read.map((p) => p.page));
+  if (pagesRead > MAX_PAGES_PER_DOCUMENT) {
+    return {
+      ok: false,
+      reason: `This file has more than ${MAX_PAGES_PER_DOCUMENT} pages. Upload the notice or page you need on its own.`,
+      pages: pagesRead
+    };
+  }
+  const passages = toPassages(read);
+  if (passages.length === 0) return { ok: false, reason: "Haven couldn't find any text in this document.", pages: pagesRead };
+  return { ok: true, passages, model: DOCUMENT_READER_MODEL, pages: Math.max(pagesRead, 1) };
 }
 
 /** One embedding per passage, in order. */

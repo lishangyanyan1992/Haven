@@ -103,7 +103,15 @@ const pieces = splitPage(paragraph);
 check("a long paragraph is split, not cut off", pieces.length > 1 && pieces.join(" ").includes("word39"), pieces.length);
 check(
   "bookmark /Count is not taken as pages",
-  countPages({ fileName: "x.pdf", mimeType: "application/pdf", bytes: Buffer.from("%PDF-1.5 << /Type /Outlines /Count 35 >> << /Count 20 /Kids [] /Type /Pages >> /ObjStm") }) === 20
+  countPages({ fileName: "x.pdf", mimeType: "application/pdf", bytes: Buffer.from("%PDF-1.5\n1 0 obj << /Type /Outlines /Count 35 >> endobj\n2 0 obj << /Count 20 /Kids [] /Type /Pages >> endobj /ObjStm") }) === 20
+);
+check(
+  "page tree /Count is found past inherited resources",
+  countPages({
+    fileName: "x.pdf",
+    mimeType: "application/pdf",
+    bytes: Buffer.from("%PDF-1.5\n1 0 obj << /Type /Pages /Resources << /Font << /F1 5 0 R >> >> /Count 40 /Kids [] >> endobj\n2 0 obj << /Type /Outlines /Count 99 >> endobj /ObjStm")
+  }) === 40
 );
 check("page tree /Count is used when page objects are hidden", countPages({ fileName: "x.pdf", mimeType: "application/pdf", bytes: Buffer.from("%PDF-1.5 /Type /Pages /Count 3 /ObjStm") }) === 3);
 
@@ -121,9 +129,26 @@ const threePages = {
   }
 } as unknown as Parameters<typeof readDocument>[1];
 const compressed = await readDocument({ fileName: "c.pdf", mimeType: "application/pdf", bytes: Buffer.from("%PDF-1.5 /ObjStm") }, threePages);
+const fortyPages = {
+  responses: {
+    create: async () => ({
+      output_text: JSON.stringify({
+        readable: true,
+        is_immigration_document: true,
+        pages: Array.from({ length: 40 }, (_, i) => ({ page: i + 1, text: `Page ${i + 1}` }))
+      })
+    })
+  }
+} as unknown as Parameters<typeof readDocument>[1];
+const tooLong = await readDocument({ fileName: "l.pdf", mimeType: "application/pdf", bytes: Buffer.from("%PDF-1.5 /ObjStm") }, fortyPages);
+check(
+  "a document the model finds too long is refused, not cut short",
+  !tooLong.ok && /more than 30 pages/.test(tooLong.reason) && tooLong.pages === 40,
+  tooLong
+);
 check(
   "pages the model read are kept even when the local count is lower",
-  compressed.ok && new Set(compressed.passages.map((p) => p.page)).size === 3,
+  compressed.ok && new Set(compressed.passages.map((p) => p.page)).size === 3 && compressed.pages === 3,
   compressed
 );
 

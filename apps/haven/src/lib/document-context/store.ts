@@ -110,10 +110,25 @@ export async function readQueuedDocument(documentId: string): Promise<ReadOutcom
     return "deferred";
   }
 
+  let actualPages = pages;
   try {
     const result = await readDocument(input);
+
+    // The estimate reserved above can be low (compressed PDFs). Charge the
+    // difference once the real count is known, so the daily cap stays honest.
+    // The read already happened, so this records usage rather than gating it.
+    actualPages = result.pages ?? pages;
+    if (actualPages > pages) {
+      await db.rpc("reserve_document_reading_pages", {
+        p_user_id: claimed.user_id,
+        p_pages: actualPages - pages,
+        // Largest Postgres integer: always fits.
+        p_daily_cap: 2147483647
+      });
+    }
+
     if (!result.ok) {
-      await finish("failed", { reading_error: result.reason, page_count: pages, read_at: new Date().toISOString() });
+      await finish("failed", { reading_error: result.reason, page_count: actualPages, read_at: new Date().toISOString() });
       return "failed";
     }
 
@@ -139,7 +154,7 @@ export async function readQueuedDocument(documentId: string): Promise<ReadOutcom
     throw error;
   }
 
-  await finish("done", { reading_error: null, page_count: pages, read_at: new Date().toISOString() });
+  await finish("done", { reading_error: null, page_count: actualPages, read_at: new Date().toISOString() });
   return "done";
 }
 
