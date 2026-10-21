@@ -1,7 +1,7 @@
 import { AppShell } from "@/components/app/app-shell";
 import { DocumentContextUploader } from "@/components/app/document-context-uploader";
 import { RefreshWhileReading } from "@/components/app/refresh-while-reading";
-import { buttonVariants } from "@/components/ui/button";
+import { PendingSubmitButton } from "@/components/app/pending-submit-button";
 import { Card, CardContent } from "@/components/ui/card";
 import GonePage from "@/app/gone/page";
 import { formatBytes } from "@/lib/document-vault";
@@ -87,16 +87,16 @@ export default async function DocumentsPage() {
                     {status === "not_requested" || status === "failed" ? (
                       <form action={readDocumentAction}>
                         <input name="documentId" type="hidden" value={document.id} />
-                        <button className={buttonVariants({ variant: "outline", size: "sm" })} type="submit">
-                          {status === "failed" ? "Try again" : "Read it"}
-                        </button>
+                        <PendingSubmitButton
+                          label={status === "failed" ? "Try again" : "Read it"}
+                          pendingLabel="Starting…"
+                          variant="outline"
+                        />
                       </form>
                     ) : null}
                     <form action={deleteVaultDocument}>
                       <input name="documentId" type="hidden" value={document.id} />
-                      <button className={buttonVariants({ variant: "ghost", size: "sm" })} type="submit">
-                        Delete
-                      </button>
+                      <PendingSubmitButton label="Delete" pendingLabel="Deleting…" />
                     </form>
                   </div>
                 </div>
