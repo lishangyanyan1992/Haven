@@ -66,7 +66,11 @@ export async function readQueuedDocument(documentId: string): Promise<ReadOutcom
     status: "done" | "failed" | "deferred" | "pending" | "not_requested",
     extra: Record<string, unknown> = {}
   ) => {
-    await db.from("user_documents").update({ reading_status: status, ...extra }).eq("id", documentId);
+    // page_count must be positive in the database; a zero would reject the
+    // whole update and leave the document stuck as "being read".
+    if (typeof extra.page_count === "number") extra = { ...extra, page_count: Math.max(1, extra.page_count) };
+    const { error } = await db.from("user_documents").update({ reading_status: status, ...extra }).eq("id", documentId);
+    if (error) throw new Error(`Could not save reading status: ${error.message}`);
   };
 
   // The test switch is checked again here, not only at upload: emptying it is
@@ -117,7 +121,7 @@ export async function readQueuedDocument(documentId: string): Promise<ReadOutcom
     // The estimate reserved above can be low (compressed PDFs). Charge the
     // difference once the real count is known, so the daily cap stays honest.
     // The read already happened, so this records usage rather than gating it.
-    actualPages = result.pages ?? pages;
+    actualPages = Math.max(result.pages ?? pages, 1);
     if (actualPages > pages) {
       await db.rpc("reserve_document_reading_pages", {
         p_user_id: claimed.user_id,

@@ -275,7 +275,7 @@ export async function readDocument(input: DocumentInput, client?: OpenAI): Promi
     };
   }
   const passages = toPassages(read);
-  if (passages.length === 0) return { ok: false, reason: "Haven couldn't find any text in this document.", pages: pagesRead };
+  if (passages.length === 0) return { ok: false, reason: "Haven couldn't find any text in this document." };
   return { ok: true, passages, model: DOCUMENT_READER_MODEL, pages: Math.max(pagesRead, 1) };
 }
 

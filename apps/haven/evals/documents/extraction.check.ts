@@ -146,6 +146,11 @@ check(
   !tooLong.ok && /more than 30 pages/.test(tooLong.reason) && tooLong.pages === 40,
   tooLong
 );
+const blank = {
+  responses: { create: async () => ({ output_text: JSON.stringify({ readable: true, is_immigration_document: true, pages: [{ page: 1, text: "   " }] }) }) }
+} as unknown as Parameters<typeof readDocument>[1];
+const empty = await readDocument({ fileName: "e.pdf", mimeType: "application/pdf", bytes: Buffer.from("%PDF-1.5") }, blank);
+check("no text found fails without a zero page count", !empty.ok && empty.pages === undefined, empty);
 check(
   "pages the model read are kept even when the local count is lower",
   compressed.ok && new Set(compressed.passages.map((p) => p.page)).size === 3 && compressed.pages === 3,
