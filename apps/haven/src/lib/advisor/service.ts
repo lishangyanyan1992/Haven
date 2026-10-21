@@ -2273,12 +2273,20 @@ function withoutAlreadyAsked(bracket: string, questionsLeft: string[]): string |
   const body = bracket.slice(verb.length).replace(/[.?!]\s*$/, "");
   const parts = body.split(/,\s*(?:and\s+)?|\s+and\s+(?=(?:whether|if|your|any|the|when|what|how)\b)/i).filter((part) => part.trim());
 
-  const kept = parts.filter((part) => {
+  const keep = parts.map((part) => {
     const topics = FOLLOW_UP_TOPICS.filter((topic) => topic.test(normalizeDashes(part)));
     return topics.length === 0 || !topics.every((topic) => questionsLeft.some((question) => topic.test(question)));
   });
+  const kept = parts.filter((_, index) => keep[index]);
 
   if (kept.length === 0) return null;
+  // "your I-94 expiration, whether it has been extended, and your passport
+  // expiration": dropping the I-94 part would leave "it" pointing at nothing.
+  // When a kept part leans on an earlier dropped one, keep the whole bracket.
+  const leansBack = parts.some(
+    (part, index) => keep[index] && keep.slice(0, index).includes(false) && /\b(it|its|it's|they|them|their|that|this|those|one)\b/i.test(part)
+  );
+  if (leansBack) return bracket;
   if (kept.length === parts.length) return bracket;
   return `${bracket.slice(0, verb.length)}${kept.join(" and ")}${end}`;
 }

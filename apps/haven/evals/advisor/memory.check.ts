@@ -453,6 +453,23 @@ async function main() {
       })()
     },
     {
+      name: "a kept part that refers back ('whether it has been extended') keeps the whole bracket",
+      ok: (() => {
+        const bracket = "Also tell me your I\u201194 expiration, whether it has been extended, and your passport expiration.";
+        const r = settleUnknownJobEnd(
+          [
+            lead,
+            "<!--details-->",
+            `${"Detail about how the grace period works, counted from the last day. ".repeat(5)}`,
+            "What is the expiration date on your current Form I\u201194?",
+            `What was your last day of employment? (${bracket})`
+          ].join("\n"),
+          { jobEndUnknown: true, asksAboutTimeLeft: true }
+        );
+        return (r.append ?? "").endsWith(bracket);
+      })()
+    },
+    {
       name: "a bracket the answer does not already ask is still carried",
       ok: (
         settleUnknownJobEnd(
