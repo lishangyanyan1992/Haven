@@ -21,6 +21,7 @@
 
 import * as Sentry from "@sentry/nextjs";
 
+import { buildExchangeRows } from "@/lib/advisor/exchange-rows";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { AdvisorAnswerPayload, AdvisorMessage } from "@/types/domain";
 
@@ -63,22 +64,9 @@ export async function persistExchange(input: {
     // so the try/catch below never saw them and a rejected insert was
     // indistinguishable from a successful one. Swallowing is still right — the
     // answer is already delivered — but it has to be swallowed knowingly.
-    const { error: messagesError } = await admin.from("advisor_messages").insert([
-      {
-        thread_id: input.threadId,
-        user_id: input.userId,
-        role: "user",
-        content: input.question
-      },
-      {
-        thread_id: input.threadId,
-        user_id: input.userId,
-        role: "assistant",
-        content: input.answer.answer_markdown,
-        answer_payload: input.answer,
-        retrieval_metadata: { traceId: input.traceId }
-      }
-    ]);
+    const { error: messagesError } = await admin
+      .from("advisor_messages")
+      .insert(buildExchangeRows(input));
 
     if (messagesError) {
       Sentry.captureMessage(
