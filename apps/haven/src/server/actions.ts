@@ -12,7 +12,6 @@ import { ONBOARDING_OVERRIDE_COOKIE } from "@/lib/profile-sync";
 import { persistProfileDraft } from "@/lib/profile-sync";
 import { env } from "@/lib/env";
 import { SIGNED_IN_HOME } from "@/lib/archived-routes";
-import { captureSignupCompleted } from "@/lib/posthog-server";
 import { isInvitedEmail } from "@/lib/access";
 
 const EMAIL_INGEST_DOMAIN = env.EMAIL_INGEST_DOMAIN ?? "import.haven-h1b.com";
@@ -165,86 +164,13 @@ export async function signInAction(formData: FormData) {
   redirect(finalRedirect);
 }
 
-export async function signUpAction(formData: FormData) {
-  const supabase = await createSupabaseServerClient();
-  const fullName = String(formData.get("fullName") ?? "");
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const password = String(formData.get("password") ?? "");
-  const admin = createSupabaseAdminClient() as any;
-
-  if (!(await isInvitedEmail(email))) {
-    redirect("/register?message=not_invited");
-  }
-
-  // Check if a profile already exists (stub or complete)
-  const { data: existingProfile } = await admin
-    .from("user_profiles")
-    .select("id, email")
-    .eq("email", email)
-    .maybeSingle();
-
-  if (existingProfile) {
-    // Distinguish full account vs. incomplete onboarding stub
-    const { data: emailAlias } = await admin
-      .from("email_aliases")
-      .select("id")
-      .eq("user_id", existingProfile.id)
-      .maybeSingle();
-
-    if (emailAlias) {
-      redirect(`/login?email=${encodeURIComponent(email)}&message=existing_account`);
-    } else {
-      redirect(`/login?email=${encodeURIComponent(email)}&message=incomplete_onboarding&progress=0`);
-    }
-  }
-
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: { data: { full_name: fullName } }
-  });
-
-  if (error) {
-    if (error.message.toLowerCase().includes("already")) {
-      redirect(`/login?email=${encodeURIComponent(email)}&message=existing_account`);
-    }
-    if (error.message.toLowerCase().includes("rate limit")) {
-      redirect(`/register?email=${encodeURIComponent(email)}&message=rate_limited`);
-    }
-    throw new Error(error.message);
-  }
-
-  // Auth user already existed but no profile (edge case: profile was deleted)
-  if (data.user && (!data.user.identities || data.user.identities.length === 0)) {
-    redirect(`/login?email=${encodeURIComponent(email)}&message=incomplete_onboarding&progress=0`);
-  }
-
-  if (data.user) {
-    await captureSignupCompleted(data.user.id);
-  }
-
-  if (data.session && data.user) {
-    // Email confirmation disabled — create stub profile and go to onboarding
-    await admin.from("user_profiles").upsert({
-      id: data.user.id,
-      full_name: fullName || email.split("@")[0],
-      email,
-      visa_type: "H1B",
-      country_of_birth: "",
-      perm_stage: "not_started",
-      preference_category: "Not sure",
-      i485_filed: false,
-      i140_approved: false,
-      employment_status: "employed",
-      spouse_visa_status: "none",
-      primary_goal: "not_sure",
-      top_concerns: []
-    });
-    redirect("/onboarding");
-  }
-
-  // Email confirmation enabled — ask user to verify first
-  redirect(`/login?email=${encodeURIComponent(email)}&message=confirm_email`);
+/**
+ * Open sign-up is closed: Haven is invitation only. Accounts are created by
+ * the invite email sendInviteLinkAction sends, which proves mailbox ownership.
+ * Kept so any old form post lands somewhere sensible.
+ */
+export async function signUpAction(_formData: FormData) {
+  redirect("/register");
 }
 
 export async function submitWaitlistAction(input: {
@@ -593,11 +519,33 @@ function sanitizeWaitlistMetadata(metadata: Record<string, string> | undefined) 
   return clean;
 }
 
-/** The invite chat asks this before showing the sign-up form. */
-export async function checkInviteAction(input: { email: string }) {
+/**
+ * The invite chat's "my lawyer invited me" step. If the email is invited and
+ * has no account yet, Supabase emails it a link to set a password. The visitor
+ * always gets the same reply, so the chat never reveals who is invited.
+ */
+export async function sendInviteLinkAction(input: { email: string }) {
   const email = String(input.email ?? "").trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 320) {
     return { status: "invalid" as const };
   }
-  return { status: (await isInvitedEmail(email)) ? ("invited" as const) : ("not_invited" as const) };
+
+  if (await isInvitedEmail(email)) {
+    try {
+      const admin = createSupabaseAdminClient() as any;
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+      const { error } = await admin.auth.admin.inviteUserByEmail(email, {
+        redirectTo: `${siteUrl}/auth/callback?next=/reset-password`
+      });
+      // An existing account returns an error here; they should sign in instead,
+      // and the shared reply already says so.
+      if (error && !/already/i.test(error.message)) {
+        console.error("[invite] could not send invite link", error.message);
+      }
+    } catch (error) {
+      console.error("[invite] could not send invite link", error);
+    }
+  }
+
+  return { status: "sent" as const };
 }

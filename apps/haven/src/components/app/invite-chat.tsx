@@ -6,8 +6,7 @@ import { ArrowRight, LoaderCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { RegisterForm } from "@/app/register/RegisterForm";
-import { checkInviteAction, submitWaitlistAction } from "@/server/actions";
+import { sendInviteLinkAction, submitWaitlistAction } from "@/server/actions";
 import { cn } from "@/lib/utils";
 
 /**
@@ -15,7 +14,7 @@ import { cn } from "@/lib/utils";
  *
  * A short scripted chat (no AI) sorts people into three paths:
  * - lawyers request access for their firm
- * - clients whose lawyer invited them check their email and sign up
+ * - clients whose lawyer invited them get a sign-up link by email
  * - everyone else is told to ask their lawyer, and can leave an email
  */
 
@@ -60,13 +59,15 @@ export function InviteChat({ notInvited = false }: { notInvited?: boolean }) {
       : [OPENING]
   );
   const [path, setPath] = useState<Path | null>(null);
-  const [step, setStep] = useState<"choose" | "form" | "signup" | "done">("choose");
+  const [step, setStep] = useState<"choose" | "form" | "done">("choose");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [firm, setFirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const endRef = useRef<HTMLDivElement>(null);
+  // Bumped on every new choice, so a reply to an abandoned attempt is ignored.
+  const attemptRef = useRef(0);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -77,6 +78,7 @@ export function InviteChat({ notInvited = false }: { notInvited?: boolean }) {
   }
 
   function choose(nextPath: Path, label: string) {
+    attemptRef.current += 1;
     setPath(nextPath);
     setStep("form");
     setError(null);
@@ -109,31 +111,30 @@ export function InviteChat({ notInvited = false }: { notInvited?: boolean }) {
     event.preventDefault();
     if (!path || isPending) return;
     setError(null);
+    const attempt = attemptRef.current;
 
     startTransition(async () => {
       if (path === "client") {
-        const result = await checkInviteAction({ email });
+        const result = await sendInviteLinkAction({ email });
+        if (attempt !== attemptRef.current) return;
         if (result.status === "invalid") {
           setError("That doesn't look like an email address.");
           return;
         }
-        say([{ from: "you", body: email }]);
-        if (result.status === "invited") {
-          say([{ from: "haven", body: <>You&apos;re on the list. Create your account below.</> }]);
-          setStep("signup");
-        } else {
-          say([
-            {
-              from: "haven",
-              body: (
-                <>
-                  I couldn&apos;t find an invite for that email. Check with your lawyer which email they used, or ask
-                  them to send one.
-                </>
-              )
-            }
-          ]);
-        }
+        say([
+          { from: "you", body: email },
+          {
+            from: "haven",
+            body: (
+              <>
+                If your lawyer invited {email}, a sign-up link is on its way there now. Open it to set your password.
+                Already set up? <Link className="underline underline-offset-2" href="/login">Sign in</Link>. No email
+                in a few minutes? Check spam, or ask your lawyer which address they used.
+              </>
+            )
+          }
+        ]);
+        setStep("done");
         return;
       }
 
@@ -146,6 +147,7 @@ export function InviteChat({ notInvited = false }: { notInvited?: boolean }) {
         metadata: path === "lawyer" ? { firm, role: "lawyer" } : { role: "individual" }
       });
 
+      if (attempt !== attemptRef.current) return;
       if (result.status !== "success") {
         setError(result.message);
         return;
@@ -205,12 +207,6 @@ export function InviteChat({ notInvited = false }: { notInvited?: boolean }) {
           </div>
         ) : null}
 
-        {step === "signup" ? (
-          <div className="rounded-[var(--radius-xl)] border border-[var(--color-border)] p-4">
-            <RegisterForm defaultEmail={email} />
-          </div>
-        ) : null}
-
         <div ref={endRef} />
       </div>
 
@@ -252,8 +248,10 @@ export function InviteChat({ notInvited = false }: { notInvited?: boolean }) {
           </div>
           {error ? <p className="text-body-sm text-[#7a3030]">{error}</p> : null}
           <button
-            className="text-caption text-[var(--haven-ink-mid)] underline underline-offset-2"
+            className="text-caption text-[var(--haven-ink-mid)] underline underline-offset-2 disabled:opacity-50"
+            disabled={isPending}
             onClick={() => {
+              attemptRef.current += 1;
               setStep("choose");
               setPath(null);
               setError(null);
