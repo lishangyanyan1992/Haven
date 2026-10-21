@@ -61,6 +61,13 @@ import {
   type ProfileUpdate
 } from "@/lib/advisor/profile-updates";
 import { persistProfileDraft } from "@/lib/profile-sync";
+import {
+  DOCUMENT_MATCH_SIMILARITY,
+  documentContextAvailableFor,
+  renderPassagesForPrompt,
+  searchUserDocuments,
+  type DocumentPassage
+} from "@/lib/document-context/store";
 import { openLayoffEvent } from "@/lib/layoff-events";
 import { renderLayoffOptionsForPrompt } from "@/lib/advisor/layoff-options";
 import {
@@ -4227,7 +4234,28 @@ export async function* streamAdvisorResponse(
   // Both paths return before the model call: an answer to a question we have not
   // understood is worse than no answer, and skipping generation also makes the
   // repair fast, which matters most to the people who end up here.
-  if (threadState.resolution === "unmatched") {
+  // Passages from the user's own uploaded documents that relate to this
+  // question (see src/lib/document-context). Looked up before the
+  // understood-or-not check below, for the same reason a profile-resolved
+  // question counts as matched: "until when can I stay?" names no topic, but if
+  // the user's I-94 answers it, asking them which topic they meant is the wrong
+  // reply. Test personas carry their own passages so the eval can exercise this
+  // without a database.
+  let documentPassages: DocumentPassage[] = [];
+  const documentPersona = identity.isMock ? resolveTestPersona() : null;
+  if (documentPersona?.documentPassages) {
+    documentPassages = documentPersona.documentPassages;
+  } else if (!identity.isMock && documentContextAvailableFor(identity.email)) {
+    try {
+      documentPassages = await searchUserDocuments(identity.id, content);
+    } catch {
+      // Like memory: an enhancement, never a reason to lose the answer.
+    }
+  }
+  const documentPassageLines = renderPassagesForPrompt(documentPassages);
+  const documentsAnswerIt = documentPassages.some((p) => p.similarity >= DOCUMENT_MATCH_SIMILARITY);
+
+  if (threadState.resolution === "unmatched" && !documentsAnswerIt) {
     const escalate = threadState.consecutiveMisses >= 2;
     const guardrailId = escalate ? "MSG_ESCALATE_AFTER_MISSES" : "MSG_CLARIFY_UNRECOGNIZED";
     const repairPayload: AdvisorAnswerPayload = {
@@ -4499,6 +4527,15 @@ export async function* streamAdvisorResponse(
     ...(optionAttributes.length > 0 ? [buildContextBlock("Option attributes", optionAttributes), ""] : []),
     ...(rememberedFacts.length > 0
       ? [buildContextBlock("What the user told you before (reported, not verified)", renderFactsForPrompt(rememberedFacts)), ""]
+      : []),
+    ...(documentPassageLines.length > 0
+      ? [
+          buildContextBlock("From the user's own documents", [
+            ...documentPassageLines,
+            "These are passages from documents the user uploaded, each tagged with the document and page. When one of them settles a date or status in the answer, use it over the profile and say which document and page it came from (for example: \"your I-94 (page 1) shows…\"). Use only what a passage actually says; if they do not answer the question, ignore them."
+          ]),
+          ""
+        ]
       : []),
 
     buildContextBlock("Haven profile summary", promptProfileSummary),

@@ -57,4 +57,5 @@ export async function deleteVaultDocument(formData: FormData) {
   revalidatePath("/inbox");
   revalidatePath("/dashboard");
   revalidatePath("/planner");
+  revalidatePath("/documents");
 }

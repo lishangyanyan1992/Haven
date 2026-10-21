@@ -61,11 +61,9 @@ export const archivedRoutes: ArchivedRoute[] = [
     label: "Clients",
     reason: "Unused surface from an earlier direction."
   },
-  {
-    prefix: "/documents",
-    label: "Documents",
-    reason: "Unused surface from an earlier direction."
-  },
+  // "/documents" was parked here as an unused surface. It is now the document
+  // page the chat answers from (openspec change add-document-upload-profile),
+  // hidden by DOCUMENT_READING_ALLOWLIST rather than by this list.
   {
     prefix: "/reports",
     label: "Reports",

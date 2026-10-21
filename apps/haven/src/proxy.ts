@@ -6,7 +6,7 @@ import { applySharedCookieOptions } from "@haven/auth/cookie-options";
 import { authEnv, hasSupabaseEnv } from "@haven/auth/env";
 import { isArchivedPath } from "@/lib/archived-routes";
 
-const protectedPrefixes = ["/dashboard", "/onboarding", "/profile", "/timeline", "/planner", "/advisor", "/inbox", "/settings"];
+const protectedPrefixes = ["/dashboard", "/onboarding", "/profile", "/timeline", "/planner", "/advisor", "/inbox", "/settings", "/documents"];
 
 export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;

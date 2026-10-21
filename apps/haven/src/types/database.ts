@@ -1486,8 +1486,90 @@ export type Database = {
           },
         ]
       }
+      document_chunks: {
+        Row: {
+          chunk_index: number
+          content: string
+          created_at: string
+          document_id: string
+          embedding: string
+          id: string
+          model: string
+          page: number
+          user_id: string
+        }
+        Insert: {
+          chunk_index: number
+          content: string
+          created_at?: string
+          document_id: string
+          embedding: string
+          id?: string
+          model: string
+          page: number
+          user_id: string
+        }
+        Update: {
+          chunk_index?: number
+          content?: string
+          created_at?: string
+          document_id?: string
+          embedding?: string
+          id?: string
+          model?: string
+          page?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_chunks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "user_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_chunks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_reading_usage: {
+        Row: {
+          day: string
+          pages: number
+          user_id: string
+        }
+        Insert: {
+          day: string
+          pages?: number
+          user_id: string
+        }
+        Update: {
+          day?: string
+          pages?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_reading_usage_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_documents: {
         Row: {
+          page_count: number | null
+          read_at: string | null
+          reading_error: string | null
+          reading_started_at: string | null
+          reading_status: string
           crisis_critical: boolean
           display_label: string
           document_kind: string
@@ -1503,6 +1585,11 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          page_count?: number | null
+          read_at?: string | null
+          reading_error?: string | null
+          reading_started_at?: string | null
+          reading_status?: string
           crisis_critical?: boolean
           display_label: string
           document_kind: string
@@ -1518,6 +1605,11 @@ export type Database = {
           user_id: string
         }
         Update: {
+          page_count?: number | null
+          read_at?: string | null
+          reading_error?: string | null
+          reading_started_at?: string | null
+          reading_status?: string
           crisis_critical?: boolean
           display_label?: string
           document_kind?: string
@@ -1763,6 +1855,26 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      match_document_chunks: {
+        Args: {
+          match_count?: number
+          min_similarity?: number
+          p_user_id: string
+          query_embedding: string
+        }
+        Returns: {
+          content: string
+          document_id: string
+          document_label: string
+          id: string
+          page: number
+          similarity: number
+        }[]
+      }
+      reserve_document_reading_pages: {
+        Args: { p_daily_cap: number; p_pages: number; p_user_id: string }
+        Returns: boolean
+      }
       aggregate_case_outcomes: {
         Args: {
           p_category?: string

@@ -65,6 +65,22 @@ export function inferDocumentMetadata(fileName: string, mimeType?: string | null
     };
   }
 
+  if (/i[\s-]?94\b|arrival record|admission record/.test(normalized)) {
+    return {
+      documentKind: "other" as const,
+      displayLabel: customLabel?.trim() || "I-94 arrival record",
+      crisisCritical: true
+    };
+  }
+
+  if (/i[\s-]?20\b|certificate of eligibility/.test(normalized)) {
+    return {
+      documentKind: "other" as const,
+      displayLabel: customLabel?.trim() || "Form I-20",
+      crisisCritical: false
+    };
+  }
+
   if (/i[\s-]?797|receipt|uscis notice|approval notice/.test(normalized)) {
     return {
       documentKind: "uscis_notice" as const,

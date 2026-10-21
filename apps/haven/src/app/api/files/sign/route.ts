@@ -1,10 +1,12 @@
 import { randomUUID } from "node:crypto";
 
 import { revalidatePath } from "next/cache";
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isReadableMimeType } from "@/lib/document-context/read";
+import { documentContextAvailableFor, readQueuedDocument } from "@/lib/document-context/store";
 import {
   HAVEN_VAULT_BUCKET,
   MAX_DOCUMENT_BYTES,
@@ -164,6 +166,15 @@ export async function POST(request: Request) {
       );
     }
 
+    // The documents page only takes files Haven can read for the chat; Word and
+    // iPhone HEIC are refused with a way forward instead of stored unreadable.
+    if (formData.get("purpose") === "context" && !isReadableMimeType(contentType)) {
+      return NextResponse.json(
+        { error: "Haven can't read Word or iPhone HEIC files. Save it as a PDF or JPG and upload that." },
+        { status: 415 }
+      );
+    }
+
     const inferred = inferDocumentMetadata(file.name, file.type, customLabel);
     const extensionSafeName = sanitizeFilename(file.name || "document");
     const storagePath = `${user.id}/${new Date().toISOString().slice(0, 7)}/${randomUUID()}-${extensionSafeName}`;
@@ -208,12 +219,37 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Failed to save document record." }, { status: 500 });
     }
 
+    // Read it so the chat can answer from it. The read runs after the response,
+    // so the upload itself is no slower; the daily job picks up anything this
+    // misses. Hidden behind the test switch until it is opened up.
+    let readingQueued = false;
+    if (documentContextAvailableFor(user.email)) {
+      try {
+        await admin.from("user_documents").update({ reading_status: "pending" }).eq("id", document.id);
+        readingQueued = true;
+        after(async () => {
+          try {
+            await readQueuedDocument(document.id);
+          } catch (error) {
+            console.error("[files/sign] document read error:", error);
+          } finally {
+            revalidatePath("/documents");
+          }
+        });
+      } catch (error) {
+        // Reading is an extra. A failure here must not fail an upload that worked.
+        console.error("[files/sign] reading queue error:", error);
+      }
+    }
+
     revalidatePath("/inbox");
     revalidatePath("/dashboard");
     revalidatePath("/planner");
+    revalidatePath("/documents");
 
     return NextResponse.json({
       id: document.id,
+      readingQueued,
       displayLabel: document.display_label,
       documentKind: document.document_kind,
       crisisCritical: document.crisis_critical
