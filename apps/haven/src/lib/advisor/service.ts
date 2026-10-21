@@ -2206,7 +2206,7 @@ const DEADLINE_SENTENCE = /(laid off|lay ?off|terminat|last (working )?day|job e
 const DOCUMENT_LIMIT_BEFORE = /\b(i-?94|passport|ead|visa stamp|petition|approval notice)\b[^.,;]{0,25}$/i;
 
 export function statesJobEndDeadline(answer: string): boolean {
-  return splitSentences(answer).some((sentence) => {
+  return splitSentences(normalizeDashes(answer)).some((sentence) => {
     if (!DEADLINE_SENTENCE.test(sentence)) return false;
     for (const match of sentence.matchAll(CONCRETE_DATE)) {
       const before = sentence.slice(0, match.index ?? 0);
@@ -2241,6 +2241,55 @@ const ASKS_FOR_LAST_DAY = /\b(tell me|share|give me|send me|let me know)\b[^.?!]
 
 /** A bracket after the question that asks for something more ("Also tell me …"). */
 const BRACKET_REQUEST = /^((also,?|and|please)\s+)*(tell|share|give|send|include|add|let me know|confirm)\b|\?\s*$/i;
+
+/** Things a follow-up bracket asks for, to tell whether the answer already asks them. */
+const FOLLOW_UP_TOPICS = [
+  /\bi-?94\b/i,
+  /\bpetition\b|\bchange-of-status\b|\bchange of status\b/i,
+  /\bead\b|employment authori[sz]ation/i,
+  /\bpassport\b/i,
+  /\bvisa stamp\b/i
+];
+
+/**
+ * The model writes "I‑94" with a non-breaking hyphen as often as a plain one, and
+ * every pattern here is written with "-". Matching only, never the text shown.
+ */
+function normalizeDashes(text: string): string {
+  return text.replace(/[\u2010-\u2015\u2212]/g, "-");
+}
+
+/**
+ * A bracket request minus the parts the answer already asks; null when nothing
+ * is left. Split per request, so "your I-94 expiration and whether you have left
+ * the U.S." keeps the travel question when only the I-94 date is asked elsewhere.
+ * A part naming no known topic is always kept.
+ */
+function withoutAlreadyAsked(bracket: string, questionsLeft: string[]): string | null {
+  const normalized = normalizeDashes(bracket);
+  // normalizeDashes swaps characters one for one, so lengths line up.
+  const verb = normalized.match(/^((?:also,?|and|please)\s+)*(?:tell me|share|give me|send me|let me know|confirm|include|add)\s+/i)?.[0] ?? "";
+  const end = /\?\s*$/.test(bracket) ? "?" : ".";
+  const body = bracket.slice(verb.length).replace(/[.?!]\s*$/, "");
+  const parts = body.split(/,\s*(?:and\s+)?|\s+and\s+(?=(?:whether|if|your|any|the|when|what|how)\b)/i).filter((part) => part.trim());
+
+  const keep = parts.map((part) => {
+    const topics = FOLLOW_UP_TOPICS.filter((topic) => topic.test(normalizeDashes(part)));
+    return topics.length === 0 || !topics.every((topic) => questionsLeft.some((question) => topic.test(question)));
+  });
+  const kept = parts.filter((_, index) => keep[index]);
+
+  if (kept.length === 0) return null;
+  // "your I-94 expiration, whether it has been extended, and your passport
+  // expiration": dropping the I-94 part would leave "it" pointing at nothing.
+  // When a kept part leans on an earlier dropped one, keep the whole bracket.
+  const leansBack = parts.some(
+    (part, index) => keep[index] && keep.slice(0, index).includes(false) && /\b(it|its|it's|they|them|their|that|this|those|one)\b/i.test(part)
+  );
+  if (leansBack) return bracket;
+  if (kept.length === parts.length) return bracket;
+  return `${bracket.slice(0, verb.length)}${kept.join(" and ")}${end}`;
+}
 
 /** The model asking for the last day as a question. These copies are removable. */
 const LAST_DAY_QUESTION = /\b(what|when) (was|is|will be|were) (your|the) (last|final) (day|date)\b[^?]*\?|\bwhen did (your (job|employment)|you(r)? (stop|finish) work)[^?]*\?/i;
@@ -2300,7 +2349,14 @@ export function settleUnknownJobEnd(
     .replace(/\n{3,}/g, "\n\n")
     .trimEnd();
 
+  // What the rest of the answer already asks is not carried. Live on 2026-10-21
+  // the I-94 date was asked in the hidden "What I don't know" list and again in
+  // the visible ask.
+  const questionsLeft = splitSentences(normalizeDashes(cleaned)).filter((sentence) => /\?\s*$/.test(sentence));
+
   const extra = carried
+    .map((text) => withoutAlreadyAsked(text, questionsLeft))
+    .filter((text): text is string => text !== null)
     .map((text) => text.replace(/^((also,?|and|please)\s+)+/i, ""))
     .map((text) => (/^[A-Z][a-z]/.test(text) ? text.charAt(0).toLowerCase() + text.slice(1) : text))
     .map((text) => (/\?\s*$/.test(text) ? `Also, ${text.trim()}` : `Also ${text}`.replace(/[.!]?$/, ".")))
