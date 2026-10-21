@@ -2029,8 +2029,20 @@ function buildPromptProfileSummary(query: string, topics: TopicBucket[], userCon
  */
 const JOB_END_SENTENCE = /(laid off|lay ?off|terminat|fired|let go|redundan|resign|last (working )?day|final day|notice period|lost (my|the) job|job (ended|ends))/i;
 
-/** Starting a new job after a remembered job loss means the old loss no longer counts. */
-const NEW_JOB_STARTED = /\b(started|start|joined|began)\b.{0,30}\b(job|employer|company|position|role)\b/i;
+/**
+ * Starting a new job after a remembered job loss means the old loss no longer
+ * counts. Only a plain statement that they already started: "When can I start a
+ * new job?" and "I haven't started a new job" must not retire the layoff.
+ */
+const NEW_JOB_STARTED = /\bi(?: have|'ve)?\s+(?:just\s+|now\s+|recently\s+)?(?:started|joined|began)\b.{0,30}\b(job|employer|company|position|role)\b/i;
+const NEGATION = /\b(not|never|no|haven't|hasn't|didn't|don't|won't|can't|yet)\b/i;
+const ASKING = /^(what|when|how|why|can|could|should|would|do|does|did|is|are|will|if)\b|\?\s*$/i;
+
+function saysStartedNewJob(text: string): boolean {
+  return splitSentences(text).some(
+    (sentence) => NEW_JOB_STARTED.test(sentence) && !NEGATION.test(sentence) && !ASKING.test(sentence.trim())
+  );
+}
 
 /**
  * Split into sentences without breaking "Dec. 19" or "Oct. 2" in two. A full stop
@@ -2045,11 +2057,12 @@ function splitSentences(text: string): string[] {
  *
  * "I was laid off after my petition was approved on October 2" dates the
  * approval, not the layoff. Cutting at the joining words keeps a date only when it
- * sits in the same clause as the job loss.
+ * sits in the same clause as the job loss. Commas do not split, so "I was laid
+ * off, effective October 2" keeps its date.
  */
 function jobEndClauses(sentence: string): string[] {
   return sentence
-    .split(/,|;|\s+(?:after|before|when|while|because|since|but|and|once|until)\s+/i)
+    .split(/;|\s+(?:after|before|when|while|because|since|but|and|once|until)\s+/i)
     .filter((clause) => JOB_END_SENTENCE.test(clause) || mentionsJobLoss(clause.toLowerCase()));
 }
 
@@ -2067,13 +2080,13 @@ export function jobEndDateUnknown(input: {
   const newestNewJob = Math.max(
     -Infinity,
     ...input.rememberedFacts
-      .filter((fact) => NEW_JOB_STARTED.test(fact.quote))
+      .filter((fact) => saysStartedNewJob(fact.quote))
       .map((fact) => Date.parse(fact.createdAt ?? "") || -Infinity)
   );
   const employmentFacts = input.rememberedFacts.filter(
     (fact) => fact.kind === "employment" && (Date.parse(fact.createdAt ?? "") || -Infinity) >= newestNewJob
   );
-  const startedNewJobNow = !jobLossInConversation && input.userTexts.some((text) => NEW_JOB_STARTED.test(text));
+  const startedNewJobNow = !jobLossInConversation && input.userTexts.some(saysStartedNewJob);
 
   const knowsOfJobLoss = jobLossInConversation || (employmentFacts.length > 0 && !startedNewJobNow);
   if (!knowsOfJobLoss) return false;
@@ -2092,26 +2105,33 @@ export function jobEndDateUnknown(input: {
  * user gave us. Matches concrete dates only (2026-12-19, Dec 19, 19 December);
  * "60 days after your last day" is the right answer and must not trip it.
  *
- * A sentence about the I-94 or another document's expiry is left alone: that date
- * is real, it can end the grace period sooner, and calling it a guess would tell
- * somebody to ignore an actual limit.
+ * A date that is a document's own limit ("your I-94 expiry on December 19") is
+ * left alone: it is real, it can end the grace period sooner, and calling it a
+ * guess would tell somebody to ignore an actual limit. Only that date is exempt;
+ * "ends on December 19, unless your I-94 expires sooner" is still caught.
  */
-const CONCRETE_DATE = new RegExp(
+const CONCRETE_DATE_SOURCE = (
   [
     "\\b\\d{4}-\\d{1,2}-\\d{1,2}\\b",
     "\\b\\d{1,2}/\\d{1,2}(/\\d{2,4})?\\b",
     "\\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\.?\\s+\\d{1,2}(st|nd|rd|th)?\\b",
     "\\b\\d{1,2}(st|nd|rd|th)?\\s+(of\\s+)?(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\b"
-  ].join("|"),
-  "i"
+  ].join("|")
 );
+const CONCRETE_DATE = new RegExp(CONCRETE_DATE_SOURCE, "gi");
 const DEADLINE_SENTENCE = /(laid off|lay ?off|terminat|last (working )?day|job ended|grace period|\b60[- ]day|\b60 days|\b90[- ]day|\b90 days|days left|days remaining|must (leave|depart)|stay (in the u\.?s\.?|until)|allowed to stay|unemployment)/i;
-const DOCUMENT_EXPIRY = /\b(i-?94|passport|ead|visa stamp|expir|valid until|petition end|approval notice)\b/i;
+/** Words just before a date that make it a document's limit, not a computed one. */
+const DOCUMENT_LIMIT_BEFORE = /\b(i-?94|passport|ead|visa stamp|petition|approval notice)\b[^.,;]{0,25}$/i;
 
 export function statesJobEndDeadline(answer: string): boolean {
-  return splitSentences(answer).some(
-    (sentence) => DEADLINE_SENTENCE.test(sentence) && CONCRETE_DATE.test(sentence) && !DOCUMENT_EXPIRY.test(sentence)
-  );
+  return splitSentences(answer).some((sentence) => {
+    if (!DEADLINE_SENTENCE.test(sentence)) return false;
+    for (const match of sentence.matchAll(CONCRETE_DATE)) {
+      const before = sentence.slice(0, match.index ?? 0);
+      if (!DOCUMENT_LIMIT_BEFORE.test(before)) return true;
+    }
+    return false;
+  });
 }
 
 /**

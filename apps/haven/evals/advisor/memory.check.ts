@@ -254,6 +254,35 @@ async function main() {
         ]
       })
     },
+    // Second review on PR #98.
+    {
+      name: "'When can I start a new job?' does not retire an undated layoff",
+      ok: jobEndDateUnknown({ layoffDateOnFile: null, userTexts: ["When can I start a new job?"], rememberedFacts: [undated] })
+    },
+    {
+      name: "'I have not started a new job' does not retire an undated layoff",
+      ok: jobEndDateUnknown({
+        layoffDateOnFile: null,
+        userTexts: ["I have not started a new job. How long can I stay?"],
+        rememberedFacts: [undated]
+      })
+    },
+    {
+      name: "'I started at a new company' in this conversation retires an undated remembered layoff",
+      ok: !jobEndDateUnknown({
+        layoffDateOnFile: null,
+        userTexts: ["I started at a new company last week. Can I travel?"],
+        rememberedFacts: [undated]
+      })
+    },
+    {
+      name: "'laid off, effective October 2' counts as a supplied date",
+      ok: !jobEndDateUnknown({ layoffDateOnFile: null, userTexts: ["I was laid off, effective October 2."], rememberedFacts: [] })
+    },
+    {
+      name: "a guessed date next to an I-94 caveat is still caught",
+      ok: statesJobEndDeadline("Your grace period ends on December 19, unless your I-94 expires sooner.")
+    },
     // Backstop on the finished answer.
     {
       name: "'ends on Dec. 19' is not split apart at the abbreviation",
