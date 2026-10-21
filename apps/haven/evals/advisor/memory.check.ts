@@ -365,6 +365,26 @@ async function main() {
       })()
     },
     {
+      name: "'I can't tell you … without your last day' does not count as asking",
+      ok:
+        settleUnknownJobEnd(
+          `I can't tell you the deadline without your last day of employment, because everything is counted from it.\n<!--details-->\n${"Detail about how the grace period and the I-94 interact, counted from the last day. ".repeat(4)}`,
+          { jobEndUnknown: true, asksAboutTimeLeft: true }
+        ).append === UNKNOWN_JOB_END_ASK
+    },
+    ...[
+      ["(What is your current I-94 end date?)", "Also, what is your current I-94 end date?"],
+      ["(And please tell me your current I-94 end date.)", "Also tell me your current I-94 end date."]
+    ].map(([bracket, want]) => ({
+      name: `a bracket request in another form is carried: ${bracket}`,
+      ok: (
+        settleUnknownJobEnd(
+          `${lead}\n<!--details-->\n${"Detail about how the grace period and the I-94 interact. ".repeat(5)}\nWhat was your last day of employment? ${bracket}`,
+          { jobEndUnknown: true, asksAboutTimeLeft: true }
+        ).append ?? ""
+      ).endsWith(want)
+    })),
+    {
       name: "a visible ask is left alone",
       ok:
         settleUnknownJobEnd(`${lead} What was your last day of employment?`, { jobEndUnknown: true, asksAboutTimeLeft: true })

@@ -2174,10 +2174,12 @@ export const UNKNOWN_JOB_END_ASK = `${APPENDED_BLOCK_LABELS[6]} I don't know it 
  * your last day of employment", the question-only pattern missed it, and the
  * answer asked twice.
  */
-const ASKS_FOR_LAST_DAY = /\b(tell|share|give|send|let me know|confirm)\b[^.?!]{0,40}\b(last|final) (day|date)\b|\b(what|when) (was|is|will be|were) (your|the) (last|final) (day|date)\b/i;
+// Requests are addressed to "me": "I can't tell you the deadline without your
+// last day" explains, it does not ask, and must not count.
+const ASKS_FOR_LAST_DAY = /\b(tell me|share|give me|send me|let me know)\b[^.?!]{0,40}\b(last|final) (day|date)\b|\b(what|when) (was|is|will be|were) (your|the) (last|final) (day|date)\b/i;
 
 /** A bracket after the question that asks for something more ("Also tell me …"). */
-const BRACKET_REQUEST = /^(also,?\s+|and\s+|please\s+)?(tell|share|give|send|include|add|let me know|confirm)\b/i;
+const BRACKET_REQUEST = /^((also,?|and|please)\s+)*(tell|share|give|send|include|add|let me know|confirm)\b|\?\s*$/i;
 
 /** The model asking for the last day as a question. These copies are removable. */
 const LAST_DAY_QUESTION = /\b(what|when) (was|is|will be|were) (your|the) (last|final) (day|date)\b[^?]*\?|\bwhen did (your (job|employment)|you(r)? (stop|finish) work)[^?]*\?/i;
@@ -2238,9 +2240,9 @@ export function settleUnknownJobEnd(
     .trimEnd();
 
   const extra = carried
-    .map((text) => text.replace(/^(also,?|and|please)\s+/i, ""))
+    .map((text) => text.replace(/^((also,?|and|please)\s+)+/i, ""))
     .map((text) => (/^[A-Z][a-z]/.test(text) ? text.charAt(0).toLowerCase() + text.slice(1) : text))
-    .map((text) => `Also ${text}`.replace(/[.!?]?$/, "."))
+    .map((text) => (/\?\s*$/.test(text) ? `Also, ${text.trim()}` : `Also ${text}`.replace(/[.!]?$/, ".")))
     .join(" ");
   const ask = invented ? UNKNOWN_JOB_END_CORRECTION : UNKNOWN_JOB_END_ASK;
 
