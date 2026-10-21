@@ -347,6 +347,24 @@ async function main() {
       ok: /What was your last day of employment\? Also tell me your current I-94 end date if you know it\.$/.test(settledHidden.append ?? "")
     },
     {
+      name: "live 2026-10-21: 'please tell me your last day' in the lead counts as asking",
+      ok:
+        settleUnknownJobEnd(
+          `I can't tell you the exact date you may remain in the U.S. because that date is calculated from your last day of employment; please tell me your last day of employment.\n<!--details-->\n${"Detail about how the grace period and the I-94 interact, counted from the last day. ".repeat(4)}`,
+          { jobEndUnknown: true, asksAboutTimeLeft: true }
+        ).append === null
+    },
+    {
+      name: "live 2026-10-21: a bracket that is a note, not a request, is not carried",
+      ok: (() => {
+        const r = settleUnknownJobEnd(
+          `${lead}\n<!--details-->\n${"Detail about how the grace period and the I-94 interact. ".repeat(5)}\nWhat was your last day of employment? (Haven does not have this on file.)`,
+          { jobEndUnknown: true, asksAboutTimeLeft: true }
+        );
+        return r.append === UNKNOWN_JOB_END_ASK && !/on file/.test(r.answer);
+      })()
+    },
+    {
       name: "a visible ask is left alone",
       ok:
         settleUnknownJobEnd(`${lead} What was your last day of employment?`, { jobEndUnknown: true, asksAboutTimeLeft: true })

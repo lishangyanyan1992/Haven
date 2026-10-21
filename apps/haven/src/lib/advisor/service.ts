@@ -2168,7 +2168,18 @@ export const UNKNOWN_JOB_END_CORRECTION = `${APPENDED_BLOCK_LABELS[6]} I don't h
 /** Shown when the answer did not ask, or asked only behind the toggle. */
 export const UNKNOWN_JOB_END_ASK = `${APPENDED_BLOCK_LABELS[6]} I don't know it yet, and everything after a job ends is counted from that day. What was your last day of employment?`;
 
-/** The model asking for the last day, in any of the ways it phrases it. */
+/**
+ * Any way of asking for it, question or request. Used only to decide whether the
+ * visible part already asks: live on 2026-10-21 the lead said "please tell me
+ * your last day of employment", the question-only pattern missed it, and the
+ * answer asked twice.
+ */
+const ASKS_FOR_LAST_DAY = /\b(tell|share|give|send|let me know|confirm)\b[^.?!]{0,40}\b(last|final) (day|date)\b|\b(what|when) (was|is|will be|were) (your|the) (last|final) (day|date)\b/i;
+
+/** A bracket after the question that asks for something more ("Also tell me …"). */
+const BRACKET_REQUEST = /^(also,?\s+|and\s+|please\s+)?(tell|share|give|send|include|add|let me know|confirm)\b/i;
+
+/** The model asking for the last day as a question. These copies are removable. */
 const LAST_DAY_QUESTION = /\b(what|when) (was|is|will be|were) (your|the) (last|final) (day|date)\b[^?]*\?|\bwhen did (your (job|employment)|you(r)? (stop|finish) work)[^?]*\?/i;
 
 /**
@@ -2192,7 +2203,7 @@ export function settleUnknownJobEnd(
   const invented = statesJobEndDeadline(answer);
   const split = splitAnswer(answer);
   const visible = split.details ? `${split.lead}\n\n${split.appended}` : answer;
-  const askedVisibly = LAST_DAY_QUESTION.test(visible);
+  const askedVisibly = ASKS_FOR_LAST_DAY.test(visible);
 
   if (!invented && (askedVisibly || !options.asksAboutTimeLeft)) return { answer, append: null, reason: null };
 
@@ -2213,7 +2224,9 @@ export function settleUnknownJobEnd(
         .replace(copy, (...args) => {
           // With a named group, the last argument is the groups object.
           const bracket = (args[args.length - 1] as { bracket?: string }).bracket?.trim();
-          if (bracket) carried.push(bracket);
+          // Only a request travels. "(Haven does not have this on file)" became
+          // "Also haven does not have this on file." live on 2026-10-21.
+          if (bracket && BRACKET_REQUEST.test(bracket)) carried.push(bracket);
           return "";
         })
         .trimEnd();
@@ -2225,7 +2238,7 @@ export function settleUnknownJobEnd(
     .trimEnd();
 
   const extra = carried
-    .map((text) => text.replace(/^also\s+/i, ""))
+    .map((text) => text.replace(/^(also,?|and|please)\s+/i, ""))
     .map((text) => (/^[A-Z][a-z]/.test(text) ? text.charAt(0).toLowerCase() + text.slice(1) : text))
     .map((text) => `Also ${text}`.replace(/[.!?]?$/, "."))
     .join(" ");
