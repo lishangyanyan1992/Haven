@@ -2848,12 +2848,13 @@ export function requiredPointsForAnswer(
  *
  * - Only the SECOND and later occurrences are removed, never the first. Whatever
  *   this function does, every required safety line still appears in the answer.
- * - Only whole list items are removed, never part of a sentence. A duplicate
+ * - Only inside list items, and only a whole sentence or clause that says the
+ *   required line and nothing else. The rest of the bullet stays. A duplicate
  *   embedded in prose is left alone; a mangled sentence in a legal answer would
  *   be far worse than a repeated one.
  */
 const RECAP_HEADING =
-  /^\s{0,3}(?:#{1,4}\s*|\*\*)?(?:final (?:safety )?reminders?|(?:required )?safety reminders?|required safety\b|sources(?:\s*\(official\))?|references|summary|recap|key takeaways)\b.*$/i;
+  /^\s{0,3}(?:#{1,4}\s*|\*\*)?(?:final (?:safety )?reminders?|(?:required )?safety reminders?|sources(?:\s*\(official\))?|references|summary|recap|key takeaways)\b.*$/i;
 
 const DUPLICATE_LINE_PATTERNS: RegExp[] = [
   /do not work without authoris|do not work without authoriz|don't work without authoris|don't work without authoriz/i,
@@ -2968,16 +2969,22 @@ export function stripRedundantRepeats(answer: string): string {
     // required lines used to mark only the first as seen, so a later bullet
     // repeating the second was never recognised as a repeat.
     const matched = DUPLICATE_LINE_PATTERNS.flatMap((pattern, index) => (pattern.test(line) ? [index] : []));
+    let next = line;
     if (matched.length > 0) {
-      // Drop the bullet only when everything required in it was already said;
-      // otherwise it is the first copy of something and has to stay.
-      if (LIST_ITEM.test(line) && matched.every((index) => seen[index])) {
-        continue;
+      // In a bullet, a line already said is cut as a whole sentence or clause,
+      // and only when that sentence says nothing else. Whatever else the bullet
+      // says stays: "LCA preparation alone does not preserve status; keep your pay
+      // stubs" loses the repeat and keeps the pay stubs.
+      if (LIST_ITEM.test(line)) {
+        for (const index of matched) {
+          if (seen[index]) next = removeMatchingSentences(next, index);
+        }
+        if (next !== line && isEmptyListItem(next)) continue;
       }
       for (const index of matched) seen[index] = true;
     }
 
-    kept.push(line);
+    kept.push(next);
   }
 
   // Collapse the blank runs the removals leave behind, and never return an empty
@@ -2985,16 +2992,6 @@ export function stripRedundantRepeats(answer: string): string {
   const rebuilt = kept.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd();
   return rebuilt.trim().length > 0 ? rebuilt : answer;
 }
-
-/**
- * Which appended safety line restates which repeat pattern.
- */
-const FIX_DUPLICATE_PATTERN: Record<string, number> = {
-  FIX_NO_UNAUTHORIZED_WORK: 0,
-  FIX_LCA_NOT_PROTECTION: 1,
-  FIX_IMMEDIATE_COUNSEL: 2,
-  FIX_COS_NO_WORK: 3
-};
 
 // Abbreviations whose full stop does not end a sentence.
 const NOT_A_SENTENCE_END = /(?:\bU\.S|\be\.g|\bi\.e|\betc|\bvs|\bNo|\bSec|\bCFR)\.$/i;
@@ -3009,10 +3006,13 @@ function sentenceStarts(line: string): number[] {
     if (!after) break;
     // A citation in brackets right after a full stop belongs to that sentence.
     if (after.startsWith("(")) continue;
+    // Nothing inside brackets ends a sentence: "(USCIS guidance; 8 CFR 214.1)".
+    if ((before.match(/\(/g) ?? []).length > (before.match(/\)/g) ?? []).length) continue;
     // A semicolon ends a clause that can go on its own, so a repeat after one
     // does not take the unrelated first half of the sentence with it.
-    // A dash between two clauses does the same job.
-    if (/;$/.test(before) || /\s[—–]$/.test(before)) {
+    // A dash between two clauses does the same job, and so does the colon
+    // after a bullet's label ("Confirm the deadline with counsel: based on…").
+    if (/;$/.test(before) || /\s[—–]$/.test(before) || /[A-Za-z)]:$/.test(before)) {
       starts.push(match.index + match[0].length);
       continue;
     }
@@ -3026,54 +3026,96 @@ function sentenceStarts(line: string): number[] {
   return starts;
 }
 
-// Words a removable sentence may carry besides the required line itself:
-// enough for "LCA/petition prep is not filing:" or "by itself", not for a second fact.
-const MAX_OTHER_WORDS = 8;
+/**
+ * The words each required line is written with, by the registry and by the model
+ * when it paraphrases. A sentence made only of these (plus filler and citations)
+ * says the required line and nothing else, so it is safe to cut as a repeat.
+ */
+const DUPLICATE_LINE_EXTRA_WORDS: string[] = [
+  "do not don't never work working without authorization authorisation authorized authorised proper valid until any employment start begin new employer job yet",
+  "lca lcas labor condition application preparation prep preparing prepared draft drafting paperwork documents petition petitions filing filings file filed not does doesn't do preserve preserves protect protects maintain status h-1b nonfrivolous properly key event enough sufficient same employer new permit permits allow allows authorize authorise work working",
+  "confirm verify check exact deadline deadlines date dates grace grace-period period 60-day filing strategy immigration counsel attorney lawyer employer employer's employer’s last day",
+  "change of status change-of-status cos b-2 b2 h-4 h4 i-539 pending application filing does not doesn't will won't authorize authorise authorization authorisation permit allow work employment itself"
+];
 
-// Words that never carry a fact of their own.
+const DUPLICATE_LINE_FIX_IDS = ["FIX_NO_UNAUTHORIZED_WORK", "FIX_LCA_NOT_PROTECTION", "FIX_IMMEDIATE_COUNSEL", "FIX_COS_NO_WORK"];
+
+// Words that never carry a fact or an instruction of their own.
 const FILLER_WORDS = new Set(
-  "a an and are as at be by for from in is it its of on or so that the this to with you your yours".split(" ")
+  (
+    "a an and are as at be by for from in is it its of on or so that the this to with you your yours " +
+    "alone itself own also still always right away now immediately promptly important remember note explicitly please must should just only even"
+  ).split(" ")
 );
 
-const wordsOf = (text: string) => (text.toLowerCase().match(/[a-z0-9][\w'’-]*/g) ?? []);
+// Non-breaking and other Unicode hyphens, which the model uses inside "H‑1B".
+const wordsOf = (text: string) => (text.toLowerCase().replace(/[\u2010\u2011]/g, "-").match(/[a-z0-9][\w'’-]*/g) ?? []);
+
+const lineVocabulary = new Map<number, ReadonlySet<string>>();
+function vocabularyFor(index: number): ReadonlySet<string> {
+  let vocabulary = lineVocabulary.get(index);
+  if (!vocabulary) {
+    vocabulary = new Set([...wordsOf(guardrailText(DUPLICATE_LINE_FIX_IDS[index])), ...wordsOf(DUPLICATE_LINE_EXTRA_WORDS[index])]);
+    lineVocabulary.set(index, vocabulary);
+  }
+  return vocabulary;
+}
+
+const isEmptyListItem = (line: string) => !/[A-Za-z0-9]/.test(line.replace(/^\s*(?:[-*+]|\d{1,2}[.)])\s*/, ""));
 
 /**
- * Remove every whole sentence or clause in `line` that `pattern` matches.
+ * Remove each whole sentence or clause in `line` that repeats required line
+ * `index` and says nothing else.
  *
- * Only one that is essentially the required line goes. Words from the line the
- * addendum shows (`lineWords`) and filler do not count; anything else does, and
- * past MAX_OTHER_WORDS the sentence stays. "Unpaid work does not preserve status,
- * so do not work without authorization" keeps its first half that way: a repeat
- * is the lesser harm than deleting a second fact.
+ * "Says nothing else" is strict: every word outside the match has to be filler,
+ * a citation, or a word the required line is itself written with. One word of
+ * anything else — "and keep copies of your pay stubs" — and the sentence stays.
+ * A repeat is the lesser harm than deleting an instruction the safety note at
+ * the end does not give back.
  */
-function removeMatchingSentences(line: string, pattern: RegExp, lineWords: ReadonlySet<string>): string {
+function removeMatchingSentences(line: string, index: number): string {
+  const pattern = DUPLICATE_LINE_PATTERNS[index];
+  const vocabulary = vocabularyFor(index);
   let current = line;
-  // Bounded: each pass removes at least one sentence or stops.
-  for (let pass = 0; pass < 10; pass += 1) {
-    const match = new RegExp(pattern.source, pattern.flags.replace("g", "")).exec(current);
+  let searchFrom = 0;
+  // Bounded: each pass removes one sentence or moves past one match it kept.
+  for (let pass = 0; pass < 50; pass += 1) {
+    const match = new RegExp(pattern.source, pattern.flags.replace("g", "")).exec(current.slice(searchFrom));
     if (!match) break;
+    // Widen to whole words: the patterns stop mid-word ("authoriz"), and the
+    // leftover "ation" would otherwise count as something else said.
+    let matchStart = searchFrom + match.index;
+    let matchEnd = matchStart + match[0].length;
+    while (matchStart > 0 && /[\w'’-]/.test(current[matchStart - 1])) matchStart -= 1;
+    while (matchEnd < current.length && /[\w'’-]/.test(current[matchEnd])) matchEnd += 1;
     const starts = sentenceStarts(current);
-    const matchEnd = match.index + match[0].length;
-    const from = [...starts].reverse().find((start) => start <= match.index) ?? 0;
+    const from = [...starts].reverse().find((start) => start <= matchStart) ?? 0;
     const to = starts.find((start) => start >= matchEnd) ?? current.length;
     const sentence = current.slice(from, to);
-    const rest = (sentence.slice(0, match.index - from) + sentence.slice(matchEnd - from))
+    const rest = (sentence.slice(0, matchStart - from) + sentence.slice(matchEnd - from))
       // A citation in brackets is not a second fact.
       .replace(/\([^()]*\)/g, " ")
       .replace(/^\s*(?:(?:[-*+]|\d{1,2}[.)])\s+)?/, "");
-    const otherWords = wordsOf(rest).filter((word) => !FILLER_WORDS.has(word) && !lineWords.has(word));
-    if (otherWords.length > MAX_OTHER_WORDS) break;
+    const saysSomethingElse = wordsOf(rest).some((word) => !FILLER_WORDS.has(word) && !vocabulary.has(word));
+    if (saysSomethingElse) {
+      // A match can start in one clause and end in the next, which makes the
+      // sentence look like it says more than it does. Look again from just
+      // after this start, so a match wholly inside the later clause is found.
+      searchFrom = searchFrom + match.index + 1;
+      continue;
+    }
     // Keep any list marker or indentation in front of the first sentence.
     const prefix = from === 0 ? (current.match(/^\s*(?:(?:[-*+]|\d{1,2}[.)])\s+)?/)?.[0] ?? "") : "";
     const head = from === 0 ? prefix : current.slice(0, from);
     const next = `${head}${current.slice(to)}`
       .replace(/\s+$/, "")
-      // A clause cut from the end leaves a dangling semicolon; close the sentence.
-      .replace(/\s*(?:;|[—–])$/, ".")
+      // A clause cut from the end leaves a dangling semicolon or dash; close the sentence.
+      .replace(/\s*(?:;|:|[—–])$/, ".")
       // A clause cut from the start leaves the next one in lower case.
       .replace(/^(\s*(?:(?:[-*+]|\d{1,2}[.)])\s+)?)([a-z])/, (_, lead: string, letter: string) => `${lead}${letter.toUpperCase()}`);
     if (next === current) break;
     current = next;
+    searchFrom = head.length;
   }
   return current;
 }
@@ -3089,27 +3131,22 @@ function removeMatchingSentences(line: string, pattern: RegExp, lineWords: Reado
  *
  * Only runs for lines the addendum is appending, so the guarantee is unchanged:
  * every required line still appears once, in the visible block. Whole sentences
- * are removed, never part of one; a list item left empty goes with it.
+ * are removed, never part of one, and only ones that say nothing else; a list
+ * item left empty goes with it.
  */
 export function removeCopiesOfAppendedLines(answer: string, appendedIds: string[]): string {
-  const patterns = appendedIds
-    .filter((id) => FIX_DUPLICATE_PATTERN[id] !== undefined)
-    .map((id) => ({
-      pattern: DUPLICATE_LINE_PATTERNS[FIX_DUPLICATE_PATTERN[id]],
-      lineWords: new Set(wordsOf(guardrailText(id)))
-    }));
-  if (patterns.length === 0) return answer;
+  const indexes = appendedIds
+    .map((id) => DUPLICATE_LINE_FIX_IDS.indexOf(id))
+    .filter((index) => index >= 0);
+  if (indexes.length === 0) return answer;
 
   const kept: string[] = [];
   for (const line of answer.split("\n")) {
     let next = line;
-    for (const { pattern, lineWords } of patterns) {
-      if (pattern.test(next)) next = removeMatchingSentences(next, pattern, lineWords);
+    for (const index of indexes) {
+      if (DUPLICATE_LINE_PATTERNS[index].test(next)) next = removeMatchingSentences(next, index);
     }
-    if (next !== line) {
-      // Nothing left but a list marker, emphasis or punctuation: drop the line.
-      if (!/[A-Za-z0-9]/.test(next.replace(/^\s*(?:[-*+]|\d{1,2}[.)])\s*/, ""))) continue;
-    }
+    if (next !== line && isEmptyListItem(next)) continue;
     kept.push(next);
   }
 

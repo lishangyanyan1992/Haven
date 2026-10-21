@@ -138,6 +138,65 @@ async function main() {
     check("a counsel clause after a dash is removed, the rest kept", dashOut.includes("- Immediate attorney review — DHS may shorten the period.") && count(dashOut, COUNSEL) === 0, dashOut);
   }
 
+  // Review findings on PR #96: never delete advice the safety note does not give back.
+  {
+    const payStubs = "Intro.\n- Do not work without authorization, and keep copies of your pay stubs.";
+    const out = removeCopiesOfAppendedLines(payStubs, ["FIX_NO_UNAUTHORIZED_WORK"]);
+    check("a short extra instruction keeps its sentence", out === payStubs, out);
+
+    const bullets = [
+      "- Do not work without authorization, and LCA preparation alone does not preserve status.",
+      "- LCA preparation alone does not preserve status; keep copies of your pay stubs."
+    ].join("\n");
+    const repeatOut = stripRedundantRepeats(bullets);
+    check("a repeated bullet keeps its new advice", repeatOut.includes("Keep copies of your pay stubs."), repeatOut);
+    check("…and loses only the repeat", count(repeatOut, LCA) === 1, repeatOut);
+
+    const checklist = [
+      "Intro.",
+      "",
+      "Required safety steps",
+      "- Keep your pay records.",
+      "- Check the end date on your I-94."
+    ].join("\n");
+    const checklistOut = stripRedundantRepeats(checklist);
+    check("a 'Required safety steps' checklist is kept", checklistOut.includes("Keep your pay records") && checklistOut.includes("I-94"), checklistOut);
+
+    const recap = "Intro.\n\nSafety reminders\n- Do not work without authorization.";
+    check("a 'Safety reminders' recap is still dropped", !stripRedundantRepeats(recap).includes("Safety reminders"), stripRedundantRepeats(recap));
+  }
+
+  // Paraphrases from the second 2026-10-20 run that say the line and nothing else.
+  {
+    const cos = removeCopiesOfAppendedLines(
+      "Intro.\n- Change of status (for example B‑2): Filing to change to B‑2 before your authorised period ends is an available option; note explicitly that a change of status or a pending COS does not authorise employment. (USCIS guidance; 8 CFR 214.1)",
+      ["FIX_COS_NO_WORK"]
+    );
+    check("a 'note explicitly that' change-of-status clause is removed", !/pending COS does not authorise/.test(cos) && cos.includes("is an available option."), cos);
+
+    const lca = removeCopiesOfAppendedLines(
+      "Intro.\n- LCA prep vs filing: Preparing an LCA or working on petition documents is not the same as filing; an LCA alone does not preserve status or permit work.",
+      ["FIX_LCA_NOT_PROTECTION"]
+    );
+    check("an 'LCA … or permit work' clause is removed, the first clause kept", count(lca, LCA) === 0 && lca.includes("is not the same as filing."), lca);
+  }
+
+  // A bullet whose label is the required line keeps the explanation after the colon.
+  {
+    const out = removeCopiesOfAppendedLines(
+      "Intro.\n  - Confirm the exact deadline with counsel: based on your last day of employment, the 60th day is the last practical day to have a petition properly filed.",
+      ["FIX_IMMEDIATE_COUNSEL"]
+    );
+    check(
+      "a counsel label before a colon is removed, the explanation kept",
+      count(out, COUNSEL) === 0 && out.includes("  - Based on your last day of employment, the 60th day is the last practical day"),
+      out
+    );
+    // The label's own colon is a clause break; a colon in a time is not.
+    const time = "Intro.\n- Call at 10:30 and confirm the deadline and filing strategy with counsel.";
+    check("a colon inside a time is not a clause break", removeCopiesOfAppendedLines(time, ["FIX_IMMEDIATE_COUNSEL"]) === time, removeCopiesOfAppendedLines(time, ["FIX_IMMEDIATE_COUNSEL"]));
+  }
+
   // Only ids the addendum appended are removed.
   {
     const body = "Intro.\n- Do not work without authorization.\n- Confirm the deadline and filing strategy with counsel.";
