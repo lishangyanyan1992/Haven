@@ -45,6 +45,7 @@
     "check:profile-context": "tsx --tsconfig tsconfig.json evals/advisor/profile-context.check.ts",
     "check:grace-period": "tsx --tsconfig tsconfig.json evals/advisor/grace-period.check.ts",
     "check:stay-question": "tsx --tsconfig tsconfig.json evals/advisor/stay-question.check.ts",
+    "check:conversation-limit": "tsx --tsconfig tsconfig.json evals/advisor/conversation-limit.check.ts",
     "check:safety-boundary": "tsx --tsconfig tsconfig.json evals/advisor/advisor-safety-boundary.check.ts",
     "check:source-retrieval": "tsx --tsconfig tsconfig.json evals/advisor/source-retrieval.check.ts",
     "check:document-extraction": "tsx --tsconfig tsconfig.json evals/documents/extraction.check.ts",

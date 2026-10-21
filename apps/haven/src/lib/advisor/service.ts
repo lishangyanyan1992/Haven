@@ -156,9 +156,66 @@ export type AdvisorUsage = {
   remaining: number;
   renewalLabel: string;
   nextRenewalAt: string | null;
+  /** True for an admin account: no daily conversation limit applies. */
+  unlimited?: boolean;
 };
 
 const ADVISOR_CONVERSATION_LIMIT = 5;
+
+/**
+ * Accounts with no daily conversation limit.
+ *
+ * The owner tests the Advisor on the live site, and five conversations a day ran
+ * out mid-retest on 2026-10-21. Matched against the signed-in Supabase user's
+ * email, never anything the client sends.
+ */
+const UNLIMITED_ADVISOR_EMAILS = new Set(["lshangyanyan@gmail.com"]);
+
+export function hasUnlimitedAdvisor(email: string | null | undefined): boolean {
+  return Boolean(email) && UNLIMITED_ADVISOR_EMAILS.has(String(email).trim().toLowerCase());
+}
+
+/** Whether this account may open another conversation, given how many it opened in the window. */
+export function mayStartAdvisorConversation(input: { email: string | null | undefined; recentCount: number }): boolean {
+  return hasUnlimitedAdvisor(input.email) || input.recentCount < ADVISOR_CONVERSATION_LIMIT;
+}
+
+/**
+ * The usage line for an account, from the creation times of its conversations in
+ * the window (oldest first). Pure so the owner exemption can be checked offline.
+ */
+export function summarizeAdvisorUsage(input: {
+  email: string | null | undefined;
+  recentCreatedAt: string[];
+  nowMs?: number;
+}): AdvisorUsage {
+  if (hasUnlimitedAdvisor(input.email)) {
+    return {
+      limit: ADVISOR_CONVERSATION_LIMIT,
+      used: 0,
+      remaining: ADVISOR_CONVERSATION_LIMIT,
+      renewalLabel: "no limit",
+      nextRenewalAt: null,
+      unlimited: true
+    };
+  }
+
+  const now = input.nowMs ?? Date.now();
+  const used = input.recentCreatedAt.length;
+  const remaining = Math.max(ADVISOR_CONVERSATION_LIMIT - used, 0);
+  const oldestCreatedAt = input.recentCreatedAt[0] ? new Date(input.recentCreatedAt[0]).getTime() : null;
+  const nextRenewalAtMs = oldestCreatedAt != null
+    ? oldestCreatedAt + ADVISOR_CONVERSATION_WINDOW_HOURS * 60 * 60 * 1000
+    : null;
+
+  return {
+    limit: ADVISOR_CONVERSATION_LIMIT,
+    used,
+    remaining,
+    renewalLabel: formatAdvisorRenewal(nextRenewalAtMs != null ? Math.max(nextRenewalAtMs - now, 0) : null),
+    nextRenewalAt: nextRenewalAtMs != null ? new Date(nextRenewalAtMs).toISOString() : null
+  };
+}
 const ADVISOR_CONVERSATION_WINDOW_HOURS = 24;
 
 class AdvisorRateLimitError extends Error {
@@ -1631,6 +1688,11 @@ export const getAdvisorUsage = cache(async (): Promise<AdvisorUsage> => {
     };
   }
 
+  // No query for the owner: there is nothing to count.
+  if (hasUnlimitedAdvisor(identity.email)) {
+    return summarizeAdvisorUsage({ email: identity.email, recentCreatedAt: [] });
+  }
+
   const admin = createSupabaseAdminClient() as any;
   const windowStartMs = Date.now() - ADVISOR_CONVERSATION_WINDOW_HOURS * 60 * 60 * 1000;
   const windowStartIso = new Date(windowStartMs).toISOString();
@@ -1645,20 +1707,10 @@ export const getAdvisorUsage = cache(async (): Promise<AdvisorUsage> => {
     throw new Error(`Unable to load advisor usage: ${error.message}`);
   }
 
-  const used = rows?.length ?? 0;
-  const remaining = Math.max(ADVISOR_CONVERSATION_LIMIT - used, 0);
-  const oldestCreatedAt = rows?.[0]?.created_at ? new Date(rows[0].created_at).getTime() : null;
-  const nextRenewalAtMs = oldestCreatedAt != null
-    ? oldestCreatedAt + ADVISOR_CONVERSATION_WINDOW_HOURS * 60 * 60 * 1000
-    : null;
-
-  return {
-    limit: ADVISOR_CONVERSATION_LIMIT,
-    used,
-    remaining,
-    renewalLabel: formatAdvisorRenewal(nextRenewalAtMs != null ? Math.max(nextRenewalAtMs - Date.now(), 0) : null),
-    nextRenewalAt: nextRenewalAtMs != null ? new Date(nextRenewalAtMs).toISOString() : null
-  };
+  return summarizeAdvisorUsage({
+    email: identity.email,
+    recentCreatedAt: (rows ?? []).map((row: { created_at: string }) => row.created_at).filter(Boolean)
+  });
 });
 
 /**
@@ -1900,7 +1952,12 @@ function createAssistantMessage(threadId: string, payload: AdvisorAnswerPayload,
   };
 }
 
-async function reserveAdvisorConversation(userId: string, content: string, conversationId?: string) {
+async function reserveAdvisorConversation(
+  userId: string,
+  content: string,
+  conversationId?: string,
+  options: { email?: string | null } = {}
+) {
   if (!hasSupabaseEnv) {
     return conversationId ?? "session";
   }
@@ -1925,7 +1982,9 @@ async function reserveAdvisorConversation(userId: string, content: string, conve
   }
 
   const windowStart = new Date(Date.now() - ADVISOR_CONVERSATION_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
-  const { count, error: countError } = await admin
+  const { count, error: countError } = hasUnlimitedAdvisor(options.email)
+    ? { count: 0, error: null }
+    : await admin
     .from("advisor_threads")
     .select("id", { count: "exact", head: true })
     .eq("user_id", userId)
@@ -1935,7 +1994,7 @@ async function reserveAdvisorConversation(userId: string, content: string, conve
     throw new Error(`Unable to enforce advisor conversation limit: ${countError.message}`);
   }
 
-  if ((count ?? 0) >= ADVISOR_CONVERSATION_LIMIT) {
+  if (!mayStartAdvisorConversation({ email: options.email, recentCount: count ?? 0 })) {
     throw new AdvisorRateLimitError("You can start up to 5 advisor conversations within 24 hours. Please try again later.");
   }
 
@@ -4284,7 +4343,9 @@ export async function* streamAdvisorResponse(
   // thread instead of sending an id the server will reject.
   const threadId = identity.isMock
     ? conversationId ?? null
-    : await reserveAdvisorConversation(identity.id, content, conversationId);
+    : await reserveAdvisorConversation(identity.id, content, conversationId, {
+          email: identity.email
+      });
 
   // The thread row is created here, before generation, and it counts against the
   // user's daily allowance from this moment. Announcing the id now rather than at

@@ -610,8 +610,9 @@ export function AdvisorWorkspace({
             unlimited and free. Saying "questions" both undersells the product and
             hides what Reset actually costs. */}
         <p className="text-caption text-[var(--color-text-secondary)]">
-          {advisorUsage.remaining} of {advisorUsage.limit} conversations left · {advisorUsage.renewalLabel} · follow-up
-          questions in this conversation are unlimited
+          {advisorUsage.unlimited
+            ? "Unlimited conversations (admin account)"
+            : `${advisorUsage.remaining} of ${advisorUsage.limit} conversations left · ${advisorUsage.renewalLabel} · follow-up questions in this conversation are unlimited`}
         </p>
       </div>
     </div>

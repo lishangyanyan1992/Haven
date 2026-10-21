@@ -83,7 +83,7 @@ export function AppShellNav({
               <div className="min-w-0 flex-1">
                 <p>{item.label}</p>
                 <p className="mt-0.5 text-[11px] font-normal leading-tight text-[var(--color-text-secondary)]">
-                  {advisorUsage.remaining} left · {advisorUsage.renewalLabel}
+                  {advisorUsage.unlimited ? "No limit" : `${advisorUsage.remaining} left · ${advisorUsage.renewalLabel}`}
                 </p>
               </div>
             ) : (
