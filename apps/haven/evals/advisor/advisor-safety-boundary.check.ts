@@ -203,6 +203,7 @@ async function main() {
     options: {
       flagged?: boolean;
       contextSource?: "profile" | "unavailable" | "mock";
+      chatClient?: import("@/lib/advisor/service").AdvisorStreamDeps["chatClient"];
     } = {}
   ) {
     let routerCalls = 0;
@@ -223,7 +224,8 @@ async function main() {
       classifyIntent: (async () => {
         routerCalls += 1;
         return null;
-      }) as typeof import("@/lib/advisor/intent-router").classifyIntent
+      }) as typeof import("@/lib/advisor/intent-router").classifyIntent,
+      ...(options.chatClient !== undefined ? { chatClient: options.chatClient } : {})
     };
 
     for await (const event of svc.streamAdvisorResponse({ content: question, history: [] }, deps)) {
@@ -366,6 +368,73 @@ async function main() {
     check("view sends replace when shown text changed", replaced?.type === "replace" && replaced.text === "xyz");
     const tail = view.syncTo("xyz!");
     check("view sends only the missing tail", tail?.type === "delta" && tail.text === "!");
+  }
+
+  // --- 4. Declined part of an in-scope question --------------------------------
+  //
+  // A layoff question that names PERM is answered with a one-line PERM aside on
+  // top (scope.ts, ASIDE_ON_STRONG_IN_SCOPE). The aside has to survive every way
+  // the answer can be produced — a normal stream, a writer that fails mid-way,
+  // and no writer at all — and the writer must be told to leave PERM out.
+
+  {
+    const aside = guardrailText("MSG_SCOPE_PERM_ASIDE");
+    const question =
+      "I was laid off today. My old employer had started PERM but it's still pending. Should I keep looking for jobs or switch to H-4?";
+
+    let promptSeen = "";
+    const stubWriter = {
+      chat: {
+        completions: {
+          create: async (args: { messages: Array<{ role: string; content: string }> }) => {
+            promptSeen = args.messages.map((message) => message.content).join("\n");
+            return (async function* () {
+              for (const text of ["You can keep looking while a new employer files.\n", "Switching to H-4 is the other path.\n"]) {
+                yield { choices: [{ delta: { content: text } }] };
+              }
+            })();
+          }
+        }
+      }
+    } as unknown as NonNullable<import("@/lib/advisor/service").AdvisorStreamDeps["chatClient"]>;
+
+    const failingWriter = {
+      chat: {
+        completions: {
+          create: async () =>
+            (async function* () {
+              yield { choices: [{ delta: { content: "A partial sentence.\n" } }] };
+              throw new Error("stream dropped");
+            })()
+        }
+      }
+    } as unknown as NonNullable<import("@/lib/advisor/service").AdvisorStreamDeps["chatClient"]>;
+
+    const paths: Array<[string, import("@/lib/advisor/service").AdvisorStreamDeps["chatClient"]]> = [
+      ["writer succeeds", stubWriter],
+      ["writer fails mid-stream", failingWriter],
+      ["no writer", null]
+    ];
+
+    for (const [label, chatClient] of paths) {
+      const result = await run(question, { chatClient });
+      const saved = result.done?.assistantMessage.answerPayload?.answer_markdown ?? "";
+      check(`PERM aside (${label}): saved answer opens with the aside`, saved.startsWith(aside), saved.slice(0, 120));
+      check(`PERM aside (${label}): screen shows exactly the saved answer`, result.shown === saved);
+      check(
+        `PERM aside (${label}): answered, not declined`,
+        !result.done?.assistantMessage.answerPayload?.refusal_or_escalation_reason?.startsWith("Out of scope"),
+        result.done?.assistantMessage.answerPayload?.refusal_or_escalation_reason ?? ""
+      );
+    }
+
+    check("PERM aside: writer told to leave PERM out", /Left out of this answer/.test(promptSeen) && /PERM/.test(promptSeen));
+    const stubbed = (await run(question, { chatClient: stubWriter })).done?.assistantMessage.answerPayload?.answer_markdown ?? "";
+    check("PERM aside: writer's answer follows the aside", stubbed.includes("You can keep looking while a new employer files."), stubbed.slice(0, 200));
+
+    const plain = await run("I was laid off last week, what happens to my H-1B?", { chatClient: null });
+    const plainSaved = plain.done?.assistantMessage.answerPayload?.answer_markdown ?? "";
+    check("no PERM in the question: no aside", !plainSaved.includes(aside));
   }
 
   console.log(`advisor safety boundary: ${passed} passed, ${failures.length} failed`);

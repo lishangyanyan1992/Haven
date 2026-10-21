@@ -4093,6 +4093,12 @@ export interface AdvisorStreamDeps {
   loadSnapshot?: () => Promise<SnapshotWithSource>;
   moderate?: (content: string, parent?: LangfuseParent) => Promise<ModerationResult>;
   classifyIntent?: typeof classifyIntent;
+  /**
+   * The answer writer. Tests pass a stub (or null for the no-key fallback) so the
+   * full stream — notices, prompt, streamed and saved text — can be asserted
+   * without a model call.
+   */
+  chatClient?: Pick<OpenAI, "chat"> | null;
 }
 
 export async function* streamAdvisorResponse(
@@ -5014,7 +5020,7 @@ export async function* streamAdvisorResponse(
     })()
   ].join("\n");
 
-  const client = getOpenAIClient();
+  const client = deps.chatClient !== undefined ? deps.chatClient : getOpenAIClient();
   const generation = trace?.generation({
     name: "openai-advisor-stream",
     model,
