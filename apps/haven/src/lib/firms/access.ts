@@ -17,13 +17,13 @@ function admin() {
   return createSupabaseAdminClient() as any;
 }
 
-export type FirmMembership = { firmId: string; firmName: string; userId: string; email: string };
+export type FirmMembership = { firmId: string; firmName: string; isDemo: boolean; userId: string; email: string };
 
 export async function getFirmMembership(userId: string | null | undefined): Promise<FirmMembership | null> {
   if (!userId) return null;
   const { data, error } = await admin()
     .from("firm_members")
-    .select("firm_id, user_id, email, firms(name)")
+    .select("firm_id, user_id, email, firms(name, is_demo)")
     .eq("user_id", userId)
     .maybeSingle();
   if (error) {
@@ -31,8 +31,14 @@ export async function getFirmMembership(userId: string | null | undefined): Prom
     return null;
   }
   if (!data) return null;
-  const row = data as FirmMemberRow & { firms: Pick<FirmRow, "name"> | null };
-  return { firmId: row.firm_id, firmName: row.firms?.name ?? "Your firm", userId: row.user_id, email: row.email };
+  const row = data as FirmMemberRow & { firms: Pick<FirmRow, "name" | "is_demo"> | null };
+  return {
+    firmId: row.firm_id,
+    firmName: row.firms?.name ?? "Your firm",
+    isDemo: Boolean(row.firms?.is_demo),
+    userId: row.user_id,
+    email: row.email
+  };
 }
 
 /** For firm pages and actions. Signed out → sign in; not a lawyer → home. */

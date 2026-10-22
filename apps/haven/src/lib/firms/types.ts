@@ -3,6 +3,7 @@
 export type FirmRow = {
   id: string;
   name: string;
+  is_demo: boolean;
   created_at: string;
 };
 

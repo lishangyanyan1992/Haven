@@ -56,9 +56,10 @@ export async function listFirmClients(firmId: string): Promise<FirmClientSummary
   const summaries: FirmClientSummary[] = rows.map((row) => {
     const answers = (row.shared_answers ?? {}) as SharedAnswers;
     const status = firmClientStatus(row, answers);
+    const fullName = typeof answers.fullName === "string" ? answers.fullName.trim() : "";
     return {
       id: row.id,
-      displayName: row.normalized_email,
+      displayName: fullName || row.normalized_email,
       email: row.normalized_email,
       visaType: typeof answers.visaType === "string" ? answers.visaType : null,
       status,

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 
 import { requireFirmMember } from "@/lib/firms/access";
 import { firmDocumentUrl } from "@/lib/firms/clients";
+import { resetDemoFirm } from "@/lib/firms/demo";
 import { claimFirmInvite, requestFirmIntake, type IntakeResult } from "@/lib/firms/intake";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { intakeUrl, replaceFirmLink, setFirmLinkActive } from "@/lib/firms/links";
@@ -31,6 +32,19 @@ export async function openFirmDocumentAction(firmClientId: string, documentId: s
   const membership = await requireFirmMember();
   const url = await firmDocumentUrl(membership.firmId, String(firmClientId), String(documentId));
   return { url };
+}
+
+/**
+ * Resets demo firm clients and dates. Strictly rejected for non-demo firms.
+ */
+export async function resetDemoFirmAction(): Promise<{ ok: boolean; count: number }> {
+  const membership = await requireFirmMember();
+  if (!membership.isDemo) {
+    throw new Error("Demo reset is only available for demo accounts.");
+  }
+  const result = await resetDemoFirm(membership.firmId, new Date());
+  revalidatePath("/firm");
+  return { ok: true, count: result.count };
 }
 
 /**
