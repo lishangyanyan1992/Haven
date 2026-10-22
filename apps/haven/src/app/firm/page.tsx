@@ -41,7 +41,7 @@ export default async function FirmDashboardPage() {
 
   return (
     <div className="min-h-screen bg-[var(--haven-cream)]">
-      <FirmHeader email={membership.email} firmName={membership.firmName} />
+      <FirmHeader email={membership.email} firmName={membership.firmName} isDemo={membership.isDemo} />
       <main className="content-container-wide space-y-6 py-8">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>

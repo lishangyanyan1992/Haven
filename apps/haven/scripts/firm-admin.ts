@@ -7,6 +7,7 @@
  *   npm run firm-admin -- remove-lawyer --email sam@acme.com
  *   npm run firm-admin -- show-link --firm <firm-id>
  *   npm run firm-admin -- delete-firm --firm <firm-id> --yes
+ *   npm run firm-admin -- seed-demo --lawyer demo@haven-h1b.com [--name "Haven Demo Law"]
  *
  * Reads NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY and
  * NEXT_PUBLIC_SITE_URL from apps/haven/.env.local.
@@ -24,6 +25,7 @@
  */
 import { randomBytes } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
+import { provisionShowcaseUsersAndDocs, seedDemoFirm } from "../src/lib/firms/demo";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -148,8 +150,57 @@ async function main() {
       console.log(`Deleted ${firm.name}. Accounts and documents were left alone.`);
       return;
     }
+    case "seed-demo": {
+      const lawyer = normalize(flag("lawyer"));
+      if (!lawyer) fail("Use: seed-demo --lawyer <email> [--name <name>]");
+      const name = String(flag("name") ?? "Haven Demo Law").trim();
+
+      // Find or create demo firm
+      let firmId: string | null = null;
+      const { data: existingFirm } = await db
+        .from("firms")
+        .select("id, name, is_demo")
+        .eq("is_demo", true)
+        .order("created_at")
+        .limit(1)
+        .maybeSingle();
+
+      if (existingFirm) {
+        firmId = existingFirm.id;
+        console.log(`Using existing demo firm: ${existingFirm.name} (${firmId})`);
+      } else {
+        const { data: created, error } = await db
+          .from("firms")
+          .insert({ name, is_demo: true })
+          .select("id, name")
+          .single();
+        if (error) fail(`Could not create demo firm: ${error.message}`);
+        firmId = created.id;
+        await db
+          .from("firm_intake_links")
+          .insert({ firm_id: firmId, token: randomBytes(32).toString("base64url"), is_active: true });
+        console.log(`Created new demo firm: ${name} (${firmId})`);
+      }
+
+      if (!firmId) fail("Could not establish demo firm id.");
+
+      // Ensure lawyer is added
+      await addLawyer(firmId, lawyer);
+
+      // Provision showcase users & documents
+      console.log("Provisioning showcase users and documents in haven-vault...");
+      await provisionShowcaseUsersAndDocs();
+
+      // Seed 50 demo leads
+      console.log("Seeding 50 simulated leads...");
+      const seeded = await seedDemoFirm(firmId, new Date());
+      console.log(`Successfully seeded ${seeded.count} leads for ${name}.`);
+      console.log(`Lawyer login: ${lawyer}`);
+      console.log(`Dashboard URL: ${site}/firm`);
+      return;
+    }
     default:
-      console.log("Commands: list, create-firm, add-lawyer, remove-lawyer, show-link, delete-firm. See the top of scripts/firm-admin.ts.");
+      console.log("Commands: list, create-firm, add-lawyer, remove-lawyer, show-link, delete-firm, seed-demo. See the top of scripts/firm-admin.ts.");
   }
 }
 

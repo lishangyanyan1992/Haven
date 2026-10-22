@@ -11,6 +11,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
  */
 
 export const SHARED_ANSWER_KEYS = [
+  "fullName",
   "visaType",
   "countryOfBirth",
   "primaryGoal",
@@ -68,6 +69,7 @@ export function sharedAnswersFromProfile(p: Record<string, any> | null): SharedA
           ? "perm_in_progress"
           : "not_started";
   return pickSharedAnswers({
+    fullName: p.full_name ?? "",
     visaType: p.visa_type,
     countryOfBirth: p.country_of_birth,
     primaryGoal: p.primary_goal,

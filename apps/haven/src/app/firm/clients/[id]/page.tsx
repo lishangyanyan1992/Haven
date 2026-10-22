@@ -115,7 +115,7 @@ export default async function FirmClientPage({ params }: { params: Promise<{ id:
   if (!client) {
     return (
       <div className="min-h-screen bg-[var(--haven-cream)]">
-        <FirmHeader email={membership.email} firmName={membership.firmName} />
+        <FirmHeader email={membership.email} firmName={membership.firmName} isDemo={membership.isDemo} />
         <main className="content-container-wide py-10">
           <h1 className="text-h1">Client not found</h1>
           <Link className="text-body-sm mt-4 inline-block underline underline-offset-4" href="/firm">
@@ -127,7 +127,8 @@ export default async function FirmClientPage({ params }: { params: Promise<{ id:
   }
 
   await markFirmClientReviewed(membership.firmId, client.id);
-  const name = client.email;
+  const fullName = typeof client.answers.fullName === "string" ? client.answers.fullName.trim() : "";
+  const name = fullName || client.email;
   const urgency = rankUrgency(client.answers);
   const groups = GROUPS.map((group) => ({
     title: group.title,
@@ -136,7 +137,7 @@ export default async function FirmClientPage({ params }: { params: Promise<{ id:
 
   return (
     <div className="min-h-screen bg-[var(--haven-cream)]">
-      <FirmHeader email={membership.email} firmName={membership.firmName} />
+      <FirmHeader email={membership.email} firmName={membership.firmName} isDemo={membership.isDemo} />
       <main className="content-container-wide space-y-6 py-8">
         <Link className="inline-flex items-center gap-1.5 text-body-sm text-[var(--haven-ink-mid)] hover:text-[var(--haven-ink)]" href="/firm">
           <ArrowLeft className="h-4 w-4" />
@@ -148,6 +149,9 @@ export default async function FirmClientPage({ params }: { params: Promise<{ id:
             {TIER_LABEL[urgency.tier]} priority
           </p>
           <h1 className="text-h1 mt-2">{name}</h1>
+          {fullName && fullName !== client.email ? (
+            <p className="text-body-sm text-[var(--haven-ink-mid)]">{client.email}</p>
+          ) : null}
           <p className="text-body mt-2 text-[var(--haven-ink)]">{urgency.reason}</p>
           <p className="text-body-sm mt-2 text-[var(--haven-ink-mid)]">
             {FIRM_CLIENT_STATUS_LABEL[client.status]}

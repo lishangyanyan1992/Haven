@@ -64,7 +64,8 @@ const FIRM_DATA_FUNCTIONS = [
   "firmDocumentUrl",
   "getCurrentFirmLink",
   "setFirmLinkActive",
-  "replaceFirmLink"
+  "replaceFirmLink",
+  "resetDemoFirm"
 ];
 
 /** Rules 1-3 on firm data files. Returns failure messages. */
