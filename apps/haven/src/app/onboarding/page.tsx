@@ -46,13 +46,13 @@ async function saveStepAction(step: number, data: FormData) {
   if (!user) throw new Error("Authentication required.");
 
   const admin = createSupabaseAdminClient() as any;
+  const fullName = String(user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "Haven user");
 
   // Setup finishes on step 5, "Your deadlines".
   const isExplicitCompletion = step === 5 && data.get("_complete") === "true";
 
   if (isExplicitCompletion) {
     // Final explicit completion: persist all data and mark complete via email_alias
-    const fullName = String(user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "Haven user");
     await admin.from("user_profiles").upsert({
       id: user.id,
       full_name: fullName,
@@ -69,7 +69,11 @@ async function saveStepAction(step: number, data: FormData) {
       top_concerns: []
     });
     await persistProfileDraft(user.id, buildDraft(data));
-    await recordFirmSharedAnswers(user.id, buildDraft(data), formLimitedTo(data, DEADLINE_KEYS, "except"));
+    const draftWithFullName = { ...buildDraft(data), fullName };
+    const formWithFullName = {
+      has: (key: string) => key === "fullName" || formLimitedTo(data, DEADLINE_KEYS, "except").has(key)
+    };
+    await recordFirmSharedAnswers(user.id, draftWithFullName, formWithFullName);
     await saveDeadlineAnswers(user.id, data);
     await admin.from("email_aliases").upsert({
       user_id: user.id,
@@ -82,7 +86,11 @@ async function saveStepAction(step: number, data: FormData) {
   } else {
     // Auto-save for any step (including step 4 while still editing)
     await persistProfileDraft(user.id, buildDraft(data));
-    await recordFirmSharedAnswers(user.id, buildDraft(data), formLimitedTo(data, DEADLINE_KEYS, "except"));
+    const draftWithFullName = { ...buildDraft(data), fullName };
+    const formWithFullName = {
+      has: (key: string) => key === "fullName" || formLimitedTo(data, DEADLINE_KEYS, "except").has(key)
+    };
+    await recordFirmSharedAnswers(user.id, draftWithFullName, formWithFullName);
     await saveDeadlineAnswers(user.id, data);
   }
 }

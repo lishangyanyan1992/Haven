@@ -189,11 +189,11 @@ async function main() {
 
       // Provision showcase users & documents
       console.log("Provisioning showcase users and documents in haven-vault...");
-      await provisionShowcaseUsersAndDocs();
+      const showcaseUserMap = await provisionShowcaseUsersAndDocs();
 
       // Seed 50 demo leads
       console.log("Seeding 50 simulated leads...");
-      const seeded = await seedDemoFirm(firmId, new Date());
+      const seeded = await seedDemoFirm(firmId, new Date(), showcaseUserMap);
       console.log(`Successfully seeded ${seeded.count} leads for ${name}.`);
       console.log(`Lawyer login: ${lawyer}`);
       console.log(`Dashboard URL: ${site}/firm`);

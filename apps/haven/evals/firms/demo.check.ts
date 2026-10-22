@@ -74,6 +74,25 @@ async function main() {
   const emails = new Set(DEMO_LEAD_TEMPLATES.map((t) => t.email.toLowerCase()));
   check("all 50 emails are unique", emails.size === 50, `got ${emails.size} unique emails`);
 
+  // 6. Visa type enum mapping for showcase profiles
+  const { toProfileVisaType, createSamplePdf, SHOWCASE_DOCUMENTS } = await import("@/lib/firms/demo");
+  const validEnums = new Set(["OPT", "STEM OPT", "H1B", "H4", "O-1", "GC", "Citizen"]);
+  check("visa enum: H-1B maps to H1B", toProfileVisaType("H-1B") === "H1B");
+  check("visa enum: O-1A maps to O-1", toProfileVisaType("O-1A") === "O-1");
+  check("visa enum: F-1 OPT maps to OPT", toProfileVisaType("F-1 OPT") === "OPT");
+  check("visa enum: F-1 STEM OPT maps to STEM OPT", toProfileVisaType("F-1 STEM OPT") === "STEM OPT");
+  const showcaseTemplates = DEMO_LEAD_TEMPLATES.filter((t) => t.showcaseIndex !== undefined);
+  const allShowcaseEnumsValid = showcaseTemplates.every((t) => validEnums.has(toProfileVisaType(t.answers.visaType)));
+  check("visa enum: all showcase profiles map to valid database enum", allShowcaseEnumsValid);
+
+  // 7. Sample PDF generation
+  const pdfBuf = createSamplePdf("TEST TITLE", "TEST SUBTITLE", "TEST DETAIL");
+  const pdfStr = pdfBuf.toString("utf-8");
+  check("pdf: starts with %PDF-1.4", pdfStr.startsWith("%PDF-1.4"));
+  check("pdf: defines Font F1 Helvetica", pdfStr.includes("/Font") && pdfStr.includes("/Helvetica"));
+  check("pdf: contains xref and %%EOF", pdfStr.includes("xref\n") && pdfStr.trimEnd().endsWith("%%EOF"));
+  check("pdf: all showcase documents have valid definitions", Object.keys(SHOWCASE_DOCUMENTS).length === 8);
+
   console.log(`\n${pass}/${pass + failures.length} passed`);
   if (failures.length) process.exit(1);
 }

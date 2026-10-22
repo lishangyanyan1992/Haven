@@ -257,13 +257,34 @@ async function grantAccess(email: string, firmId: string) {
   return true;
 }
 
-/** Called when a client finishes setup. Starts their New badge. */
+/** Called when a client finishes setup. Starts their New badge and ensures fullName is copied into shared_answers. */
 export async function markFirmClientCompleted(userId: string) {
-  await admin()
+  const { data: profile } = await admin()
+    .from("user_profiles")
+    .select("full_name")
+    .eq("id", userId)
+    .maybeSingle();
+
+  const { data: client } = await admin()
     .from("firm_clients")
-    .update({ completed_at: new Date().toISOString() })
+    .select("id, shared_answers, completed_at")
     .eq("user_id", userId)
-    .is("completed_at", null);
+    .maybeSingle();
+
+  if (client) {
+    const answers = { ...(client.shared_answers ?? {}) };
+    if (profile?.full_name?.trim()) {
+      answers.fullName = profile.full_name.trim();
+    }
+    const updates: Record<string, any> = { shared_answers: answers };
+    if (!client.completed_at) {
+      updates.completed_at = new Date().toISOString();
+    }
+    await admin()
+      .from("firm_clients")
+      .update(updates)
+      .eq("id", client.id);
+  }
 }
 
 /** The firm a signed-in client joined, for the sharing reminder. */
