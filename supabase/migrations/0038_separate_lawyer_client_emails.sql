@@ -31,10 +31,8 @@ set normalized_email = lower(trim(normalized_email))
 where normalized_email <> lower(trim(normalized_email));
 
 update public.firm_clients
-set email = lower(trim(email)),
-    normalized_email = lower(trim(email))
-where email <> lower(trim(email))
-   or normalized_email <> lower(trim(email));
+set normalized_email = lower(trim(normalized_email))
+where normalized_email <> lower(trim(normalized_email));
 
 update public.waitlist_signups
 set email = lower(trim(email)),
@@ -114,6 +112,15 @@ begin
   ) then
     raise exception 'Lawyer/client email or user overlap exists. Resolve it before applying 0038.';
   end if;
+  if exists (
+    select 1
+    from public.waitlist_signups
+    where interest_key = 'lawyer_access'
+    group by lower(trim(normalized_email))
+    having count(*) > 1
+  ) then
+    raise exception 'Cannot migrate lawyer_access rows with duplicate normalized_email; resolve them manually first.';
+  end if;
 end $$;
 
 insert into public.firm_pilot_requests (full_name, firm_name, email, normalized_email, note, source_path, created_at, updated_at)
@@ -170,9 +177,7 @@ alter table public.firm_clients
 
 alter table public.firm_clients
   add constraint firm_clients_email_canonical_chk check (
-    email = lower(trim(email))
-    and normalized_email = lower(trim(normalized_email))
-    and email = normalized_email
+    normalized_email = lower(trim(normalized_email))
   );
 
 alter table public.waitlist_signups
@@ -230,7 +235,7 @@ begin
     raise exception 'Role conflict: email % already exists as a client in access_invites', v_email;
   end if;
 
-  if exists (select 1 from public.firm_clients where lower(trim(normalized_email)) = v_email or lower(trim(email)) = v_email) then
+  if exists (select 1 from public.firm_clients where lower(trim(normalized_email)) = v_email) then
     raise exception 'Role conflict: email % already exists as a client in firm_clients', v_email;
   end if;
 
@@ -283,8 +288,7 @@ begin
     new.normalized_email := v_email;
     v_user_id := null;
   elsif tg_table_name = 'firm_clients' then
-    v_email := lower(trim(coalesce(new.normalized_email, new.email)));
-    new.email := v_email;
+    v_email := lower(trim(new.normalized_email));
     new.normalized_email := v_email;
     v_user_id := new.user_id;
   elsif tg_table_name = 'user_profiles' then
