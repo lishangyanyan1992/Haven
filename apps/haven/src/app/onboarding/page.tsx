@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 
 import { HavenBrand } from "@/components/app/haven-brand";
 import { MixpanelAuthTracker } from "@/components/app/mixpanel-auth-tracker";
+import { FirmSharingNote } from "@/components/app/firm-sharing-note";
 import { OnboardingFlow } from "./OnboardingFlow";
 
 const HAVEN_HOME_URL = "https://haven-h1b.com/";
@@ -11,6 +12,8 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { persistProfileDraft, ONBOARDING_OVERRIDE_COOKIE } from "@/lib/profile-sync";
 import { env } from "@/lib/env";
 import { noIndexMetadata } from "@/lib/seo";
+import { recordFirmSharedAnswers } from "@/lib/firms/answers";
+import { getClientFirm, markFirmClientCompleted } from "@/lib/firms/intake";
 
 const EMAIL_INGEST_DOMAIN = env.EMAIL_INGEST_DOMAIN ?? "import.haven-h1b.com";
 
@@ -64,15 +67,18 @@ async function saveStepAction(step: number, data: FormData) {
       top_concerns: []
     });
     await persistProfileDraft(user.id, buildDraft(data));
+    await recordFirmSharedAnswers(user.id, buildDraft(data), data);
     await admin.from("email_aliases").upsert({
       user_id: user.id,
       alias: `${(user.email ?? "user").split("@")[0]}-${user.id.slice(0, 6)}@${EMAIL_INGEST_DOMAIN}`
     });
+    await markFirmClientCompleted(user.id);
     const cookieStore = await cookies();
     cookieStore.delete(ONBOARDING_OVERRIDE_COOKIE);
   } else {
     // Auto-save for any step (including step 4 while still editing)
     await persistProfileDraft(user.id, buildDraft(data));
+    await recordFirmSharedAnswers(user.id, buildDraft(data), data);
   }
 }
 
@@ -89,6 +95,7 @@ export default async function OnboardingPage({
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const requestedStep = Number(resolvedSearchParams?.step ?? "");
   const initialStep = Number.isFinite(requestedStep) && requestedStep >= 1 && requestedStep <= 4 ? requestedStep : 1;
+  const firm = await getClientFirm(user?.id);
 
   return (
     <div className="min-h-screen">
@@ -101,6 +108,11 @@ export default async function OnboardingPage({
         </div>
       </header>
       {userId ? <MixpanelAuthTracker userId={userId} email={userEmail} /> : null}
+      {firm ? (
+        <div className="content-container-wide pt-5">
+          <FirmSharingNote firmName={firm.firmName} />
+        </div>
+      ) : null}
       <OnboardingFlow initialStep={initialStep} saveStepAction={saveStepAction} userEmail={userEmail} />
     </div>
   );

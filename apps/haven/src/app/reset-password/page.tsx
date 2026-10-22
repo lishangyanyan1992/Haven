@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { rememberSignUpAttempt } from "@/lib/mixpanel";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { claimFirmInviteAction } from "@/server/firm-actions";
 import { cn } from "@/lib/utils";
 
 const HAVEN_HOME_URL = "https://haven-h1b.com/";
@@ -30,6 +31,7 @@ export default function ResetPasswordPage() {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error" | "invalid_link">("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [sessionReady, setSessionReady] = useState(false);
+  const [joinedFirm, setJoinedFirm] = useState(false);
 
   // Supabase puts the recovery token in the URL hash.
   // We need to let the client SDK exchange it for a session.
@@ -43,13 +45,41 @@ export default function ResetPasswordPage() {
       }
     });
 
-    // Also check if the user already has a recovery session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setSessionReady(true);
-    });
+    // Invite and admin-sent links put the session in the URL hash
+    // (#access_token=...). The browser client only reads ?code= links, so
+    // take the hash ourselves, then clear it from the address bar.
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const accessToken = hash.get("access_token");
+    const refreshToken = hash.get("refresh_token");
+    if (accessToken && refreshToken) {
+      supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken }).then(({ data, error }) => {
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+        if (!error && data.session) setSessionReady(true);
+      });
+    } else {
+      // Also check if the user already has a recovery session
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) setSessionReady(true);
+      });
+    }
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Opened from a law firm's intake email: join that firm as soon as the
+  // link has signed them in. That proves they hold the mailbox, and the
+  // email's one-time code proves which intake it was. People who already
+  // have a password don't need to choose a new one to join.
+  useEffect(() => {
+    if (!sessionReady) return;
+    const claim = new URLSearchParams(window.location.search).get("claim");
+    if (!claim) return;
+    claimFirmInviteAction(claim)
+      .then((result) => setJoinedFirm(result.joined))
+      .catch(() => {
+        // Not fatal: they can ask their lawyer for a fresh link.
+      });
+  }, [sessionReady]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,6 +119,7 @@ export default function ResetPasswordPage() {
       rememberSignUpAttempt(current.user.email.toLowerCase());
     }
 
+
     setStatus("success");
     setTimeout(() => router.push("/login?message=password_updated"), 2000);
   };
@@ -126,6 +157,16 @@ export default function ResetPasswordPage() {
               </div>
             ) : (
               <form className="space-y-4" onSubmit={handleSubmit}>
+                {joinedFirm && (
+                  <div className="rounded-[var(--radius-lg)] border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] px-4 py-3 text-body-sm">
+                    You&apos;re connected to your lawyer&apos;s firm. Choose a password to finish, or, if you already have
+                    a Haven password,{" "}
+                    <Link className="font-medium underline underline-offset-2" href="/login">
+                      sign in
+                    </Link>
+                    .
+                  </div>
+                )}
                 {status === "error" && (
                   <div className="rounded-[var(--radius-lg)] border border-[#e8b4b4] bg-[#fdf0f0] px-4 py-3 text-body-sm text-[#7a3030]">
                     {errorMessage}

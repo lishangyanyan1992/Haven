@@ -13,7 +13,7 @@ export async function readDocumentAction(formData: FormData) {
     data: { user }
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Authentication required.");
-  if (!documentContextAvailableFor(user.email)) throw new Error("Not available.");
+  if (!(await documentContextAvailableFor(user.email))) throw new Error("Not available.");
 
   const documentId = String(formData.get("documentId") ?? "").trim();
   if (!documentId) throw new Error("Missing document ID.");

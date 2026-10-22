@@ -6,6 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import GonePage from "@/app/gone/page";
 import { formatBytes } from "@/lib/document-vault";
 import { documentContextAvailableFor } from "@/lib/document-context/store";
+import { FirmSharingNote } from "@/components/app/firm-sharing-note";
+import { getClientFirm } from "@/lib/firms/intake";
 import { getCrisisState } from "@/lib/get-crisis-state";
 import { getInboxPageData } from "@/lib/repositories/case-compass";
 import { noIndexMetadata } from "@/lib/seo";
@@ -35,7 +37,8 @@ export default async function DocumentsPage() {
   const {
     data: { user }
   } = await supabase.auth.getUser();
-  if (!user || !documentContextAvailableFor(user.email)) return <GonePage />;
+  if (!user || !(await documentContextAvailableFor(user.email))) return <GonePage />;
+  const firm = await getClientFirm(user.id);
 
   const [snapshot, crisisState] = await Promise.all([getInboxPageData(), getCrisisState()]);
   const documents = snapshot.documents.filter((d) => d.sourceKind === "manual_upload");
@@ -52,6 +55,8 @@ export default async function DocumentsPage() {
             it tells you which document and page.
           </p>
         </section>
+
+        {firm ? <FirmSharingNote firmName={firm.firmName} /> : null}
 
         <Card>
           <CardContent className="space-y-4 pt-6">

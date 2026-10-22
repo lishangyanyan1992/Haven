@@ -50,7 +50,11 @@
     "check:source-retrieval": "tsx --tsconfig tsconfig.json evals/advisor/source-retrieval.check.ts",
     "check:document-extraction": "tsx --tsconfig tsconfig.json evals/documents/extraction.check.ts",
     "check:document-advisor": "tsx --tsconfig tsconfig.json evals/documents/advisor-documents.check.ts",
-    "community:summaries": "tsx --tsconfig tsconfig.json scripts/build-community-summaries.ts"
+    "community:summaries": "tsx --tsconfig tsconfig.json scripts/build-community-summaries.ts",
+    "firm-admin": "tsx --env-file=.env.local --tsconfig tsconfig.json scripts/firm-admin.ts",
+    "check:firm-isolation": "tsx --tsconfig tsconfig.json evals/firms/isolation.check.ts",
+    "check:firm-status": "tsx --tsconfig tsconfig.json evals/firms/status.check.ts",
+    "check:firm-intake": "tsx --tsconfig tsconfig.json evals/firms/intake.check.ts"
   },
   "dependencies": {
     "@haven/auth": "*",

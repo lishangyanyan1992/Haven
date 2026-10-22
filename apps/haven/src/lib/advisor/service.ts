@@ -4613,7 +4613,7 @@ export async function* streamAdvisorResponse(
   const documentPersona = identity.isMock ? resolveTestPersona() : null;
   if (documentPersona?.documentPassages) {
     documentPassages = documentPersona.documentPassages;
-  } else if (!identity.isMock && documentContextAvailableFor(identity.email)) {
+  } else if (!identity.isMock && (await documentContextAvailableFor(identity.email))) {
     try {
       documentPassages = await searchUserDocuments(identity.id, content);
     } catch {
