@@ -286,6 +286,7 @@ export async function completeOnboardingAction(formData: FormData) {
 
   // Persist all onboarding data
   const setupDraft = {
+    fullName,
     visaType: String(formData.get("visaType") ?? ""),
     countryOfBirth: String(formData.get("countryOfBirth") ?? ""),
     primaryGoal: String(formData.get("primaryGoal") ?? ""),
@@ -303,7 +304,9 @@ export async function completeOnboardingAction(formData: FormData) {
     statusUpdateEmailNotifications: String(formData.get("statusUpdateEmailNotifications") ?? "false")
   };
   await persistProfileDraft(user.id, setupDraft);
-  await recordFirmSharedAnswers(user.id, setupDraft, formData);
+  await recordFirmSharedAnswers(user.id, setupDraft, {
+    has: (key: string) => key === "fullName" || formData.has(key)
+  });
 
   await admin.from("email_aliases").upsert({
     user_id: user.id,
