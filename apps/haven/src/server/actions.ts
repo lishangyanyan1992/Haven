@@ -14,7 +14,8 @@ import { env } from "@/lib/env";
 import { SIGNED_IN_HOME } from "@/lib/archived-routes";
 import { isInvitedEmail } from "@/lib/access";
 import { getFirmMembership } from "@/lib/firms/access";
-import { claimFirmInvite, markFirmClientCompleted } from "@/lib/firms/intake";
+import { recordFirmSharedAnswers } from "@/lib/firms/answers";
+import { markFirmClientCompleted } from "@/lib/firms/intake";
 import { captureSignupCompleted } from "@/lib/posthog-server";
 
 const EMAIL_INGEST_DOMAIN = env.EMAIL_INGEST_DOMAIN ?? "import.haven-h1b.com";
@@ -155,12 +156,9 @@ export async function signInAction(formData: FormData) {
     redirect("/firm");
   }
 
-  // A pending invite from a firm's intake link becomes a real invite here,
-  // now that the person has shown they hold the mailbox. Must run before
-  // the invite check below.
-  if (signInData?.user) {
-    await claimFirmInvite(signInData.user);
-  }
+  // Joining a firm is not done here: it needs the one-time code from the
+  // firm's intake email (claimFirmInviteAction, on the set-password page),
+  // so an ordinary sign-in can never attach someone to a firm.
 
   if (!(await isInvitedEmail(email))) {
     await supabase.auth.signOut();
@@ -282,7 +280,7 @@ export async function completeOnboardingAction(formData: FormData) {
   });
 
   // Persist all onboarding data
-  await persistProfileDraft(user.id, {
+  const setupDraft = {
     visaType: String(formData.get("visaType") ?? ""),
     countryOfBirth: String(formData.get("countryOfBirth") ?? ""),
     primaryGoal: String(formData.get("primaryGoal") ?? ""),
@@ -298,7 +296,9 @@ export async function completeOnboardingAction(formData: FormData) {
     topConcerns: formData.getAll("topConcerns").map(String),
     communityReplyEmailNotifications: String(formData.get("communityReplyEmailNotifications") ?? "false"),
     statusUpdateEmailNotifications: String(formData.get("statusUpdateEmailNotifications") ?? "false")
-  });
+  };
+  await persistProfileDraft(user.id, setupDraft);
+  await recordFirmSharedAnswers(user.id, setupDraft);
 
   await admin.from("email_aliases").upsert({
     user_id: user.id,
@@ -349,11 +349,13 @@ export async function saveOnboardingStepOneAction(formData: FormData) {
   });
 
   const { user } = await requireUser();
-  await persistProfileDraft(user.id, {
+  const setupDraft = {
     visaType: input.visaType,
     countryOfBirth: input.countryOfBirth,
     primaryGoal: input.primaryGoal
-  });
+  };
+  await persistProfileDraft(user.id, setupDraft);
+  await recordFirmSharedAnswers(user.id, setupDraft);
 
   revalidatePath("/onboarding");
   revalidatePath("/dashboard");
@@ -368,12 +370,14 @@ export async function saveOnboardingStepTwoAction(formData: FormData) {
   });
 
   const { user } = await requireUser();
-  await persistProfileDraft(user.id, {
+  const setupDraft = {
     employerName: input.employerName,
     jobTitle: input.jobTitle,
     h1bStartDate: input.h1bStartDate || "",
     employerSize: input.employerSize
-  });
+  };
+  await persistProfileDraft(user.id, setupDraft);
+  await recordFirmSharedAnswers(user.id, setupDraft);
 
   revalidatePath("/onboarding");
   revalidatePath("/dashboard");
@@ -388,12 +392,14 @@ export async function saveOnboardingStepThreeAction(formData: FormData) {
   });
 
   const { user } = await requireUser();
-  await persistProfileDraft(user.id, {
+  const setupDraft = {
     greenCardStage: input.greenCardStage,
     priorityDate: input.priorityDate || "",
     preferenceCategory: input.preferenceCategory,
     i140Approved: input.i140Approved
-  });
+  };
+  await persistProfileDraft(user.id, setupDraft);
+  await recordFirmSharedAnswers(user.id, setupDraft);
 
   revalidatePath("/onboarding");
   revalidatePath("/timeline");
@@ -407,10 +413,12 @@ export async function saveOnboardingStepFourAction(formData: FormData) {
   });
 
   const { user } = await requireUser();
-  await persistProfileDraft(user.id, {
+  const setupDraft = {
     spouseVisaStatus: input.spouseVisaStatus,
     topConcerns: input.topConcerns
-  });
+  };
+  await persistProfileDraft(user.id, setupDraft);
+  await recordFirmSharedAnswers(user.id, setupDraft);
 
   revalidatePath("/onboarding");
   revalidatePath("/planner");
@@ -423,7 +431,7 @@ export async function saveProfileSettingsAction(formData: FormData) {
   const { user } = await requireUser();
   const cookieStore = await cookies();
 
-  await persistProfileDraft(user.id, {
+  const setupDraft = {
     visaType: String(formData.get("visaType") ?? ""),
     countryOfBirth: String(formData.get("countryOfBirth") ?? ""),
     primaryGoal: String(formData.get("primaryGoal") ?? ""),
@@ -437,7 +445,9 @@ export async function saveProfileSettingsAction(formData: FormData) {
     i140Approved: String(formData.get("i140Approved") ?? "false"),
     spouseVisaStatus: String(formData.get("spouseVisaStatus") ?? ""),
     topConcerns: formData.getAll("topConcerns").map(String)
-  });
+  };
+  await persistProfileDraft(user.id, setupDraft);
+  await recordFirmSharedAnswers(user.id, setupDraft);
 
   cookieStore.delete(ONBOARDING_OVERRIDE_COOKIE);
 

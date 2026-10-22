@@ -1,0 +1,96 @@
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+
+/**
+ * The setup answers a client shares with their firm.
+ *
+ * Kept as a separate copy on firm_clients.shared_answers rather than read
+ * live from user_profiles, because the chat also updates user_profiles
+ * (for example, "I was laid off" changes work status). Only the setup and
+ * settings screens write this copy, so nothing said in a chat reaches the
+ * lawyer.
+ */
+
+export const SHARED_ANSWER_KEYS = [
+  "visaType",
+  "countryOfBirth",
+  "primaryGoal",
+  "employerName",
+  "jobTitle",
+  "h1bStartDate",
+  "employerSize",
+  "greenCardStage",
+  "priorityDate",
+  "preferenceCategory",
+  "spouseVisaStatus",
+  "topConcerns"
+] as const;
+
+export type SharedAnswerKey = (typeof SHARED_ANSWER_KEYS)[number];
+export type SharedAnswers = Partial<Record<SharedAnswerKey, string | string[]>>;
+
+/** The answered setup fields from a setup or settings form submission. */
+export function pickSharedAnswers(draft: Record<string, unknown>): SharedAnswers {
+  const out: SharedAnswers = {};
+  for (const key of SHARED_ANSWER_KEYS) {
+    const value = draft[key];
+    if (Array.isArray(value)) {
+      const items = value.map(String).map((v) => v.trim()).filter(Boolean);
+      if (items.length) out[key] = items;
+    } else if (typeof value === "string" && value.trim()) {
+      out[key] = value.trim();
+    }
+  }
+  return out;
+}
+
+/**
+ * The same answers read from a profile, for someone who finished setup before
+ * joining a firm. Used once, when they join.
+ */
+export function sharedAnswersFromProfile(p: Record<string, any> | null): SharedAnswers {
+  if (!p || !String(p.country_of_birth ?? "").trim()) return {};
+  const greenCardStage = p.i485_filed
+    ? "i485_filed"
+    : p.i140_approved
+      ? "i140_approved"
+      : p.perm_stage === "certified"
+        ? "perm_certified"
+        : p.perm_stage === "in_progress"
+          ? "perm_in_progress"
+          : "not_started";
+  return pickSharedAnswers({
+    visaType: p.visa_type,
+    countryOfBirth: p.country_of_birth,
+    primaryGoal: p.primary_goal,
+    employerName: p.employer_name ?? "",
+    jobTitle: p.job_title ?? "",
+    h1bStartDate: p.h1b_start_date ?? "",
+    employerSize: p.employer_size ?? "",
+    greenCardStage,
+    priorityDate: p.priority_date ?? "",
+    preferenceCategory: p.preference_category,
+    spouseVisaStatus: p.spouse_visa_status,
+    topConcerns: p.top_concerns ?? []
+  });
+}
+
+/**
+ * Merge a setup or settings submission into the firm's copy. Does nothing for
+ * people who haven't joined a firm. Never call this from the chat.
+ */
+export async function recordFirmSharedAnswers(userId: string, draft: Record<string, unknown>) {
+  const picked = pickSharedAnswers(draft);
+  if (Object.keys(picked).length === 0) return;
+  const admin = createSupabaseAdminClient() as any;
+  const { data: row } = await admin
+    .from("firm_clients")
+    .select("id, shared_answers, joined_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!row?.joined_at) return;
+  const { error } = await admin
+    .from("firm_clients")
+    .update({ shared_answers: { ...(row.shared_answers ?? {}), ...picked } })
+    .eq("id", row.id);
+  if (error) console.error("[firms] could not save shared answers", error.message);
+}

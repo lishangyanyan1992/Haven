@@ -28,7 +28,10 @@ export async function GET(request: NextRequest) {
   if (!code) {
     // No code — could be a hash-based recovery link (older Supabase flow).
     // Redirect to reset-password and let the client handle the hash token.
-    return NextResponse.redirect(`${origin}/reset-password`);
+    // Keep its query (a firm intake email adds ?claim=) when that's where
+    // the link was going; the browser carries the hash across the redirect.
+    const target = safeNext.startsWith("/reset-password") ? safeNext : "/reset-password";
+    return NextResponse.redirect(`${origin}${target}`);
   }
 
   const response = NextResponse.redirect(`${origin}${safeNext}`);

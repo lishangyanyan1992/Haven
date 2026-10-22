@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Check, Copy, LoaderCircle, RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,10 @@ import { replaceFirmLinkAction, setFirmLinkActiveAction } from "@/server/firm-ac
 
 export function LinkControls({ initialUrl, isActive }: { initialUrl: string | null; isActive: boolean }) {
   const [url, setUrl] = useState(initialUrl);
+  // Another lawyer may have replaced the link; show whatever the server has now.
+  useEffect(() => {
+    setUrl(initialUrl);
+  }, [initialUrl]);
   const [copied, setCopied] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -42,21 +42,13 @@ export async function setFirmLinkActive(firmId: string, isActive: boolean) {
   if (error) throw new Error(`Could not update the link: ${error.message}`);
 }
 
-/** Revoke the current link and make a new active one. */
+/**
+ * Revoke the current link and make a new active one, in one database
+ * transaction (firm_replace_intake_link), so a failure keeps the old link.
+ */
 export async function replaceFirmLink(firmId: string): Promise<FirmIntakeLinkRow> {
-  const { error: revokeError } = await admin()
-    .from("firm_intake_links")
-    .update({ revoked_at: new Date().toISOString(), is_active: false })
-    .eq("firm_id", firmId)
-    .is("revoked_at", null);
-  if (revokeError) throw new Error(`Could not replace the link: ${revokeError.message}`);
-
-  const { data, error } = await admin()
-    .from("firm_intake_links")
-    .insert({ firm_id: firmId, token: newIntakeToken(), is_active: true })
-    .select("*")
-    .single();
-  if (error) throw new Error(`Could not replace the link: ${error.message}`);
+  const { data, error } = await admin().rpc("firm_replace_intake_link", { p_firm_id: firmId, p_token: newIntakeToken() });
+  if (error || !data) throw new Error(`Could not replace the link: ${error?.message ?? "no link returned"}`);
   return data as FirmIntakeLinkRow;
 }
 

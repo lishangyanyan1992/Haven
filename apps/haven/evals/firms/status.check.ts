@@ -18,22 +18,39 @@ async function main() {
   };
 
   const now = "2026-10-21T00:00:00Z";
-  const stub = { country_of_birth: "", employer_name: null, preference_category: "Not sure" };
 
   const cases: [string, Parameters<typeof firmClientStatus>[0], Parameters<typeof firmClientStatus>[1], string][] = [
-    ["entered email only", { joined_at: null, completed_at: null }, null, "email_sent"],
-    ["joined, no profile yet", { joined_at: now, completed_at: null }, null, "signed_up"],
-    ["joined, placeholder profile", { joined_at: now, completed_at: null }, stub, "signed_up"],
-    ["saved step one", { joined_at: now, completed_at: null }, { ...stub, country_of_birth: "India" }, "in_progress"],
-    ["saved employment only", { joined_at: now, completed_at: null }, { ...stub, employer_name: "Acme" }, "in_progress"],
-    ["saved green card only", { joined_at: now, completed_at: null }, { ...stub, preference_category: "EB-2" }, "in_progress"],
-    ["finished setup", { joined_at: now, completed_at: now }, { ...stub, country_of_birth: "India" }, "finished"],
-    ["finished wins over a sparse profile", { joined_at: now, completed_at: now }, stub, "finished"]
+    ["entered email only", { joined_at: null, completed_at: null }, {}, "email_sent"],
+    ["joined, nothing saved", { joined_at: now, completed_at: null }, {}, "signed_up"],
+    ["joined, no answers copy", { joined_at: now, completed_at: null }, null, "signed_up"],
+    ["saved step one", { joined_at: now, completed_at: null }, { visaType: "H1B", countryOfBirth: "India" }, "in_progress"],
+    ["saved employment only", { joined_at: now, completed_at: null }, { employerName: "Acme" }, "in_progress"],
+    ["finished setup", { joined_at: now, completed_at: now }, { countryOfBirth: "India" }, "finished"],
+    ["finished with sparse answers", { joined_at: now, completed_at: now }, {}, "finished"]
   ];
-  for (const [name, client, profile, expected] of cases) {
-    const got = firmClientStatus(client, profile);
+  for (const [name, client, answers, expected] of cases) {
+    const got = firmClientStatus(client, answers);
     check(`status: ${name}`, got === expected, `expected ${expected}, got ${got}`);
   }
+
+  const { pickSharedAnswers, sharedAnswersFromProfile } = await import("@/lib/firms/answers");
+  const picked = pickSharedAnswers({ visaType: "H1B", employerName: "  ", topConcerns: [], countryOfBirth: "India", unrelated: "x" });
+  check(
+    "answers: keeps only answered setup fields",
+    JSON.stringify(picked) === JSON.stringify({ visaType: "H1B", countryOfBirth: "India" }),
+    `got ${JSON.stringify(picked)}`
+  );
+  check(
+    "answers: chat-only fields are never copied",
+    !("employment_status" in sharedAnswersFromProfile({ country_of_birth: "India", employment_status: "laid_off", visa_type: "H1B" })) &&
+      !("employmentStatus" in sharedAnswersFromProfile({ country_of_birth: "India", employment_status: "laid_off", visa_type: "H1B" })),
+    "employment status is set by the chat and must not be shared"
+  );
+  check(
+    "answers: green card stage from profile",
+    sharedAnswersFromProfile({ country_of_birth: "India", i140_approved: true, perm_stage: "not_started" }).greenCardStage === "i140_approved",
+    "expected i140_approved"
+  );
 
   check("new: finished and not opened", isNewFirmClient({ completed_at: now, reviewed_at: null }), "should be New");
   check("new: finished and opened", !isNewFirmClient({ completed_at: now, reviewed_at: now }), "should not be New");

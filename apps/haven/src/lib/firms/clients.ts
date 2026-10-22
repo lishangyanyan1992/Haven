@@ -1,4 +1,5 @@
 import { HAVEN_VAULT_BUCKET } from "@/lib/document-vault";
+import type { SharedAnswers } from "@/lib/firms/answers";
 import { firmClientStatus, isNewFirmClient } from "@/lib/firms/status";
 import type { FirmClientRow, FirmClientStatus } from "@/lib/firms/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -7,26 +8,14 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
  * What a lawyer sees about their firm's clients.
  *
  * Every function takes the firmId from requireFirmMember() and filters by it.
- * Client data is looked up only for user ids that came out of a firm_clients
- * query already filtered by that firm. Nothing here reads chats or
- * remembered facts: the dashboard shows setup answers and documents only.
+ * Documents are looked up only for user ids that came out of a firm_clients
+ * query already filtered by that firm. Setup answers come from the firm's own
+ * copy (firm_clients.shared_answers), never from user_profiles, which the
+ * chat also writes to. Nothing here reads chats or remembered facts.
  */
 
 function admin() {
   return createSupabaseAdminClient() as any;
-}
-
-const PROFILE_FIELDS =
-  "id, full_name, visa_type, country_of_birth, current_visa_expiry_date, h1b_start_date, employer_name, job_title, employer_size, employment_status, perm_stage, perm_filing_date, priority_date, preference_category, i140_approved, i485_filed, spouse_visa_status, primary_goal, top_concerns";
-
-/**
- * Setup doesn't ask for a name, so new accounts get the part of the email
- * before the @ as a placeholder. Show the email instead of that.
- */
-export function clientName(fullName: unknown, email: string) {
-  const name = typeof fullName === "string" ? fullName.trim() : "";
-  if (!name || name.toLowerCase() === email.split("@")[0]) return email;
-  return name;
 }
 
 export type FirmClientSummary = {
@@ -55,25 +44,20 @@ export async function listFirmClients(firmId: string): Promise<FirmClientSummary
   const rows = await firmClientRows(firmId);
   const userIds = rows.map((r) => r.user_id).filter((id): id is string => Boolean(id));
 
-  const profiles = new Map<string, any>();
   const docCounts = new Map<string, number>();
   if (userIds.length > 0) {
-    const { data: profileRows } = await admin().from("user_profiles").select(PROFILE_FIELDS).in("id", userIds);
-    for (const p of profileRows ?? []) profiles.set(p.id, p);
-
     const { data: docRows } = await admin().from("user_documents").select("user_id").in("user_id", userIds);
     for (const d of docRows ?? []) docCounts.set(d.user_id, (docCounts.get(d.user_id) ?? 0) + 1);
   }
 
   return rows.map((row) => {
-    const profile = row.user_id ? profiles.get(row.user_id) ?? null : null;
-    const status = firmClientStatus(row, profile);
-    const stepOneSaved = Boolean(profile?.country_of_birth?.trim());
+    const answers = (row.shared_answers ?? {}) as SharedAnswers;
+    const status = firmClientStatus(row, answers);
     return {
       id: row.id,
-      displayName: clientName(profile?.full_name, row.normalized_email),
+      displayName: row.normalized_email,
       email: row.normalized_email,
-      visaType: stepOneSaved ? profile.visa_type : null,
+      visaType: typeof answers.visaType === "string" ? answers.visaType : null,
       status,
       isNew: isNewFirmClient(row),
       documentCount: row.user_id ? docCounts.get(row.user_id) ?? 0 : 0,
@@ -96,7 +80,7 @@ export type FirmClientDetail = {
   status: FirmClientStatus;
   joinedAt: string | null;
   completedAt: string | null;
-  profile: Record<string, unknown> | null;
+  answers: SharedAnswers;
   documents: FirmClientDocument[];
 };
 
@@ -112,11 +96,9 @@ export async function getFirmClient(firmId: string, firmClientId: string): Promi
   if (!row) return null;
   const client = row as FirmClientRow;
 
-  let profile: Record<string, unknown> | null = null;
+  const answers = (client.shared_answers ?? {}) as SharedAnswers;
   let documents: FirmClientDocument[] = [];
   if (client.user_id) {
-    const { data: p } = await admin().from("user_profiles").select(PROFILE_FIELDS).eq("id", client.user_id).maybeSingle();
-    profile = p ?? null;
     const { data: docs } = await admin()
       .from("user_documents")
       .select("id, original_name, display_label, document_kind, uploaded_at")
@@ -133,10 +115,10 @@ export async function getFirmClient(firmId: string, firmClientId: string): Promi
   return {
     id: client.id,
     email: client.normalized_email,
-    status: firmClientStatus(client, profile as any),
+    status: firmClientStatus(client, answers),
     joinedAt: client.joined_at,
     completedAt: client.completed_at,
-    profile,
+    answers,
     documents
   };
 }

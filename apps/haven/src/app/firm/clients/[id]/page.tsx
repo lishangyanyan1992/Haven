@@ -2,7 +2,8 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 import { requireFirmMember } from "@/lib/firms/access";
-import { clientName, getFirmClient, markFirmClientReviewed } from "@/lib/firms/clients";
+import type { SharedAnswerKey, SharedAnswers } from "@/lib/firms/answers";
+import { getFirmClient, markFirmClientReviewed } from "@/lib/firms/clients";
 import { FIRM_CLIENT_STATUS_LABEL } from "@/lib/firms/status";
 import { noIndexMetadata } from "@/lib/seo";
 import { FirmHeader } from "../../FirmHeader";
@@ -12,16 +13,23 @@ export const metadata = { ...noIndexMetadata, title: "Client · Haven" };
 export const dynamic = "force-dynamic";
 
 const LABELS: Record<string, Record<string, string>> = {
-  perm_stage: { not_started: "Not started", in_progress: "In progress", certified: "Certified", denied: "Denied" },
-  employment_status: { employed: "Employed", actively_searching: "Looking for work", laid_off: "Laid off" },
-  primary_goal: {
+  primaryGoal: {
     get_gc: "Get a green card",
-    job_stability: "Job stability",
-    explore_options: "Explore options",
-    stay_flexible: "Stay flexible",
-    not_sure: "Not sure"
+    job_stability: "Stay stable at current employer",
+    explore_options: "Explore all options",
+    stay_flexible: "Maximize flexibility",
+    not_sure: "Not sure yet"
   },
-  spouse_visa_status: {
+  employerSize: { startup: "Startup (under 200)", "mid-size": "Mid-size (200–2,000)", enterprise: "Enterprise (2,000+)" },
+  greenCardStage: {
+    not_started: "Not started yet",
+    perm_in_progress: "PERM in progress",
+    perm_certified: "PERM certified",
+    i140_filed: "I-140 filed",
+    i140_approved: "I-140 approved",
+    i485_filed: "I-485 filed"
+  },
+  spouseVisaStatus: {
     none: "No spouse / not applicable",
     H1B: "On H-1B",
     H4: "On H-4",
@@ -30,8 +38,7 @@ const LABELS: Record<string, Record<string, string>> = {
     citizen: "US citizen",
     other: "Other"
   },
-  employer_size: { startup: "Startup (under 200)", "mid-size": "Mid-size (200–2,000)", enterprise: "Enterprise (2,000+)" },
-  top_concerns: {
+  topConcerns: {
     layoffs: "Layoffs",
     visa_expiry: "Visa expiring",
     gc_timeline: "Green card timeline",
@@ -40,89 +47,38 @@ const LABELS: Record<string, Record<string, string>> = {
   }
 };
 
+const DATE_KEYS = new Set(["h1bStartDate", "priorityDate"]);
+
 function formatDate(value: unknown) {
   if (!value || typeof value !== "string") return null;
   const date = new Date(value.length === 10 ? `${value}T00:00:00Z` : value);
+  if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 }
 
-function text(field: string, value: unknown): string | null {
-  if (value === null || value === undefined) return null;
+/** One answer in plain words, or null if the client didn't give it. */
+function answer(answers: SharedAnswers, key: SharedAnswerKey): string | null {
+  const value = answers[key];
+  if (value === undefined || value === null) return null;
   if (Array.isArray(value)) {
-    const items = value.map((v) => LABELS[field]?.[String(v)] ?? String(v)).filter(Boolean);
+    const items = value.map((v) => LABELS[key]?.[v] ?? v).filter(Boolean);
     return items.length ? items.join(", ") : null;
   }
-  if (typeof value === "boolean") return value ? "Yes" : "No";
-  const raw = String(value).trim();
-  if (!raw) return null;
-  return LABELS[field]?.[raw] ?? raw;
+  if (!value.trim()) return null;
+  if (DATE_KEYS.has(key)) return formatDate(value);
+  return LABELS[key]?.[value] ?? value;
 }
 
-type Row = { label: string; value: string | null };
-
-/** The one stage the client picked in setup, which is saved across several fields. */
-function greenCardStage(p: Record<string, any> | null) {
-  if (!p) return null;
-  if (p.i485_filed) return "I-485 filed";
-  if (p.i140_approved) return "I-140 approved";
-  if (p.perm_stage === "certified") return "PERM certified";
-  if (p.perm_stage === "in_progress") return "PERM in progress";
-  if (p.perm_stage === "denied") return "PERM denied";
-  return "Not started yet";
-}
-
-/**
- * Group answers the way the setup steps do. A step's answers count only once
- * that step was saved, because new accounts start with placeholder values.
- */
-function answerGroups(p: Record<string, any> | null, finished: boolean): { title: string; rows: Row[] }[] {
-  const has = (v: unknown) => v !== null && v !== undefined && String(v).trim() !== "";
-  const profileSaved = Boolean(p && has(p.country_of_birth));
-  const workSaved = Boolean(p && (has(p.employer_name) || has(p.job_title) || has(p.h1b_start_date)));
-  const gcSaved = Boolean(
-    p && ((p.preference_category && p.preference_category !== "Not sure") || has(p.priority_date) || p.perm_stage !== "not_started")
-  );
-  const situationSaved = Boolean(p && (finished || p.spouse_visa_status !== "none" || (p.top_concerns ?? []).length > 0));
-  const gate = (saved: boolean, value: string | null) => (saved ? value : null);
-
-  return [
-    {
-      title: "Profile",
-      rows: [
-        { label: "Visa", value: gate(profileSaved, text("visa_type", p?.visa_type)) },
-        { label: "Country of birth", value: gate(profileSaved, text("country_of_birth", p?.country_of_birth)) },
-        { label: "Visa expires", value: gate(profileSaved, formatDate(p?.current_visa_expiry_date)) },
-        { label: "Main goal", value: gate(profileSaved, text("primary_goal", p?.primary_goal)) }
-      ]
-    },
-    {
-      title: "Employment",
-      rows: [
-        { label: "Employer", value: gate(workSaved, text("employer_name", p?.employer_name)) },
-        { label: "Job title", value: gate(workSaved, text("job_title", p?.job_title)) },
-        { label: "Employer size", value: gate(workSaved, text("employer_size", p?.employer_size)) },
-        { label: "Work status", value: gate(workSaved, text("employment_status", p?.employment_status)) },
-        { label: "H-1B start date", value: gate(workSaved, formatDate(p?.h1b_start_date)) }
-      ]
-    },
-    {
-      title: "Green card",
-      rows: [
-        { label: "Stage", value: gate(gcSaved, greenCardStage(p)) },
-        { label: "PERM filed", value: gate(gcSaved, formatDate(p?.perm_filing_date)) },
-        { label: "Category", value: gate(gcSaved, text("preference_category", p?.preference_category)) },
-        { label: "Priority date", value: gate(gcSaved, formatDate(p?.priority_date)) }
-      ]
-    },
-    {
-      title: "Situation",
-      rows: [
-        { label: "Spouse's status", value: gate(situationSaved, text("spouse_visa_status", p?.spouse_visa_status)) },
-        { label: "Main concerns", value: gate(situationSaved, text("top_concerns", p?.top_concerns)) }
-      ]
-    }
-  ];
-}
+/** Grouped the way the setup steps group them. */
+const GROUPS: { title: string; rows: [string, SharedAnswerKey][] }[] = [
+  { title: "Profile", rows: [["Visa", "visaType"], ["Country of birth", "countryOfBirth"], ["Main goal", "primaryGoal"]] },
+  {
+    title: "Employment",
+    rows: [["Employer", "employerName"], ["Job title", "jobTitle"], ["Employer size", "employerSize"], ["H-1B start date", "h1bStartDate"]]
+  },
+  { title: "Green card", rows: [["Stage", "greenCardStage"], ["Category", "preferenceCategory"], ["Priority date", "priorityDate"]] },
+  { title: "Situation", rows: [["Spouse's status", "spouseVisaStatus"], ["Main concerns", "topConcerns"]] }
+];
 
 export default async function FirmClientPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -144,8 +100,11 @@ export default async function FirmClientPage({ params }: { params: Promise<{ id:
   }
 
   await markFirmClientReviewed(membership.firmId, client.id);
-  const name = clientName(client.profile?.full_name, client.email);
-  const groups = answerGroups(client.profile as Record<string, any> | null, client.status === "finished");
+  const name = client.email;
+  const groups = GROUPS.map((group) => ({
+    title: group.title,
+    rows: group.rows.map(([label, key]) => ({ label, value: answer(client.answers, key) }))
+  }));
 
   return (
     <div className="min-h-screen bg-[var(--haven-cream)]">
@@ -159,7 +118,6 @@ export default async function FirmClientPage({ params }: { params: Promise<{ id:
         <div>
           <h1 className="text-h1">{name}</h1>
           <p className="text-body-sm mt-2 text-[var(--haven-ink-mid)]">
-            {name !== client.email ? `${client.email} · ` : ""}
             {FIRM_CLIENT_STATUS_LABEL[client.status]}
             {client.joinedAt ? ` · joined ${formatDate(client.joinedAt)}` : ""}
           </p>

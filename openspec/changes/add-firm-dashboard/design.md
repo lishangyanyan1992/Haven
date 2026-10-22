@@ -74,6 +74,11 @@ firm_intake_sends    (link_id, normalized_email, ip_hash, created_at)
 firm. Rejected because the dashboard needs per-client state (consent, New,
 link used), and `access_invites` stays a plain allow-list.
 
+### Replacing a link is one transaction
+
+`firm_replace_intake_link` revokes the old link and inserts the new one
+together, so a failed replacement leaves the old link working.
+
 ### Link token stored in plain form
 
 The token is 32 random bytes, encoded URL-safe, and the page is
@@ -84,37 +89,51 @@ couldn't copy the link again, and a link only lets someone request a sign-up
 email to their own inbox, so a leaked token is low-value. Replacing the link
 is the remedy if it leaks.
 
-### Joining is a two-step "claim"
+### Joining is a two-step "claim", and needs the email's one-time code
 
 ```
- /i/<token>  --email-->  requestFirmIntakeAction
-                           |  link active?  rate limits ok?
-                           |  email is lawyer / other firm's client? -> no-op
-                           |  upsert firm_clients (email_sent)
-                           |  no auth user -> inviteUserByEmail
-                           |  has auth user -> password-reset email
+ /i/<token>  --email-->  requestFirmIntake
+                           |  lawyer / other firm / already joined? -> no-op
+                           |  firm_intake_reserve_send: limits + log, locked
+                           |  pending firm_clients row + fresh claim code
+                           |    (only its hash is stored)
+                           |  no account  -> inviteUserByEmail
+                           |  has account -> password-reset email
+                           |  both link to /reset-password?claim=<code>
                            v
                     same reply every time
- email link -> /reset-password -> /login -> signInAction
+ email link -> /auth/callback (keeps ?claim) -> /reset-password
+                           |  page takes the session from the link
+                           v
+                claimFirmInviteAction(code)
+                  signed in as the pending email, email confirmed,
+                  and the code matches -> set user_id, joined_at,
+                  clear the code, add access_invites
                            |
                            v
-                claimFirmInvite(user)   <-- runs BEFORE isInvitedEmail
-                  if confirmed email matches a pending firm_clients row:
-                    set user_id, joined_at; insert access_invites
-                           |
-                           v
-                isInvitedEmail (now true) -> onboarding
+          new account: choose a password; existing: just sign in
 ```
 
-Access is granted only at sign-in, by someone holding that mailbox, which
-keeps the mailbox-ownership guarantee from the invite-only work. The claim
-must run before the invite check, because the invite row is created by the
-claim itself.
+Ordinary sign-in never joins anyone to a firm. Review found that an
+email-only claim let anyone holding a link type an existing user's address
+and have that account attached at its next normal sign-in. Needing the
+code means only someone who opened that specific email can join.
 
-*Alternative considered:* insert into `access_invites` as soon as the email
-is entered. Rejected because anyone holding the link could then grant
-access to an address they don't own, if any sign-up path ever skipped
-confirmation.
+Someone who had already finished setup is marked finished at join time,
+with their setup answers copied once, so they show as Finished and New.
+
+*Alternative considered:* claiming at sign-in by email alone (the first
+version). Rejected for the reason above.
+
+### Setup answers are a separate copy the chat can't write
+
+The chat updates `user_profiles` (for example, "I was laid off" changes
+work status). So the dashboard never reads `user_profiles`. It reads
+`firm_clients.shared_answers`, which only the setup steps and settings
+write, through `recordFirmSharedAnswers`. `check:firm-intake` fails if the
+chat service ever calls it, and `check:firm-isolation` fails if firm
+dashboard code reads `user_profiles`. Fields that only the chat sets, such
+as work status, aren't shown at all.
 
 ### Firm isolation in two layers
 
@@ -154,9 +173,10 @@ already a lawyer or a client.
 
 ### Rate limits
 
-Every send is logged in `firm_intake_sends`, and the action checks counts
-before sending: at most 3 per email per hour, 10 per visitor per hour, and
-100 per link per day. The visitor is identified by a salted IP hash, so the
+`firm_intake_reserve_send` checks the counts and logs the send in one
+locked database step, so parallel requests can't all slip under a limit. It
+allows at most 3 per email per hour, 10 per visitor per hour, and 100 per
+link per day. If the send can't be logged, no email goes out. The visitor is identified by a salted IP hash, so the
 raw IP is never stored. Supabase's own email limit (currently 30 an hour)
 sits behind this as a backstop.
 

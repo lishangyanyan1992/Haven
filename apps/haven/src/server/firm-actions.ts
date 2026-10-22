@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 
 import { requireFirmMember } from "@/lib/firms/access";
 import { firmDocumentUrl } from "@/lib/firms/clients";
-import { requestFirmIntake, type IntakeResult } from "@/lib/firms/intake";
+import { claimFirmInvite, requestFirmIntake, type IntakeResult } from "@/lib/firms/intake";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { intakeUrl, replaceFirmLink, setFirmLinkActive } from "@/lib/firms/links";
 
 /**
@@ -30,6 +31,20 @@ export async function openFirmDocumentAction(firmClientId: string, documentId: s
   const membership = await requireFirmMember();
   const url = await firmDocumentUrl(membership.firmId, String(firmClientId), String(documentId));
   return { url };
+}
+
+/**
+ * The set-password page opened from a firm's intake email. Joins the
+ * signed-in account to that firm if it holds the email's one-time code.
+ */
+export async function claimFirmInviteAction(claimToken: string): Promise<{ joined: boolean }> {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+  if (!user) return { joined: false };
+  const result = await claimFirmInvite(user, String(claimToken ?? ""));
+  return { joined: result === "joined" };
 }
 
 /** Public: the email box on a firm's intake link. */

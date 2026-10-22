@@ -12,6 +12,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { persistProfileDraft, ONBOARDING_OVERRIDE_COOKIE } from "@/lib/profile-sync";
 import { env } from "@/lib/env";
 import { noIndexMetadata } from "@/lib/seo";
+import { recordFirmSharedAnswers } from "@/lib/firms/answers";
 import { getClientFirm, markFirmClientCompleted } from "@/lib/firms/intake";
 
 const EMAIL_INGEST_DOMAIN = env.EMAIL_INGEST_DOMAIN ?? "import.haven-h1b.com";
@@ -66,6 +67,7 @@ async function saveStepAction(step: number, data: FormData) {
       top_concerns: []
     });
     await persistProfileDraft(user.id, buildDraft(data));
+    await recordFirmSharedAnswers(user.id, buildDraft(data));
     await admin.from("email_aliases").upsert({
       user_id: user.id,
       alias: `${(user.email ?? "user").split("@")[0]}-${user.id.slice(0, 6)}@${EMAIL_INGEST_DOMAIN}`
@@ -76,6 +78,7 @@ async function saveStepAction(step: number, data: FormData) {
   } else {
     // Auto-save for any step (including step 4 while still editing)
     await persistProfileDraft(user.id, buildDraft(data));
+    await recordFirmSharedAnswers(user.id, buildDraft(data));
   }
 }
 
