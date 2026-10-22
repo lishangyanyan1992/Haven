@@ -34,6 +34,7 @@ export type FirmClientRow = {
   completed_at: string | null;
   reviewed_at: string | null;
   claim_token_hash: string | null;
+  previous_claim_token_hash: string | null;
   shared_answers: Record<string, string | string[]>;
   created_at: string;
 };

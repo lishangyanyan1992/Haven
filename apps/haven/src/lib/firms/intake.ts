@@ -145,27 +145,43 @@ export async function requestFirmIntake(token: string, rawEmail: string, visitor
   const claimToken = randomBytes(32).toString("base64url");
   const claimTokenHash = hashClaimToken(claimToken);
 
+  // Save the code before emailing it, so a delivered link always works. The
+  // previous code moves aside and stays valid, so if this send fails, the
+  // link in the earlier email still works.
   if (decision.action === "invite_new") {
     const { error } = await admin()
       .from("firm_clients")
-      .insert({ firm_id: link.firmId, normalized_email: email, link_id: link.linkId });
+      .insert({ firm_id: link.firmId, normalized_email: email, link_id: link.linkId, claim_token_hash: claimTokenHash });
     if (error) {
       // A unique clash means another request just claimed this email.
       if (!/duplicate|unique/i.test(error.message)) console.error("[firm-intake] could not record client", error.message);
       return { status: "sent" };
     }
+  } else {
+    const { data: current } = await admin()
+      .from("firm_clients")
+      .select("claim_token_hash")
+      .eq("normalized_email", email)
+      .eq("firm_id", link.firmId)
+      .is("joined_at", null)
+      .maybeSingle();
+    const { error } = await admin()
+      .from("firm_clients")
+      .update({
+        email_sent_at: new Date().toISOString(),
+        claim_token_hash: claimTokenHash,
+        previous_claim_token_hash: current?.claim_token_hash ?? null
+      })
+      .eq("normalized_email", email)
+      .eq("firm_id", link.firmId)
+      .is("joined_at", null);
+    if (error) {
+      console.error("[firm-intake] could not save code", error.message);
+      return { status: "sent" };
+    }
   }
 
-  // Switch to the new code only once its email is out. If sending fails, the
-  // code in any earlier email keeps working.
-  if (!(await sendSignUpEmail(email, claimToken))) return { status: "sent" };
-  const { error: codeError } = await admin()
-    .from("firm_clients")
-    .update({ email_sent_at: new Date().toISOString(), claim_token_hash: claimTokenHash })
-    .eq("normalized_email", email)
-    .eq("firm_id", link.firmId)
-    .is("joined_at", null);
-  if (codeError) console.error("[firm-intake] could not save code", codeError.message);
+  await sendSignUpEmail(email, claimToken);
   return { status: "sent" };
 }
 
@@ -183,7 +199,7 @@ export async function claimFirmInvite(
 
   const { data: row } = await admin()
     .from("firm_clients")
-    .select("id, firm_id, user_id, joined_at, claim_token_hash")
+    .select("id, firm_id, user_id, joined_at, claim_token_hash, previous_claim_token_hash")
     .eq("normalized_email", email)
     .maybeSingle();
   if (!row) return "ignored";
@@ -191,7 +207,9 @@ export async function claimFirmInvite(
   // Already joined by this same person (say, the page ran twice): make sure
   // their access is in place, in case granting it failed last time.
   if (row.joined_at) return row.user_id === user.id && (await grantAccess(email, row.firm_id)) ? "joined" : "ignored";
-  if (!claimTokenMatches(claimToken, row.claim_token_hash)) return "ignored";
+  if (!claimTokenMatches(claimToken, row.claim_token_hash) && !claimTokenMatches(claimToken, row.previous_claim_token_hash)) {
+    return "ignored";
+  }
 
   // Access first: if it can't be granted, nothing is changed and the code
   // still works, so trying the link again can succeed.
@@ -211,6 +229,7 @@ export async function claimFirmInvite(
       user_id: user.id,
       joined_at: now,
       claim_token_hash: null,
+      previous_claim_token_hash: null,
       completed_at: alias ? now : null,
       // Only a finished setup is copied: a half-done one still holds the
       // placeholder defaults new accounts start with. They'll fill the rest
