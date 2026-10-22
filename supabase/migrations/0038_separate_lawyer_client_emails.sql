@@ -21,6 +21,74 @@ create index if not exists firm_pilot_requests_created_at_idx
 alter table public.firm_pilot_requests enable row level security;
 
 -- Migrate any lawyer signups out of waitlist_signups into firm_pilot_requests
+do $$
+begin
+  if exists (
+    select 1
+    from public.waitlist_signups ws
+    where ws.interest_key = 'lawyer_access'
+      and (
+        exists (
+          select 1
+          from public.waitlist_signups o
+          where o.normalized_email = ws.normalized_email
+            and o.interest_key <> 'lawyer_access'
+        )
+        or exists (
+          select 1
+          from public.access_invites i
+          where i.normalized_email = ws.normalized_email
+        )
+        or exists (
+          select 1
+          from public.firm_clients c
+          where c.normalized_email = ws.normalized_email
+        )
+        or exists (
+          select 1
+          from public.user_profiles p
+          where lower(p.email) = ws.normalized_email
+        )
+      )
+  )
+  or exists (
+    select 1
+    from public.firm_members fm
+    where exists (
+            select 1
+            from public.access_invites i
+            where i.normalized_email = lower(trim(fm.email))
+          )
+       or exists (
+            select 1
+            from public.firm_clients c
+            where c.normalized_email = lower(trim(fm.email))
+          )
+       or exists (
+            select 1
+            from public.user_profiles p
+            where lower(p.email) = lower(trim(fm.email))
+          )
+       or exists (
+            select 1
+            from public.waitlist_signups ws
+            where ws.normalized_email = lower(trim(fm.email))
+          )
+       or exists (
+            select 1
+            from public.firm_clients c
+            where c.user_id = fm.user_id
+          )
+       or exists (
+            select 1
+            from public.user_profiles p
+            where p.id = fm.user_id
+          )
+  ) then
+    raise exception 'Lawyer/client email or user overlap exists. Resolve it before applying 0038.';
+  end if;
+end $$;
+
 insert into public.firm_pilot_requests (full_name, firm_name, email, normalized_email, note, source_path, created_at, updated_at)
 select
   ws.full_name,

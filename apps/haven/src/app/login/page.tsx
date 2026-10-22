@@ -26,7 +26,7 @@ export default async function LoginPage({
   }>;
 }) {
   const { redirectTo = SIGNED_IN_HOME, email = "", message, progress, role } = await searchParams;
-  const isLawyer = role === "lawyer" || redirectTo.startsWith("/firm");
+  const isLawyer = role === "lawyer" || (role !== "client" && redirectTo.startsWith("/firm"));
   const progressPct = Math.min(100, Math.max(0, parseInt(progress ?? "0", 10)));
 
   const buildRoleUrl = (targetRole: "client" | "lawyer") => {
@@ -35,7 +35,7 @@ export default async function LoginPage({
     if (email) params.set("email", email);
     if (targetRole === "lawyer" && redirectTo === SIGNED_IN_HOME) {
       params.set("redirectTo", "/firm");
-    } else if (targetRole === "client" && redirectTo === "/firm") {
+    } else if (targetRole === "client" && redirectTo.startsWith("/firm")) {
       params.set("redirectTo", SIGNED_IN_HOME);
     } else if (redirectTo) {
       params.set("redirectTo", redirectTo);
@@ -297,7 +297,7 @@ export default async function LoginPage({
                 Haven is invitation-only. Invited by your lawyer?{" "}
                 <Link
                   className="font-medium text-[var(--haven-ink)] underline underline-offset-2"
-                  href={`/register${email ? `&email=${encodeURIComponent(email)}` : ""}`}
+                  href={`/register${email ? `?email=${encodeURIComponent(email)}` : ""}`}
                 >
                   Claim your invite or join the waitlist →
                 </Link>

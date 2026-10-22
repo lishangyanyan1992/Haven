@@ -232,16 +232,18 @@ export async function submitFirmPilotRequestAction(input: {
   const admin = createSupabaseAdminClient() as any;
 
   // Refuse if this email belongs to a client
-  const [asClient, asInvite, asProfile] = await Promise.all([
+  const likePattern = normalizedEmail.replace(/[\\%_]/g, "\\$&");
+  const [asClient, asInvite, asProfile, asWaitlist] = await Promise.all([
     admin.from("firm_clients").select("id").eq("normalized_email", normalizedEmail).maybeSingle(),
     admin.from("access_invites").select("normalized_email").eq("normalized_email", normalizedEmail).maybeSingle(),
-    admin.from("user_profiles").select("id").ilike("email", normalizedEmail).maybeSingle()
+    admin.from("user_profiles").select("id").ilike("email", likePattern).maybeSingle(),
+    admin.from("waitlist_signups").select("normalized_email").eq("normalized_email", normalizedEmail).maybeSingle()
   ]);
 
-  if (asClient.data || asInvite.data || asProfile.data) {
+  if (asClient.data || asInvite.data || asProfile.data || asWaitlist.data) {
     return {
       status: "error" as const,
-      message: "This email is registered to a client account. Please use your law firm work email to request a pilot."
+      message: "This email is registered to a client account or client waitlist. Please use your law firm work email to request a pilot."
     };
   }
 

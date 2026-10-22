@@ -77,7 +77,7 @@ async function addLawyer(firmId: string, rawEmail: string) {
   const [asFirmClient, asInvite, asProfile, asWaitlist] = await Promise.all([
     db.from("firm_clients").select("id").eq("normalized_email", email).maybeSingle(),
     db.from("access_invites").select("normalized_email").eq("normalized_email", email).maybeSingle(),
-    db.from("user_profiles").select("id").ilike("email", email).maybeSingle(),
+    db.from("user_profiles").select("id").ilike("email", email.replace(/[\\%_]/g, "\\$&")).maybeSingle(),
     db.from("waitlist_signups").select("id").eq("normalized_email", email).maybeSingle()
   ]);
 
