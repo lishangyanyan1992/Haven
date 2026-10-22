@@ -19,6 +19,16 @@ function admin() {
 const PROFILE_FIELDS =
   "id, full_name, visa_type, country_of_birth, current_visa_expiry_date, h1b_start_date, employer_name, job_title, employer_size, employment_status, perm_stage, perm_filing_date, priority_date, preference_category, i140_approved, i485_filed, spouse_visa_status, primary_goal, top_concerns";
 
+/**
+ * Setup doesn't ask for a name, so new accounts get the part of the email
+ * before the @ as a placeholder. Show the email instead of that.
+ */
+export function clientName(fullName: unknown, email: string) {
+  const name = typeof fullName === "string" ? fullName.trim() : "";
+  if (!name || name.toLowerCase() === email.split("@")[0]) return email;
+  return name;
+}
+
 export type FirmClientSummary = {
   id: string;
   displayName: string;
@@ -61,7 +71,7 @@ export async function listFirmClients(firmId: string): Promise<FirmClientSummary
     const stepOneSaved = Boolean(profile?.country_of_birth?.trim());
     return {
       id: row.id,
-      displayName: profile?.full_name?.trim() || row.normalized_email,
+      displayName: clientName(profile?.full_name, row.normalized_email),
       email: row.normalized_email,
       visaType: stepOneSaved ? profile.visa_type : null,
       status,

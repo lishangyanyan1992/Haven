@@ -35,14 +35,19 @@ async function main() {
   const root = path.resolve(new URL("../../", import.meta.url).pathname);
   const read = (relative: string) => fs.readFileSync(path.join(root, relative), "utf8");
 
-  /** Split a file into its exported functions: name -> body. */
-  function exportedFunctions(source: string) {
+  /**
+   * Split a file into its top-level functions, exported or not: name -> body.
+   * Each body runs to the next top-level declaration, so one function's
+   * queries are never counted as another's.
+   */
+  function topLevelFunctions(source: string) {
     const out = new Map<string, string>();
-    const pattern = /export (?:async )?function (\w+)\s*\(([^)]*)\)/g;
+    const pattern = /^(?:export )?(?:async )?function (\w+)\s*\(([^)]*)\)/gm;
     const starts: { name: string; params: string; index: number }[] = [];
     for (const match of source.matchAll(pattern)) starts.push({ name: match[1], params: match[2], index: match.index ?? 0 });
-    starts.forEach((start, i) => {
-      const end = i + 1 < starts.length ? starts[i + 1].index : source.length;
+    const boundaries = [...source.matchAll(/^(?:export )?(?:async )?(?:function|const|let|type|interface|class)\b/gm)].map((m) => m.index ?? 0);
+    starts.forEach((start) => {
+      const end = boundaries.find((b) => b > start.index) ?? source.length;
       out.set(start.name, `${start.params}\n${source.slice(start.index, end)}`);
     });
     return out;
@@ -66,7 +71,7 @@ async function main() {
 
   // ------------------------------------------------ 1 + 2: firm data functions
   for (const file of ["src/lib/firms/clients.ts", "src/lib/firms/links.ts"]) {
-    const functions = exportedFunctions(read(file));
+    const functions = topLevelFunctions(read(file));
     for (const [name, body] of functions) {
       if (PUBLIC_BY_TOKEN.has(name)) continue;
       const firmScoped = /\bfirmId\b/.test(body.split("\n")[0]);

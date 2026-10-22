@@ -22,12 +22,15 @@ export function OpenDocumentButton({ firmClientId, documentId }: { firmClientId:
           const tab = window.open("", "_blank");
           startTransition(async () => {
             const { url } = await openFirmDocumentAction(firmClientId, documentId);
-            if (url && tab) {
+            if (!url) {
+              tab?.close();
+              setError("Couldn't open this document.");
+            } else if (tab) {
               tab.opener = null;
               tab.location.href = url;
             } else {
-              tab?.close();
-              setError("Couldn't open this document.");
+              // Pop-up blocked: open it here instead.
+              window.location.assign(url);
             }
           });
         }}

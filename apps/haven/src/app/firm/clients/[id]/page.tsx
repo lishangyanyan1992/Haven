@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 import { requireFirmMember } from "@/lib/firms/access";
-import { getFirmClient, markFirmClientReviewed } from "@/lib/firms/clients";
+import { clientName, getFirmClient, markFirmClientReviewed } from "@/lib/firms/clients";
 import { FIRM_CLIENT_STATUS_LABEL } from "@/lib/firms/status";
 import { noIndexMetadata } from "@/lib/seo";
 import { FirmHeader } from "../../FirmHeader";
@@ -21,7 +21,16 @@ const LABELS: Record<string, Record<string, string>> = {
     stay_flexible: "Stay flexible",
     not_sure: "Not sure"
   },
-  spouse_visa_status: { none: "No spouse / not applicable", other: "Other" },
+  spouse_visa_status: {
+    none: "No spouse / not applicable",
+    H1B: "On H-1B",
+    H4: "On H-4",
+    "H4 EAD": "On H-4 EAD",
+    GC: "Green card holder",
+    citizen: "US citizen",
+    other: "Other"
+  },
+  employer_size: { startup: "Startup (under 200)", "mid-size": "Mid-size (200–2,000)", enterprise: "Enterprise (2,000+)" },
   top_concerns: {
     layoffs: "Layoffs",
     visa_expiry: "Visa expiring",
@@ -50,6 +59,17 @@ function text(field: string, value: unknown): string | null {
 }
 
 type Row = { label: string; value: string | null };
+
+/** The one stage the client picked in setup, which is saved across several fields. */
+function greenCardStage(p: Record<string, any> | null) {
+  if (!p) return null;
+  if (p.i485_filed) return "I-485 filed";
+  if (p.i140_approved) return "I-140 approved";
+  if (p.perm_stage === "certified") return "PERM certified";
+  if (p.perm_stage === "in_progress") return "PERM in progress";
+  if (p.perm_stage === "denied") return "PERM denied";
+  return "Not started yet";
+}
 
 /**
  * Group answers the way the setup steps do. A step's answers count only once
@@ -88,12 +108,10 @@ function answerGroups(p: Record<string, any> | null, finished: boolean): { title
     {
       title: "Green card",
       rows: [
-        { label: "PERM stage", value: gate(gcSaved, text("perm_stage", p?.perm_stage)) },
+        { label: "Stage", value: gate(gcSaved, greenCardStage(p)) },
         { label: "PERM filed", value: gate(gcSaved, formatDate(p?.perm_filing_date)) },
         { label: "Category", value: gate(gcSaved, text("preference_category", p?.preference_category)) },
-        { label: "Priority date", value: gate(gcSaved, formatDate(p?.priority_date)) },
-        { label: "I-140 approved", value: gate(gcSaved, text("i140_approved", p?.i140_approved)) },
-        { label: "I-485 filed", value: gate(gcSaved, text("i485_filed", p?.i485_filed)) }
+        { label: "Priority date", value: gate(gcSaved, formatDate(p?.priority_date)) }
       ]
     },
     {
@@ -126,7 +144,7 @@ export default async function FirmClientPage({ params }: { params: Promise<{ id:
   }
 
   await markFirmClientReviewed(membership.firmId, client.id);
-  const name = (client.profile?.full_name as string | undefined)?.trim() || client.email;
+  const name = clientName(client.profile?.full_name, client.email);
   const groups = answerGroups(client.profile as Record<string, any> | null, client.status === "finished");
 
   return (
@@ -141,7 +159,8 @@ export default async function FirmClientPage({ params }: { params: Promise<{ id:
         <div>
           <h1 className="text-h1">{name}</h1>
           <p className="text-body-sm mt-2 text-[var(--haven-ink-mid)]">
-            {client.email} · {FIRM_CLIENT_STATUS_LABEL[client.status]}
+            {name !== client.email ? `${client.email} · ` : ""}
+            {FIRM_CLIENT_STATUS_LABEL[client.status]}
             {client.joinedAt ? ` · joined ${formatDate(client.joinedAt)}` : ""}
           </p>
         </div>
