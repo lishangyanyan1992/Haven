@@ -38,8 +38,17 @@ export const waitlistSignupSchema = z.object({
   sourcePath: z.string().trim().startsWith("/").max(200).default("/")
 });
 
+export const firmPilotRequestSchema = z.object({
+  fullName: z.string().trim().min(2).max(120),
+  firmName: z.string().trim().min(2).max(180),
+  email: z.string().trim().email().max(320),
+  note: z.string().trim().max(1000).optional(),
+  sourcePath: z.string().trim().startsWith("/").max(200).default("/register")
+});
+
 export type OnboardingStepOneInput = z.infer<typeof onboardingStepOneSchema>;
 export type OnboardingStepTwoInput = z.infer<typeof onboardingStepTwoSchema>;
 export type OnboardingStepThreeInput = z.infer<typeof onboardingStepThreeSchema>;
 export type OnboardingStepFourInput = z.infer<typeof onboardingStepFourSchema>;
 export type WaitlistSignupInput = z.infer<typeof waitlistSignupSchema>;
+export type FirmPilotRequestInput = z.infer<typeof firmPilotRequestSchema>;

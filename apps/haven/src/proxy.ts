@@ -44,6 +44,9 @@ export async function proxy(request: NextRequest) {
 
   if (!user) {
     const loginUrl = new URL("/login", request.url);
+    if (isFirmArea) {
+      loginUrl.searchParams.set("role", "lawyer");
+    }
     loginUrl.searchParams.set("redirectTo", path);
     return NextResponse.redirect(loginUrl);
   }

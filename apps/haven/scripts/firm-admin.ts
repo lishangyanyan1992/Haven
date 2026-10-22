@@ -73,8 +73,17 @@ async function addLawyer(firmId: string, rawEmail: string) {
 
   const { data: asLawyer } = await db.from("firm_members").select("firm_id, firms(name)").eq("email", email).maybeSingle();
   if (asLawyer) fail(`${email} already belongs to ${(asLawyer as any).firms?.name ?? asLawyer.firm_id}.`);
-  const { data: asClient } = await db.from("firm_clients").select("id").eq("normalized_email", email).maybeSingle();
-  if (asClient) fail(`${email} belongs to a client, so it can't be a lawyer.`);
+
+  const [asFirmClient, asInvite, asProfile, asWaitlist] = await Promise.all([
+    db.from("firm_clients").select("id").eq("normalized_email", email).maybeSingle(),
+    db.from("access_invites").select("normalized_email").eq("normalized_email", email).maybeSingle(),
+    db.from("user_profiles").select("id").ilike("email", email).maybeSingle(),
+    db.from("waitlist_signups").select("id").eq("normalized_email", email).maybeSingle()
+  ]);
+
+  if (asFirmClient.data || asInvite.data || asProfile.data || asWaitlist.data) {
+    fail(`${email} is registered as a client or client waitlist entry, so it can't be a lawyer.`);
+  }
 
   let userId: string | null = null;
   const invite = await db.auth.admin.inviteUserByEmail(email, { redirectTo: `${site}/auth/callback?next=/reset-password` });

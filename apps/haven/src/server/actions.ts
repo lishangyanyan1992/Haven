@@ -13,7 +13,7 @@ import { persistProfileDraft } from "@/lib/profile-sync";
 import { env } from "@/lib/env";
 import { SIGNED_IN_HOME } from "@/lib/archived-routes";
 import { isInvitedEmail } from "@/lib/access";
-import { getFirmMembership } from "@/lib/firms/access";
+import { getFirmMembership, isAnyLawyerEmail, isFirmLawyerEmail } from "@/lib/firms/access";
 import { recordFirmSharedAnswers } from "@/lib/firms/answers";
 import { markFirmClientCompleted } from "@/lib/firms/intake";
 import { captureSignupCompleted } from "@/lib/posthog-server";
@@ -21,6 +21,7 @@ import { captureSignupCompleted } from "@/lib/posthog-server";
 const EMAIL_INGEST_DOMAIN = env.EMAIL_INGEST_DOMAIN ?? "import.haven-h1b.com";
 import {
   emailIngestConfirmationSchema,
+  firmPilotRequestSchema,
   onboardingStepFourSchema,
   onboardingStepOneSchema,
   onboardingStepThreeSchema,
@@ -144,6 +145,7 @@ export async function signInAction(formData: FormData) {
   const supabase = await createSupabaseServerClient();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
+  const role = String(formData.get("role") ?? "client").trim().toLowerCase() === "lawyer" ? "lawyer" : "client";
   const redirectTo = normalizeRedirectPath(String(formData.get("redirectTo") ?? SIGNED_IN_HOME), SIGNED_IN_HOME);
 
   const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -152,13 +154,24 @@ export async function signInAction(formData: FormData) {
     // Always redirect to invalid_credentials — do not distinguish "wrong
     // password" from "no account". Telling a user whether an email is
     // registered is a user-enumeration vulnerability.
-    redirect(`/login?email=${encodeURIComponent(email)}&message=invalid_credentials`);
+    redirect(`/login?role=${role}&email=${encodeURIComponent(email)}&message=invalid_credentials`);
   }
 
-  // Lawyers go to their firm dashboard. They aren't clients, so they skip
-  // the client invite check and client profile setup.
-  if (await getFirmMembership(signInData?.user?.id)) {
+  const userId = signInData?.user?.id;
+  const firmMembership = await getFirmMembership(userId);
+
+  if (role === "lawyer") {
+    if (!firmMembership) {
+      await supabase.auth.signOut();
+      redirect(`/login?role=lawyer&email=${encodeURIComponent(email)}&message=not_lawyer_account`);
+    }
     redirect("/firm");
+  }
+
+  // Role is client: verify this is NOT a lawyer account
+  if (firmMembership || (await isFirmLawyerEmail(email))) {
+    await supabase.auth.signOut();
+    redirect(`/login?role=client&email=${encodeURIComponent(email)}&message=use_lawyer_login`);
   }
 
   // Joining a firm is not done here: it needs the one-time code from the
@@ -170,7 +183,6 @@ export async function signInAction(formData: FormData) {
     redirect("/register?message=not_invited");
   }
 
-  const userId = signInData?.user?.id;
   const fullName = String(signInData?.user?.user_metadata?.full_name ?? email.split("@")[0]);
   const destination = userId
     ? await resolvePostAuthRedirect(userId, email, fullName)
@@ -192,6 +204,81 @@ export async function signInAction(formData: FormData) {
  */
 export async function signUpAction(_formData: FormData) {
   redirect("/register");
+}
+
+export async function submitFirmPilotRequestAction(input: {
+  fullName: string;
+  firmName: string;
+  email: string;
+  note?: string;
+  sourcePath?: string;
+}) {
+  const parsed = firmPilotRequestSchema.safeParse({
+    fullName: String(input.fullName ?? "").trim(),
+    firmName: String(input.firmName ?? "").trim(),
+    email: String(input.email ?? "").trim().toLowerCase(),
+    note: input.note ? String(input.note).trim() : undefined,
+    sourcePath: String(input.sourcePath ?? "/register").trim() || "/register"
+  });
+
+  if (!parsed.success) {
+    return {
+      status: "error" as const,
+      message: "Please enter your name, law firm name, and a valid work email."
+    };
+  }
+
+  const normalizedEmail = parsed.data.email.toLowerCase();
+  const admin = createSupabaseAdminClient() as any;
+
+  // Refuse if this email belongs to a client
+  const [asClient, asInvite, asProfile] = await Promise.all([
+    admin.from("firm_clients").select("id").eq("normalized_email", normalizedEmail).maybeSingle(),
+    admin.from("access_invites").select("normalized_email").eq("normalized_email", normalizedEmail).maybeSingle(),
+    admin.from("user_profiles").select("id").ilike("email", normalizedEmail).maybeSingle()
+  ]);
+
+  if (asClient.data || asInvite.data || asProfile.data) {
+    return {
+      status: "error" as const,
+      message: "This email is registered to a client account. Please use your law firm work email to request a pilot."
+    };
+  }
+
+  try {
+    const now = new Date().toISOString();
+    const { error } = await admin.from("firm_pilot_requests").upsert(
+      {
+        full_name: parsed.data.fullName,
+        firm_name: parsed.data.firmName,
+        email: parsed.data.email,
+        normalized_email: normalizedEmail,
+        note: parsed.data.note ?? null,
+        source_path: parsed.data.sourcePath,
+        updated_at: now
+      },
+      { onConflict: "normalized_email" }
+    );
+
+    if (error) {
+      console.error("[pilot-request] failed to save pilot request", error);
+      return {
+        status: "error" as const,
+        message: "Could not save your request right now. Please try again."
+      };
+    }
+
+    return {
+      status: "success" as const,
+      message: `Thanks ${parsed.data.fullName.split(" ")[0]}. We'll reach out to discuss a free pilot for ${parsed.data.firmName}.`
+    };
+  } catch (error) {
+    console.error("[pilot-request] unexpected error", error);
+    return {
+      status: "error" as const,
+      message: "Could not save your request right now. Please try again."
+    };
+  }
 }
 
 export async function submitWaitlistAction(input: {
@@ -218,10 +305,19 @@ export async function submitWaitlistAction(input: {
     };
   }
 
+  const normalizedEmail = parsed.data.email.toLowerCase();
+
+  // A lawyer email cannot join the client waitlist
+  if (await isAnyLawyerEmail(normalizedEmail)) {
+    return {
+      status: "error" as const,
+      message: "This email is registered to a law firm account. Please use Law Firm Sign In or contact the founder for a pilot."
+    };
+  }
+
   try {
     const admin = createSupabaseAdminClient() as any;
     const now = new Date().toISOString();
-    const normalizedEmail = parsed.data.email.toLowerCase();
 
     const { error } = await admin.from("waitlist_signups").upsert(
       {
@@ -565,6 +661,11 @@ export async function sendInviteLinkAction(input: { email: string }) {
   const email = String(input.email ?? "").trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 320) {
     return { status: "invalid" as const };
+  }
+
+  // A lawyer email must never be invited as a client
+  if (await isAnyLawyerEmail(email)) {
+    return { status: "sent" as const };
   }
 
   if (await isInvitedEmail(email)) {

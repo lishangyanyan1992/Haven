@@ -41,3 +41,15 @@ export type FirmClientRow = {
 };
 
 export type FirmClientStatus = "email_sent" | "signed_up" | "in_progress" | "finished";
+
+export type FirmPilotRequestRow = {
+  id: string;
+  full_name: string;
+  firm_name: string;
+  email: string;
+  normalized_email: string;
+  note: string | null;
+  source_path: string;
+  created_at: string;
+  updated_at: string;
+};

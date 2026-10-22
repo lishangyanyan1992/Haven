@@ -197,6 +197,14 @@ export async function claimFirmInvite(
   const email = normalizeEmail(user.email);
   if (!email || !user.email_confirmed_at || !claimToken) return "ignored";
 
+  // A firm lawyer account cannot join as a client.
+  const { data: asLawyer } = await admin()
+    .from("firm_members")
+    .select("user_id")
+    .or(`user_id.eq.${user.id},email.eq.${email}`)
+    .maybeSingle();
+  if (asLawyer) return "ignored";
+
   const { data: row } = await admin()
     .from("firm_clients")
     .select("id, firm_id, user_id, joined_at, claim_token_hash, previous_claim_token_hash")

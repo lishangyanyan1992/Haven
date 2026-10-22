@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      access_invites: {
+        Row: {
+          created_at: string
+          invited_by: string
+          normalized_email: string
+          note: string | null
+        }
+        Insert: {
+          created_at?: string
+          invited_by?: string
+          normalized_email: string
+          note?: string | null
+        }
+        Update: {
+          created_at?: string
+          invited_by?: string
+          normalized_email?: string
+          note?: string | null
+        }
+        Relationships: []
+      }
       advisor_feedback: {
         Row: {
           created_at: string
@@ -171,6 +192,64 @@ export type Database = {
           },
           {
             foreignKeyName: "advisor_messages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      advisor_remembered_facts: {
+        Row: {
+          created_at: string
+          dismissed_at: string | null
+          id: string
+          kind: string
+          quote: string
+          quote_hash: string
+          source_message_id: string | null
+          thread_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          dismissed_at?: string | null
+          id?: string
+          kind: string
+          quote: string
+          quote_hash?: string
+          source_message_id?: string | null
+          thread_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          dismissed_at?: string | null
+          id?: string
+          kind?: string
+          quote?: string
+          quote_hash?: string
+          source_message_id?: string | null
+          thread_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "advisor_remembered_facts_source_message_id_fkey"
+            columns: ["source_message_id"]
+            isOneToOne: false
+            referencedRelation: "advisor_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "advisor_remembered_facts_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "advisor_threads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "advisor_remembered_facts_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "user_profiles"
@@ -754,6 +833,57 @@ export type Database = {
         }
         Relationships: []
       }
+      day1_cpt_directory_feedback: {
+        Row: {
+          comment: string
+          created_at: string
+          feedback_kind: string
+          id: string
+          moderation_status: string
+          organization_domain: string | null
+          organization_name: string | null
+          organization_website: string | null
+          relationship: string
+          school_id: string | null
+          school_name: string | null
+          services: string | null
+          submitter_email: string | null
+          updated_at: string
+        }
+        Insert: {
+          comment: string
+          created_at?: string
+          feedback_kind: string
+          id?: string
+          moderation_status?: string
+          organization_domain?: string | null
+          organization_name?: string | null
+          organization_website?: string | null
+          relationship?: string
+          school_id?: string | null
+          school_name?: string | null
+          services?: string | null
+          submitter_email?: string | null
+          updated_at?: string
+        }
+        Update: {
+          comment?: string
+          created_at?: string
+          feedback_kind?: string
+          id?: string
+          moderation_status?: string
+          organization_domain?: string | null
+          organization_name?: string | null
+          organization_website?: string | null
+          relationship?: string
+          school_id?: string | null
+          school_name?: string | null
+          services?: string | null
+          submitter_email?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       derived_signals: {
         Row: {
           ac21_portability_status: string | null
@@ -793,6 +923,83 @@ export type Database = {
             foreignKeyName: "derived_signals_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: true
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_chunks: {
+        Row: {
+          chunk_index: number
+          content: string
+          created_at: string
+          document_id: string
+          embedding: string
+          id: string
+          model: string
+          page: number
+          user_id: string
+        }
+        Insert: {
+          chunk_index: number
+          content: string
+          created_at?: string
+          document_id: string
+          embedding: string
+          id?: string
+          model: string
+          page: number
+          user_id: string
+        }
+        Update: {
+          chunk_index?: number
+          content?: string
+          created_at?: string
+          document_id?: string
+          embedding?: string
+          id?: string
+          model?: string
+          page?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_chunks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "user_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_chunks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_reading_usage: {
+        Row: {
+          day: string
+          pages: number
+          user_id: string
+        }
+        Insert: {
+          day: string
+          pages?: number
+          user_id: string
+        }
+        Update: {
+          day?: string
+          pages?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_reading_usage_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "user_profiles"
             referencedColumns: ["id"]
           },
@@ -1039,6 +1246,225 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      firm_clients: {
+        Row: {
+          claim_token_hash: string | null
+          completed_at: string | null
+          consented_at: string
+          created_at: string
+          email_sent_at: string
+          firm_id: string
+          id: string
+          joined_at: string | null
+          link_id: string | null
+          normalized_email: string
+          previous_claim_token_hash: string | null
+          reviewed_at: string | null
+          shared_answers: Json
+          user_id: string | null
+        }
+        Insert: {
+          claim_token_hash?: string | null
+          completed_at?: string | null
+          consented_at?: string
+          created_at?: string
+          email_sent_at?: string
+          firm_id: string
+          id?: string
+          joined_at?: string | null
+          link_id?: string | null
+          normalized_email: string
+          previous_claim_token_hash?: string | null
+          reviewed_at?: string | null
+          shared_answers?: Json
+          user_id?: string | null
+        }
+        Update: {
+          claim_token_hash?: string | null
+          completed_at?: string | null
+          consented_at?: string
+          created_at?: string
+          email_sent_at?: string
+          firm_id?: string
+          id?: string
+          joined_at?: string | null
+          link_id?: string | null
+          normalized_email?: string
+          previous_claim_token_hash?: string | null
+          reviewed_at?: string | null
+          shared_answers?: Json
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "firm_clients_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "firm_clients_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "firm_intake_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      firm_intake_links: {
+        Row: {
+          created_at: string
+          firm_id: string
+          id: string
+          is_active: boolean
+          revoked_at: string | null
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          firm_id: string
+          id?: string
+          is_active?: boolean
+          revoked_at?: string | null
+          token: string
+        }
+        Update: {
+          created_at?: string
+          firm_id?: string
+          id?: string
+          is_active?: boolean
+          revoked_at?: string | null
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "firm_intake_links_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      firm_intake_sends: {
+        Row: {
+          created_at: string
+          id: number
+          ip_hash: string
+          link_id: string
+          normalized_email: string
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          ip_hash: string
+          link_id: string
+          normalized_email: string
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          ip_hash?: string
+          link_id?: string
+          normalized_email?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "firm_intake_sends_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "firm_intake_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      firm_members: {
+        Row: {
+          created_at: string
+          email: string
+          firm_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          firm_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          firm_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "firm_members_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      firm_pilot_requests: {
+        Row: {
+          created_at: string
+          email: string
+          firm_name: string
+          full_name: string
+          id: string
+          normalized_email: string
+          note: string | null
+          source_path: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          firm_name: string
+          full_name: string
+          id?: string
+          normalized_email: string
+          note?: string | null
+          source_path?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          firm_name?: string
+          full_name?: string
+          id?: string
+          normalized_email?: string
+          note?: string | null
+          source_path?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      firms: {
+        Row: {
+          created_at: string
+          id: string
+          is_demo: boolean
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_demo?: boolean
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_demo?: boolean
+          name?: string
+        }
+        Relationships: []
       }
       knowledge_chunks: {
         Row: {
@@ -1486,90 +1912,8 @@ export type Database = {
           },
         ]
       }
-      document_chunks: {
-        Row: {
-          chunk_index: number
-          content: string
-          created_at: string
-          document_id: string
-          embedding: string
-          id: string
-          model: string
-          page: number
-          user_id: string
-        }
-        Insert: {
-          chunk_index: number
-          content: string
-          created_at?: string
-          document_id: string
-          embedding: string
-          id?: string
-          model: string
-          page: number
-          user_id: string
-        }
-        Update: {
-          chunk_index?: number
-          content?: string
-          created_at?: string
-          document_id?: string
-          embedding?: string
-          id?: string
-          model?: string
-          page?: number
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "document_chunks_document_id_fkey"
-            columns: ["document_id"]
-            isOneToOne: false
-            referencedRelation: "user_documents"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "document_chunks_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "user_profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      document_reading_usage: {
-        Row: {
-          day: string
-          pages: number
-          user_id: string
-        }
-        Insert: {
-          day: string
-          pages?: number
-          user_id: string
-        }
-        Update: {
-          day?: string
-          pages?: number
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "document_reading_usage_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "user_profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       user_documents: {
         Row: {
-          page_count: number | null
-          read_at: string | null
-          reading_error: string | null
-          reading_started_at: string | null
-          reading_status: string
           crisis_critical: boolean
           display_label: string
           document_kind: string
@@ -1579,17 +1923,17 @@ export type Database = {
           mime_type: string
           notes: string | null
           original_name: string
+          page_count: number | null
+          read_at: string | null
+          reading_error: string | null
+          reading_started_at: string | null
+          reading_status: string
           source_kind: string
           storage_path: string
           uploaded_at: string
           user_id: string
         }
         Insert: {
-          page_count?: number | null
-          read_at?: string | null
-          reading_error?: string | null
-          reading_started_at?: string | null
-          reading_status?: string
           crisis_critical?: boolean
           display_label: string
           document_kind: string
@@ -1599,17 +1943,17 @@ export type Database = {
           mime_type: string
           notes?: string | null
           original_name: string
+          page_count?: number | null
+          read_at?: string | null
+          reading_error?: string | null
+          reading_started_at?: string | null
+          reading_status?: string
           source_kind: string
           storage_path: string
           uploaded_at?: string
           user_id: string
         }
         Update: {
-          page_count?: number | null
-          read_at?: string | null
-          reading_error?: string | null
-          reading_started_at?: string | null
-          reading_status?: string
           crisis_critical?: boolean
           display_label?: string
           document_kind?: string
@@ -1619,6 +1963,11 @@ export type Database = {
           mime_type?: string
           notes?: string | null
           original_name?: string
+          page_count?: number | null
+          read_at?: string | null
+          reading_error?: string | null
+          reading_started_at?: string | null
+          reading_status?: string
           source_kind?: string
           storage_path?: string
           uploaded_at?: string
@@ -1636,11 +1985,13 @@ export type Database = {
       }
       user_profiles: {
         Row: {
-          community_reply_email_notifications: boolean
           community_last_seen_at: string | null
+          community_reply_email_notifications: boolean
           country_of_birth: string
           created_at: string
           current_visa_expiry_date: string | null
+          deadline_answers: Json
+          deadlines_prompted_at: string | null
           email: string
           employer_industry: string | null
           employer_name: string | null
@@ -1665,11 +2016,13 @@ export type Database = {
           visa_type: Database["public"]["Enums"]["visa_type"]
         }
         Insert: {
-          community_reply_email_notifications?: boolean
           community_last_seen_at?: string | null
+          community_reply_email_notifications?: boolean
           country_of_birth: string
           created_at?: string
           current_visa_expiry_date?: string | null
+          deadline_answers?: Json
+          deadlines_prompted_at?: string | null
           email: string
           employer_industry?: string | null
           employer_name?: string | null
@@ -1694,11 +2047,13 @@ export type Database = {
           visa_type: Database["public"]["Enums"]["visa_type"]
         }
         Update: {
-          community_reply_email_notifications?: boolean
           community_last_seen_at?: string | null
+          community_reply_email_notifications?: boolean
           country_of_birth?: string
           created_at?: string
           current_visa_expiry_date?: string | null
+          deadline_answers?: Json
+          deadlines_prompted_at?: string | null
           email?: string
           employer_industry?: string | null
           employer_name?: string | null
@@ -1855,26 +2210,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      match_document_chunks: {
-        Args: {
-          match_count?: number
-          min_similarity?: number
-          p_user_id: string
-          query_embedding: string
-        }
-        Returns: {
-          content: string
-          document_id: string
-          document_label: string
-          id: string
-          page: number
-          similarity: number
-        }[]
-      }
-      reserve_document_reading_pages: {
-        Args: { p_daily_cap: number; p_pages: number; p_user_id: string }
-        Returns: boolean
-      }
       aggregate_case_outcomes: {
         Args: {
           p_category?: string
@@ -1897,6 +2232,36 @@ export type Database = {
           total_n: number
         }[]
       }
+      firm_intake_reserve_send: {
+        Args: {
+          p_email: string
+          p_email_per_hour: number
+          p_ip_hash: string
+          p_link_id: string
+          p_link_per_day: number
+          p_visitor_per_hour: number
+        }
+        Returns: boolean
+      }
+      firm_replace_intake_link: {
+        Args: { p_firm_id: string; p_token: string }
+        Returns: {
+          created_at: string
+          firm_id: string
+          id: string
+          is_active: boolean
+          revoked_at: string | null
+          token: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "firm_intake_links"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      haven_firm_id: { Args: never; Returns: string }
+      haven_has_access: { Args: never; Returns: boolean }
       match_community_advice_summaries: {
         Args: {
           filter_topics?: string[]
@@ -1911,6 +2276,22 @@ export type Database = {
           tags: string[]
           title: string
           topic: string
+        }[]
+      }
+      match_document_chunks: {
+        Args: {
+          match_count?: number
+          min_similarity?: number
+          p_user_id: string
+          query_embedding: string
+        }
+        Returns: {
+          content: string
+          document_id: string
+          document_label: string
+          id: string
+          page: number
+          similarity: number
         }[]
       }
       match_knowledge_chunks: {
@@ -1932,6 +2313,10 @@ export type Database = {
           topic: string
           url: string
         }[]
+      }
+      reserve_document_reading_pages: {
+        Args: { p_daily_cap: number; p_pages: number; p_user_id: string }
+        Returns: boolean
       }
     }
     Enums: {
@@ -1988,12 +2373,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2017,11 +2402,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2042,11 +2427,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2067,11 +2452,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2084,11 +2469,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

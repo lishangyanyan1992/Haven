@@ -48,7 +48,7 @@ export async function requireFirmMember(redirectTo = "/firm"): Promise<FirmMembe
     data: { user }
   } = await supabase.auth.getUser();
 
-  if (!user) redirect(`/login?redirectTo=${encodeURIComponent(redirectTo)}`);
+  if (!user) redirect(`/login?role=lawyer&redirectTo=${encodeURIComponent(redirectTo)}`);
 
   const membership = await getFirmMembership(user.id);
   if (!membership) redirect(SIGNED_IN_HOME);
@@ -56,6 +56,17 @@ export async function requireFirmMember(redirectTo = "/firm"): Promise<FirmMembe
 }
 
 export async function isFirmLawyerEmail(email: string) {
-  const { data } = await admin().from("firm_members").select("user_id").eq("email", email).maybeSingle();
+  const normalized = email.trim().toLowerCase();
+  const { data } = await admin().from("firm_members").select("user_id").eq("email", normalized).maybeSingle();
   return Boolean(data);
+}
+
+export async function isFirmPilotRequestEmail(email: string) {
+  const normalized = email.trim().toLowerCase();
+  const { data } = await admin().from("firm_pilot_requests").select("id").eq("normalized_email", normalized).maybeSingle();
+  return Boolean(data);
+}
+
+export async function isAnyLawyerEmail(email: string) {
+  return (await isFirmLawyerEmail(email)) || (await isFirmPilotRequestEmail(email));
 }
