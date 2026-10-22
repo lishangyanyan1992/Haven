@@ -22,7 +22,16 @@ export const SHARED_ANSWER_KEYS = [
   "priorityDate",
   "preferenceCategory",
   "spouseVisaStatus",
-  "topConcerns"
+  "topConcerns",
+  // "Your deadlines" (setup step 5 and the one-time prompt)
+  "statusEndDate",
+  "statusEndUnknown",
+  "jobEnded",
+  "lastWorkDay",
+  "agencyDeadlineType",
+  "agencyDeadlineDate",
+  "travelPlanned",
+  "travelDate"
 ] as const;
 
 export type SharedAnswerKey = (typeof SHARED_ANSWER_KEYS)[number];
@@ -96,7 +105,16 @@ export function mergeSharedAnswers(current: SharedAnswers, draft: Record<string,
   return { next, changed: submitted.length > 0 };
 }
 
-export async function recordFirmSharedAnswers(userId: string, draft: Record<string, unknown>, form: FormData) {
+/**
+ * A view of a submitted form that only reports some fields as sent, so one
+ * save can't clear answers that belong to another (setup sends every answer
+ * on every save).
+ */
+export function formLimitedTo(form: Pick<FormData, "has">, keys: readonly string[], mode: "only" | "except" = "only") {
+  return { has: (key: string) => (mode === "only" ? keys.includes(key) : !keys.includes(key)) && form.has(key) };
+}
+
+export async function recordFirmSharedAnswers(userId: string, draft: Record<string, unknown>, form: Pick<FormData, "has">) {
   if (!mergeSharedAnswers({}, draft, form).changed) return;
 
   const admin = createSupabaseAdminClient() as any;

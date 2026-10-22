@@ -5,6 +5,7 @@ import { requireFirmMember } from "@/lib/firms/access";
 import type { SharedAnswerKey, SharedAnswers } from "@/lib/firms/answers";
 import { getFirmClient, markFirmClientReviewed } from "@/lib/firms/clients";
 import { FIRM_CLIENT_STATUS_LABEL } from "@/lib/firms/status";
+import { rankUrgency, TIER_LABEL } from "@/lib/firms/urgency";
 import { noIndexMetadata } from "@/lib/seo";
 import { FirmHeader } from "../../FirmHeader";
 import { OpenDocumentButton } from "./OpenDocumentButton";
@@ -38,6 +39,14 @@ const LABELS: Record<string, Record<string, string>> = {
     citizen: "US citizen",
     other: "Other"
   },
+  jobEnded: { yes: "Yes", no: "No" },
+  travelPlanned: { yes: "Yes", no: "No" },
+  agencyDeadlineType: {
+    rfe: "Request for evidence (RFE) response",
+    interview: "Interview",
+    biometrics: "Biometrics appointment",
+    other: "Other deadline"
+  },
   topConcerns: {
     layoffs: "Layoffs",
     visa_expiry: "Visa expiring",
@@ -47,7 +56,7 @@ const LABELS: Record<string, Record<string, string>> = {
   }
 };
 
-const DATE_KEYS = new Set(["h1bStartDate", "priorityDate"]);
+const DATE_KEYS = new Set(["h1bStartDate", "priorityDate", "statusEndDate", "lastWorkDay", "agencyDeadlineDate", "travelDate"]);
 
 function formatDate(value: unknown) {
   if (!value || typeof value !== "string") return null;
@@ -77,8 +86,26 @@ const GROUPS: { title: string; rows: [string, SharedAnswerKey][] }[] = [
     rows: [["Employer", "employerName"], ["Job title", "jobTitle"], ["Employer size", "employerSize"], ["H-1B start date", "h1bStartDate"]]
   },
   { title: "Green card", rows: [["Stage", "greenCardStage"], ["Category", "preferenceCategory"], ["Priority date", "priorityDate"]] },
-  { title: "Situation", rows: [["Spouse's status", "spouseVisaStatus"], ["Main concerns", "topConcerns"]] }
+  { title: "Situation", rows: [["Spouse's status", "spouseVisaStatus"], ["Main concerns", "topConcerns"]] },
+  {
+    title: "Deadlines",
+    rows: [
+      ["Status ends", "statusEndDate"],
+      ["Job ended or ending", "jobEnded"],
+      ["Last day of work", "lastWorkDay"],
+      ["USCIS or consulate deadline", "agencyDeadlineType"],
+      ["Deadline date", "agencyDeadlineDate"],
+      ["Travel planned", "travelPlanned"],
+      ["Departure date", "travelDate"]
+    ]
+  }
 ];
+
+/** "Not sure" counts as an answer to when status ends. */
+function deadlineAnswer(answers: SharedAnswers, key: SharedAnswerKey) {
+  if (key === "statusEndDate" && !answers.statusEndDate && answers.statusEndUnknown === "yes") return "Not sure";
+  return answer(answers, key);
+}
 
 export default async function FirmClientPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -101,9 +128,10 @@ export default async function FirmClientPage({ params }: { params: Promise<{ id:
 
   await markFirmClientReviewed(membership.firmId, client.id);
   const name = client.email;
+  const urgency = rankUrgency(client.answers);
   const groups = GROUPS.map((group) => ({
     title: group.title,
-    rows: group.rows.map(([label, key]) => ({ label, value: answer(client.answers, key) }))
+    rows: group.rows.map(([label, key]) => ({ label, value: deadlineAnswer(client.answers, key) }))
   }));
 
   return (
@@ -116,7 +144,11 @@ export default async function FirmClientPage({ params }: { params: Promise<{ id:
         </Link>
 
         <div>
-          <h1 className="text-h1">{name}</h1>
+          <p className="text-label">
+            {TIER_LABEL[urgency.tier]} priority
+          </p>
+          <h1 className="text-h1 mt-2">{name}</h1>
+          <p className="text-body mt-2 text-[var(--haven-ink)]">{urgency.reason}</p>
           <p className="text-body-sm mt-2 text-[var(--haven-ink-mid)]">
             {FIRM_CLIENT_STATUS_LABEL[client.status]}
             {client.joinedAt ? ` · joined ${formatDate(client.joinedAt)}` : ""}

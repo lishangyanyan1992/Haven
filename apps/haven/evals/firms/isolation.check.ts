@@ -13,6 +13,9 @@
  *    see the firm's own copy of setup answers) or anything from chats.
  * 4. A firm page or action passes anything other than the firm from
  *    requireFirmMember() into a firm data function.
+ * 5. The urgency ranking (src/lib/firms/urgency.ts) reaches outside the
+ *    firm's shared answers: it may import only from src/lib/firms and must
+ *    not touch the database, the network or the environment.
  *
  * The rules also run against small deliberately broken examples, which must
  * fail, so the check can't quietly stop checking.
@@ -123,6 +126,18 @@ function checkCallers(files: Source[]) {
   return failures;
 }
 
+/** Rule 5: urgency.ts is a pure function of the shared answers. */
+function checkPureRanking(file: Source) {
+  const failures: string[] = [];
+  for (const m of file.source.matchAll(/^import\s[^;]*?from\s+"([^"]+)"/gm)) {
+    if (!m[1].startsWith("@/lib/firms/")) failures.push(`${file.name}: imports ${m[1]}`);
+  }
+  if (/\bfetch\(|process\.env|\.from\(\s*"|createClient|createSupabase/.test(file.source)) {
+    failures.push(`${file.name}: touches the database, network or environment`);
+  }
+  return failures;
+}
+
 async function main() {
   const fs = await import("node:fs");
   const path = await import("node:path");
@@ -152,8 +167,15 @@ async function main() {
   }
   for (const file of [read("src/server/firm-actions.ts"), ...pages]) check(`${file.name}: firm comes from requireFirmMember()`, checkCallers([file]));
 
+  check("src/lib/firms/urgency.ts: ranking is a pure function of shared answers", checkPureRanking(read("src/lib/firms/urgency.ts")));
+
   // ------------------------------------------------ broken examples that must be caught
   const bad = (name: string, source: string) => ({ name: `example:${name}`, source });
+  check(
+    "catches a ranking that reads the database",
+    checkPureRanking(bad("impure-ranking", `import { createSupabaseAdminClient } from "@/lib/supabase/admin";\nexport function rankUrgency() {}\n`)),
+    true
+  );
   check(
     "catches an unscoped client query",
     checkDataFiles([bad("unscoped", `export async function getFirmClient(firmId: string, id: string) {\n  await db.from("firm_clients").select("*").eq("id", id);\n}\n`)]),

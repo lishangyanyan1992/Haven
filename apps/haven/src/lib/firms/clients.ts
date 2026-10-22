@@ -1,5 +1,6 @@
 import { HAVEN_VAULT_BUCKET } from "@/lib/document-vault";
 import type { SharedAnswers } from "@/lib/firms/answers";
+import { compareByUrgency, rankUrgency, type Urgency } from "@/lib/firms/urgency";
 import { firmClientStatus, isNewFirmClient } from "@/lib/firms/status";
 import type { FirmClientRow, FirmClientStatus } from "@/lib/firms/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -28,6 +29,7 @@ export type FirmClientSummary = {
   documentCount: number;
   joinedAt: string | null;
   createdAt: string;
+  urgency: Urgency;
 };
 
 async function firmClientRows(firmId: string): Promise<FirmClientRow[]> {
@@ -50,7 +52,8 @@ export async function listFirmClients(firmId: string): Promise<FirmClientSummary
     for (const d of docRows ?? []) docCounts.set(d.user_id, (docCounts.get(d.user_id) ?? 0) + 1);
   }
 
-  return rows.map((row) => {
+  const now = new Date();
+  const summaries: FirmClientSummary[] = rows.map((row) => {
     const answers = (row.shared_answers ?? {}) as SharedAnswers;
     const status = firmClientStatus(row, answers);
     return {
@@ -62,9 +65,19 @@ export async function listFirmClients(firmId: string): Promise<FirmClientSummary
       isNew: isNewFirmClient(row),
       documentCount: row.user_id ? docCounts.get(row.user_id) ?? 0 : 0,
       joinedAt: row.joined_at,
-      createdAt: row.created_at
+      createdAt: row.created_at,
+      urgency: rankUrgency(answers, now)
     };
   });
+
+  // Most urgent first (tier, then fewest days left, then newest); people who
+  // haven't confirmed their email yet go last.
+  return summaries.sort((a, b) =>
+    compareByUrgency(
+      { emailSent: a.status === "email_sent", urgency: a.urgency, createdAt: a.createdAt },
+      { emailSent: b.status === "email_sent", urgency: b.urgency, createdAt: b.createdAt }
+    )
+  );
 }
 
 export type FirmClientDocument = {
