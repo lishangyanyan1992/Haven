@@ -77,10 +77,15 @@ async function main() {
   check("several dates: the soonest is named", several.tier === "urgent" && several.reason.startsWith("Travel on Nov 1"), several.reason);
   const urgentNotSoonest = rankUrgency({ statusEndDate: inDays(25), travelPlanned: "yes", travelDate: inDays(20) }, TODAY);
   check(
-    "urgent clients name the date that makes them urgent",
-    urgentNotSoonest.tier === "urgent" && urgentNotSoonest.reason.startsWith("Status ends"),
-    urgentNotSoonest.reason
+    "urgent by a later date still names and sorts by the soonest date",
+    urgentNotSoonest.tier === "urgent" && urgentNotSoonest.reason.startsWith("Travel on Nov 11") && urgentNotSoonest.daysLeft === 20,
+    `${urgentNotSoonest.reason} / ${urgentNotSoonest.daysLeft}`
   );
+  const order2 = [
+    { name: "only-22", emailSent: false, createdAt: "2026-10-01T00:00:00Z", urgency: rankUrgency({ agencyDeadlineType: "rfe", agencyDeadlineDate: inDays(22) }, TODAY) },
+    { name: "travel-20-status-25", emailSent: false, createdAt: "2026-10-01T00:00:00Z", urgency: urgentNotSoonest }
+  ].sort(compareByUrgency).map((r) => r.name).join(",");
+  check("a nearer date isn't buried behind a later urgent one", order2.startsWith("travel-20-status-25"), order2);
 
   // ---------------------------------------------------------------- order
   const row = (name: string, answers: Record<string, string>, createdAt: string, emailSent = false) => ({

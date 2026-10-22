@@ -16,7 +16,8 @@ export const dynamic = "force-dynamic";
  * Asked once, at sign-in, of clients who finished setup before the
  * "Your deadlines" step existed. Answering or skipping ends it.
  */
-export default async function DeadlinePromptPage() {
+export default async function DeadlinePromptPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const { error } = await searchParams;
   const supabase = await createSupabaseServerClient();
   const {
     data: { user }
@@ -46,6 +47,11 @@ export default async function DeadlinePromptPage() {
               All optional. These help {firm ? "your lawyer" : "Haven"} see what&apos;s urgent. You&apos;ll only be asked
               once, and you can skip.
             </p>
+            {error === "save" ? (
+              <p className="mt-4 rounded-[var(--radius-lg)] border border-[#e8b4b4] bg-[#fdf0f0] px-4 py-3 text-body-sm text-[#7a3030]">
+                Your dates couldn&apos;t be saved. Please try again.
+              </p>
+            ) : null}
             <DeadlinePromptForm initial={profile?.deadline_answers ?? {}} />
           </section>
         </div>

@@ -146,12 +146,12 @@ export function rankUrgency(answers: SharedAnswers | null | undefined, today: Da
   const events = urgencyEvents(answers ?? {}, today);
   if (events.length === 0) return { tier: "unknown", daysLeft: null, reason: UNKNOWN_REASON, events };
 
+  // The tier comes from any date crossing its cutoff; order and reason always
+  // use the soonest date, so a nearer date is never hidden behind a later one.
   const soonest = events[0];
   const urgent = events.some((e) => e.daysLeft < 0 || e.daysLeft <= URGENT_CUTOFF_DAYS[e.kind]);
   const tier: UrgencyTier = urgent ? "urgent" : soonest.daysLeft <= SOON_CUTOFF_DAYS ? "soon" : "later";
-  // Name the date that made them urgent; otherwise the soonest one.
-  const lead = urgent ? events.find((e) => e.daysLeft < 0 || e.daysLeft <= URGENT_CUTOFF_DAYS[e.kind]) ?? soonest : soonest;
-  return { tier, daysLeft: lead.daysLeft, reason: lead.reason, events };
+  return { tier, daysLeft: soonest.daysLeft, reason: soonest.reason, events };
 }
 
 const TIER_ORDER: Record<UrgencyTier, number> = { urgent: 0, soon: 1, later: 2, unknown: 3 };

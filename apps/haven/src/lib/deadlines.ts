@@ -82,19 +82,30 @@ export function mergeDeadlineAnswers(current: DeadlineAnswers, draft: DeadlineAn
 /**
  * Save a deadline submission: the client's own copy, and the firm's copy
  * through the same path as other setup answers. `form` must be the
- * submitted form so fields it didn't send are left alone.
+ * submitted form so fields it didn't send are left alone. Throws if either
+ * copy couldn't be saved, so callers don't treat a failure as done.
  */
 export async function saveDeadlineAnswers(userId: string, form: FormData) {
   const draft = deadlineDraftFromForm(form);
   if (Object.keys(draft).length === 0) return;
   const admin = createSupabaseAdminClient() as any;
-  const { data: profile } = await admin.from("user_profiles").select("deadline_answers").eq("id", userId).maybeSingle();
+  const { data: profile, error: readError } = await admin.from("user_profiles").select("deadline_answers").eq("id", userId).maybeSingle();
+  if (readError) throw new Error(`Could not read deadline answers: ${readError.message}`);
   if (profile) {
     const next = mergeDeadlineAnswers(profile.deadline_answers ?? {}, draft);
     const { error } = await admin.from("user_profiles").update({ deadline_answers: next }).eq("id", userId);
-    if (error) console.error("[deadlines] could not save answers", error.message);
+    if (error) throw new Error(`Could not save deadline answers: ${error.message}`);
   }
-  await recordFirmSharedAnswers(userId, draft, formLimitedTo(form, DEADLINE_KEYS));
+  if (!(await recordFirmSharedAnswers(userId, draft, formLimitedTo(form, DEADLINE_KEYS)))) {
+    throw new Error("Could not share deadline answers with the firm.");
+  }
+}
+
+/** The client's saved deadline answers, to fill in the form again. */
+export async function loadDeadlineAnswers(userId: string): Promise<DeadlineAnswers> {
+  const admin = createSupabaseAdminClient() as any;
+  const { data } = await admin.from("user_profiles").select("deadline_answers").eq("id", userId).maybeSingle();
+  return (data?.deadline_answers ?? {}) as DeadlineAnswers;
 }
 
 /** Answered or skipped: don't show the one-time prompt again. */

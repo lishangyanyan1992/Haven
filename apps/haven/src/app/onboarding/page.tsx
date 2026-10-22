@@ -13,7 +13,7 @@ import { persistProfileDraft, ONBOARDING_OVERRIDE_COOKIE } from "@/lib/profile-s
 import { env } from "@/lib/env";
 import { noIndexMetadata } from "@/lib/seo";
 import { formLimitedTo, recordFirmSharedAnswers } from "@/lib/firms/answers";
-import { DEADLINE_KEYS, markDeadlinesPrompted, saveDeadlineAnswers } from "@/lib/deadlines";
+import { DEADLINE_KEYS, loadDeadlineAnswers, markDeadlinesPrompted, saveDeadlineAnswers } from "@/lib/deadlines";
 import { getClientFirm, markFirmClientCompleted } from "@/lib/firms/intake";
 
 const EMAIL_INGEST_DOMAIN = env.EMAIL_INGEST_DOMAIN ?? "import.haven-h1b.com";
@@ -101,6 +101,7 @@ export default async function OnboardingPage({
   const requestedStep = Number(resolvedSearchParams?.step ?? "");
   const initialStep = Number.isFinite(requestedStep) && requestedStep >= 1 && requestedStep <= 5 ? requestedStep : 1;
   const firm = await getClientFirm(user?.id);
+  const savedDeadlines = user ? await loadDeadlineAnswers(user.id) : {};
 
   return (
     <div className="min-h-screen">
@@ -118,7 +119,7 @@ export default async function OnboardingPage({
           <FirmSharingNote firmName={firm.firmName} />
         </div>
       ) : null}
-      <OnboardingFlow initialStep={initialStep} saveStepAction={saveStepAction} userEmail={userEmail} />
+      <OnboardingFlow initialDeadlines={savedDeadlines} initialStep={initialStep} saveStepAction={saveStepAction} userEmail={userEmail} />
     </div>
   );
 }

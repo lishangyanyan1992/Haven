@@ -206,17 +206,20 @@ const ONBOARDING_STARTED_PREFIX = "haven-mixpanel-onboarding-started";
 export function OnboardingFlow({
   saveStepAction,
   initialStep,
+  initialDeadlines = {},
   userEmail
 }: {
   saveStepAction: (step: number, data: FormData) => Promise<void>;
   initialStep: number;
+  /** Deadline answers already saved on the account, so another device shows them too. */
+  initialDeadlines?: Partial<Record<string, string>>;
   userEmail: string;
 }) {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(initialStep);
   const [isSaving, startSavingTransition] = useTransition();
   const [saveFeedback, setSaveFeedback] = useState<string | null>(null);
-  const [formData, setFormData] = useState<Partial<OnboardingData>>({ topConcerns: [] });
+  const [formData, setFormData] = useState<Partial<OnboardingData>>({ topConcerns: [], ...initialDeadlines });
   const [hasInteracted, setHasInteracted] = useState(false);
   const [showFieldErrors, setShowFieldErrors] = useState(false);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);

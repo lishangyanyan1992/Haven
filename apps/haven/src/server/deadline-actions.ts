@@ -19,7 +19,13 @@ async function signedInUserId() {
 
 export async function saveDeadlinePromptAction(formData: FormData) {
   const userId = await signedInUserId();
-  await saveDeadlineAnswers(userId, formData);
+  try {
+    await saveDeadlineAnswers(userId, formData);
+  } catch (error) {
+    // Keep the prompt open so the client can try again; don't mark it done.
+    console.error("[deadlines] prompt save failed", error);
+    redirect("/onboarding/deadlines?error=save");
+  }
   await markDeadlinesPrompted(userId);
   redirect(SIGNED_IN_HOME);
 }
