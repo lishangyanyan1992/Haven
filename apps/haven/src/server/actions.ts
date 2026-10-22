@@ -448,11 +448,15 @@ export async function resetPasswordAction(formData: FormData) {
   redirect(`/forgot-password?message=sent`);
 }
 
-export async function signOutAction() {
+export async function signOutAction(formData?: FormData) {
   const supabase = await createSupabaseServerClient();
   await supabase.auth.signOut();
   const cookieStore = await cookies();
   cookieStore.delete(ONBOARDING_OVERRIDE_COOKIE);
+  const role = String(formData?.get("role") ?? "").trim().toLowerCase();
+  if (role === "lawyer") {
+    redirect("/login?role=lawyer&redirectTo=/firm");
+  }
   redirect("/login");
 }
 

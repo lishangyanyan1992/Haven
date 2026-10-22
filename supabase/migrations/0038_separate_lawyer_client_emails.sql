@@ -12,13 +12,39 @@ create table if not exists public.firm_pilot_requests (
   note text,
   source_path text not null default '/register',
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint firm_pilot_requests_email_canonical_chk check (
+    email = lower(trim(email))
+    and normalized_email = lower(trim(normalized_email))
+    and email = normalized_email
+  )
 );
 
 create index if not exists firm_pilot_requests_created_at_idx
   on public.firm_pilot_requests (created_at desc);
 
 alter table public.firm_pilot_requests enable row level security;
+
+-- Normalize existing email columns before enforcing mutual exclusion
+update public.access_invites
+set normalized_email = lower(trim(normalized_email))
+where normalized_email <> lower(trim(normalized_email));
+
+update public.firm_clients
+set email = lower(trim(email)),
+    normalized_email = lower(trim(email))
+where email <> lower(trim(email))
+   or normalized_email <> lower(trim(email));
+
+update public.waitlist_signups
+set email = lower(trim(email)),
+    normalized_email = lower(trim(email))
+where email <> lower(trim(email))
+   or normalized_email <> lower(trim(email));
+
+update public.user_profiles
+set email = lower(trim(email))
+where email <> lower(trim(email));
 
 -- Migrate any lawyer signups out of waitlist_signups into firm_pilot_requests
 do $$
@@ -31,23 +57,23 @@ begin
         exists (
           select 1
           from public.waitlist_signups o
-          where o.normalized_email = ws.normalized_email
+          where lower(trim(o.normalized_email)) = lower(trim(ws.normalized_email))
             and o.interest_key <> 'lawyer_access'
         )
         or exists (
           select 1
           from public.access_invites i
-          where i.normalized_email = ws.normalized_email
+          where lower(trim(i.normalized_email)) = lower(trim(ws.normalized_email))
         )
         or exists (
           select 1
           from public.firm_clients c
-          where c.normalized_email = ws.normalized_email
+          where lower(trim(c.normalized_email)) = lower(trim(ws.normalized_email))
         )
         or exists (
           select 1
           from public.user_profiles p
-          where lower(p.email) = ws.normalized_email
+          where lower(trim(p.email)) = lower(trim(ws.normalized_email))
         )
       )
   )
@@ -57,22 +83,22 @@ begin
     where exists (
             select 1
             from public.access_invites i
-            where i.normalized_email = lower(trim(fm.email))
+            where lower(trim(i.normalized_email)) = lower(trim(fm.email))
           )
        or exists (
             select 1
             from public.firm_clients c
-            where c.normalized_email = lower(trim(fm.email))
+            where lower(trim(c.normalized_email)) = lower(trim(fm.email))
           )
        or exists (
             select 1
             from public.user_profiles p
-            where lower(p.email) = lower(trim(fm.email))
+            where lower(trim(p.email)) = lower(trim(fm.email))
           )
        or exists (
             select 1
             from public.waitlist_signups ws
-            where ws.normalized_email = lower(trim(fm.email))
+            where lower(trim(ws.normalized_email)) = lower(trim(fm.email))
           )
        or exists (
             select 1
@@ -93,8 +119,8 @@ insert into public.firm_pilot_requests (full_name, firm_name, email, normalized_
 select
   ws.full_name,
   coalesce(ws.metadata->>'firm', 'Law Firm') as firm_name,
-  ws.email,
-  ws.normalized_email,
+  lower(trim(ws.email)),
+  lower(trim(ws.normalized_email)),
   ws.metadata->>'note' as note,
   ws.source_path,
   ws.created_at,
@@ -106,7 +132,7 @@ on conflict (normalized_email) do nothing;
 delete from public.waitlist_signups
 where interest_key = 'lawyer_access';
 
--- 2. Clean and constrain firm_members email
+-- 2. Clean and constrain email columns across tables
 update public.firm_members
 set email = lower(trim(email))
 where email <> lower(trim(email));
@@ -119,6 +145,52 @@ alter table public.firm_members
 
 create unique index if not exists firm_members_email_uidx
   on public.firm_members (email);
+
+alter table public.firm_pilot_requests
+  drop constraint if exists firm_pilot_requests_email_canonical_chk;
+
+alter table public.firm_pilot_requests
+  add constraint firm_pilot_requests_email_canonical_chk check (
+    email = lower(trim(email))
+    and normalized_email = lower(trim(normalized_email))
+    and email = normalized_email
+  );
+
+alter table public.access_invites
+  drop constraint if exists access_invites_email_canonical_chk;
+
+alter table public.access_invites
+  add constraint access_invites_email_canonical_chk check (
+    normalized_email = lower(trim(normalized_email))
+  );
+
+alter table public.firm_clients
+  drop constraint if exists firm_clients_email_canonical_chk;
+
+alter table public.firm_clients
+  add constraint firm_clients_email_canonical_chk check (
+    email = lower(trim(email))
+    and normalized_email = lower(trim(normalized_email))
+    and email = normalized_email
+  );
+
+alter table public.waitlist_signups
+  drop constraint if exists waitlist_signups_email_canonical_chk;
+
+alter table public.waitlist_signups
+  add constraint waitlist_signups_email_canonical_chk check (
+    email = lower(trim(email))
+    and normalized_email = lower(trim(normalized_email))
+    and email = normalized_email
+  );
+
+alter table public.user_profiles
+  drop constraint if exists user_profiles_email_canonical_chk;
+
+alter table public.user_profiles
+  add constraint user_profiles_email_canonical_chk check (
+    email = lower(trim(email))
+  );
 
 -- 3. Trigger to prevent adding lawyer emails or users that exist as clients
 create or replace function public.assert_not_client_email_or_user()
@@ -133,28 +205,39 @@ declare
 begin
   if tg_table_name = 'firm_members' then
     v_email := lower(trim(new.email));
+    new.email := v_email;
     v_user_id := new.user_id;
   elsif tg_table_name = 'firm_pilot_requests' then
-    v_email := lower(trim(new.normalized_email));
+    v_email := lower(trim(coalesce(new.normalized_email, new.email)));
+    new.email := v_email;
+    new.normalized_email := v_email;
     v_user_id := null;
   else
     v_email := lower(trim(coalesce(new.email, '')));
     v_user_id := null;
   end if;
 
-  if exists (select 1 from public.access_invites where normalized_email = v_email) then
+  if v_email is not null and length(v_email) > 0 then
+    perform pg_advisory_xact_lock(hashtextextended(v_email, 0));
+  end if;
+
+  if v_user_id is not null then
+    perform pg_advisory_xact_lock(hashtextextended(v_user_id::text, 1));
+  end if;
+
+  if exists (select 1 from public.access_invites where lower(trim(normalized_email)) = v_email) then
     raise exception 'Role conflict: email % already exists as a client in access_invites', v_email;
   end if;
 
-  if exists (select 1 from public.firm_clients where normalized_email = v_email) then
+  if exists (select 1 from public.firm_clients where lower(trim(normalized_email)) = v_email or lower(trim(email)) = v_email) then
     raise exception 'Role conflict: email % already exists as a client in firm_clients', v_email;
   end if;
 
-  if exists (select 1 from public.user_profiles where lower(email) = v_email) then
+  if exists (select 1 from public.user_profiles where lower(trim(email)) = v_email) then
     raise exception 'Role conflict: email % already has a client user profile', v_email;
   end if;
 
-  if exists (select 1 from public.waitlist_signups where normalized_email = v_email) then
+  if exists (select 1 from public.waitlist_signups where lower(trim(normalized_email)) = v_email or lower(trim(email)) = v_email) then
     raise exception 'Role conflict: email % already exists on the client waitlist', v_email;
   end if;
 
@@ -196,15 +279,21 @@ declare
 begin
   if tg_table_name = 'access_invites' then
     v_email := lower(trim(new.normalized_email));
+    new.normalized_email := v_email;
     v_user_id := null;
   elsif tg_table_name = 'firm_clients' then
-    v_email := lower(trim(new.normalized_email));
+    v_email := lower(trim(coalesce(new.normalized_email, new.email)));
+    new.email := v_email;
+    new.normalized_email := v_email;
     v_user_id := new.user_id;
   elsif tg_table_name = 'user_profiles' then
     v_email := lower(trim(new.email));
+    new.email := v_email;
     v_user_id := new.id;
   elsif tg_table_name = 'waitlist_signups' then
-    v_email := lower(trim(new.normalized_email));
+    v_email := lower(trim(coalesce(new.normalized_email, new.email)));
+    new.email := v_email;
+    new.normalized_email := v_email;
     v_user_id := null;
   else
     v_email := null;
@@ -212,16 +301,20 @@ begin
   end if;
 
   if v_email is not null and length(v_email) > 0 then
-    if exists (select 1 from public.firm_members where email = v_email) then
+    perform pg_advisory_xact_lock(hashtextextended(v_email, 0));
+
+    if exists (select 1 from public.firm_members where lower(trim(email)) = v_email) then
       raise exception 'Role conflict: email % is already registered as a firm lawyer', v_email;
     end if;
 
-    if exists (select 1 from public.firm_pilot_requests where normalized_email = v_email) then
+    if exists (select 1 from public.firm_pilot_requests where lower(trim(normalized_email)) = v_email or lower(trim(email)) = v_email) then
       raise exception 'Role conflict: email % has an active law firm pilot request', v_email;
     end if;
   end if;
 
   if v_user_id is not null then
+    perform pg_advisory_xact_lock(hashtextextended(v_user_id::text, 1));
+
     if exists (select 1 from public.firm_members where user_id = v_user_id) then
       raise exception 'Role conflict: user_id % is already registered as a firm lawyer', v_user_id;
     end if;

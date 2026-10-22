@@ -81,6 +81,10 @@ async function addLawyer(firmId: string, rawEmail: string) {
     db.from("waitlist_signups").select("id").eq("normalized_email", email).limit(1).maybeSingle()
   ]);
 
+  if (asFirmClient.error || asInvite.error || asProfile.error || asWaitlist.error) {
+    fail(`Could not validate whether ${email} is registered as a client.`);
+  }
+
   if (asFirmClient.data || asInvite.data || asProfile.data || asWaitlist.data) {
     fail(`${email} is registered as a client or client waitlist entry, so it can't be a lawyer.`);
   }
