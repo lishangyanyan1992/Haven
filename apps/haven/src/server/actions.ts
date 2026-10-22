@@ -235,10 +235,10 @@ export async function submitFirmPilotRequestAction(input: {
   try {
     const likePattern = normalizedEmail.replace(/[\\%_]/g, "\\$&");
     const [asClient, asInvite, asProfile, asWaitlist] = await Promise.all([
-      admin.from("firm_clients").select("id").eq("normalized_email", normalizedEmail).maybeSingle(),
-      admin.from("access_invites").select("normalized_email").eq("normalized_email", normalizedEmail).maybeSingle(),
-      admin.from("user_profiles").select("id").ilike("email", likePattern).maybeSingle(),
-      admin.from("waitlist_signups").select("normalized_email").eq("normalized_email", normalizedEmail).maybeSingle()
+      admin.from("firm_clients").select("id").eq("normalized_email", normalizedEmail).limit(1).maybeSingle(),
+      admin.from("access_invites").select("normalized_email").eq("normalized_email", normalizedEmail).limit(1).maybeSingle(),
+      admin.from("user_profiles").select("id").ilike("email", likePattern).limit(1).maybeSingle(),
+      admin.from("waitlist_signups").select("normalized_email").eq("normalized_email", normalizedEmail).limit(1).maybeSingle()
     ]);
 
     const preflightError = asClient.error ?? asInvite.error ?? asProfile.error ?? asWaitlist.error;
