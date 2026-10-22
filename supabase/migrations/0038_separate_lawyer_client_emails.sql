@@ -99,6 +99,7 @@ begin
             select 1
             from public.waitlist_signups ws
             where lower(trim(ws.normalized_email)) = lower(trim(fm.email))
+              and ws.interest_key <> 'lawyer_access'
           )
        or exists (
             select 1

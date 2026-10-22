@@ -118,6 +118,8 @@ export async function requestFirmIntake(token: string, rawEmail: string, visitor
     admin().from("firm_clients").select("firm_id, joined_at").eq("normalized_email", email).maybeSingle()
   ]);
 
+  if (lawyer.error || pilotRequest.error || existing.error) return { status: "sent" };
+
   const decision = decideIntake({
     email,
     linkFirmId: link.firmId,
