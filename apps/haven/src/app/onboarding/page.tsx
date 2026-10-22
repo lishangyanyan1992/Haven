@@ -12,7 +12,8 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { persistProfileDraft, ONBOARDING_OVERRIDE_COOKIE } from "@/lib/profile-sync";
 import { env } from "@/lib/env";
 import { noIndexMetadata } from "@/lib/seo";
-import { recordFirmSharedAnswers } from "@/lib/firms/answers";
+import { formLimitedTo, recordFirmSharedAnswers } from "@/lib/firms/answers";
+import { DEADLINE_KEYS, loadDeadlineAnswers, markDeadlinesPrompted, saveDeadlineAnswers } from "@/lib/deadlines";
 import { getClientFirm, markFirmClientCompleted } from "@/lib/firms/intake";
 
 const EMAIL_INGEST_DOMAIN = env.EMAIL_INGEST_DOMAIN ?? "import.haven-h1b.com";
@@ -46,7 +47,8 @@ async function saveStepAction(step: number, data: FormData) {
 
   const admin = createSupabaseAdminClient() as any;
 
-  const isExplicitCompletion = step === 4 && data.get("_complete") === "true";
+  // Setup finishes on step 5, "Your deadlines".
+  const isExplicitCompletion = step === 5 && data.get("_complete") === "true";
 
   if (isExplicitCompletion) {
     // Final explicit completion: persist all data and mark complete via email_alias
@@ -67,18 +69,21 @@ async function saveStepAction(step: number, data: FormData) {
       top_concerns: []
     });
     await persistProfileDraft(user.id, buildDraft(data));
-    await recordFirmSharedAnswers(user.id, buildDraft(data), data);
+    await recordFirmSharedAnswers(user.id, buildDraft(data), formLimitedTo(data, DEADLINE_KEYS, "except"));
+    await saveDeadlineAnswers(user.id, data);
     await admin.from("email_aliases").upsert({
       user_id: user.id,
       alias: `${(user.email ?? "user").split("@")[0]}-${user.id.slice(0, 6)}@${EMAIL_INGEST_DOMAIN}`
     });
     await markFirmClientCompleted(user.id);
+    await markDeadlinesPrompted(user.id);
     const cookieStore = await cookies();
     cookieStore.delete(ONBOARDING_OVERRIDE_COOKIE);
   } else {
     // Auto-save for any step (including step 4 while still editing)
     await persistProfileDraft(user.id, buildDraft(data));
-    await recordFirmSharedAnswers(user.id, buildDraft(data), data);
+    await recordFirmSharedAnswers(user.id, buildDraft(data), formLimitedTo(data, DEADLINE_KEYS, "except"));
+    await saveDeadlineAnswers(user.id, data);
   }
 }
 
@@ -94,8 +99,9 @@ export default async function OnboardingPage({
 
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const requestedStep = Number(resolvedSearchParams?.step ?? "");
-  const initialStep = Number.isFinite(requestedStep) && requestedStep >= 1 && requestedStep <= 4 ? requestedStep : 1;
+  const initialStep = Number.isFinite(requestedStep) && requestedStep >= 1 && requestedStep <= 5 ? requestedStep : 1;
   const firm = await getClientFirm(user?.id);
+  const savedDeadlines = user ? await loadDeadlineAnswers(user.id) : {};
 
   return (
     <div className="min-h-screen">
@@ -113,7 +119,7 @@ export default async function OnboardingPage({
           <FirmSharingNote firmName={firm.firmName} />
         </div>
       ) : null}
-      <OnboardingFlow initialStep={initialStep} saveStepAction={saveStepAction} userEmail={userEmail} />
+      <OnboardingFlow initialDeadlines={savedDeadlines} initialStep={initialStep} saveStepAction={saveStepAction} userEmail={userEmail} />
     </div>
   );
 }

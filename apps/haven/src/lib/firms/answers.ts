@@ -22,7 +22,16 @@ export const SHARED_ANSWER_KEYS = [
   "priorityDate",
   "preferenceCategory",
   "spouseVisaStatus",
-  "topConcerns"
+  "topConcerns",
+  // "Your deadlines" (setup step 5 and the one-time prompt)
+  "statusEndDate",
+  "statusEndUnknown",
+  "jobEnded",
+  "lastWorkDay",
+  "agencyDeadlineType",
+  "agencyDeadlineDate",
+  "travelPlanned",
+  "travelDate"
 ] as const;
 
 export type SharedAnswerKey = (typeof SHARED_ANSWER_KEYS)[number];
@@ -96,18 +105,36 @@ export function mergeSharedAnswers(current: SharedAnswers, draft: Record<string,
   return { next, changed: submitted.length > 0 };
 }
 
-export async function recordFirmSharedAnswers(userId: string, draft: Record<string, unknown>, form: FormData) {
-  if (!mergeSharedAnswers({}, draft, form).changed) return;
+/**
+ * A view of a submitted form that only reports some fields as sent, so one
+ * save can't clear answers that belong to another (setup sends every answer
+ * on every save).
+ */
+export function formLimitedTo(form: Pick<FormData, "has">, keys: readonly string[], mode: "only" | "except" = "only") {
+  return { has: (key: string) => (mode === "only" ? keys.includes(key) : !keys.includes(key)) && form.has(key) };
+}
+
+/** True when the firm's copy is up to date (or there's no firm to update). */
+export async function recordFirmSharedAnswers(userId: string, draft: Record<string, unknown>, form: Pick<FormData, "has">): Promise<boolean> {
+  if (!mergeSharedAnswers({}, draft, form).changed) return true;
 
   const admin = createSupabaseAdminClient() as any;
-  const { data: row } = await admin
+  const { data: row, error: readError } = await admin
     .from("firm_clients")
     .select("id, shared_answers, joined_at")
     .eq("user_id", userId)
     .maybeSingle();
-  if (!row?.joined_at) return;
+  if (readError) {
+    console.error("[firms] could not read shared answers", readError.message);
+    return false;
+  }
+  if (!row?.joined_at) return true;
 
   const { next } = mergeSharedAnswers(row.shared_answers ?? {}, draft, form);
   const { error } = await admin.from("firm_clients").update({ shared_answers: next }).eq("id", row.id);
-  if (error) console.error("[firms] could not save shared answers", error.message);
+  if (error) {
+    console.error("[firms] could not save shared answers", error.message);
+    return false;
+  }
+  return true;
 }

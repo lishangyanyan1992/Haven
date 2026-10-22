@@ -54,7 +54,7 @@ export async function resolvePostAuthRedirect(
 
   const { data: profile } = await admin
     .from("user_profiles")
-    .select("id, country_of_birth, employer_name, preference_category")
+    .select("id, country_of_birth, employer_name, preference_category, deadlines_prompted_at")
     .eq("id", userId)
     .maybeSingle();
 
@@ -85,7 +85,7 @@ export async function resolvePostAuthRedirect(
     return "/onboarding";
   }
 
-  // Check if onboarding was completed (email_alias is created only at step 4)
+  // Check if onboarding was completed (email_alias is created only when setup finishes)
   const { data: emailAlias } = await admin
     .from("email_aliases")
     .select("id")
@@ -99,6 +99,11 @@ export async function resolvePostAuthRedirect(
     if (profile.preference_category && profile.preference_category !== "Not sure") stepsCompleted++;
     const progress = Math.round((stepsCompleted / 4) * 100);
     return `/onboarding?progress=${progress}`;
+  }
+
+  // Finished setup before "Your deadlines" existed: ask those questions once.
+  if (!profile.deadlines_prompted_at) {
+    return "/onboarding/deadlines";
   }
 
   return SIGNED_IN_HOME;

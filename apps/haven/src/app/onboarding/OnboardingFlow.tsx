@@ -9,6 +9,7 @@ import { Select } from "@/components/ui/select";
 import { trackEvent } from "@/lib/mixpanel";
 import { cn } from "@/lib/utils";
 import { SIGNED_IN_HOME } from "@/lib/archived-routes";
+import { DeadlineFields } from "@/components/app/deadline-fields";
 
 interface OnboardingData {
   visaType: string;
@@ -24,6 +25,15 @@ interface OnboardingData {
   i140Approved: string; // derived from greenCardStage, not shown as a field
   spouseVisaStatus: string;
   topConcerns: string[];
+  // Step 5, "Your deadlines" (all optional)
+  statusEndDate: string;
+  statusEndUnknown: string;
+  jobEnded: string;
+  lastWorkDay: string;
+  agencyDeadlineType: string;
+  agencyDeadlineDate: string;
+  travelPlanned: string;
+  travelDate: string;
 }
 
 const steps = [
@@ -58,6 +68,14 @@ const steps = [
     icon: Heart,
     headline: "One more step so Haven can personalize what feels urgent.",
     description: "This is what powers your layoff plan, your matched cohort, and your next-action queue."
+  },
+  {
+    id: 5,
+    label: "Your deadlines",
+    short: "Dates",
+    icon: Clock,
+    headline: "Last step: the dates that matter.",
+    description: "All optional. These help your lawyer see what's urgent. Skip anything you're not sure about."
   }
 ];
 
@@ -81,6 +99,11 @@ const valueInsights = [
     "Spouse status may create additional paths in a hard moment.",
     "Your concerns help rank what Haven surfaces first.",
     "Community matching works better when it knows what you are navigating."
+  ],
+  [
+    "A date that's coming up is often the most important thing in a case.",
+    "Your lawyer sees these dates, so they can spot what needs attention first.",
+    "Not sure of a date? Leave it blank. You can add it later."
   ]
 ];
 
@@ -183,17 +206,20 @@ const ONBOARDING_STARTED_PREFIX = "haven-mixpanel-onboarding-started";
 export function OnboardingFlow({
   saveStepAction,
   initialStep,
+  initialDeadlines = {},
   userEmail
 }: {
   saveStepAction: (step: number, data: FormData) => Promise<void>;
   initialStep: number;
+  /** Deadline answers already saved on the account, so another device shows them too. */
+  initialDeadlines?: Partial<Record<string, string>>;
   userEmail: string;
 }) {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(initialStep);
   const [isSaving, startSavingTransition] = useTransition();
   const [saveFeedback, setSaveFeedback] = useState<string | null>(null);
-  const [formData, setFormData] = useState<Partial<OnboardingData>>({ topConcerns: [] });
+  const [formData, setFormData] = useState<Partial<OnboardingData>>({ topConcerns: [], ...initialDeadlines });
   const [hasInteracted, setHasInteracted] = useState(false);
   const [showFieldErrors, setShowFieldErrors] = useState(false);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -217,7 +243,7 @@ export function OnboardingFlow({
         return;
       }
       if (parsed.formData) setFormData((prev) => ({ ...prev, ...parsed.formData }));
-      if (typeof parsed.currentStep === "number" && parsed.currentStep >= 1 && parsed.currentStep <= 4) {
+      if (typeof parsed.currentStep === "number" && parsed.currentStep >= 1 && parsed.currentStep <= steps.length) {
         setCurrentStep(parsed.currentStep);
       }
     } catch {
@@ -366,7 +392,7 @@ export function OnboardingFlow({
     data.append("_complete", "true"); // signals explicit completion, not auto-save
     startSavingTransition(async () => {
       try {
-        await saveStepAction(4, data);
+        await saveStepAction(steps.length, data);
         trackEvent("Onboarding Completed", {
           concern_count: formData.topConcerns?.length ?? 0
         });
@@ -407,7 +433,7 @@ export function OnboardingFlow({
           <div className="flex flex-col gap-5 border-b border-[var(--color-border)] pb-6">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-label">Step {currentStep} of 4</p>
+                <p className="text-label">Step {currentStep} of {steps.length}</p>
                 <h1 className="text-h1 mt-3 max-w-[20ch]">{step.headline}</h1>
                 <p className="text-body mt-3 max-w-[60ch]">{step.description}</p>
               </div>
@@ -447,6 +473,7 @@ export function OnboardingFlow({
             {currentStep === 2 && <Step2Form data={formData} errors={errorFields} onChange={updateField} />}
             {currentStep === 3 && <Step3Form data={formData} errors={errorFields} onChange={updateField} />}
             {currentStep === 4 && <Step4Form data={formData} errors={errorFields} onChange={updateField} onToggleConcern={toggleConcern} />}
+            {currentStep === 5 && <DeadlineFields onChange={(key, value) => updateField(key, value)} values={formData} />}
           </div>
 
           <div className="mt-6 min-h-6">
@@ -473,7 +500,7 @@ export function OnboardingFlow({
               Back
             </button>
 
-            {currentStep < 4 ? (
+            {currentStep < steps.length ? (
               <button
                 className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--haven-ink)] bg-[var(--haven-ink)] px-6 py-2.5 text-sm text-[var(--haven-cream)]"
                 disabled={isSaving}
