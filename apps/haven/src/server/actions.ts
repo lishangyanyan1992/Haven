@@ -298,7 +298,7 @@ export async function completeOnboardingAction(formData: FormData) {
     statusUpdateEmailNotifications: String(formData.get("statusUpdateEmailNotifications") ?? "false")
   };
   await persistProfileDraft(user.id, setupDraft);
-  await recordFirmSharedAnswers(user.id, setupDraft);
+  await recordFirmSharedAnswers(user.id, setupDraft, formData);
 
   await admin.from("email_aliases").upsert({
     user_id: user.id,
@@ -355,7 +355,7 @@ export async function saveOnboardingStepOneAction(formData: FormData) {
     primaryGoal: input.primaryGoal
   };
   await persistProfileDraft(user.id, setupDraft);
-  await recordFirmSharedAnswers(user.id, setupDraft);
+  await recordFirmSharedAnswers(user.id, setupDraft, formData);
 
   revalidatePath("/onboarding");
   revalidatePath("/dashboard");
@@ -377,7 +377,7 @@ export async function saveOnboardingStepTwoAction(formData: FormData) {
     employerSize: input.employerSize
   };
   await persistProfileDraft(user.id, setupDraft);
-  await recordFirmSharedAnswers(user.id, setupDraft);
+  await recordFirmSharedAnswers(user.id, setupDraft, formData);
 
   revalidatePath("/onboarding");
   revalidatePath("/dashboard");
@@ -399,7 +399,7 @@ export async function saveOnboardingStepThreeAction(formData: FormData) {
     i140Approved: input.i140Approved
   };
   await persistProfileDraft(user.id, setupDraft);
-  await recordFirmSharedAnswers(user.id, setupDraft);
+  await recordFirmSharedAnswers(user.id, setupDraft, formData);
 
   revalidatePath("/onboarding");
   revalidatePath("/timeline");
@@ -418,7 +418,7 @@ export async function saveOnboardingStepFourAction(formData: FormData) {
     topConcerns: input.topConcerns
   };
   await persistProfileDraft(user.id, setupDraft);
-  await recordFirmSharedAnswers(user.id, setupDraft);
+  await recordFirmSharedAnswers(user.id, setupDraft, formData);
 
   revalidatePath("/onboarding");
   revalidatePath("/planner");
@@ -447,7 +447,7 @@ export async function saveProfileSettingsAction(formData: FormData) {
     topConcerns: formData.getAll("topConcerns").map(String)
   };
   await persistProfileDraft(user.id, setupDraft);
-  await recordFirmSharedAnswers(user.id, setupDraft);
+  await recordFirmSharedAnswers(user.id, setupDraft, formData);
 
   cookieStore.delete(ONBOARDING_OVERRIDE_COOKIE);
 

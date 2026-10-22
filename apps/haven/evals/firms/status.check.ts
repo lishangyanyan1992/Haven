@@ -46,6 +46,20 @@ async function main() {
       !("employmentStatus" in sharedAnswersFromProfile({ country_of_birth: "India", employment_status: "laid_off", visa_type: "H1B" })),
     "employment status is set by the chat and must not be shared"
   );
+  const { mergeSharedAnswers } = await import("@/lib/firms/answers");
+  const form = (keys: string[]) => ({ has: (k: string) => keys.includes(k) });
+  const before = { visaType: "H1B", priorityDate: "2023-03-15", spouseVisaStatus: "H4", topConcerns: ["layoffs"] };
+  const cleared = mergeSharedAnswers(before, { priorityDate: "" }, form(["priorityDate"])).next;
+  check("answers: clearing a field removes it", !("priorityDate" in cleared) && cleared.visaType === "H1B", JSON.stringify(cleared));
+  const untouched = mergeSharedAnswers(before, { employerName: "Acme" }, form(["employerName"])).next;
+  check(
+    "answers: fields a step didn't send are kept",
+    untouched.priorityDate === "2023-03-15" && untouched.employerName === "Acme",
+    JSON.stringify(untouched)
+  );
+  const noConcerns = mergeSharedAnswers(before, { spouseVisaStatus: "H4", topConcerns: [] }, form(["spouseVisaStatus"])).next;
+  check("answers: unticking every concern clears them", !("topConcerns" in noConcerns), JSON.stringify(noConcerns));
+
   check(
     "answers: green card stage from profile",
     sharedAnswersFromProfile({ country_of_birth: "India", i140_approved: true, perm_stage: "not_started" }).greenCardStage === "i140_approved",

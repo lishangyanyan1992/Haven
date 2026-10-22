@@ -67,7 +67,7 @@ async function saveStepAction(step: number, data: FormData) {
       top_concerns: []
     });
     await persistProfileDraft(user.id, buildDraft(data));
-    await recordFirmSharedAnswers(user.id, buildDraft(data));
+    await recordFirmSharedAnswers(user.id, buildDraft(data), data);
     await admin.from("email_aliases").upsert({
       user_id: user.id,
       alias: `${(user.email ?? "user").split("@")[0]}-${user.id.slice(0, 6)}@${EMAIL_INGEST_DOMAIN}`
@@ -78,7 +78,7 @@ async function saveStepAction(step: number, data: FormData) {
   } else {
     // Auto-save for any step (including step 4 while still editing)
     await persistProfileDraft(user.id, buildDraft(data));
-    await recordFirmSharedAnswers(user.id, buildDraft(data));
+    await recordFirmSharedAnswers(user.id, buildDraft(data), data);
   }
 }
 

@@ -83,21 +83,25 @@ export function decideIntake(input: {
  * or, if the address already has an account, a password-reset link (which
  * also signs them in). Both land on /reset-password, which claims the code.
  */
-async function sendSignUpEmail(email: string, claimToken: string) {
+async function sendSignUpEmail(email: string, claimToken: string): Promise<boolean> {
   const next = `/reset-password?claim=${encodeURIComponent(claimToken)}`;
   const redirectTo = `${siteUrl()}/auth/callback?next=${encodeURIComponent(next)}`;
   const { error } = await admin().auth.admin.inviteUserByEmail(email, { redirectTo });
-  if (!error) return;
+  if (!error) return true;
   if (!/already|registered|exists/i.test(error.message)) {
     console.error("[firm-intake] invite email failed", error.message);
-    return;
+    return false;
   }
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) return;
+  if (!url || !anonKey) return false;
   const anon = createClient(url, anonKey, { auth: { persistSession: false } });
   const { error: resetError } = await anon.auth.resetPasswordForEmail(email, { redirectTo });
-  if (resetError) console.error("[firm-intake] sign-in email failed", resetError.message);
+  if (resetError) {
+    console.error("[firm-intake] sign-in email failed", resetError.message);
+    return false;
+  }
+  return true;
 }
 
 export async function requestFirmIntake(token: string, rawEmail: string, visitorIp: string): Promise<IntakeResult> {
@@ -144,26 +148,24 @@ export async function requestFirmIntake(token: string, rawEmail: string, visitor
   if (decision.action === "invite_new") {
     const { error } = await admin()
       .from("firm_clients")
-      .insert({ firm_id: link.firmId, normalized_email: email, link_id: link.linkId, claim_token_hash: claimTokenHash });
+      .insert({ firm_id: link.firmId, normalized_email: email, link_id: link.linkId });
     if (error) {
       // A unique clash means another request just claimed this email.
       if (!/duplicate|unique/i.test(error.message)) console.error("[firm-intake] could not record client", error.message);
       return { status: "sent" };
     }
-  } else {
-    const { error } = await admin()
-      .from("firm_clients")
-      .update({ email_sent_at: new Date().toISOString(), claim_token_hash: claimTokenHash })
-      .eq("normalized_email", email)
-      .eq("firm_id", link.firmId)
-      .is("joined_at", null);
-    if (error) {
-      console.error("[firm-intake] could not refresh client", error.message);
-      return { status: "sent" };
-    }
   }
 
-  await sendSignUpEmail(email, claimToken);
+  // Switch to the new code only once its email is out. If sending fails, the
+  // code in any earlier email keeps working.
+  if (!(await sendSignUpEmail(email, claimToken))) return { status: "sent" };
+  const { error: codeError } = await admin()
+    .from("firm_clients")
+    .update({ email_sent_at: new Date().toISOString(), claim_token_hash: claimTokenHash })
+    .eq("normalized_email", email)
+    .eq("firm_id", link.firmId)
+    .is("joined_at", null);
+  if (codeError) console.error("[firm-intake] could not save code", codeError.message);
   return { status: "sent" };
 }
 
@@ -186,9 +188,14 @@ export async function claimFirmInvite(
     .maybeSingle();
   if (!row) return "ignored";
   if (row.user_id && row.user_id !== user.id) return "ignored";
-  // Already joined by this same person (say, the page ran twice): done.
-  if (row.joined_at) return row.user_id === user.id ? "joined" : "ignored";
+  // Already joined by this same person (say, the page ran twice): make sure
+  // their access is in place, in case granting it failed last time.
+  if (row.joined_at) return row.user_id === user.id && (await grantAccess(email, row.firm_id)) ? "joined" : "ignored";
   if (!claimTokenMatches(claimToken, row.claim_token_hash)) return "ignored";
+
+  // Access first: if it can't be granted, nothing is changed and the code
+  // still works, so trying the link again can succeed.
+  if (!(await grantAccess(email, row.firm_id))) return "ignored";
 
   // Someone who finished setup before joining shows as Finished (and New)
   // straight away, with the setup answers they'd already given.
@@ -216,12 +223,19 @@ export async function claimFirmInvite(
     console.error("[firm-intake] could not attach client", error.message);
     return "ignored";
   }
-
-  const { error: inviteError } = await admin()
-    .from("access_invites")
-    .upsert({ normalized_email: email, invited_by: `firm:${row.firm_id}` }, { onConflict: "normalized_email", ignoreDuplicates: true });
-  if (inviteError) console.error("[firm-intake] could not add invite", inviteError.message);
   return "joined";
+}
+
+/** Put the email on the invite list. True if it's there afterwards. */
+async function grantAccess(email: string, firmId: string) {
+  const { error } = await admin()
+    .from("access_invites")
+    .upsert({ normalized_email: email, invited_by: `firm:${firmId}` }, { onConflict: "normalized_email", ignoreDuplicates: true });
+  if (error) {
+    console.error("[firm-intake] could not add invite", error.message);
+    return false;
+  }
+  return true;
 }
 
 /** Called when a client finishes setup. Starts their New badge. */

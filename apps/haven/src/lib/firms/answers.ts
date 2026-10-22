@@ -75,12 +75,30 @@ export function sharedAnswersFromProfile(p: Record<string, any> | null): SharedA
 }
 
 /**
- * Merge a setup or settings submission into the firm's copy. Does nothing for
+ * Apply a setup or settings submission to the firm's copy. Fields the form
+ * sent with a value are set; fields it sent empty are removed, so clearing
+ * an answer clears it for the firm too; fields it didn't send are left as
+ * they were (each setup step only sends its own fields). Does nothing for
  * people who haven't joined a firm. Never call this from the chat.
  */
-export async function recordFirmSharedAnswers(userId: string, draft: Record<string, unknown>) {
+export function mergeSharedAnswers(current: SharedAnswers, draft: Record<string, unknown>, form: Pick<FormData, "has">) {
+  // Unticked checkboxes send nothing, so concerns count as sent whenever
+  // the screen they sit on (with spouse status) was sent.
+  const submitted = SHARED_ANSWER_KEYS.filter(
+    (key) => form.has(key) || (key === "topConcerns" && form.has("spouseVisaStatus"))
+  );
   const picked = pickSharedAnswers(draft);
-  if (Object.keys(picked).length === 0) return;
+  const next: SharedAnswers = { ...current };
+  for (const key of submitted) {
+    if (picked[key] !== undefined) next[key] = picked[key];
+    else delete next[key];
+  }
+  return { next, changed: submitted.length > 0 };
+}
+
+export async function recordFirmSharedAnswers(userId: string, draft: Record<string, unknown>, form: FormData) {
+  if (!mergeSharedAnswers({}, draft, form).changed) return;
+
   const admin = createSupabaseAdminClient() as any;
   const { data: row } = await admin
     .from("firm_clients")
@@ -88,9 +106,8 @@ export async function recordFirmSharedAnswers(userId: string, draft: Record<stri
     .eq("user_id", userId)
     .maybeSingle();
   if (!row?.joined_at) return;
-  const { error } = await admin
-    .from("firm_clients")
-    .update({ shared_answers: { ...(row.shared_answers ?? {}), ...picked } })
-    .eq("id", row.id);
+
+  const { next } = mergeSharedAnswers(row.shared_answers ?? {}, draft, form);
+  const { error } = await admin.from("firm_clients").update({ shared_answers: next }).eq("id", row.id);
   if (error) console.error("[firms] could not save shared answers", error.message);
 }
