@@ -58,6 +58,16 @@ async function main() {
   const service = fs.readFileSync(new URL("../../src/lib/advisor/service.ts", import.meta.url), "utf8");
   check("the chat never writes shared answers", !/recordFirmSharedAnswers/.test(service), "only setup and settings may call recordFirmSharedAnswers");
 
+  // claimFirmInvite must explicitly reject lawyer accounts.
+  const intakeSrc = fs.readFileSync(new URL("../../src/lib/firms/intake.ts", import.meta.url), "utf8");
+  const claimStart = intakeSrc.indexOf("export async function claimFirmInvite");
+  const claimBody = intakeSrc.slice(claimStart, intakeSrc.indexOf("async function grantAccess", claimStart));
+  check("claimFirmInvite rejects lawyers", /from\("firm_members"\)/.test(claimBody), "claimFirmInvite must check firm_members to reject lawyers");
+
+  // firm-admin must check access_invites and user_profiles to reject client accounts as lawyers.
+  const adminSrc = fs.readFileSync(new URL("../../scripts/firm-admin.ts", import.meta.url), "utf8");
+  check("firm-admin rejects client accounts as lawyers", /from\("access_invites"\)/.test(adminSrc) && /from\("user_profiles"\)/.test(adminSrc), "firm-admin must check access_invites and user_profiles");
+
   console.log(`\n${pass}/${pass + failures.length} passed`);
   if (failures.length) process.exit(1);
 }

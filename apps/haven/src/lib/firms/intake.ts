@@ -112,15 +112,18 @@ export async function requestFirmIntake(token: string, rawEmail: string, visitor
   if (link.state === "invalid") return { status: "invalid_link" };
   if (link.state === "inactive") return { status: "inactive_link" };
 
-  const [lawyer, existing] = await Promise.all([
+  const [lawyer, pilotRequest, existing] = await Promise.all([
     admin().from("firm_members").select("user_id").eq("email", email).maybeSingle(),
+    admin().from("firm_pilot_requests").select("id").eq("normalized_email", email).maybeSingle(),
     admin().from("firm_clients").select("firm_id, joined_at").eq("normalized_email", email).maybeSingle()
   ]);
+
+  if (lawyer.error || pilotRequest.error || existing.error) return { status: "sent" };
 
   const decision = decideIntake({
     email,
     linkFirmId: link.firmId,
-    isLawyer: Boolean(lawyer.data),
+    isLawyer: Boolean(lawyer.data || pilotRequest.data),
     existingClient: existing.data ?? null
   });
   if (decision.action === "ignore") return { status: "sent" };
@@ -196,6 +199,14 @@ export async function claimFirmInvite(
 ): Promise<"joined" | "ignored"> {
   const email = normalizeEmail(user.email);
   if (!email || !user.email_confirmed_at || !claimToken) return "ignored";
+
+  // A firm lawyer account cannot join as a client.
+  const { data: asLawyer } = await admin()
+    .from("firm_members")
+    .select("user_id")
+    .or(`user_id.eq.${user.id},email.eq.${email}`)
+    .maybeSingle();
+  if (asLawyer) return "ignored";
 
   const { data: row } = await admin()
     .from("firm_clients")

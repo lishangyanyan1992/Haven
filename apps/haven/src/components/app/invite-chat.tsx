@@ -6,14 +6,14 @@ import { ArrowRight, LoaderCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { sendInviteLinkAction, submitWaitlistAction } from "@/server/actions";
+import { sendInviteLinkAction, submitFirmPilotRequestAction, submitWaitlistAction } from "@/server/actions";
 import { cn } from "@/lib/utils";
 
 /**
  * Haven is invitation only. Every "get started" button lands here.
  *
  * A short scripted chat (no AI) sorts people into three paths:
- * - lawyers request access for their firm
+ * - lawyers contact the founder for a free firm pilot
  * - clients whose lawyer invited them get a sign-up link by email
  * - everyone else is told to ask their lawyer, and can leave an email
  */
@@ -36,14 +36,38 @@ const OPENING: Message = {
 };
 
 const CHOICES: { path: Path; label: string }[] = [
-  { path: "lawyer", label: "I'm an immigration lawyer" },
+  { path: "lawyer", label: "I'm a lawyer (free pilot)" },
   { path: "client", label: "My lawyer invited me" },
   { path: "individual", label: "I'm looking for help myself" }
 ];
 
-export function InviteChat({ notInvited = false }: { notInvited?: boolean }) {
-  const [messages, setMessages] = useState<Message[]>(() =>
-    notInvited
+export function InviteChat({
+  notInvited = false,
+  initialRole,
+  initialEmail = ""
+}: {
+  notInvited?: boolean;
+  initialRole?: Path;
+  initialEmail?: string;
+}) {
+  const [messages, setMessages] = useState<Message[]>(() => {
+    if (initialRole === "lawyer") {
+      return [
+        OPENING,
+        { from: "you", body: "Contact the founder for a free pilot" },
+        {
+          from: "haven",
+          body: (
+            <>
+              Great. Haven gives your firm one place for clients to share intake answers and documents, with urgency
+              triage and zero email overload. Leave your details below and the founder will reach out directly to set up
+              your free firm pilot.
+            </>
+          )
+        }
+      ];
+    }
+    return notInvited
       ? [
           {
             from: "haven",
@@ -56,12 +80,12 @@ export function InviteChat({ notInvited = false }: { notInvited?: boolean }) {
           },
           OPENING
         ]
-      : [OPENING]
-  );
-  const [path, setPath] = useState<Path | null>(null);
-  const [step, setStep] = useState<"choose" | "form" | "done">("choose");
+      : [OPENING];
+  });
+  const [path, setPath] = useState<Path | null>(() => initialRole ?? null);
+  const [step, setStep] = useState<"choose" | "form" | "done">(() => (initialRole ? "form" : "choose"));
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => initialEmail);
   const [firm, setFirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -86,7 +110,8 @@ export function InviteChat({ notInvited = false }: { notInvited?: boolean }) {
       lawyer: (
         <>
           Great. Haven gives your clients one place to upload their documents and ask questions between
-          appointments, and you see what they shared. Leave your details and we&apos;ll set up your firm.
+          appointments, and you see what they shared. Leave your details and the founder will reach out directly to set up
+          your free firm pilot.
         </>
       ),
       client: <>Welcome. What email did your lawyer invite?</>,
@@ -138,13 +163,43 @@ export function InviteChat({ notInvited = false }: { notInvited?: boolean }) {
         return;
       }
 
+      if (path === "lawyer") {
+        const result = await submitFirmPilotRequestAction({
+          fullName: name,
+          firmName: firm,
+          email,
+          sourcePath: "/register"
+        });
+
+        if (attempt !== attemptRef.current) return;
+        if (result.status !== "success") {
+          setError(result.message);
+          return;
+        }
+
+        say([
+          { from: "you", body: `${name}, ${firm}, ${email}` },
+          {
+            from: "haven",
+            body: (
+              <>
+                Thanks, {name.split(" ")[0]}. The founder will reach out to you directly at {email} to get your free pilot
+                started for {firm}.
+              </>
+            )
+          }
+        ]);
+        setStep("done");
+        return;
+      }
+
       const result = await submitWaitlistAction({
         fullName: name,
         email,
-        interestKey: path === "lawyer" ? "lawyer_access" : "individual_access",
-        interestLabel: path === "lawyer" ? "Haven for law firms" : "Haven without a lawyer",
+        interestKey: "individual_access",
+        interestLabel: "Haven without a lawyer",
         sourcePath: "/register",
-        metadata: path === "lawyer" ? { firm, role: "lawyer" } : { role: "individual" }
+        metadata: { role: "individual" }
       });
 
       if (attempt !== attemptRef.current) return;
@@ -154,15 +209,10 @@ export function InviteChat({ notInvited = false }: { notInvited?: boolean }) {
       }
 
       say([
-        { from: "you", body: path === "lawyer" ? `${name}, ${firm}, ${email}` : `${name}, ${email}` },
+        { from: "you", body: `${name}, ${email}` },
         {
           from: "haven",
-          body:
-            path === "lawyer" ? (
-              <>Thanks, {name.split(" ")[0]}. We&apos;ll email you at {email} to set up your firm.</>
-            ) : (
-              <>Thanks. We&apos;ll email you at {email} if Haven opens up.</>
-            )
+          body: <>Thanks. We&apos;ll email you at {email} if Haven opens up.</>
         }
       ]);
       setStep("done");
