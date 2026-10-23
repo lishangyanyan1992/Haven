@@ -101,7 +101,7 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "*",
     "autoprefixer": "^10.5.4",
-    "eslint": "*",
+    "eslint": "^10.13.0",
     "eslint-config-next": "^16.4.3",
     "postcss": "*",
     "supabase": "^2.112.0",
