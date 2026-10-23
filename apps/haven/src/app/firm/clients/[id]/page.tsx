@@ -9,6 +9,7 @@ import { FIRM_CLIENT_STATUS_LABEL } from "@/lib/firms/status";
 import { rankUrgency, TIER_LABEL } from "@/lib/firms/urgency";
 import { noIndexMetadata } from "@/lib/seo";
 import { FirmHeader } from "../../FirmHeader";
+import { EngagementStageControls } from "./EngagementStageControls";
 import { OpenDocumentButton } from "./OpenDocumentButton";
 
 export const metadata = { ...noIndexMetadata, title: "Client · Haven" };
@@ -196,6 +197,18 @@ export default async function FirmClientPage({ params }: { params: Promise<{ id:
             {client.joinedAt ? ` · joined ${formatDate(client.joinedAt)}` : ""}
           </p>
         </div>
+
+        <EngagementStageControls
+          completedAt={client.completedAt}
+          firmClientId={client.id}
+          firmName={membership.firmName}
+          fulfilledRequiredCount={client.requiredDocuments.filter((r) => r.isUploaded).length}
+          initialState={client.engagementState}
+          joinedAt={client.joinedAt}
+          requiredDocumentCount={client.requiredDocuments.length}
+          reviewedAt={client.reviewedAt}
+          uploadedDocumentCount={client.documents.length}
+        />
 
         <div className="grid gap-4 lg:grid-cols-2">
           {groups.map((group) => (

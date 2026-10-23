@@ -17,6 +17,7 @@ type ProfileDraft = Partial<{
   employerName: string;
   jobTitle: string;
   h1bStartDate: string;
+  currentVisaExpiryDate: string;
   employerSize: string;
   greenCardStage: string;
   priorityDate: string;
@@ -96,6 +97,10 @@ function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unk
       rawDraft.h1bStartDate !== undefined
         ? asOptionalString(rawDraft.h1bStartDate)
         : (existingRow?.h1b_start_date as string | null) ?? null,
+    current_visa_expiry_date:
+      rawDraft.currentVisaExpiryDate !== undefined
+        ? asOptionalString(rawDraft.currentVisaExpiryDate)
+        : (existingRow?.current_visa_expiry_date as string | null) ?? null,
     employer_size:
       rawDraft.employerSize === "startup" || rawDraft.employerSize === "mid-size" || rawDraft.employerSize === "enterprise"
         ? rawDraft.employerSize

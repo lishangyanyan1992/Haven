@@ -58,7 +58,8 @@
     "check:firm-intake": "tsx --tsconfig tsconfig.json evals/firms/intake.check.ts",
     "check:firm-demo": "tsx --tsconfig tsconfig.json evals/firms/demo.check.ts",
     "check:firm-required-docs": "tsx --tsconfig tsconfig.json evals/firms/required-documents.check.ts",
-    "check:lead-urgency": "tsx --tsconfig tsconfig.json evals/firms/urgency.check.ts"
+    "check:lead-urgency": "tsx --tsconfig tsconfig.json evals/firms/urgency.check.ts",
+    "check:case-dashboard": "tsx --tsconfig tsconfig.json evals/firms/case-dashboard.check.ts"
   },
   "dependencies": {
     "@haven/auth": "*",

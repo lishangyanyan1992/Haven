@@ -1,9 +1,10 @@
 import { HAVEN_VAULT_BUCKET } from "@/lib/document-vault";
 import type { SharedAnswers } from "@/lib/firms/answers";
+import { cleanEngagementState } from "@/lib/firms/engagement";
 import { getFirmRequiredDocuments } from "@/lib/firms/required-documents";
 import { compareByUrgency, rankUrgency, type Urgency } from "@/lib/firms/urgency";
 import { firmClientStatus, isNewFirmClient } from "@/lib/firms/status";
-import type { FirmClientRow, FirmClientStatus } from "@/lib/firms/types";
+import type { FirmClientEngagementState, FirmClientRow, FirmClientStatus } from "@/lib/firms/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -136,6 +137,8 @@ export type FirmClientDetail = {
   status: FirmClientStatus;
   joinedAt: string | null;
   completedAt: string | null;
+  reviewedAt: string | null;
+  engagementState: FirmClientEngagementState;
   answers: SharedAnswers;
   documents: FirmClientDocument[];
   requiredDocuments: FirmRequiredDocumentStatus[];
@@ -201,11 +204,34 @@ export async function getFirmClient(firmId: string, firmClientId: string): Promi
     status: firmClientStatus(client, answers),
     joinedAt: client.joined_at,
     completedAt: client.completed_at,
+    reviewedAt: client.reviewed_at,
+    engagementState: cleanEngagementState(client.engagement_state),
     answers,
     documents,
     requiredDocuments,
     additionalDocuments
   };
+}
+
+/** Updates a client's engagement stage and note, scoped to this firm. */
+export async function saveFirmClientEngagement(
+  firmId: string,
+  firmClientId: string,
+  state: FirmClientEngagementState
+): Promise<FirmClientEngagementState> {
+  if (!/^[0-9a-f-]{36}$/i.test(firmClientId)) {
+    throw new Error("Invalid client id.");
+  }
+  const cleaned = cleanEngagementState(state);
+  const { error } = await admin()
+    .from("firm_clients")
+    .update({ engagement_state: cleaned })
+    .eq("firm_id", firmId)
+    .eq("id", firmClientId);
+  if (error) {
+    throw new Error(`Could not save client engagement: ${error.message}`);
+  }
+  return cleaned;
 }
 
 /** Opening a client clears New for everyone at the firm. */
