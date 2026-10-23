@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { requireFirmMember } from "@/lib/firms/access";
 import type { SharedAnswerKey, SharedAnswers } from "@/lib/firms/answers";
 import { getFirmClient, markFirmClientReviewed } from "@/lib/firms/clients";
+import { getFirmIntakeQuestions } from "@/lib/firms/intake-questions";
 import { FIRM_CLIENT_STATUS_LABEL } from "@/lib/firms/status";
 import { rankUrgency, TIER_LABEL } from "@/lib/firms/urgency";
 import { noIndexMetadata } from "@/lib/seo";
@@ -107,10 +108,19 @@ function deadlineAnswer(answers: SharedAnswers, key: SharedAnswerKey) {
   return answer(answers, key);
 }
 
+const PRESET_KEY_FOR_ROW: Partial<Record<SharedAnswerKey, string>> = {
+  lastWorkDay: "jobEnded",
+  agencyDeadlineDate: "agencyDeadlineType",
+  travelDate: "travelPlanned"
+};
+
 export default async function FirmClientPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const membership = await requireFirmMember(`/firm/clients/${id}`);
-  const client = await getFirmClient(membership.firmId, id);
+  const [client, intakeQuestions] = await Promise.all([
+    getFirmClient(membership.firmId, id),
+    getFirmIntakeQuestions(membership.firmId)
+  ]);
 
   if (!client) {
     return (
@@ -130,10 +140,38 @@ export default async function FirmClientPage({ params }: { params: Promise<{ id:
   const fullName = typeof client.answers.fullName === "string" ? client.answers.fullName.trim() : "";
   const name = fullName || client.email;
   const urgency = rankUrgency(client.answers);
+  const enabledKeys = new Set(intakeQuestions.map((q) => q.key));
+  const customQuestions = intakeQuestions.filter((q) => q.isCustom);
+
   const groups = GROUPS.map((group) => ({
     title: group.title,
-    rows: group.rows.map(([label, key]) => ({ label, value: deadlineAnswer(client.answers, key) }))
-  }));
+    rows: group.rows
+      .map(([label, key]) => ({
+        label,
+        key,
+        value: deadlineAnswer(client.answers, key)
+      }))
+      .filter((row) => {
+        const presetKey = PRESET_KEY_FOR_ROW[row.key] ?? row.key;
+        return enabledKeys.has(presetKey) || row.value !== null;
+      })
+  })).filter((group) => group.rows.length > 0);
+
+  if (customQuestions.length > 0) {
+    const answerRecord = client.answers as Record<string, string | string[] | undefined>;
+    groups.push({
+      title: "Custom questions",
+      rows: customQuestions.map((q) => {
+        const raw = answerRecord[q.key];
+        const value = Array.isArray(raw) ? raw.join(", ") : typeof raw === "string" && raw.trim() ? raw.trim() : null;
+        return {
+          label: q.label,
+          key: q.key as SharedAnswerKey,
+          value
+        };
+      })
+    });
+  }
 
   return (
     <div className="min-h-screen bg-[var(--haven-cream)]">

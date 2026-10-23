@@ -2,12 +2,14 @@ import Link from "next/link";
 
 import { requireFirmMember } from "@/lib/firms/access";
 import { listFirmClients } from "@/lib/firms/clients";
+import { getFirmIntakeQuestions } from "@/lib/firms/intake-questions";
 import { getCurrentFirmLink, intakeUrl } from "@/lib/firms/links";
 import { getFirmRequiredDocuments } from "@/lib/firms/required-documents";
 import { FIRM_CLIENT_STATUS_LABEL } from "@/lib/firms/status";
 import { TIER_LABEL, type UrgencyTier } from "@/lib/firms/urgency";
 import { noIndexMetadata } from "@/lib/seo";
 import { FirmHeader } from "./FirmHeader";
+import { IntakeQuestionsControls } from "./IntakeQuestionsControls";
 import { LinkControls } from "./LinkControls";
 import { RequiredDocumentsControls } from "./RequiredDocumentsControls";
 
@@ -35,10 +37,11 @@ const TIER_STYLE: Record<UrgencyTier, string> = {
 
 export default async function FirmDashboardPage() {
   const membership = await requireFirmMember("/firm");
-  const [clients, link, requiredDocs] = await Promise.all([
+  const [clients, link, requiredDocs, intakeQuestions] = await Promise.all([
     listFirmClients(membership.firmId),
     getCurrentFirmLink(membership.firmId),
-    getFirmRequiredDocuments(membership.firmId)
+    getFirmRequiredDocuments(membership.firmId),
+    getFirmIntakeQuestions(membership.firmId)
   ]);
   const newCount = clients.filter((c) => c.isNew).length;
 
@@ -57,6 +60,8 @@ export default async function FirmDashboardPage() {
             </p>
           ) : null}
         </div>
+
+        <IntakeQuestionsControls initialItems={intakeQuestions} />
 
         <RequiredDocumentsControls initialItems={requiredDocs} />
 

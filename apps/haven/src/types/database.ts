@@ -1449,6 +1449,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          intake_questions: Json | null
           is_demo: boolean
           name: string
           required_documents: Json | null
@@ -1456,6 +1457,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          intake_questions?: Json | null
           is_demo?: boolean
           name: string
           required_documents?: Json | null
@@ -1463,6 +1465,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          intake_questions?: Json | null
           is_demo?: boolean
           name?: string
           required_documents?: Json | null

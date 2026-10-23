@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Briefcase, Clock, Heart, ShieldCheck, TrendingUp, User } from "lucide-react";
+import { ArrowLeft, ArrowRight, Briefcase, CheckCircle2, CircleAlert, Clock, FileText, Heart, ShieldCheck, TrendingUp, User } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -10,8 +10,20 @@ import { trackEvent } from "@/lib/mixpanel";
 import { cn } from "@/lib/utils";
 import { SIGNED_IN_HOME } from "@/lib/archived-routes";
 import { DeadlineFields } from "@/components/app/deadline-fields";
+import { DocumentContextUploader } from "@/components/app/document-context-uploader";
+import { findPresetDocument } from "@/lib/document-vault";
+import { getDefaultIntakeQuestions } from "@/lib/firms/intake-question-catalog";
+import type { IntakeQuestionItem, RequiredDocumentItem } from "@/lib/firms/types";
+
+export type UploadedIntakeDocument = {
+  id: string;
+  originalName: string;
+  displayLabel: string;
+  documentKind: string;
+};
 
 interface OnboardingData {
+  [key: string]: string | string[] | undefined;
   visaType: string;
   countryOfBirth: string;
   primaryGoal: string;
@@ -74,38 +86,51 @@ const steps = [
     label: "Your deadlines",
     short: "Dates",
     icon: Clock,
-    headline: "Last step: the dates that matter.",
+    headline: "The dates that matter.",
     description: "All optional. These help your lawyer see what's urgent. Skip anything you're not sure about."
+  },
+  {
+    id: 6,
+    label: "Your documents",
+    short: "Docs",
+    icon: FileText,
+    headline: "Upload requested documents.",
+    description: "Upload what you have handy now for your lawyer to review, or finish uploading later in your Document Vault."
   }
 ];
 
-const valueInsights = [
-  [
+const valueInsights: Record<number, string[]> = {
+  1: [
     "We route you to the right experience based on your visa path.",
     "Country of birth determines which per-country queue applies to you.",
     "Your first dashboard view should feel personal, not generic."
   ],
-  [
+  2: [
     "H-1B start date lets Haven compute cap and renewal timing.",
     "Employer size affects fallback options and portability planning.",
     "A few work details unlock more useful scenario planning right away."
   ],
-  [
+  3: [
     "Priority date plus category sets the shape of your wait.",
     "Your green card stage tells Haven what decisions are actually in front of you.",
     "Haven shows ranges when reality is uncertain, not fake precision."
   ],
-  [
+  4: [
     "Spouse status may create additional paths in a hard moment.",
     "Your concerns help rank what Haven surfaces first.",
     "Community matching works better when it knows what you are navigating."
   ],
-  [
+  5: [
     "A date that's coming up is often the most important thing in a case.",
     "Your lawyer sees these dates, so they can spot what needs attention first.",
     "Not sure of a date? Leave it blank. You can add it later."
+  ],
+  6: [
+    "Uploading key notices and records helps your lawyer review your case faster.",
+    "Your documents also power cited answers when you ask questions in Haven Advisor.",
+    "Don't have a file right now? You can complete setup and upload it anytime in Documents."
   ]
-];
+};
 
 function computeH1BInfo(h1bStartDate: string): { capDate: string; label: string; urgent: boolean } | null {
   if (!h1bStartDate) return null;
@@ -202,21 +227,55 @@ function estimateRemainingWait(priorityDate: string, country: string, category: 
 const ONBOARDING_STORAGE_KEY = "haven-onboarding-progress";
 const ONBOARDING_OVERRIDE_COOKIE = "haven_onboarding_override";
 const ONBOARDING_STARTED_PREFIX = "haven-mixpanel-onboarding-started";
+const EMPTY_REQUIRED_DOCUMENTS: RequiredDocumentItem[] = [];
+const EMPTY_UPLOADED_DOCUMENTS: UploadedIntakeDocument[] = [];
 
 export function OnboardingFlow({
   saveStepAction,
   initialStep,
   initialDeadlines = {},
-  userEmail
+  userEmail,
+  firmName,
+  intakeQuestions,
+  requiredDocuments = EMPTY_REQUIRED_DOCUMENTS,
+  initialUploadedDocuments = EMPTY_UPLOADED_DOCUMENTS
 }: {
   saveStepAction: (step: number, data: FormData) => Promise<void>;
   initialStep: number;
   /** Deadline answers already saved on the account, so another device shows them too. */
   initialDeadlines?: Partial<Record<string, string>>;
   userEmail: string;
+  firmName?: string;
+  intakeQuestions?: IntakeQuestionItem[];
+  requiredDocuments?: RequiredDocumentItem[];
+  initialUploadedDocuments?: UploadedIntakeDocument[];
 }) {
   const router = useRouter();
-  const [currentStep, setCurrentStep] = useState(initialStep);
+  const resolvedQuestions = useMemo(
+    () => (intakeQuestions && intakeQuestions.length > 0 ? intakeQuestions : getDefaultIntakeQuestions()),
+    [intakeQuestions]
+  );
+  const enabledKeys = useMemo(() => new Set(resolvedQuestions.map((q) => q.key)), [resolvedQuestions]);
+  const customQuestions = useMemo(() => resolvedQuestions.filter((q) => q.isCustom), [resolvedQuestions]);
+
+  const activeSteps = useMemo(() => {
+    const filtered = steps.filter((s) => {
+      if (s.id === 1) return ["visaType", "countryOfBirth", "primaryGoal"].some((k) => enabledKeys.has(k));
+      if (s.id === 2) return ["employerName", "jobTitle", "h1bStartDate", "employerSize"].some((k) => enabledKeys.has(k));
+      if (s.id === 3) return ["greenCardStage", "preferenceCategory", "priorityDate"].some((k) => enabledKeys.has(k));
+      if (s.id === 4) return ["spouseVisaStatus", "topConcerns"].some((k) => enabledKeys.has(k)) || customQuestions.length > 0;
+      if (s.id === 5) return ["statusEndDate", "jobEnded", "agencyDeadlineType", "travelPlanned"].some((k) => enabledKeys.has(k));
+      if (s.id === 6) return requiredDocuments.length > 0;
+      return true;
+    });
+    return filtered.length > 0 ? filtered : [steps[0]];
+  }, [enabledKeys, customQuestions.length, requiredDocuments.length]);
+
+  const [currentStep, setCurrentStep] = useState<number>(() => {
+    const match = activeSteps.find((s) => s.id === initialStep);
+    return match ? match.id : activeSteps[0].id;
+  });
+  const [uploadedDocuments, setUploadedDocuments] = useState<UploadedIntakeDocument[]>(initialUploadedDocuments);
   const [isSaving, startSavingTransition] = useTransition();
   const [saveFeedback, setSaveFeedback] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<OnboardingData>>({ topConcerns: [], ...initialDeadlines });
@@ -226,10 +285,16 @@ export function OnboardingFlow({
   const saveStepActionRef = useRef(saveStepAction);
   const currentStepRef = useRef(currentStep);
   const formDataRef = useRef(formData);
+  const activeStepsRef = useRef(activeSteps);
+
+  useEffect(() => {
+    setUploadedDocuments(initialUploadedDocuments);
+  }, [initialUploadedDocuments]);
 
   useEffect(() => { saveStepActionRef.current = saveStepAction; }, [saveStepAction]);
   useEffect(() => { currentStepRef.current = currentStep; }, [currentStep]);
   useEffect(() => { formDataRef.current = formData; }, [formData]);
+  useEffect(() => { activeStepsRef.current = activeSteps; }, [activeSteps]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -243,7 +308,7 @@ export function OnboardingFlow({
         return;
       }
       if (parsed.formData) setFormData((prev) => ({ ...prev, ...parsed.formData }));
-      if (typeof parsed.currentStep === "number" && parsed.currentStep >= 1 && parsed.currentStep <= steps.length) {
+      if (typeof parsed.currentStep === "number" && activeStepsRef.current.some((s) => s.id === parsed.currentStep)) {
         setCurrentStep(parsed.currentStep);
       }
     } catch {
@@ -252,8 +317,13 @@ export function OnboardingFlow({
   }, [userEmail]);
 
   useEffect(() => {
-    setCurrentStep(initialStep);
+    const match = activeStepsRef.current.find((s) => s.id === initialStep);
+    setCurrentStep(match ? match.id : activeStepsRef.current[0].id);
   }, [initialStep]);
+
+  useEffect(() => {
+    setCurrentStep((prev) => (activeSteps.some((s) => s.id === prev) ? prev : activeSteps[0].id));
+  }, [activeSteps]);
 
   useEffect(() => {
     setShowFieldErrors(false);
@@ -275,7 +345,7 @@ export function OnboardingFlow({
     window.sessionStorage.setItem(storageKey, "1");
   }, [initialStep, userEmail]);
 
-  const updateField = (key: keyof OnboardingData, value: string) => {
+  const updateField = (key: string, value: string) => {
     setHasInteracted(true);
     setFormData((prev) => {
       const next: Partial<OnboardingData> = { ...prev, [key]: value };
@@ -317,7 +387,7 @@ export function OnboardingFlow({
   }, [formData, hasInteracted]);
 
   const missingFields = useMemo(() => {
-    const requiredByStep: Record<number, { key: keyof OnboardingData; label: string }[]> = {
+    const requiredByStep: Record<number, { key: string; label: string }[]> = {
       1: [
         { key: "visaType", label: "Current visa status" },
         { key: "countryOfBirth", label: "Country of birth" },
@@ -336,10 +406,11 @@ export function OnboardingFlow({
       4: [{ key: "spouseVisaStatus", label: "Spouse or partner status" }]
     };
     return (requiredByStep[currentStep] ?? []).filter(({ key }) => {
+      if (!enabledKeys.has(key)) return false;
       const value = formData[key];
       return !value || String(value).trim().length === 0;
     });
-  }, [currentStep, formData]);
+  }, [currentStep, formData, enabledKeys]);
 
   const buildFormData = () => {
     const data = new FormData();
@@ -366,8 +437,12 @@ export function OnboardingFlow({
     });
   };
 
+  const activeStepIndex = Math.max(0, activeSteps.findIndex((s) => s.id === currentStep));
+  const step = activeSteps[activeStepIndex] ?? activeSteps[0];
+  const StepIcon = step.icon;
+
   const handleNext = () => {
-    if (isSaving || currentStep >= steps.length) return;
+    if (isSaving || activeStepIndex >= activeSteps.length - 1) return;
     if (missingFields.length > 0) {
       setShowFieldErrors(true);
       return;
@@ -375,11 +450,15 @@ export function OnboardingFlow({
     setSaveFeedback("Saving...");
     persistStep(currentStep, () => {
       setSaveFeedback(null);
-      setCurrentStep((s) => Math.min(s + 1, steps.length));
+      const nextStep = activeSteps[Math.min(activeStepIndex + 1, activeSteps.length - 1)];
+      if (nextStep) setCurrentStep(nextStep.id);
     });
   };
 
-  const handlePrev = () => setCurrentStep((s) => Math.max(s - 1, 1));
+  const handlePrev = () => {
+    const prevStep = activeSteps[Math.max(activeStepIndex - 1, 0)];
+    if (prevStep) setCurrentStep(prevStep.id);
+  };
 
   const handleFinish = () => {
     if (isSaving) return;
@@ -392,7 +471,7 @@ export function OnboardingFlow({
     data.append("_complete", "true"); // signals explicit completion, not auto-save
     startSavingTransition(async () => {
       try {
-        await saveStepAction(steps.length, data);
+        await saveStepAction(currentStep, data);
         trackEvent("Onboarding Completed", {
           concern_count: formData.topConcerns?.length ?? 0
         });
@@ -406,9 +485,6 @@ export function OnboardingFlow({
       }
     });
   };
-
-  const step = steps[currentStep - 1];
-  const StepIcon = step.icon;
 
   const errorFields: Set<string> = showFieldErrors
     ? new Set(missingFields.map((f) => f.key))
@@ -433,7 +509,7 @@ export function OnboardingFlow({
           <div className="flex flex-col gap-5 border-b border-[var(--color-border)] pb-6">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-label">Step {currentStep} of {steps.length}</p>
+                <p className="text-label">Step {activeStepIndex + 1} of {activeSteps.length}</p>
                 <h1 className="text-h1 mt-3 max-w-[20ch]">{step.headline}</h1>
                 <p className="text-body mt-3 max-w-[60ch]">{step.description}</p>
               </div>
@@ -443,9 +519,9 @@ export function OnboardingFlow({
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              {steps.map((item) => {
-                const isActive = item.id === currentStep;
-                const isDone = item.id < currentStep;
+              {activeSteps.map((item, idx) => {
+                const isActive = item.id === step.id;
+                const isDone = idx < activeStepIndex;
                 return (
                   <button
                     key={item.id}
@@ -469,11 +545,36 @@ export function OnboardingFlow({
           </div>
 
           <div className="mt-6 space-y-5">
-            {currentStep === 1 && <Step1Form data={formData} errors={errorFields} onChange={updateField} />}
-            {currentStep === 2 && <Step2Form data={formData} errors={errorFields} onChange={updateField} />}
-            {currentStep === 3 && <Step3Form data={formData} errors={errorFields} onChange={updateField} />}
-            {currentStep === 4 && <Step4Form data={formData} errors={errorFields} onChange={updateField} onToggleConcern={toggleConcern} />}
-            {currentStep === 5 && <DeadlineFields onChange={(key, value) => updateField(key, value)} values={formData} />}
+            {step.id === 1 && <Step1Form data={formData} enabledKeys={enabledKeys} errors={errorFields} onChange={updateField} />}
+            {step.id === 2 && <Step2Form data={formData} enabledKeys={enabledKeys} errors={errorFields} onChange={updateField} />}
+            {step.id === 3 && <Step3Form data={formData} enabledKeys={enabledKeys} errors={errorFields} onChange={updateField} />}
+            {step.id === 4 && (
+              <Step4Form
+                customQuestions={customQuestions}
+                data={formData}
+                enabledKeys={enabledKeys}
+                errors={errorFields}
+                onChange={updateField}
+                onToggleConcern={toggleConcern}
+              />
+            )}
+            {step.id === 5 && (
+              <DeadlineFields
+                enabledKeys={enabledKeys}
+                onChange={(key, value) => updateField(key, value)}
+                values={formData}
+              />
+            )}
+            {step.id === 6 && (
+              <Step6Documents
+                firmName={firmName}
+                onDocumentUploaded={(doc) =>
+                  setUploadedDocuments((prev) => [doc, ...prev.filter((d) => d.id !== doc.id)])
+                }
+                requiredDocuments={requiredDocuments}
+                uploadedDocuments={uploadedDocuments}
+              />
+            )}
           </div>
 
           <div className="mt-6 min-h-6">
@@ -489,7 +590,7 @@ export function OnboardingFlow({
             <button
               className={cn(
                 "inline-flex min-h-11 items-center gap-2 rounded-full border px-5 py-2.5 text-sm",
-                currentStep === 1
+                activeStepIndex === 0
                   ? "pointer-events-none border-transparent text-transparent"
                   : "border-[var(--haven-ink)] bg-transparent text-[var(--haven-ink)]"
               )}
@@ -500,7 +601,7 @@ export function OnboardingFlow({
               Back
             </button>
 
-            {currentStep < steps.length ? (
+            {activeStepIndex < activeSteps.length - 1 ? (
               <button
                 className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--haven-ink)] bg-[var(--haven-ink)] px-6 py-2.5 text-sm text-[var(--haven-cream)]"
                 disabled={isSaving}
@@ -529,14 +630,14 @@ export function OnboardingFlow({
           <div className="rounded-[var(--radius-xl)] border border-[var(--haven-sky-mid)] bg-[var(--haven-sky-light)] p-5">
             <p className="text-label">Why we ask this</p>
             <div className="mt-4 space-y-3">
-              {valueInsights[currentStep - 1].map((item) => (
+              {(valueInsights[step.id] ?? valueInsights[1]).map((item) => (
                 <p key={item} className="text-body-sm">{item}</p>
               ))}
             </div>
           </div>
 
           {/* Country wait time — shown on step 1 when country is selected */}
-          {currentStep === 1 && countryOverview && (
+          {step.id === 1 && countryOverview && (
             <div className="rounded-[var(--radius-xl)] border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] p-5">
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-[var(--haven-ink)]" />
@@ -549,7 +650,7 @@ export function OnboardingFlow({
           )}
 
           {/* H1B cap info — shown on step 2 when h1bStartDate is set */}
-          {currentStep === 2 && h1bInfo && (
+          {step.id === 2 && h1bInfo && (
             <div className={`rounded-[var(--radius-xl)] border p-5 ${h1bInfo.urgent ? "border-[#e8b4b4] bg-[#fdf0f0]" : "border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)]"}`}>
               <div className="flex items-center gap-2">
                 <Clock className={`h-4 w-4 ${h1bInfo.urgent ? "text-[#7a3030]" : "text-[var(--haven-ink)]"}`} />
@@ -564,7 +665,7 @@ export function OnboardingFlow({
           )}
 
           {/* GC estimate — shown on step 3 when stage + category are set */}
-          {currentStep === 3 && formData.greenCardStage && formData.preferenceCategory && (
+          {step.id === 3 && formData.greenCardStage && formData.preferenceCategory && (
             <div className="rounded-[var(--radius-xl)] border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] p-5">
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-[var(--haven-ink)]" />
@@ -606,10 +707,10 @@ export function OnboardingFlow({
           <div className="rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-5">
             <p className="text-label">Your progress</p>
             <div className="mt-4 space-y-3">
-              {steps.map((item) => (
+              {activeSteps.map((item, idx) => (
                 <div key={item.id} className="flex items-center gap-3">
-                  <span className={cn("step-dot", item.id === currentStep ? "active" : item.id < currentStep ? "done" : "")} />
-                  <span className={cn("text-body-sm", item.id <= currentStep ? "text-[var(--haven-ink)]" : "")}>{item.label}</span>
+                  <span className={cn("step-dot", item.id === step.id ? "active" : idx < activeStepIndex ? "done" : "")} />
+                  <span className={cn("text-body-sm", idx <= activeStepIndex ? "text-[var(--haven-ink)]" : "")}>{item.label}</span>
                 </div>
               ))}
             </div>
@@ -634,137 +735,167 @@ function Required() {
 
 function Step1Form({
   data,
+  enabledKeys,
   errors,
   onChange
 }: {
   data: Partial<OnboardingData>;
+  enabledKeys: Set<string>;
   errors: Set<string>;
-  onChange: (key: keyof OnboardingData, value: string) => void;
+  onChange: (key: string, value: string) => void;
 }) {
   return (
     <>
-      <Field error={errors.has("visaType")}>
-        <label className="field-label">Current visa status <Required /></label>
-        <Select onChange={(e) => onChange("visaType", e.target.value)} value={data.visaType ?? ""}>
-          <option value="" disabled>Please select</option>
-          {["OPT", "STEM OPT", "H1B", "H4", "O-1", "GC", "Citizen"].map((v) => (
-            <option key={v} value={v}>{v}</option>
-          ))}
-        </Select>
-      </Field>
-      <Field error={errors.has("countryOfBirth")}>
-        <label className="field-label">Country of birth <Required /></label>
-        <Select onChange={(e) => onChange("countryOfBirth", e.target.value)} value={data.countryOfBirth ?? ""}>
-          <option value="" disabled>Please select</option>
-          {["India", "China", "Mexico", "Philippines", "South Korea", "Brazil", "Canada", "United Kingdom", "Other"].map((v) => (
-            <option key={v} value={v}>{v}</option>
-          ))}
-        </Select>
-        <p className="field-helper">Country of birth determines your green card queue.</p>
-      </Field>
-      <Field error={errors.has("primaryGoal")}>
-        <label className="field-label">Primary goal <Required /></label>
-        <Select onChange={(e) => onChange("primaryGoal", e.target.value)} value={data.primaryGoal ?? ""}>
-          <option value="" disabled>Please select</option>
-          <option value="get_gc">Get my green card</option>
-          <option value="job_stability">Stay stable at my current employer</option>
-          <option value="explore_options">Explore all my options</option>
-          <option value="stay_flexible">Maximize flexibility</option>
-          <option value="not_sure">Not sure yet</option>
-        </Select>
-      </Field>
+      {enabledKeys.has("visaType") && (
+        <Field error={errors.has("visaType")}>
+          <label className="field-label">Current visa status <Required /></label>
+          <Select onChange={(e) => onChange("visaType", e.target.value)} value={data.visaType ?? ""}>
+            <option value="" disabled>Please select</option>
+            {["OPT", "STEM OPT", "H1B", "H4", "O-1", "GC", "Citizen"].map((v) => (
+              <option key={v} value={v}>{v}</option>
+            ))}
+          </Select>
+        </Field>
+      )}
+      {enabledKeys.has("countryOfBirth") && (
+        <Field error={errors.has("countryOfBirth")}>
+          <label className="field-label">Country of birth <Required /></label>
+          <Select onChange={(e) => onChange("countryOfBirth", e.target.value)} value={data.countryOfBirth ?? ""}>
+            <option value="" disabled>Please select</option>
+            {["India", "China", "Mexico", "Philippines", "South Korea", "Brazil", "Canada", "United Kingdom", "Other"].map((v) => (
+              <option key={v} value={v}>{v}</option>
+            ))}
+          </Select>
+          <p className="field-helper">Country of birth determines your green card queue.</p>
+        </Field>
+      )}
+      {enabledKeys.has("primaryGoal") && (
+        <Field error={errors.has("primaryGoal")}>
+          <label className="field-label">Primary goal <Required /></label>
+          <Select onChange={(e) => onChange("primaryGoal", e.target.value)} value={data.primaryGoal ?? ""}>
+            <option value="" disabled>Please select</option>
+            <option value="get_gc">Get my green card</option>
+            <option value="job_stability">Stay stable at my current employer</option>
+            <option value="explore_options">Explore all my options</option>
+            <option value="stay_flexible">Maximize flexibility</option>
+            <option value="not_sure">Not sure yet</option>
+          </Select>
+        </Field>
+      )}
     </>
   );
 }
 
 function Step2Form({
   data,
+  enabledKeys,
   errors,
   onChange
 }: {
   data: Partial<OnboardingData>;
+  enabledKeys: Set<string>;
   errors: Set<string>;
-  onChange: (key: keyof OnboardingData, value: string) => void;
+  onChange: (key: string, value: string) => void;
 }) {
   return (
     <>
-      <Field error={errors.has("employerName")}>
-        <label className="field-label">Employer name <Required /></label>
-        <Input onChange={(e) => onChange("employerName", e.target.value)} placeholder="e.g. Nimbus AI" value={data.employerName ?? ""} />
-      </Field>
-      <Field error={errors.has("jobTitle")}>
-        <label className="field-label">Job title <Required /></label>
-        <Input onChange={(e) => onChange("jobTitle", e.target.value)} placeholder="e.g. Senior Software Engineer" value={data.jobTitle ?? ""} />
-      </Field>
-      <Field error={errors.has("h1bStartDate")}>
-        <label className="field-label">H-1B start date <Required /></label>
-        <Input onChange={(e) => onChange("h1bStartDate", e.target.value)} type="date" value={data.h1bStartDate ?? ""} />
-        <p className="field-helper">Used to compute your six-year cap date and renewal window.</p>
-      </Field>
-      <Field error={errors.has("employerSize")}>
-        <label className="field-label">Employer size <Required /></label>
-        <Select onChange={(e) => onChange("employerSize", e.target.value)} value={data.employerSize ?? ""}>
-          <option value="" disabled>Please select</option>
-          <option value="startup">Startup (under 200)</option>
-          <option value="mid-size">Mid-size (200–2,000)</option>
-          <option value="enterprise">Enterprise (2,000+)</option>
-        </Select>
-      </Field>
+      {enabledKeys.has("employerName") && (
+        <Field error={errors.has("employerName")}>
+          <label className="field-label">Employer name <Required /></label>
+          <Input onChange={(e) => onChange("employerName", e.target.value)} placeholder="e.g. Nimbus AI" value={data.employerName ?? ""} />
+        </Field>
+      )}
+      {enabledKeys.has("jobTitle") && (
+        <Field error={errors.has("jobTitle")}>
+          <label className="field-label">Job title <Required /></label>
+          <Input onChange={(e) => onChange("jobTitle", e.target.value)} placeholder="e.g. Senior Software Engineer" value={data.jobTitle ?? ""} />
+        </Field>
+      )}
+      {enabledKeys.has("h1bStartDate") && (
+        <Field error={errors.has("h1bStartDate")}>
+          <label className="field-label">H-1B start date <Required /></label>
+          <Input onChange={(e) => onChange("h1bStartDate", e.target.value)} type="date" value={data.h1bStartDate ?? ""} />
+          <p className="field-helper">Used to compute your six-year cap date and renewal window.</p>
+        </Field>
+      )}
+      {enabledKeys.has("employerSize") && (
+        <Field error={errors.has("employerSize")}>
+          <label className="field-label">Employer size <Required /></label>
+          <Select onChange={(e) => onChange("employerSize", e.target.value)} value={data.employerSize ?? ""}>
+            <option value="" disabled>Please select</option>
+            <option value="startup">Startup (under 200)</option>
+            <option value="mid-size">Mid-size (200–2,000)</option>
+            <option value="enterprise">Enterprise (2,000+)</option>
+          </Select>
+        </Field>
+      )}
     </>
   );
 }
 
 function Step3Form({
   data,
+  enabledKeys,
   errors,
   onChange
 }: {
   data: Partial<OnboardingData>;
+  enabledKeys: Set<string>;
   errors: Set<string>;
-  onChange: (key: keyof OnboardingData, value: string) => void;
+  onChange: (key: string, value: string) => void;
 }) {
   return (
     <>
-      <Field error={errors.has("greenCardStage")}>
-        <label className="field-label">Green card stage <Required /></label>
-        <Select onChange={(e) => onChange("greenCardStage", e.target.value)} value={data.greenCardStage ?? ""}>
-          <option value="" disabled>Please select</option>
-          <option value="not_started">Not started yet</option>
-          <option value="perm_in_progress">PERM in progress</option>
-          <option value="perm_certified">PERM certified</option>
-          <option value="i140_filed">I-140 filed</option>
-          <option value="i140_approved">I-140 approved</option>
-          <option value="i485_filed">I-485 filed</option>
-        </Select>
-        <p className="field-helper">I-140 approval status is inferred from your stage.</p>
-      </Field>
-      <Field error={errors.has("preferenceCategory")}>
-        <label className="field-label">Preference category <Required /></label>
-        <Select onChange={(e) => onChange("preferenceCategory", e.target.value)} value={data.preferenceCategory ?? ""}>
-          <option value="" disabled>Please select</option>
-          {["EB-1", "EB-2", "EB-3", "EB-2 NIW", "Not sure"].map((v) => (
-            <option key={v} value={v}>{v}</option>
-          ))}
-        </Select>
-      </Field>
-      <Field>
-        <label className="field-label">Priority date <span className="text-[var(--color-text-tertiary)] font-normal">(optional)</span></label>
-        <Input onChange={(e) => onChange("priorityDate", e.target.value)} type="date" value={data.priorityDate ?? ""} />
-        <p className="field-helper">The date your PERM or I-140 was filed. Leave blank if not yet applicable.</p>
-      </Field>
+      {enabledKeys.has("greenCardStage") && (
+        <Field error={errors.has("greenCardStage")}>
+          <label className="field-label">Green card stage <Required /></label>
+          <Select onChange={(e) => onChange("greenCardStage", e.target.value)} value={data.greenCardStage ?? ""}>
+            <option value="" disabled>Please select</option>
+            <option value="not_started">Not started yet</option>
+            <option value="perm_in_progress">PERM in progress</option>
+            <option value="perm_certified">PERM certified</option>
+            <option value="i140_filed">I-140 filed</option>
+            <option value="i140_approved">I-140 approved</option>
+            <option value="i485_filed">I-485 filed</option>
+          </Select>
+          <p className="field-helper">I-140 approval status is inferred from your stage.</p>
+        </Field>
+      )}
+      {enabledKeys.has("preferenceCategory") && (
+        <Field error={errors.has("preferenceCategory")}>
+          <label className="field-label">Preference category <Required /></label>
+          <Select onChange={(e) => onChange("preferenceCategory", e.target.value)} value={data.preferenceCategory ?? ""}>
+            <option value="" disabled>Please select</option>
+            {["EB-1", "EB-2", "EB-3", "EB-2 NIW", "Not sure"].map((v) => (
+              <option key={v} value={v}>{v}</option>
+            ))}
+          </Select>
+        </Field>
+      )}
+      {enabledKeys.has("priorityDate") && (
+        <Field>
+          <label className="field-label">Priority date <span className="text-[var(--color-text-tertiary)] font-normal">(optional)</span></label>
+          <Input onChange={(e) => onChange("priorityDate", e.target.value)} type="date" value={data.priorityDate ?? ""} />
+          <p className="field-helper">The date your PERM or I-140 was filed. Leave blank if not yet applicable.</p>
+        </Field>
+      )}
     </>
   );
 }
 
 function Step4Form({
   data,
+  enabledKeys,
+  customQuestions,
   errors,
   onChange,
   onToggleConcern
 }: {
   data: Partial<OnboardingData>;
+  enabledKeys: Set<string>;
+  customQuestions: IntakeQuestionItem[];
   errors: Set<string>;
-  onChange: (key: keyof OnboardingData, value: string) => void;
+  onChange: (key: string, value: string) => void;
   onToggleConcern: (concern: string) => void;
 }) {
   const concerns = data.topConcerns ?? [];
@@ -777,44 +908,148 @@ function Step4Form({
 
   return (
     <>
-      <Field error={errors.has("spouseVisaStatus")}>
-        <label className="field-label">Spouse or partner visa status <Required /></label>
-        <Select onChange={(e) => onChange("spouseVisaStatus", e.target.value)} value={data.spouseVisaStatus ?? ""}>
-          <option value="" disabled>Please select</option>
-          <option value="none">No spouse / not applicable</option>
-          <option value="H1B">Spouse on H-1B</option>
-          <option value="H4">Spouse on H-4</option>
-          <option value="H4 EAD">Spouse on H-4 EAD</option>
-          <option value="GC">Spouse is a green card holder</option>
-          <option value="citizen">Spouse is a US citizen</option>
-          <option value="other">Other</option>
-        </Select>
-      </Field>
-      <div>
-        <label className="field-label">What feels most important right now? <span className="text-[var(--color-text-tertiary)] font-normal">(optional)</span></label>
-        <div className="grid gap-3">
-          {concernOptions.map((option) => {
-            const selected = concerns.includes(option.value);
-            return (
-              <button
-                key={option.value}
-                className={cn(
-                  "rounded-[var(--radius-lg)] border p-4 text-left transition-colors",
-                  selected
-                    ? "border-[var(--haven-sage)] bg-[var(--haven-sage-light)]"
-                    : "border-[var(--color-border)] bg-[var(--haven-white)] hover:bg-[var(--haven-cream)]"
-                )}
-                onClick={() => onToggleConcern(option.value)}
-                type="button"
-              >
-                <p className="text-h3">{option.label}</p>
-                <p className="text-body-sm mt-2">{option.description}</p>
-              </button>
-            );
-          })}
+      {enabledKeys.has("spouseVisaStatus") && (
+        <Field error={errors.has("spouseVisaStatus")}>
+          <label className="field-label">Spouse or partner visa status <Required /></label>
+          <Select onChange={(e) => onChange("spouseVisaStatus", e.target.value)} value={data.spouseVisaStatus ?? ""}>
+            <option value="" disabled>Please select</option>
+            <option value="none">No spouse / not applicable</option>
+            <option value="H1B">Spouse on H-1B</option>
+            <option value="H4">Spouse on H-4</option>
+            <option value="H4 EAD">Spouse on H-4 EAD</option>
+            <option value="GC">Spouse is a green card holder</option>
+            <option value="citizen">Spouse is a US citizen</option>
+            <option value="other">Other</option>
+          </Select>
+        </Field>
+      )}
+      {enabledKeys.has("topConcerns") && (
+        <div>
+          <label className="field-label">What feels most important right now? <span className="text-[var(--color-text-tertiary)] font-normal">(optional)</span></label>
+          <div className="grid gap-3">
+            {concernOptions.map((option) => {
+              const selected = concerns.includes(option.value);
+              return (
+                <button
+                  key={option.value}
+                  className={cn(
+                    "rounded-[var(--radius-lg)] border p-4 text-left transition-colors",
+                    selected
+                      ? "border-[var(--haven-sage)] bg-[var(--haven-sage-light)]"
+                      : "border-[var(--color-border)] bg-[var(--haven-white)] hover:bg-[var(--haven-cream)]"
+                  )}
+                  onClick={() => onToggleConcern(option.value)}
+                  type="button"
+                >
+                  <p className="text-h3">{option.label}</p>
+                  <p className="text-body-sm mt-2">{option.description}</p>
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
+      {customQuestions.map((q) => (
+        <Field key={q.key}>
+          <label className="field-label">
+            {q.label} <span className="text-[var(--color-text-tertiary)] font-normal">(optional)</span>
+          </label>
+          <Input
+            onChange={(e) => onChange(q.key, e.target.value)}
+            placeholder="Your answer"
+            value={typeof data[q.key] === "string" ? (data[q.key] as string) : ""}
+          />
+        </Field>
+      ))}
     </>
+  );
+}
+
+function Step6Documents({
+  firmName,
+  requiredDocuments,
+  uploadedDocuments,
+  onDocumentUploaded
+}: {
+  firmName?: string;
+  requiredDocuments: RequiredDocumentItem[];
+  uploadedDocuments: UploadedIntakeDocument[];
+  onDocumentUploaded: (doc: UploadedIntakeDocument) => void;
+}) {
+  const checklist = requiredDocuments.map((req) => {
+    const matching = uploadedDocuments.filter((d) => d.documentKind === req.key);
+    const preset = findPresetDocument(req.key);
+    return {
+      key: req.key,
+      label: req.label,
+      detail: preset?.detail,
+      isUploaded: matching.length > 0,
+      documents: matching
+    };
+  });
+  const fulfilledCount = checklist.filter((item) => item.isUploaded).length;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-lg)] bg-[var(--haven-cream)] px-4 py-3">
+        <p className="text-body-sm text-[var(--haven-ink)]">
+          Requested by <strong>{firmName || "your law firm"}</strong>. You can upload files now or finish later in your Document Vault.
+        </p>
+        <span className="rounded-full bg-[var(--haven-white)] px-3 py-1 text-body-sm font-semibold text-[var(--haven-ink)]">
+          {fulfilledCount} of {requiredDocuments.length} uploaded
+        </span>
+      </div>
+
+      <div className="divide-y divide-[var(--color-border)] rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] px-4">
+        {checklist.map((item) => (
+          <div className="py-4" key={item.key}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                {item.isUploaded ? (
+                  <CheckCircle2 className="h-4 w-4 text-[var(--haven-sage)]" />
+                ) : (
+                  <CircleAlert className="h-4 w-4 text-[var(--haven-blush-ink)]" />
+                )}
+                <p className="text-body-sm font-semibold text-[var(--haven-ink)]">{item.label}</p>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                    item.isUploaded
+                      ? "bg-[var(--haven-sage-light)] text-[var(--haven-ink)]"
+                      : "bg-[var(--haven-blush-light)] text-[var(--haven-blush-ink)]"
+                  }`}
+                >
+                  {item.isUploaded ? "Uploaded" : "Optional now"}
+                </span>
+              </div>
+            </div>
+
+            {item.detail && !item.isUploaded && (
+              <p className="text-body-sm mt-1 text-[var(--haven-ink-mid)]">{item.detail}</p>
+            )}
+
+            {item.documents.length > 0 && (
+              <ul className="mt-2 space-y-1">
+                {item.documents.map((doc) => (
+                  <li className="text-[12px] text-[var(--haven-ink-mid)]" key={doc.id}>
+                    Uploaded: <span className="font-medium text-[var(--haven-ink)]">{doc.originalName}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <div className="mt-3 rounded-[var(--radius-lg)] border border-dashed border-[var(--color-border)] bg-[var(--haven-cream)] p-3">
+              <DocumentContextUploader
+                buttonLabel={item.isUploaded ? `Upload another ${item.label}` : `Upload ${item.label}`}
+                compact
+                displayLabel={item.label}
+                documentKind={item.key}
+                onUploaded={onDocumentUploaded}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

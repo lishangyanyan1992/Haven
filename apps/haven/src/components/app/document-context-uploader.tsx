@@ -15,7 +15,8 @@ export function DocumentContextUploader({
   buttonLabel = "Upload",
   allowCategorySelect = false,
   availableCategories,
-  compact = false
+  compact = false,
+  onUploaded
 }: {
   documentKind?: string;
   displayLabel?: string;
@@ -23,6 +24,7 @@ export function DocumentContextUploader({
   allowCategorySelect?: boolean;
   availableCategories?: Array<{ key: string; label: string }>;
   compact?: boolean;
+  onUploaded?: (doc: { id: string; originalName: string; displayLabel: string; documentKind: string }) => void;
 }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
@@ -59,10 +61,18 @@ export function DocumentContextUploader({
     setIsUploading(true);
     setError(null);
     try {
+      const fileInput = formData.get("file");
+      const originalName = fileInput instanceof File ? fileInput.name : "Uploaded document";
       const response = await fetch("/api/files/sign", { method: "POST", body: formData });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error ?? "Upload failed.");
       formRef.current?.reset();
+      onUploaded?.({
+        id: String(payload.id ?? ""),
+        originalName,
+        displayLabel: String(payload.displayLabel ?? displayLabel ?? ""),
+        documentKind: String(payload.documentKind ?? effectiveKind ?? "")
+      });
       startTransition(() => router.refresh());
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "Upload failed.");

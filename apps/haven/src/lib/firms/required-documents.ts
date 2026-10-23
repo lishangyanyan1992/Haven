@@ -1,5 +1,5 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { validateRequiredDocumentList } from "@/lib/document-vault";
+import { getDefaultRequiredDocuments, validateRequiredDocumentList } from "@/lib/document-vault";
 import type { RequiredDocumentItem } from "@/lib/firms/types";
 
 function admin() {
@@ -7,10 +7,10 @@ function admin() {
 }
 
 /**
- * Returns the firm's configured required documents list, or null if the
- * firm has not completed the required-documents setup step yet.
+ * Returns the firm's configured required documents list, or the default
+ * preset required documents when the lawyer has not customized them yet.
  */
-export async function getFirmRequiredDocuments(firmId: string): Promise<RequiredDocumentItem[] | null> {
+export async function getFirmRequiredDocuments(firmId: string): Promise<RequiredDocumentItem[]> {
   const { data, error } = await admin()
     .from("firms")
     .select("required_documents")
@@ -22,7 +22,9 @@ export async function getFirmRequiredDocuments(firmId: string): Promise<Required
   }
 
   const list = data?.required_documents;
-  if (!Array.isArray(list)) return null;
+  if (!Array.isArray(list) || list.length === 0) {
+    return getDefaultRequiredDocuments();
+  }
   return list as RequiredDocumentItem[];
 }
 

@@ -6,11 +6,18 @@ export type RequiredDocumentItem = {
   isCustom?: boolean;
 };
 
+export type IntakeQuestionItem = {
+  key: string;
+  label: string;
+  isCustom?: boolean;
+};
+
 export type FirmRow = {
   id: string;
   name: string;
   is_demo: boolean;
   required_documents: RequiredDocumentItem[] | null;
+  intake_questions: IntakeQuestionItem[] | null;
   created_at: string;
 };
 

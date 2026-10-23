@@ -9,9 +9,10 @@ import { resetDemoFirm } from "@/lib/firms/demo";
 import { claimFirmInvite, requestFirmIntake, type IntakeResult } from "@/lib/firms/intake";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { intakeUrl, replaceFirmLink, setFirmLinkActive } from "@/lib/firms/links";
+import { saveFirmIntakeQuestions, validateIntakeQuestionList } from "@/lib/firms/intake-questions";
 import { saveFirmRequiredDocuments } from "@/lib/firms/required-documents";
 import { validateRequiredDocumentList } from "@/lib/document-vault";
-import type { RequiredDocumentItem } from "@/lib/firms/types";
+import type { IntakeQuestionItem, RequiredDocumentItem } from "@/lib/firms/types";
 
 /**
  * Firm dashboard actions. The firm always comes from requireFirmMember(),
@@ -29,6 +30,21 @@ export async function saveFirmRequiredDocumentsAction(
   const saved = await saveFirmRequiredDocuments(membership.firmId, items);
   revalidatePath("/firm");
   revalidatePath("/documents");
+  revalidatePath("/onboarding");
+  return { ok: true, items: saved };
+}
+
+export async function saveFirmIntakeQuestionsAction(
+  items: unknown
+): Promise<{ ok: true; items: IntakeQuestionItem[] } | { ok: false; error: string }> {
+  const membership = await requireFirmMember();
+  const validation = validateIntakeQuestionList(items);
+  if (!validation.ok) {
+    return { ok: false, error: validation.error };
+  }
+  const saved = await saveFirmIntakeQuestions(membership.firmId, items);
+  revalidatePath("/firm");
+  revalidatePath("/onboarding");
   return { ok: true, items: saved };
 }
 

@@ -22,7 +22,8 @@ function topLevelFunctions(source: string) {
 }
 
 async function main() {
-  const { validateRequiredDocumentList } = await import("@/lib/document-vault");
+  const { getDefaultRequiredDocuments, validateRequiredDocumentList } = await import("@/lib/document-vault");
+  const { getDefaultIntakeQuestions, validateIntakeQuestionList } = await import("@/lib/firms/intake-questions");
 
   let pass = 0;
   const failures: string[] = [];
@@ -52,6 +53,40 @@ async function main() {
     JSON.stringify(existingKeyTest)
   );
 
+  // 2b. Default required documents and default intake questions
+  const defaultDocs = getDefaultRequiredDocuments();
+  check("defaults: default required documents has 4 preset items", defaultDocs.length === 4, JSON.stringify(defaultDocs));
+  const defaultQuestions = getDefaultIntakeQuestions();
+  check("defaults: default intake questions has 16 preset items", defaultQuestions.length === 16, JSON.stringify(defaultQuestions));
+
+  // 2c. Intake question validation
+  const validQuestions = validateIntakeQuestionList([
+    { key: "visaType", label: "Current visa status" },
+    { key: "", label: "Have you ever been denied a visa?", isCustom: true }
+  ]);
+  check(
+    "questions: accepts mixed preset and custom intake questions",
+    validQuestions.ok && validQuestions.items.length === 2 && validQuestions.items[1].key.startsWith("custom_q_"),
+    JSON.stringify(validQuestions)
+  );
+  const preserveQuestionKey = validateIntakeQuestionList([
+    { key: "custom_q_prior_denial_2", label: "Prior denial details", isCustom: true }
+  ]);
+  check(
+    "questions: preserves existing custom_q_ key",
+    preserveQuestionKey.ok && preserveQuestionKey.items[0].key === "custom_q_prior_denial_2",
+    JSON.stringify(preserveQuestionKey)
+  );
+  const duplicatePresetQuestion = validateIntakeQuestionList([
+    { key: "visaType", label: "Current visa status" },
+    { key: "visaType", label: "Current visa status" }
+  ]);
+  check(
+    "questions: rejects duplicate preset keys",
+    !duplicatePresetQuestion.ok,
+    JSON.stringify(duplicatePresetQuestion)
+  );
+
   // 3. Isolated function inspection: ensure saveFirmRequiredDocuments updates ONLY scoped to firmId
   const sourcePath = resolve(process.cwd(), "src/lib/firms/required-documents.ts");
   const sourceCode = readFileSync(sourcePath, "utf-8");
@@ -64,7 +99,18 @@ async function main() {
     saveFn?.body ?? ""
   );
 
-  // 4. Isolated function inspection: ensure saveFirmRequiredDocumentsAction calls requireFirmMember
+  const questionsSourcePath = resolve(process.cwd(), "src/lib/firms/intake-questions.ts");
+  const questionsSourceCode = readFileSync(questionsSourcePath, "utf-8");
+  const questionLibFns = topLevelFunctions(questionsSourceCode);
+  const saveQuestionsFn = questionLibFns.get("saveFirmIntakeQuestions");
+  check("isolation: saveFirmIntakeQuestions function exists", Boolean(saveQuestionsFn), "function not found");
+  check(
+    "isolation: saveFirmIntakeQuestions body contains update scoped to firmId",
+    Boolean(saveQuestionsFn && saveQuestionsFn.body.includes(".update(") && saveQuestionsFn.body.includes('.eq("id", firmId)')),
+    saveQuestionsFn?.body ?? ""
+  );
+
+  // 4. Isolated function inspection: ensure saveFirmRequiredDocumentsAction and saveFirmIntakeQuestionsAction call requireFirmMember
   const actionSourcePath = resolve(process.cwd(), "src/server/firm-actions.ts");
   const actionSourceCode = readFileSync(actionSourcePath, "utf-8");
   const actionFns = topLevelFunctions(actionSourceCode);
@@ -74,6 +120,13 @@ async function main() {
     "auth: saveFirmRequiredDocumentsAction body calls requireFirmMember",
     Boolean(saveActionFn && saveActionFn.body.includes("await requireFirmMember()")),
     saveActionFn?.body ?? ""
+  );
+  const saveQuestionsActionFn = actionFns.get("saveFirmIntakeQuestionsAction");
+  check("auth: saveFirmIntakeQuestionsAction exists", Boolean(saveQuestionsActionFn), "action not found");
+  check(
+    "auth: saveFirmIntakeQuestionsAction body calls requireFirmMember",
+    Boolean(saveQuestionsActionFn && saveQuestionsActionFn.body.includes("await requireFirmMember()")),
+    saveQuestionsActionFn?.body ?? ""
   );
 
   console.log(`\n${pass}/${pass + failures.length} checks passed.`);
