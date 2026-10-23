@@ -92,10 +92,15 @@ export function LeadsTableWithFilters({ leads }: { leads: FirmClientSummary[] })
       return `"${text.replace(/"/g, '""')}"`;
     };
 
+    const escapeCsvPhone = (val: string | null | undefined) => {
+      if (val && /^\+?[0-9][0-9() .-]*$/.test(val.trim())) return `"${val.trim()}"`;
+      return escapeCsv(val);
+    };
+
     const rows = filteredLeads.map((l) => [
       escapeCsv(l.fullName || l.displayName),
       escapeCsv(l.email),
-      escapeCsv(l.phone || ""),
+      escapeCsvPhone(l.phone),
       escapeCsv(FIRM_PIPELINE_STATUS_LABEL[l.pipelineStatus] || l.pipelineStatus),
       escapeCsv(FIRM_CLIENT_STATUS_LABEL[l.status] || l.status),
       escapeCsv(TIER_LABEL[l.urgency.tier]),
