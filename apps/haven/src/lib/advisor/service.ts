@@ -2494,9 +2494,11 @@ const LOCAL_DISTRESS_PATTERNS: RegExp[] = [
   /\b(want|wanna|going)\s+(to\s+)?die\b/i,
   /\bbetter\s+off\s+dead\b/i,
   /\bno\s+(reason|point)\s+(to|in)\s+(live|living|go(ing)?\s+on)\b/i,
+  /\bdo(n['’]?t|\s+not)\s+want\s+to\s+(live|be\s+alive)\b/i,
   /\b(hurt|harm|cut)(ing)?\s+my\s*self\b/i,
   /\bself[\s-]?harm\b/i,
-  /自杀|轻生|不想活|想死|活不下去/
+  // Simplified and traditional forms both appear in Haven's traffic.
+  /自杀|自殺|轻生|輕生|不想活|想死|活不下去/
 ];
 
 export function detectDistressLocally(content: string): boolean {
@@ -2522,7 +2524,18 @@ export async function moderateMessage(
   const client = clientOverride !== undefined ? clientOverride : getOpenAIClient();
 
   if (!client) {
-    return moderationUnavailable(content);
+    const fallback = moderationUnavailable(content);
+    // Same visibility as an outage: an ERROR span on the trace and one log line.
+    // The message itself stays out of the log.
+    parent
+      ?.span({ name: "openai-moderation", input: { content } })
+      .end({
+        output: { error: "no moderation client", fallback: true, distress: fallback.distress },
+        level: "ERROR",
+        statusMessage: "Moderation client missing; used local distress check"
+      });
+    console.error("[advisor] moderation client missing; using local distress check");
+    return fallback;
   }
 
   const span = parent?.span({ name: "openai-moderation", input: { content } });

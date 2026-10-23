@@ -470,8 +470,22 @@ async function main() {
       const chinese = await svc.moderateMessage("签证没了，我真的不想活了", undefined, throwingClient);
       check("moderation outage: Chinese distress message flagged", chinese.flagged && chinese.distress === true);
 
-      const noClient = await svc.moderateMessage("I keep thinking about ending my life", undefined, null);
+      const traditional = await svc.moderateMessage("我想自殺", undefined, throwingClient);
+      check("moderation outage: traditional Chinese distress message flagged", traditional.flagged && traditional.distress === true);
+
+      const contraction = await svc.moderateMessage("I don’t want to live anymore", undefined, throwingClient);
+      check("moderation outage: \"don't want to live\" flagged", contraction.flagged && contraction.distress === true);
+
+      const logged: string[] = [];
+      console.error = (...args: unknown[]) => {
+        logged.push(args.map(String).join(" "));
+      };
+      const secret = "I keep thinking about ending my life";
+      const noClient = await svc.moderateMessage(secret, undefined, null);
+      console.error = () => {};
       check("no moderation client: distress message flagged", noClient.flagged && noClient.distress === true);
+      check("no moderation client: failure logged once", logged.length === 1, `logs=${logged.length}`);
+      check("no moderation client: message text kept out of the log", !logged.some((line) => line.includes(secret)));
 
       const healthy = await svc.moderateMessage("I want to kill myself", undefined, cleanClient);
       check("moderation healthy: its own answer is used, not the backup", !healthy.flagged && healthy.unavailable === false);
