@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 
 import { requireFirmMember } from "@/lib/firms/access";
-import { firmDocumentUrl } from "@/lib/firms/clients";
+import { firmDocumentUrl, getFirmClientDossier, updateFirmClientPipelineStatus } from "@/lib/firms/clients";
 import { resetDemoFirm } from "@/lib/firms/demo";
 import { claimFirmInvite, requestFirmIntake, type IntakeResult } from "@/lib/firms/intake";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -94,10 +94,60 @@ export async function claimFirmInviteAction(claimToken: string): Promise<{ joine
   return { joined: result === "joined" };
 }
 
-/** Public: the email box on a firm's intake link. */
-export async function requestFirmIntakeAction(token: string, email: string): Promise<IntakeResult> {
+/** Public: the intake form on a firm's intake link. */
+export async function requestFirmIntakeAction(
+  token: string,
+  email: string,
+  fullName?: string,
+  phone?: string
+): Promise<IntakeResult> {
   const headerList = await headers();
   const forwarded = headerList.get("x-forwarded-for") ?? "";
   const ip = forwarded.split(",")[0]?.trim() || headerList.get("x-real-ip") || "unknown";
-  return requestFirmIntake(String(token ?? ""), String(email ?? ""), ip);
+  return requestFirmIntake(
+    String(token ?? ""),
+    String(email ?? ""),
+    String(fullName ?? ""),
+    String(phone ?? ""),
+    ip
+  );
+}
+
+export async function updateFirmClientPipelineStatusAction(
+  firmClientId: string,
+  pipelineStatus: unknown
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const membership = await requireFirmMember();
+  const validStatuses = new Set([
+    "new_lead",
+    "contacted",
+    "consultation_scheduled",
+    "consultation_completed",
+    "contract_sent",
+    "contract_signed",
+    "archived"
+  ]);
+  if (typeof pipelineStatus !== "string" || !validStatuses.has(pipelineStatus)) {
+    return { ok: false, error: "Invalid pipeline status" };
+  }
+  await updateFirmClientPipelineStatus(
+    membership.firmId,
+    firmClientId,
+    pipelineStatus as any
+  );
+  revalidatePath("/firm");
+  revalidatePath("/firm/clients");
+  revalidatePath(`/firm/clients/${firmClientId}`);
+  return { ok: true };
+}
+
+export async function exportFirmClientDossierAction(firmClientId: string): Promise<{
+  ok: boolean;
+  dossier?: any;
+  error?: string;
+}> {
+  const membership = await requireFirmMember();
+  const dossier = await getFirmClientDossier(membership.firmId, firmClientId);
+  if (!dossier) return { ok: false, error: "Client not found" };
+  return { ok: true, dossier };
 }

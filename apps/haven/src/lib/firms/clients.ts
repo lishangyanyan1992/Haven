@@ -3,7 +3,7 @@ import type { SharedAnswers } from "@/lib/firms/answers";
 import { getFirmRequiredDocuments } from "@/lib/firms/required-documents";
 import { compareByUrgency, rankUrgency, type Urgency } from "@/lib/firms/urgency";
 import { firmClientStatus, isNewFirmClient } from "@/lib/firms/status";
-import type { FirmClientRow, FirmClientStatus } from "@/lib/firms/types";
+import type { FirmClientRow, FirmClientStatus, FirmPipelineStatus } from "@/lib/firms/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -24,6 +24,9 @@ export type FirmClientSummary = {
   id: string;
   displayName: string;
   email: string;
+  phone: string | null;
+  fullName: string | null;
+  pipelineStatus: FirmPipelineStatus;
   visaType: string | null;
   status: FirmClientStatus;
   isNew: boolean;
@@ -72,9 +75,13 @@ export async function listFirmClients(firmId: string): Promise<FirmClientSummary
   const totalRequired = requiredDocs?.length ?? 0;
   const now = new Date();
   const summaries: FirmClientSummary[] = rows.map((row) => {
+    const answersRecord = (row.shared_answers ?? {}) as Record<string, unknown>;
     const answers = (row.shared_answers ?? {}) as SharedAnswers;
     const status = firmClientStatus(row, answers);
-    const fullName = typeof answers.fullName === "string" ? answers.fullName.trim() : "";
+    const resolvedName = (typeof row.full_name === "string" && row.full_name.trim()) ||
+      (typeof answers.fullName === "string" ? answers.fullName.trim() : "");
+    const rawPhone = answersRecord.phone ?? answersRecord.phoneNumber;
+    const resolvedPhone = row.phone ?? (typeof rawPhone === "string" ? rawPhone.trim() : null);
 
     let requiredDocumentCount: number | undefined;
     if (totalRequired > 0) {
@@ -90,8 +97,11 @@ export async function listFirmClients(firmId: string): Promise<FirmClientSummary
 
     return {
       id: row.id,
-      displayName: fullName || row.normalized_email,
+      displayName: resolvedName || row.normalized_email,
+      fullName: resolvedName || null,
       email: row.normalized_email,
+      phone: resolvedPhone || null,
+      pipelineStatus: row.pipeline_status ?? "new_lead",
       visaType: typeof answers.visaType === "string" ? answers.visaType : null,
       status,
       isNew: isNewFirmClient(row),
@@ -133,6 +143,9 @@ export type FirmRequiredDocumentStatus = {
 export type FirmClientDetail = {
   id: string;
   email: string;
+  phone: string | null;
+  fullName: string | null;
+  pipelineStatus: FirmPipelineStatus;
   status: FirmClientStatus;
   joinedAt: string | null;
   completedAt: string | null;
@@ -195,9 +208,18 @@ export async function getFirmClient(firmId: string, firmClientId: string): Promi
     ? documents.filter((d) => !requiredKeys.has(d.documentKind))
     : documents;
 
+  const answersRecord = (client.shared_answers ?? {}) as Record<string, unknown>;
+  const resolvedName = (typeof client.full_name === "string" && client.full_name.trim()) ||
+    (typeof answers.fullName === "string" ? answers.fullName.trim() : null);
+  const rawClientPhone = answersRecord.phone ?? answersRecord.phoneNumber;
+  const resolvedPhone = client.phone ?? (typeof rawClientPhone === "string" ? rawClientPhone.trim() : null);
+
   return {
     id: client.id,
     email: client.normalized_email,
+    phone: resolvedPhone || null,
+    fullName: resolvedName || null,
+    pipelineStatus: client.pipeline_status ?? "new_lead",
     status: firmClientStatus(client, answers),
     joinedAt: client.joined_at,
     completedAt: client.completed_at,
@@ -206,6 +228,22 @@ export async function getFirmClient(firmId: string, firmClientId: string): Promi
     requiredDocuments,
     additionalDocuments
   };
+}
+
+/** Updates a client's pipeline stage (e.g. from new_lead to consultation_completed or contract_signed). */
+export async function updateFirmClientPipelineStatus(
+  firmId: string,
+  firmClientId: string,
+  pipelineStatus: FirmPipelineStatus
+): Promise<boolean> {
+  if (!/^[0-9a-f-]{36}$/i.test(firmClientId)) return false;
+  const { error } = await admin()
+    .from("firm_clients")
+    .update({ pipeline_status: pipelineStatus })
+    .eq("firm_id", firmId)
+    .eq("id", firmClientId);
+  if (error) throw new Error(`Could not update pipeline status: ${error.message}`);
+  return true;
 }
 
 /** Opening a client clears New for everyone at the firm. */
@@ -247,4 +285,53 @@ export async function firmDocumentUrl(firmId: string, firmClientId: string, docu
     .createSignedUrl(doc.storage_path, FIRM_DOCUMENT_LINK_SECONDS);
   if (error || !data?.signedUrl) return null;
   return data.signedUrl as string;
+}
+
+export type FirmClientDossier = {
+  id: string;
+  fullName: string | null;
+  email: string;
+  phone: string | null;
+  pipelineStatus: FirmPipelineStatus;
+  joinedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  answers: SharedAnswers;
+  documents: Array<{
+    id: string;
+    name: string;
+    kind: string;
+    documentKind: string;
+    uploadedAt: string;
+    downloadUrl: string | null;
+  }>;
+};
+
+/** Full case file dossier with signed document URLs for Case Management Systems (Clio, MyCase, etc). */
+export async function getFirmClientDossier(firmId: string, firmClientId: string): Promise<FirmClientDossier | null> {
+  const client = await getFirmClient(firmId, firmClientId);
+  if (!client) return null;
+
+  const docsWithUrls = await Promise.all(
+    client.documents.map(async (doc) => {
+      const downloadUrl = await firmDocumentUrl(firmId, firmClientId, doc.id);
+      return {
+        ...doc,
+        downloadUrl
+      };
+    })
+  );
+
+  return {
+    id: client.id,
+    fullName: client.fullName,
+    email: client.email,
+    phone: client.phone,
+    pipelineStatus: client.pipelineStatus,
+    joinedAt: client.joinedAt,
+    completedAt: client.completedAt,
+    createdAt: client.joinedAt || client.completedAt || new Date().toISOString(),
+    answers: client.answers,
+    documents: docsWithUrls
+  };
 }
