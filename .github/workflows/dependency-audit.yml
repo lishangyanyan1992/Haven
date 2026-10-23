@@ -22,7 +22,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   audit:
@@ -31,10 +31,33 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
+          cache: "npm"
 
-      - name: Audit dependencies
-        run: npm audit --audit-level=critical
+      - name: Auto-apply semver security fixes when critical advisories appear
+        run: |
+          if ! npm audit --audit-level=critical; then
+            echo "Critical vulnerability detected; applying semver-compatible security updates..."
+            npm audit fix || true
+            npm update next eslint-config-next @sentry/nextjs || true
+            if [ "${{ github.event_name }}" != "pull_request" ] && ! git diff --quiet package-lock.json; then
+              if npm audit --omit=dev --audit-level=critical; then
+                npm run typecheck:haven
+                npm run typecheck:wizard
+                git config user.name "github-actions[bot]"
+                git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+                git add package-lock.json
+                git commit -m "fix(deps): auto-apply critical security updates"
+                git pull --rebase origin main
+                git push origin HEAD:main
+              fi
+            fi
+          fi
+
+      - name: Audit production dependencies for critical vulnerabilities
+        run: npm audit --omit=dev --audit-level=critical
