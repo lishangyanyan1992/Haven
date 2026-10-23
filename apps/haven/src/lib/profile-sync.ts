@@ -202,7 +202,11 @@ export async function persistProfileDraft(userId: string, rawDraft: ProfileDraft
   if (!row) return null;
 
   const profile = mapProfileRow(row as Record<string, unknown>);
-  if (!(await persistDerivedSignals(userId, profile))) return null;
+  try {
+    await persistDerivedSignals(userId, profile);
+  } catch {
+    // Non-blocking cache materialization; profile, deadlines, and firm answers remain primary
+  }
   return profile;
 }
 
