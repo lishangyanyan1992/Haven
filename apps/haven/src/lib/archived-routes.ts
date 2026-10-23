@@ -21,11 +21,7 @@ export type ArchivedRoute = {
 export const ARCHIVED_ON = "2026-08-19";
 
 export const archivedRoutes: ArchivedRoute[] = [
-  {
-    prefix: "/dashboard",
-    label: "Dashboard",
-    reason: "Landing on a wall of cards competes with the one question we want people to ask. The chat is the home screen now."
-  },
+  // "/dashboard" is the active "Case" dashboard (immigration journey + firm engagement).
   {
     prefix: "/planner",
     label: "Layoff planner checklist",
@@ -87,5 +83,5 @@ export function isArchivedPath(path: string) {
   return archivedPrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
 }
 
-/** Where a signed-in person belongs now that the dashboard is parked. */
-export const SIGNED_IN_HOME = "/advisor";
+/** Where a signed-in client lands by default: the Case dashboard. */
+export const SIGNED_IN_HOME = "/dashboard";

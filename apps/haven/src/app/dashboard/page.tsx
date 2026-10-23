@@ -6,6 +6,8 @@ import { DashboardChangeHighlight, DashboardChangeProvider } from "@/components/
 import { DashboardPriorityChecklist } from "@/components/app/dashboard-priority-checklist";
 import { AppShell } from "@/components/app/app-shell";
 import { CrisisActivationModal } from "@/components/app/crisis-activation-modal";
+import { FirmEngagementDashboard } from "@/components/app/firm-engagement-dashboard";
+import { ImmigrationJourneyDashboard } from "@/components/app/immigration-journey-dashboard";
 import { ImmigrationUpdates } from "@/components/app/immigration-updates";
 import { PriorityDateCard } from "@/components/app/priority-date-card";
 import { Badge } from "@/components/ui/badge";
@@ -13,11 +15,17 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { buildChecklist } from "@/lib/crisis-checklist";
+import { loadDeadlineAnswers, type DeadlineAnswers } from "@/lib/deadlines";
+import { getDefaultRequiredDocuments } from "@/lib/document-vault";
+import { buildFirmEngagementOverview } from "@/lib/firms/engagement";
+import { getClientFirmEngagementRecord } from "@/lib/firms/intake";
+import { getFirmRequiredDocuments } from "@/lib/firms/required-documents";
 import { getCrisisState } from "@/lib/get-crisis-state";
 import { mergeSnapshotProfile } from "@/lib/haven";
+import { buildImmigrationJourney } from "@/lib/immigration-journey";
 import { getImmigrationUpdates } from "@/lib/immigration-updates";
 import { ONBOARDING_OVERRIDE_COOKIE, parseOverrideCookie, persistProfileDraft } from "@/lib/profile-sync";
-import { getDashboardPageData, isProfileUnavailable } from "@/lib/repositories/case-compass";
+import { getDashboardPageData, getInboxPageData, isProfileUnavailable } from "@/lib/repositories/case-compass";
 import { havenSnapshot } from "@/lib/repositories/mock-data";
 import { noIndexMetadata } from "@/lib/seo";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -51,11 +59,17 @@ export default async function DashboardPage({
     }
   }
 
-  const [initialSnapshot, crisisState, updates] = await Promise.all([
+  const [initialSnapshot, crisisState, updates, inboxData, savedDeadlines, firmRecord] = await Promise.all([
     getDashboardPageData(),
     getCrisisState(),
-    getImmigrationUpdates()
+    getImmigrationUpdates(),
+    getInboxPageData(),
+    user ? loadDeadlineAnswers(user.id) : Promise.resolve({} as DeadlineAnswers),
+    user ? getClientFirmEngagementRecord(user.id) : Promise.resolve(null)
   ]);
+  const requiredDocs = firmRecord
+    ? await getFirmRequiredDocuments(firmRecord.firmId).catch(() => getDefaultRequiredDocuments())
+    : [];
   let snapshot = initialSnapshot;
 
   if (shouldUseOverrideFallback && overrideDraft) {
@@ -109,6 +123,41 @@ export default async function DashboardPage({
   // Clamped at both ends now that dayNumber is a real count rather than a value
   // pinned to 1..60 — past the ceiling the bar is simply full.
   const crisisProgressScale = crisisState ? Math.min(Math.max(crisisState.dayNumber / 60, 0.02), 1) : 0;
+
+  const manualDocuments = profileUnavailable
+    ? []
+    : inboxData.documents.filter((d) => d.sourceKind === "manual_upload");
+  const uploadedDocKinds = new Set(manualDocuments.map((d) => d.documentKind));
+  const fulfilledRequiredCount = requiredDocs.filter((req) => uploadedDocKinds.has(req.key)).length;
+
+  const firmEngagement = buildFirmEngagementOverview({
+    firmName: firmRecord?.firmName ?? null,
+    isConnectedToFirm: Boolean(firmRecord),
+    joinedAt: firmRecord?.joinedAt ?? null,
+    completedAt: firmRecord?.completedAt ?? null,
+    reviewedAt: firmRecord?.reviewedAt ?? null,
+    hasProfileSetup: !profileUnavailable && Boolean(profile.countryOfBirth?.trim()),
+    uploadedDocumentCount: manualDocuments.length,
+    requiredDocumentCount: requiredDocs.length,
+    fulfilledRequiredCount,
+    engagementState: firmRecord?.engagementState ?? null
+  });
+
+  const activeLayoffFromCrisis = crisisState
+    ? {
+        layoffDate: crisisState.layoffDate.toISOString().slice(0, 10),
+        employerAtLayoff: profile.employerName ?? null,
+        visaTypeAtLayoff: profile.visaType ?? null
+      }
+    : null;
+
+  const immigrationJourney = buildImmigrationJourney({
+    profile,
+    deadlines: savedDeadlines,
+    signals: dashboard.signals,
+    activeLayoffEvent: activeLayoffFromCrisis,
+    priorityDateIntelligence
+  });
   const changeSections = {
     overview: JSON.stringify(
       crisisState
@@ -202,11 +251,11 @@ export default async function DashboardPage({
                     </div>
                   </div>
                   <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
-                    <Link className={buttonVariants({ variant: "default" })} href="/planner">
-                      View checklist
+                    <Link className={buttonVariants({ variant: "default" })} href="/advisor">
+                      Ask Haven Advisor
                     </Link>
-                    <Link className={buttonVariants({ variant: "outline" })} href="/timeline">
-                      Review timeline
+                    <Link className={buttonVariants({ variant: "outline" })} href="/documents">
+                      Document Vault
                     </Link>
                   </div>
                 </div>
@@ -225,7 +274,7 @@ export default async function DashboardPage({
               <section className="page-intro">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                   <div className="max-w-[70ch]">
-                    <p className="text-label">Your snapshot</p>
+                    <p className="text-label">Case dashboard</p>
                     <h1 className="text-h1 mt-4">
                       Good to see you, {firstName}.
                     </h1>
@@ -236,6 +285,14 @@ export default async function DashboardPage({
               </section>
             )}
           </DashboardChangeHighlight>
+
+          <FirmEngagementDashboard engagement={firmEngagement} />
+
+          <ImmigrationJourneyDashboard
+            initialStatusEndDate={savedDeadlines.statusEndDate}
+            journey={immigrationJourney}
+            profile={profile}
+          />
 
           <DashboardChangeHighlight sectionId="nextActions">
             <DashboardPriorityChecklist initialItems={dashboard.nextActions} profileId={profile.id} />

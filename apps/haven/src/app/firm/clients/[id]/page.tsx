@@ -12,6 +12,7 @@ import { FirmHeader } from "../../FirmHeader";
 import { ContactQuickActions } from "../../ContactQuickActions";
 import { ExportCmsButton } from "../../ExportCmsButton";
 import { PipelineStatusSelect } from "../../PipelineStatusSelect";
+import { EngagementStageControls } from "./EngagementStageControls";
 import { OpenDocumentButton } from "./OpenDocumentButton";
 
 export const metadata = { ...noIndexMetadata, title: "Client · Haven" };
@@ -213,6 +214,18 @@ export default async function FirmClientPage({ params }: { params: Promise<{ id:
           email={client.email}
           phone={client.phone}
           subject={`Immigration Intake Follow-Up for ${name}`}
+        />
+
+        <EngagementStageControls
+          completedAt={client.completedAt}
+          firmClientId={client.id}
+          firmName={membership.firmName}
+          fulfilledRequiredCount={client.requiredDocuments.filter((r) => r.isUploaded).length}
+          initialState={client.engagementState}
+          joinedAt={client.joinedAt}
+          requiredDocumentCount={client.requiredDocuments.length}
+          reviewedAt={client.reviewedAt}
+          uploadedDocumentCount={client.documents.length}
         />
 
         <div className="grid gap-4 lg:grid-cols-2">

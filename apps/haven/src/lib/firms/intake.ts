@@ -3,8 +3,9 @@ import { createClient } from "@supabase/supabase-js";
 
 import { isOwnerEmail, normalizeEmail } from "@/lib/access";
 import { sharedAnswersFromProfile } from "@/lib/firms/answers";
+import { cleanEngagementState } from "@/lib/firms/engagement";
 import { lookupIntakeToken } from "@/lib/firms/links";
-import type { FirmClientRow } from "@/lib/firms/types";
+import type { FirmClientEngagementState, FirmClientRow } from "@/lib/firms/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -335,6 +336,36 @@ export async function getClientFirm(userId: string | null | undefined): Promise<
     .maybeSingle();
   if (!data?.joined_at) return null;
   return { firmId: data.firm_id, firmName: data.firms?.name ?? "your law firm" };
+}
+
+export type ClientFirmEngagementRecord = {
+  firmId: string;
+  firmName: string;
+  joinedAt: string | null;
+  completedAt: string | null;
+  reviewedAt: string | null;
+  engagementState: FirmClientEngagementState;
+};
+
+/** Full firm engagement record for a signed-in client. */
+export async function getClientFirmEngagementRecord(
+  userId: string | null | undefined
+): Promise<ClientFirmEngagementRecord | null> {
+  if (!userId) return null;
+  const { data } = await admin()
+    .from("firm_clients")
+    .select("*, firms(name)")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!data?.joined_at) return null;
+  return {
+    firmId: data.firm_id,
+    firmName: data.firms?.name ?? "your law firm",
+    joinedAt: data.joined_at ?? null,
+    completedAt: data.completed_at ?? null,
+    reviewedAt: data.reviewed_at ?? null,
+    engagementState: cleanEngagementState(data.engagement_state)
+  };
 }
 
 export async function isJoinedFirmClientEmail(email: string | null | undefined) {

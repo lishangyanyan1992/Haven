@@ -17,6 +17,7 @@ type ProfileDraft = Partial<{
   employerName: string;
   jobTitle: string;
   h1bStartDate: string;
+  currentVisaExpiryDate: string;
   employerSize: string;
   greenCardStage: string;
   priorityDate: string;
@@ -65,15 +66,20 @@ function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unk
         ? "i485_filed"
         : existingRow?.i140_approved
           ? "i140_approved"
-          : existingRow?.perm_stage === "certified"
-            ? "perm_certified"
-            : existingRow?.perm_stage === "in_progress"
-              ? "perm_in_progress"
-              : "not_started";
+          : existingRow?.i140_filed
+            ? "i140_filed"
+            : existingRow?.perm_stage === "certified"
+              ? "perm_certified"
+              : existingRow?.perm_stage === "in_progress"
+                ? "perm_in_progress"
+                : "not_started";
   const permStage =
     greenCardStage === "perm_in_progress"
       ? "in_progress"
-      : greenCardStage === "perm_certified"
+      : greenCardStage === "perm_certified" ||
+          greenCardStage === "i140_filed" ||
+          greenCardStage === "i140_approved" ||
+          greenCardStage === "i485_filed"
         ? "certified"
         : "not_started";
 
@@ -96,6 +102,10 @@ function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unk
       rawDraft.h1bStartDate !== undefined
         ? asOptionalString(rawDraft.h1bStartDate)
         : (existingRow?.h1b_start_date as string | null) ?? null,
+    current_visa_expiry_date:
+      rawDraft.currentVisaExpiryDate !== undefined
+        ? asOptionalString(rawDraft.currentVisaExpiryDate)
+        : (existingRow?.current_visa_expiry_date as string | null) ?? null,
     employer_size:
       rawDraft.employerSize === "startup" || rawDraft.employerSize === "mid-size" || rawDraft.employerSize === "enterprise"
         ? rawDraft.employerSize
@@ -114,6 +124,7 @@ function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unk
         : (existingRow?.priority_date as string | null) ?? null,
     preference_category: asEnumValue(rawDraft.preferenceCategory ?? existingRow?.preference_category, preferenceCategories, "Not sure"),
     i140_approved: i140Approved,
+    i140_filed: greenCardStage === "i140_filed",
     i140_approval_date:
       i140Approved
         ? ((existingRow?.i140_approval_date as string | null) ?? new Date().toISOString().slice(0, 10))
@@ -143,6 +154,7 @@ function mapProfileRow(row: Record<string, unknown>): ImmigrationProfile {
     h1bStartDate: (row.h1b_start_date as string | null) ?? undefined,
     permStage: row.perm_stage as ImmigrationProfile["permStage"],
     permFilingDate: (row.perm_filing_date as string | null) ?? undefined,
+    i140Filed: Boolean(row.i140_filed),
     i140Approved: Boolean(row.i140_approved),
     i140ApprovalDate: (row.i140_approval_date as string | null) ?? undefined,
     priorityDate: (row.priority_date as string | null) ?? undefined,
@@ -161,11 +173,11 @@ function mapProfileRow(row: Record<string, unknown>): ImmigrationProfile {
   };
 }
 
-async function persistDerivedSignals(userId: string, profile: ImmigrationProfile) {
+async function persistDerivedSignals(userId: string, profile: ImmigrationProfile): Promise<boolean> {
   const admin = createSupabaseAdminClient() as any;
   const signals = computeDerivedSignals(profile);
 
-  await admin.from("derived_signals").upsert({
+  const { error } = await admin.from("derived_signals").upsert({
     user_id: userId,
     h1b_cap_date: signals.h1bCapDate ?? null,
     days_until_visa_expiry: signals.daysUntilVisaExpiry ?? null,
@@ -175,6 +187,7 @@ async function persistDerivedSignals(userId: string, profile: ImmigrationProfile
     layoff_readiness_score: signals.layoffReadinessScore,
     layoff_readiness_reasoning: signals.layoffReadinessReasoning
   });
+  return !error;
 }
 
 export async function persistProfileDraft(userId: string, rawDraft: ProfileDraft) {
@@ -182,13 +195,18 @@ export async function persistProfileDraft(userId: string, rawDraft: ProfileDraft
   const { data: existingRow } = await admin.from("user_profiles").select("*").eq("id", userId).maybeSingle();
   const patch = normalizeDraft(rawDraft, (existingRow as Record<string, unknown> | null) ?? null);
 
-  await admin.from("user_profiles").update(patch).eq("id", userId);
+  const { error: updateError } = await admin.from("user_profiles").update(patch).eq("id", userId);
+  if (updateError) return null;
 
   const { data: row } = await admin.from("user_profiles").select("*").eq("id", userId).single();
   if (!row) return null;
 
   const profile = mapProfileRow(row as Record<string, unknown>);
-  await persistDerivedSignals(userId, profile);
+  try {
+    await persistDerivedSignals(userId, profile);
+  } catch {
+    // Non-blocking cache materialization; profile, deadlines, and firm answers remain primary
+  }
   return profile;
 }
 

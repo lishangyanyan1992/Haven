@@ -72,6 +72,7 @@ export interface ImmigrationProfile {
   h1bStartDate?: string;
   permStage: PermStage;
   permFilingDate?: string;
+  i140Filed?: boolean;
   i140Approved: boolean;
   i140ApprovalDate?: string;
   priorityDate?: string;

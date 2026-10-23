@@ -61,6 +61,7 @@ const FIRM_DATA_FUNCTIONS = [
   "listFirmClients",
   "getFirmClient",
   "markFirmClientReviewed",
+  "saveFirmClientEngagement",
   "firmDocumentUrl",
   "getCurrentFirmLink",
   "setFirmLinkActive",

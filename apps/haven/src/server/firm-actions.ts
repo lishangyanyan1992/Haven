@@ -4,15 +4,22 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 
 import { requireFirmMember } from "@/lib/firms/access";
-import { firmDocumentUrl, getFirmClientDossier, updateFirmClientPipelineStatus } from "@/lib/firms/clients";
+import { firmDocumentUrl, getFirmClientDossier, saveFirmClientEngagement, updateFirmClientPipelineStatus } from "@/lib/firms/clients";
 import { resetDemoFirm } from "@/lib/firms/demo";
+import { validateEngagementUpdate } from "@/lib/firms/engagement";
 import { claimFirmInvite, requestFirmIntake, type IntakeResult } from "@/lib/firms/intake";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { intakeUrl, replaceFirmLink, setFirmLinkActive } from "@/lib/firms/links";
 import { saveFirmIntakeQuestions, validateIntakeQuestionList } from "@/lib/firms/intake-questions";
 import { saveFirmRequiredDocuments } from "@/lib/firms/required-documents";
 import { validateRequiredDocumentList } from "@/lib/document-vault";
-import { FIRM_PIPELINE_STATUS_LABEL, type FirmPipelineStatus, type IntakeQuestionItem, type RequiredDocumentItem } from "@/lib/firms/types";
+import {
+  FIRM_PIPELINE_STATUS_LABEL,
+  type FirmClientEngagementState,
+  type FirmPipelineStatus,
+  type IntakeQuestionItem,
+  type RequiredDocumentItem
+} from "@/lib/firms/types";
 
 /**
  * Firm dashboard actions. The firm always comes from requireFirmMember(),
@@ -65,6 +72,22 @@ export async function openFirmDocumentAction(firmClientId: string, documentId: s
   const membership = await requireFirmMember();
   const url = await firmDocumentUrl(membership.firmId, String(firmClientId), String(documentId));
   return { url };
+}
+
+export async function saveFirmClientEngagementAction(
+  firmClientId: string,
+  payload: unknown
+): Promise<{ ok: true; state: FirmClientEngagementState } | { ok: false; error: string }> {
+  const membership = await requireFirmMember();
+  const validation = validateEngagementUpdate(payload);
+  if (!validation.ok) {
+    return { ok: false, error: validation.error };
+  }
+  const saved = await saveFirmClientEngagement(membership.firmId, String(firmClientId), validation.state);
+  revalidatePath(`/firm/clients/${firmClientId}`);
+  revalidatePath("/firm");
+  revalidatePath("/dashboard");
+  return { ok: true, state: saved };
 }
 
 /**

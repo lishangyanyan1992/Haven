@@ -37,6 +37,26 @@ export type FirmIntakeLinkRow = {
   created_at: string;
 };
 
+export type FirmEngagementStageKey =
+  | "intake_completed"
+  | "documents_uploaded"
+  | "initial_consultation"
+  | "contract_signed"
+  | "case_prep"
+  | "petition_filed";
+
+export type FirmClientEngagementState = {
+  /** Which milestone the lawyer has advanced the client to, or scheduled. */
+  stage?: FirmEngagementStageKey;
+  /** Whether the current lawyer-managed stage itself is completed or in progress/scheduled. */
+  stageStatus?: "in_progress" | "scheduled" | "completed";
+  /** Optional ISO date YYYY-MM-DD for consultation call or active milestone. */
+  scheduledDate?: string;
+  /** Optional short note from the sponsoring firm to show the client on their Case tab. */
+  note?: string;
+  updatedAt?: string;
+};
+
 export type FirmPipelineStatus =
   | "new_lead"
   | "contacted"
@@ -73,6 +93,7 @@ export type FirmClientRow = {
   claim_token_hash: string | null;
   previous_claim_token_hash: string | null;
   shared_answers: Record<string, string | string[]>;
+  engagement_state?: FirmClientEngagementState | null;
   created_at: string;
 };
 

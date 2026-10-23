@@ -2007,6 +2007,7 @@ export type Database = {
           h1b_start_date: string | null
           i140_approval_date: string | null
           i140_approved: boolean
+          i140_filed: boolean
           i485_filed: boolean
           id: string
           job_title: string | null
@@ -2038,6 +2039,7 @@ export type Database = {
           h1b_start_date?: string | null
           i140_approval_date?: string | null
           i140_approved?: boolean
+          i140_filed?: boolean
           i485_filed?: boolean
           id: string
           job_title?: string | null
@@ -2069,6 +2071,7 @@ export type Database = {
           h1b_start_date?: string | null
           i140_approval_date?: string | null
           i140_approved?: boolean
+          i140_filed?: boolean
           i485_filed?: boolean
           id?: string
           job_title?: string | null

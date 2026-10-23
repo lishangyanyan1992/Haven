@@ -13,8 +13,9 @@ import { persistProfileDraft } from "@/lib/profile-sync";
 import { env } from "@/lib/env";
 import { SIGNED_IN_HOME } from "@/lib/archived-routes";
 import { isInvitedEmail } from "@/lib/access";
+import { DEADLINE_KEYS, saveDeadlineAnswers } from "@/lib/deadlines";
 import { getFirmMembership, isAnyLawyerEmail, isFirmLawyerEmail } from "@/lib/firms/access";
-import { recordFirmSharedAnswers } from "@/lib/firms/answers";
+import { formLimitedTo, recordFirmSharedAnswers } from "@/lib/firms/answers";
 import { markFirmClientCompleted } from "@/lib/firms/intake";
 import { captureSignupCompleted } from "@/lib/posthog-server";
 
@@ -575,6 +576,63 @@ export async function saveProfileSettingsAction(formData: FormData) {
   revalidatePath("/timeline");
   revalidatePath("/planner");
   redirect("/settings?saved=1");
+}
+
+export async function saveCaseJourneyDatesAction(formData: FormData): Promise<{ ok: boolean }> {
+  const { user } = await requireUser();
+  const cookieStore = await cookies();
+
+  const greenCardStage = String(formData.get("greenCardStage") ?? "").trim();
+  const i140Approved =
+    greenCardStage === "i140_approved" ||
+    greenCardStage === "i485_filed" ||
+    String(formData.get("i140Approved") ?? "") === "true";
+
+  const statusEndDate = String(formData.get("statusEndDate") ?? "").trim();
+  const visaType = String(formData.get("visaType") ?? "").trim();
+  const countryOfBirth = String(formData.get("countryOfBirth") ?? "").trim();
+  const preferenceCategory = String(formData.get("preferenceCategory") ?? "").trim();
+
+  const setupDraft = {
+    ...(visaType ? { visaType } : {}),
+    ...(countryOfBirth ? { countryOfBirth } : {}),
+    employerName: String(formData.get("employerName") ?? ""),
+    jobTitle: String(formData.get("jobTitle") ?? ""),
+    h1bStartDate: String(formData.get("h1bStartDate") ?? ""),
+    currentVisaExpiryDate: statusEndDate,
+    greenCardStage,
+    priorityDate: String(formData.get("priorityDate") ?? ""),
+    ...(preferenceCategory ? { preferenceCategory } : {}),
+    i140Approved
+  };
+
+  const profile = await persistProfileDraft(user.id, setupDraft);
+  if (!profile) {
+    throw new Error("Could not save profile data");
+  }
+
+  const sharedForm = formLimitedTo(formData, DEADLINE_KEYS, "except");
+  const firmSaved = await recordFirmSharedAnswers(user.id, setupDraft, {
+    has: (key: string) =>
+      sharedForm.has(key) &&
+      (!["visaType", "countryOfBirth", "preferenceCategory"].includes(key) ||
+        String(formData.get(key) ?? "").trim().length > 0)
+  });
+  if (!firmSaved) {
+    throw new Error("Could not update firm records");
+  }
+
+  const deadlineForm = new FormData();
+  for (const [key, value] of formData.entries()) deadlineForm.append(key, value);
+  if (statusEndDate) deadlineForm.set("statusEndUnknown", "");
+  await saveDeadlineAnswers(user.id, deadlineForm);
+
+  cookieStore.delete(ONBOARDING_OVERRIDE_COOKIE);
+
+  revalidatePath("/dashboard");
+  revalidatePath("/settings");
+  revalidatePath("/timeline");
+  return { ok: true };
 }
 
 // Maps extracted field labels → user_profiles columns

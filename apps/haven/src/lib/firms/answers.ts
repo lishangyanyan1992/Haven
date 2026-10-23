@@ -76,11 +76,13 @@ export function sharedAnswersFromProfile(p: Record<string, any> | null): SharedA
     ? "i485_filed"
     : p.i140_approved
       ? "i140_approved"
-      : p.perm_stage === "certified"
-        ? "perm_certified"
-        : p.perm_stage === "in_progress"
-          ? "perm_in_progress"
-          : "not_started";
+      : p.i140_filed
+        ? "i140_filed"
+        : p.perm_stage === "certified"
+          ? "perm_certified"
+          : p.perm_stage === "in_progress"
+            ? "perm_in_progress"
+            : "not_started";
   return pickSharedAnswers({
     fullName: p.full_name ?? "",
     visaType: p.visa_type,
