@@ -173,11 +173,11 @@ function mapProfileRow(row: Record<string, unknown>): ImmigrationProfile {
   };
 }
 
-async function persistDerivedSignals(userId: string, profile: ImmigrationProfile) {
+async function persistDerivedSignals(userId: string, profile: ImmigrationProfile): Promise<boolean> {
   const admin = createSupabaseAdminClient() as any;
   const signals = computeDerivedSignals(profile);
 
-  await admin.from("derived_signals").upsert({
+  const { error } = await admin.from("derived_signals").upsert({
     user_id: userId,
     h1b_cap_date: signals.h1bCapDate ?? null,
     days_until_visa_expiry: signals.daysUntilVisaExpiry ?? null,
@@ -187,6 +187,7 @@ async function persistDerivedSignals(userId: string, profile: ImmigrationProfile
     layoff_readiness_score: signals.layoffReadinessScore,
     layoff_readiness_reasoning: signals.layoffReadinessReasoning
   });
+  return !error;
 }
 
 export async function persistProfileDraft(userId: string, rawDraft: ProfileDraft) {
@@ -201,7 +202,7 @@ export async function persistProfileDraft(userId: string, rawDraft: ProfileDraft
   if (!row) return null;
 
   const profile = mapProfileRow(row as Record<string, unknown>);
-  await persistDerivedSignals(userId, profile);
+  if (!(await persistDerivedSignals(userId, profile))) return null;
   return profile;
 }
 

@@ -208,7 +208,7 @@ export function ImmigrationJourneyDashboard({
                   Current visa expiration date
                 </label>
                 <Input
-                  defaultValue={initialStatusEndDate ?? profile.currentVisaExpiryDate ?? ""}
+                  defaultValue={initialStatusEndDate || profile.currentVisaExpiryDate || ""}
                   id="journey-statusEndDate"
                   name="statusEndDate"
                   type="date"
