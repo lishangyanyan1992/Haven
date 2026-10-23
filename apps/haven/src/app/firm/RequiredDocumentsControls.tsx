@@ -18,26 +18,27 @@ export function RequiredDocumentsControls({
 }: {
   initialItems: RequiredDocumentItem[] | null;
 }) {
-  const isUnconfigured = initialItems === null;
+  const [savedItems, setSavedItems] = useState<RequiredDocumentItem[] | null>(initialItems);
+  const isUnconfigured = savedItems === null;
   const [isEditing, setIsEditing] = useState(isUnconfigured);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   // If unconfigured, initialize with default presets checked
   const [selectedPresets, setSelectedPresets] = useState<Set<string>>(() => {
-    if (initialItems === null) {
+    if (savedItems === null) {
       return new Set(DEFAULT_PRESET_KEYS);
     }
     const set = new Set<string>();
-    for (const item of initialItems) {
+    for (const item of savedItems) {
       if (!item.isCustom) set.add(item.key);
     }
     return set;
   });
 
   const [customItems, setCustomItems] = useState<Array<{ key: string; label: string }>>(() => {
-    if (initialItems === null) return [];
-    return initialItems.filter((item) => item.isCustom).map((i) => ({ key: i.key, label: i.label }));
+    if (savedItems === null) return [];
+    return savedItems.filter((item) => item.isCustom).map((i) => ({ key: i.key, label: i.label }));
   });
 
   const [newCustomLabel, setNewCustomLabel] = useState("");
@@ -101,6 +102,9 @@ export function RequiredDocumentsControls({
       try {
         const res = await saveFirmRequiredDocumentsAction(itemsToSave);
         if (res.ok) {
+          setSavedItems(res.items);
+          setSelectedPresets(new Set(res.items.filter((item) => !item.isCustom).map((item) => item.key)));
+          setCustomItems(res.items.filter((item) => item.isCustom).map((item) => ({ key: item.key, label: item.label })));
           setIsEditing(false);
         } else {
           setError(res.error);
@@ -113,18 +117,18 @@ export function RequiredDocumentsControls({
 
   function handleCancel() {
     setError(null);
-    if (initialItems !== null) {
+    if (savedItems !== null) {
       const presets = new Set<string>();
-      for (const item of initialItems) {
+      for (const item of savedItems) {
         if (!item.isCustom) presets.add(item.key);
       }
       setSelectedPresets(presets);
-      setCustomItems(initialItems.filter((i) => i.isCustom).map((i) => ({ key: i.key, label: i.label })));
+      setCustomItems(savedItems.filter((i) => i.isCustom).map((i) => ({ key: i.key, label: i.label })));
       setIsEditing(false);
     }
   }
 
-  const currentItems = initialItems ?? [];
+  const currentItems = savedItems ?? [];
 
   return (
     <section className="rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-5 sm:p-6">
