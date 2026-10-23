@@ -15,7 +15,7 @@
 export {};
 
 async function main() {
-  const { decideIntake, claimTokenMatches, hashClaimToken } = await import("@/lib/firms/intake");
+  const { decideIntake, claimTokenMatches, hashClaimToken, validateIntakeName, validateIntakePhone } = await import("@/lib/firms/intake");
   const { OWNER_EMAIL } = await import("@/lib/access-constants");
   const fs = await import("node:fs");
 
@@ -48,6 +48,14 @@ async function main() {
   check("code: no code doesn't", !claimTokenMatches("", hashClaimToken(code)), "should not match");
   check("code: nothing stored doesn't", !claimTokenMatches(code, null), "should not match");
   check("code: only the hash is stored", hashClaimToken(code) !== code && /^[0-9a-f]{64}$/.test(hashClaimToken(code)), "store a hash");
+
+  // Phone and name validation for mandatory lead collection.
+  check("phone validation: accepts valid US format", validateIntakePhone("(415) 555-0199"), "valid formatted phone should pass");
+  check("phone validation: accepts raw digits", validateIntakePhone("4155550199"), "valid 10 digits should pass");
+  check("phone validation: rejects too short", !validateIntakePhone("123"), "short number should fail");
+  check("phone validation: rejects empty", !validateIntakePhone(""), "empty phone should fail");
+  check("name validation: accepts full name", validateIntakeName("Jane Doe"), "valid name should pass");
+  check("name validation: rejects empty string or spaces", !validateIntakeName("   "), "whitespace-only name should fail");
 
   // Ordinary sign-in must not join anyone to a firm.
   const actions = fs.readFileSync(new URL("../../src/server/actions.ts", import.meta.url), "utf8");

@@ -56,7 +56,25 @@ function siteUrl() {
   return (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 }
 
-export type IntakeResult = { status: "sent" } | { status: "invalid_email" } | { status: "invalid_link" } | { status: "inactive_link" };
+export type IntakeResult =
+  | { status: "sent" }
+  | { status: "invalid_email" }
+  | { status: "invalid_name" }
+  | { status: "invalid_phone" }
+  | { status: "invalid_link" }
+  | { status: "inactive_link" };
+
+export function validateIntakePhone(rawPhone: string): boolean {
+  if (!rawPhone || typeof rawPhone !== "string") return false;
+  const digits = rawPhone.replace(/\D/g, "");
+  return digits.length >= 7 && rawPhone.trim().length <= 30;
+}
+
+export function validateIntakeName(rawName: string): boolean {
+  if (!rawName || typeof rawName !== "string") return false;
+  const trimmed = rawName.trim();
+  return trimmed.length >= 1 && trimmed.length <= 200;
+}
 
 /** What to do with an email entered on a link. Pure, so it can be checked. */
 export type IntakeDecision =
@@ -105,9 +123,25 @@ async function sendSignUpEmail(email: string, claimToken: string): Promise<boole
   return true;
 }
 
-export async function requestFirmIntake(token: string, rawEmail: string, visitorIp: string): Promise<IntakeResult> {
+export async function requestFirmIntake(
+  token: string,
+  rawEmail: string,
+  rawFullNameOrIp: string,
+  rawPhone?: string,
+  visitorIp?: string
+): Promise<IntakeResult> {
   const email = normalizeEmail(rawEmail);
   if (!EMAIL_PATTERN.test(email) || email.length > 320) return { status: "invalid_email" };
+
+  const isLegacyThreeArg = rawPhone === undefined && visitorIp === undefined;
+  const fullName = isLegacyThreeArg ? "" : String(rawFullNameOrIp ?? "").trim();
+  const phone = isLegacyThreeArg ? "" : String(rawPhone ?? "").trim();
+  const effectiveIp = isLegacyThreeArg ? rawFullNameOrIp : visitorIp || "unknown";
+
+  if (!isLegacyThreeArg) {
+    if (!validateIntakeName(fullName)) return { status: "invalid_name" };
+    if (!validateIntakePhone(phone)) return { status: "invalid_phone" };
+  }
 
   const link = await lookupIntakeToken(token);
   if (link.state === "invalid") return { status: "invalid_link" };
@@ -134,7 +168,7 @@ export async function requestFirmIntake(token: string, rawEmail: string, visitor
   const { data: reserved, error: reserveError } = await admin().rpc("firm_intake_reserve_send", {
     p_link_id: link.linkId,
     p_email: email,
-    p_ip_hash: hashVisitor(visitorIp || "unknown"),
+    p_ip_hash: hashVisitor(effectiveIp || "unknown"),
     p_email_per_hour: INTAKE_LIMITS.perEmailPerHour,
     p_visitor_per_hour: INTAKE_LIMITS.perVisitorPerHour,
     p_link_per_day: INTAKE_LIMITS.perLinkPerDay
@@ -153,9 +187,19 @@ export async function requestFirmIntake(token: string, rawEmail: string, visitor
   // previous code moves aside and stays valid, so if this send fails, the
   // link in the earlier email still works.
   if (decision.action === "invite_new") {
+    const insertPayload: Record<string, any> = {
+      firm_id: link.firmId,
+      normalized_email: email,
+      link_id: link.linkId,
+      claim_token_hash: claimTokenHash
+    };
+    if (fullName) insertPayload.full_name = fullName;
+    if (phone) insertPayload.phone = phone;
+    insertPayload.pipeline_status = "new_lead";
+
     const { error } = await admin()
       .from("firm_clients")
-      .insert({ firm_id: link.firmId, normalized_email: email, link_id: link.linkId, claim_token_hash: claimTokenHash });
+      .insert(insertPayload);
     if (error) {
       // A unique clash means another request just claimed this email.
       if (!/duplicate|unique/i.test(error.message)) console.error("[firm-intake] could not record client", error.message);
@@ -169,13 +213,17 @@ export async function requestFirmIntake(token: string, rawEmail: string, visitor
       .eq("firm_id", link.firmId)
       .is("joined_at", null)
       .maybeSingle();
+    const updatePayload: Record<string, any> = {
+      email_sent_at: new Date().toISOString(),
+      claim_token_hash: claimTokenHash,
+      previous_claim_token_hash: current?.claim_token_hash ?? null
+    };
+    if (fullName) updatePayload.full_name = fullName;
+    if (phone) updatePayload.phone = phone;
+
     const { error } = await admin()
       .from("firm_clients")
-      .update({
-        email_sent_at: new Date().toISOString(),
-        claim_token_hash: claimTokenHash,
-        previous_claim_token_hash: current?.claim_token_hash ?? null
-      })
+      .update(updatePayload)
       .eq("normalized_email", email)
       .eq("firm_id", link.firmId)
       .is("joined_at", null);
