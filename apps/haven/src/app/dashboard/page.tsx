@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { buildChecklist } from "@/lib/crisis-checklist";
 import { loadDeadlineAnswers, type DeadlineAnswers } from "@/lib/deadlines";
+import { getDefaultRequiredDocuments } from "@/lib/document-vault";
 import { buildFirmEngagementOverview } from "@/lib/firms/engagement";
 import { getClientFirmEngagementRecord } from "@/lib/firms/intake";
 import { getFirmRequiredDocuments } from "@/lib/firms/required-documents";
@@ -66,7 +67,9 @@ export default async function DashboardPage({
     user ? loadDeadlineAnswers(user.id) : Promise.resolve({} as DeadlineAnswers),
     user ? getClientFirmEngagementRecord(user.id) : Promise.resolve(null)
   ]);
-  const requiredDocs = firmRecord ? await getFirmRequiredDocuments(firmRecord.firmId) : [];
+  const requiredDocs = firmRecord
+    ? await getFirmRequiredDocuments(firmRecord.firmId).catch(() => getDefaultRequiredDocuments())
+    : [];
   let snapshot = initialSnapshot;
 
   if (shouldUseOverrideFallback && overrideDraft) {
@@ -121,7 +124,9 @@ export default async function DashboardPage({
   // pinned to 1..60 — past the ceiling the bar is simply full.
   const crisisProgressScale = crisisState ? Math.min(Math.max(crisisState.dayNumber / 60, 0.02), 1) : 0;
 
-  const manualDocuments = inboxData.documents.filter((d) => d.sourceKind === "manual_upload");
+  const manualDocuments = profileUnavailable
+    ? []
+    : inboxData.documents.filter((d) => d.sourceKind === "manual_upload");
   const uploadedDocKinds = new Set(manualDocuments.map((d) => d.documentKind));
   const fulfilledRequiredCount = requiredDocs.filter((req) => uploadedDocKinds.has(req.key)).length;
 

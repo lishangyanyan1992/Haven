@@ -167,6 +167,7 @@ export async function getFirmClient(firmId: string, firmClientId: string): Promi
       .from("user_documents")
       .select("id, original_name, display_label, document_kind, uploaded_at")
       .eq("user_id", client.user_id)
+      .eq("source_kind", "manual_upload")
       .order("uploaded_at", { ascending: false });
     documents = (docs ?? []).map((d: any) => ({
       id: d.id,

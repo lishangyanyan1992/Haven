@@ -97,13 +97,17 @@ function formatShortDate(value: string | null | undefined): string | null {
   });
 }
 
+function isStageKey(value: unknown): value is FirmEngagementStageKey {
+  return typeof value === "string" && Object.prototype.hasOwnProperty.call(STAGE_INDEX, value);
+}
+
 export function cleanEngagementState(raw: unknown): FirmClientEngagementState {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   const record = raw as Record<string, unknown>;
   const out: FirmClientEngagementState = {};
 
-  if (typeof record.stage === "string" && record.stage in STAGE_INDEX) {
-    out.stage = record.stage as FirmEngagementStageKey;
+  if (isStageKey(record.stage)) {
+    out.stage = record.stage;
   }
 
   if (
@@ -137,7 +141,7 @@ export function validateEngagementUpdate(
     return { ok: false, error: "Invalid engagement update payload." };
   }
   const record = raw as Record<string, unknown>;
-  if (record.stage !== undefined && record.stage !== "" && !(typeof record.stage === "string" && record.stage in STAGE_INDEX)) {
+  if (record.stage !== undefined && record.stage !== "" && !isStageKey(record.stage)) {
     return { ok: false, error: "Invalid engagement stage selected." };
   }
   if (

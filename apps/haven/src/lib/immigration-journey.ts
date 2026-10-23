@@ -167,6 +167,7 @@ function formatMonthYear(value: Date): string {
 export function inferProfileGreenCardStage(profile: ImmigrationProfile): GreenCardStage {
   if (profile.i485Filed) return "i485_filed";
   if (profile.i140Approved) return "i140_approved";
+  if (profile.i140Filed) return "i140_filed";
   if (profile.permStage === "certified") return "perm_certified";
   if (profile.permStage === "in_progress") return "perm_in_progress";
   return "not_started";

@@ -66,15 +66,20 @@ function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unk
         ? "i485_filed"
         : existingRow?.i140_approved
           ? "i140_approved"
-          : existingRow?.perm_stage === "certified"
-            ? "perm_certified"
-            : existingRow?.perm_stage === "in_progress"
-              ? "perm_in_progress"
-              : "not_started";
+          : existingRow?.i140_filed
+            ? "i140_filed"
+            : existingRow?.perm_stage === "certified"
+              ? "perm_certified"
+              : existingRow?.perm_stage === "in_progress"
+                ? "perm_in_progress"
+                : "not_started";
   const permStage =
     greenCardStage === "perm_in_progress"
       ? "in_progress"
-      : greenCardStage === "perm_certified"
+      : greenCardStage === "perm_certified" ||
+          greenCardStage === "i140_filed" ||
+          greenCardStage === "i140_approved" ||
+          greenCardStage === "i485_filed"
         ? "certified"
         : "not_started";
 
@@ -119,6 +124,7 @@ function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unk
         : (existingRow?.priority_date as string | null) ?? null,
     preference_category: asEnumValue(rawDraft.preferenceCategory ?? existingRow?.preference_category, preferenceCategories, "Not sure"),
     i140_approved: i140Approved,
+    i140_filed: greenCardStage === "i140_filed",
     i140_approval_date:
       i140Approved
         ? ((existingRow?.i140_approval_date as string | null) ?? new Date().toISOString().slice(0, 10))
@@ -148,6 +154,7 @@ function mapProfileRow(row: Record<string, unknown>): ImmigrationProfile {
     h1bStartDate: (row.h1b_start_date as string | null) ?? undefined,
     permStage: row.perm_stage as ImmigrationProfile["permStage"],
     permFilingDate: (row.perm_filing_date as string | null) ?? undefined,
+    i140Filed: Boolean(row.i140_filed),
     i140Approved: Boolean(row.i140_approved),
     i140ApprovalDate: (row.i140_approval_date as string | null) ?? undefined,
     priorityDate: (row.priority_date as string | null) ?? undefined,

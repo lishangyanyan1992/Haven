@@ -55,6 +55,18 @@ const TONE_PIN_CLASS: Record<JourneyTrackTone, string> = {
   ink: "border-[var(--haven-ink)] bg-[var(--haven-ink)] text-[var(--haven-cream)]"
 };
 
+const COUNTRY_OPTIONS = [
+  "India",
+  "China",
+  "Mexico",
+  "Philippines",
+  "South Korea",
+  "Brazil",
+  "Canada",
+  "United Kingdom",
+  "Other"
+];
+
 export function ImmigrationJourneyDashboard({
   journey,
   profile,
@@ -169,7 +181,8 @@ export function ImmigrationJourneyDashboard({
                 <label className="field-label" htmlFor="journey-visaType">
                   Current visa status
                 </label>
-                <Select defaultValue={profile.visaType || "H1B"} id="journey-visaType" name="visaType">
+                <Select defaultValue={profile.visaType ?? ""} id="journey-visaType" name="visaType">
+                  {!profile.visaType && <option value="">Select visa status</option>}
                   {["OPT", "STEM OPT", "H1B", "H4", "O-1", "GC", "Citizen"].map((v) => (
                     <option key={v} value={v}>
                       {v}
@@ -230,14 +243,18 @@ export function ImmigrationJourneyDashboard({
                 <label className="field-label" htmlFor="journey-countryOfBirth">
                   Country of birth
                 </label>
-                <Select defaultValue={profile.countryOfBirth || "India"} id="journey-countryOfBirth" name="countryOfBirth">
-                  {["India", "China", "Mexico", "Philippines", "South Korea", "Brazil", "Canada", "United Kingdom", "Other"].map(
-                    (v) => (
-                      <option key={v} value={v}>
-                        {v}
-                      </option>
-                    )
-                  )}
+                <Select defaultValue={profile.countryOfBirth ?? ""} id="journey-countryOfBirth" name="countryOfBirth">
+                  {!profile.countryOfBirth && <option value="">Select country</option>}
+                  {[
+                    ...(profile.countryOfBirth && !COUNTRY_OPTIONS.includes(profile.countryOfBirth)
+                      ? [profile.countryOfBirth]
+                      : []),
+                    ...COUNTRY_OPTIONS
+                  ].map((v) => (
+                    <option key={v} value={v}>
+                      {v}
+                    </option>
+                  ))}
                 </Select>
               </div>
 
@@ -259,7 +276,8 @@ export function ImmigrationJourneyDashboard({
                 <label className="field-label" htmlFor="journey-preferenceCategory">
                   Preference category
                 </label>
-                <Select defaultValue={profile.preferenceCategory || "EB-2"} id="journey-preferenceCategory" name="preferenceCategory">
+                <Select defaultValue={profile.preferenceCategory ?? ""} id="journey-preferenceCategory" name="preferenceCategory">
+                  {!profile.preferenceCategory && <option value="">Select preference category</option>}
                   {["EB-1", "EB-2", "EB-3", "EB-2 NIW", "Not sure"].map((v) => (
                     <option key={v} value={v}>
                       {v}

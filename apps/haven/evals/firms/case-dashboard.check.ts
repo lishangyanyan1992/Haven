@@ -16,6 +16,7 @@ async function main() {
   const { isArchivedPath, SIGNED_IN_HOME } = await import("@/lib/archived-routes");
   const {
     buildFirmEngagementOverview,
+    cleanEngagementState,
     FIRM_ENGAGEMENT_STAGES,
     validateEngagementUpdate
   } = await import("@/lib/firms/engagement");
@@ -123,6 +124,15 @@ async function main() {
   });
   check("engagement: rejects invalid stage key", !invalidEngagement.ok, "expected failure on unknown stage");
 
+  const inheritedKeyEngagement = validateEngagementUpdate({
+    stage: "constructor"
+  });
+  check(
+    "engagement: rejects inherited prototype keys like constructor",
+    !inheritedKeyEngagement.ok && !("stage" in cleanEngagementState({ stage: "constructor" })),
+    "expected constructor stage to be rejected"
+  );
+
   // 4. Overlaid Immigration Journey checks
   const refNow = new Date("2026-10-23T00:00:00Z");
   const baseProfile = {
@@ -173,6 +183,23 @@ async function main() {
       journey.greenCardTrack.nodes.length === 5 &&
       journey.greenCardTrack.nodes.find((n) => n.key === "i140")?.status === "completed",
     `got gcStage=${journey.greenCardTrack.stage}`
+  );
+
+  const i140FiledJourney = buildImmigrationJourney({
+    profile: {
+      ...baseProfile,
+      i140Approved: false,
+      i140Filed: true
+    },
+    deadlines: {},
+    signals,
+    now: refNow
+  });
+  check(
+    "journey: green card track reflects i140_filed when i140Filed is true",
+    i140FiledJourney.greenCardTrack.stage === "i140_filed" &&
+      i140FiledJourney.greenCardTrack.nodes.find((n) => n.key === "i140")?.status === "current",
+    `got gcStage=${i140FiledJourney.greenCardTrack.stage}`
   );
 
   // Expired visa + grace period scenario

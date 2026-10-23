@@ -72,6 +72,7 @@ function mapProfileRow(row: ProfileRow): ImmigrationProfile {
     h1bStartDate: row.h1b_start_date ?? undefined,
     permStage: row.perm_stage as ImmigrationProfile["permStage"],
     permFilingDate: row.perm_filing_date ?? undefined,
+    i140Filed: Boolean(row.i140_filed),
     i140Approved: row.i140_approved,
     i140ApprovalDate: row.i140_approval_date ?? undefined,
     priorityDate: row.priority_date ?? undefined,

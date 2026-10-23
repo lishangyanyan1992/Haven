@@ -582,29 +582,38 @@ export async function saveCaseJourneyDatesAction(formData: FormData): Promise<{ 
   const { user } = await requireUser();
   const cookieStore = await cookies();
 
-  const greenCardStage = String(formData.get("greenCardStage") ?? "");
+  const greenCardStage = String(formData.get("greenCardStage") ?? "").trim();
   const i140Approved =
     greenCardStage === "i140_approved" ||
     greenCardStage === "i485_filed" ||
     String(formData.get("i140Approved") ?? "") === "true";
 
   const statusEndDate = String(formData.get("statusEndDate") ?? "").trim();
+  const visaType = String(formData.get("visaType") ?? "").trim();
+  const countryOfBirth = String(formData.get("countryOfBirth") ?? "").trim();
+  const preferenceCategory = String(formData.get("preferenceCategory") ?? "").trim();
 
   const setupDraft = {
-    visaType: String(formData.get("visaType") ?? ""),
-    countryOfBirth: String(formData.get("countryOfBirth") ?? ""),
+    ...(visaType ? { visaType } : {}),
+    ...(countryOfBirth ? { countryOfBirth } : {}),
     employerName: String(formData.get("employerName") ?? ""),
     jobTitle: String(formData.get("jobTitle") ?? ""),
     h1bStartDate: String(formData.get("h1bStartDate") ?? ""),
     currentVisaExpiryDate: statusEndDate,
     greenCardStage,
     priorityDate: String(formData.get("priorityDate") ?? ""),
-    preferenceCategory: String(formData.get("preferenceCategory") ?? ""),
+    ...(preferenceCategory ? { preferenceCategory } : {}),
     i140Approved
   };
 
   await persistProfileDraft(user.id, setupDraft);
-  await recordFirmSharedAnswers(user.id, setupDraft, formLimitedTo(formData, DEADLINE_KEYS, "except"));
+  const sharedForm = formLimitedTo(formData, DEADLINE_KEYS, "except");
+  await recordFirmSharedAnswers(user.id, setupDraft, {
+    has: (key: string) =>
+      sharedForm.has(key) &&
+      (!["visaType", "countryOfBirth", "preferenceCategory"].includes(key) ||
+        String(formData.get(key) ?? "").trim().length > 0)
+  });
   await saveDeadlineAnswers(user.id, formData);
 
   cookieStore.delete(ONBOARDING_OVERRIDE_COOKIE);
