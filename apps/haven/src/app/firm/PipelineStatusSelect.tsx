@@ -35,19 +35,24 @@ export function PipelineStatusSelect({
   compact?: boolean;
 }) {
   const [status, setStatus] = useState<FirmPipelineStatus>(initialStatus);
+  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const next = e.target.value as FirmPipelineStatus;
+    const previous = status;
     setStatus(next);
+    setError(null);
     startTransition(async () => {
       try {
         const res = await updateFirmClientPipelineStatusAction(firmClientId, next);
         if (!res.ok) {
-          setStatus(status); // revert
+          setStatus(previous);
+          setError(res.error || "Update failed");
         }
       } catch {
-        setStatus(status); // revert
+        setStatus(previous);
+        setError("Network error");
       }
     });
   };
@@ -78,6 +83,7 @@ export function PipelineStatusSelect({
           )}
         </div>
       </div>
+      {error ? <span className="text-[11px] text-red-600">{error}</span> : null}
     </div>
   );
 }

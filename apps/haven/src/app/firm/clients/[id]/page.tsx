@@ -140,7 +140,7 @@ export default async function FirmClientPage({ params }: { params: Promise<{ id:
   }
 
   await markFirmClientReviewed(membership.firmId, client.id);
-  const fullName = typeof client.answers.fullName === "string" ? client.answers.fullName.trim() : "";
+  const fullName = client.fullName || (typeof client.answers.fullName === "string" ? client.answers.fullName.trim() : "");
   const name = fullName || client.email;
   const urgency = rankUrgency(client.answers);
   const enabledKeys = new Set(intakeQuestions.map((q) => q.key));

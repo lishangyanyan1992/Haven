@@ -19,7 +19,7 @@ alter table public.firm_clients
     'contract_sent',
     'contract_signed',
     'archived'
-  ));
+  )) not valid;
 
 create index if not exists firm_clients_pipeline_idx
   on public.firm_clients(firm_id, pipeline_status, created_at desc);

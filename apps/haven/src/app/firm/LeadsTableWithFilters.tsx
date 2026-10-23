@@ -35,11 +35,29 @@ export function LeadsTableWithFilters({ leads }: { leads: FirmClientSummary[] })
   const [search, setSearch] = useState("");
   const [tierFilter, setTierFilter] = useState<string>("all");
   const [pipelineFilter, setPipelineFilter] = useState<string>("all");
+  const [visaFilter, setVisaFilter] = useState<string>("all");
+  const [dateRangeFilter, setDateRangeFilter] = useState<string>("all");
+
+  const availableVisas = useMemo(() => {
+    const set = new Set<string>();
+    for (const l of leads) {
+      if (l.visaType) set.add(l.visaType);
+    }
+    return Array.from(set).sort();
+  }, [leads]);
 
   const filteredLeads = useMemo(() => {
     return leads.filter((lead) => {
       if (tierFilter !== "all" && lead.urgency.tier !== tierFilter) return false;
       if (pipelineFilter !== "all" && lead.pipelineStatus !== pipelineFilter) return false;
+      if (visaFilter !== "all" && (lead.visaType || "Unknown") !== visaFilter) return false;
+      if (dateRangeFilter !== "all" && lead.createdAt) {
+        const createdMs = new Date(lead.createdAt).getTime();
+        const daysAgo = (Date.now() - createdMs) / (1000 * 60 * 60 * 24);
+        if (dateRangeFilter === "7d" && daysAgo > 7) return false;
+        if (dateRangeFilter === "30d" && daysAgo > 30) return false;
+        if (dateRangeFilter === "90d" && daysAgo > 90) return false;
+      }
       if (search.trim()) {
         const query = search.toLowerCase();
         const matchName = lead.displayName?.toLowerCase().includes(query);
@@ -50,7 +68,7 @@ export function LeadsTableWithFilters({ leads }: { leads: FirmClientSummary[] })
       }
       return true;
     });
-  }, [leads, search, tierFilter, pipelineFilter]);
+  }, [leads, search, tierFilter, pipelineFilter, visaFilter, dateRangeFilter]);
 
   const handleExportCsv = () => {
     const headers = [
@@ -69,8 +87,9 @@ export function LeadsTableWithFilters({ leads }: { leads: FirmClientSummary[] })
 
     const escapeCsv = (val: string | null | undefined) => {
       if (!val) return '""';
-      const clean = String(val).replace(/"/g, '""');
-      return `"${clean}"`;
+      let text = String(val);
+      if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+      return `"${text.replace(/"/g, '""')}"`;
     };
 
     const rows = filteredLeads.map((l) => [
@@ -162,6 +181,34 @@ export function LeadsTableWithFilters({ leads }: { leads: FirmClientSummary[] })
               <option value="consultation_completed">Consultation Completed</option>
               <option value="contract_sent">Contract Sent</option>
               <option value="archived">Archived</option>
+            </select>
+
+            {availableVisas.length > 0 ? (
+              <select
+                aria-label="Filter by visa category"
+                className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--haven-cream)] px-2.5 py-1.5 text-body-sm text-[var(--haven-ink)]"
+                onChange={(e) => setVisaFilter(e.target.value)}
+                value={visaFilter}
+              >
+                <option value="all">All Visas</option>
+                {availableVisas.map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+
+            <select
+              aria-label="Filter by date range"
+              className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--haven-cream)] px-2.5 py-1.5 text-body-sm text-[var(--haven-ink)]"
+              onChange={(e) => setDateRangeFilter(e.target.value)}
+              value={dateRangeFilter}
+            >
+              <option value="all">All Time</option>
+              <option value="7d">Last 7 days</option>
+              <option value="30d">Last 30 days</option>
+              <option value="90d">Last 90 days</option>
             </select>
           </div>
         </div>

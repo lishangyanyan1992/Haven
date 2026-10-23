@@ -21,6 +21,7 @@ export function ContactQuickActions({
 }: ContactQuickActionsProps) {
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [copiedPhone, setCopiedPhone] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
 
   const cleanPhone = phone?.trim();
   const telHref = cleanPhone ? `tel:${cleanPhone.replace(/[^\d+]/g, "")}` : null;
@@ -29,12 +30,13 @@ export function ContactQuickActions({
   const handleCopyEmail = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    setCopyError(null);
     try {
       await navigator.clipboard.writeText(email);
       setCopiedEmail(true);
       setTimeout(() => setCopiedEmail(false), 2000);
     } catch {
-      // ignore clipboard failures
+      setCopyError("Couldn't copy email");
     }
   };
 
@@ -42,12 +44,13 @@ export function ContactQuickActions({
     e.preventDefault();
     e.stopPropagation();
     if (!cleanPhone) return;
+    setCopyError(null);
     try {
       await navigator.clipboard.writeText(cleanPhone);
       setCopiedPhone(true);
       setTimeout(() => setCopiedPhone(false), 2000);
     } catch {
-      // ignore clipboard failures
+      setCopyError("Couldn't copy phone");
     }
   };
 
@@ -95,13 +98,17 @@ export function ContactQuickActions({
         ) : (
           <span className="text-[12px] text-[var(--haven-ink-mid)]">No phone collected</span>
         )}
+        {copyError ? <span className="text-[11px] text-red-600">{copyError}</span> : null}
       </div>
     );
   }
 
   return (
     <div className={`rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-5 shadow-sm ${className}`}>
-      <h3 className="text-label text-[var(--haven-ink-mid)]">Direct Contact Information</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-label text-[var(--haven-ink-mid)]">Direct Contact Information</h3>
+        {copyError ? <span className="text-[12px] text-red-600">{copyError}</span> : null}
+      </div>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         {/* Email Block */}
         <div className="flex flex-col justify-between rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--haven-cream)] p-4">

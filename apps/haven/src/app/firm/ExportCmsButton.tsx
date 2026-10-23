@@ -27,14 +27,16 @@ export function ExportCmsButton({
           return;
         }
 
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(res.dossier, null, 2));
+        const blob = new Blob([JSON.stringify(res.dossier, null, 2)], { type: "application/json" });
+        const blobUrl = URL.createObjectURL(blob);
         const cleanName = (clientName || "client").toLowerCase().replace(/[^a-z0-9]/g, "-");
         const downloadAnchor = document.createElement("a");
-        downloadAnchor.setAttribute("href", dataStr);
+        downloadAnchor.setAttribute("href", blobUrl);
         downloadAnchor.setAttribute("download", `cms-case-dossier-${cleanName}.json`);
         document.body.appendChild(downloadAnchor);
         downloadAnchor.click();
         downloadAnchor.remove();
+        URL.revokeObjectURL(blobUrl);
 
         // If documents with signed URLs exist, optionally prompt or download them
         const docs = res.dossier.documents || [];

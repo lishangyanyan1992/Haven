@@ -149,6 +149,7 @@ export type FirmClientDetail = {
   status: FirmClientStatus;
   joinedAt: string | null;
   completedAt: string | null;
+  createdAt: string;
   answers: SharedAnswers;
   documents: FirmClientDocument[];
   requiredDocuments: FirmRequiredDocumentStatus[];
@@ -223,6 +224,7 @@ export async function getFirmClient(firmId: string, firmClientId: string): Promi
     status: firmClientStatus(client, answers),
     joinedAt: client.joined_at,
     completedAt: client.completed_at,
+    createdAt: client.created_at,
     answers,
     documents,
     requiredDocuments,
@@ -237,13 +239,14 @@ export async function updateFirmClientPipelineStatus(
   pipelineStatus: FirmPipelineStatus
 ): Promise<boolean> {
   if (!/^[0-9a-f-]{36}$/i.test(firmClientId)) return false;
-  const { error } = await admin()
+  const { data, error } = await admin()
     .from("firm_clients")
     .update({ pipeline_status: pipelineStatus })
     .eq("firm_id", firmId)
-    .eq("id", firmClientId);
+    .eq("id", firmClientId)
+    .select("id");
   if (error) throw new Error(`Could not update pipeline status: ${error.message}`);
-  return true;
+  return Boolean(data && data.length > 0);
 }
 
 /** Opening a client clears New for everyone at the firm. */
@@ -330,7 +333,7 @@ export async function getFirmClientDossier(firmId: string, firmClientId: string)
     pipelineStatus: client.pipelineStatus,
     joinedAt: client.joinedAt,
     completedAt: client.completedAt,
-    createdAt: client.joinedAt || client.completedAt || new Date().toISOString(),
+    createdAt: client.createdAt,
     answers: client.answers,
     documents: docsWithUrls
   };

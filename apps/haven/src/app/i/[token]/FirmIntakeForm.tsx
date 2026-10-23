@@ -112,7 +112,7 @@ export function FirmIntakeForm({ token }: { token: string }) {
         />
       </div>
 
-      <Button className="w-full" aria-label="Continue" disabled={isPending} type="submit">
+      <Button className="w-full" disabled={isPending} type="submit">
         {isPending ? (
           <span className="flex items-center gap-2">
             <LoaderCircle className="h-4 w-4 animate-spin" /> Submitting...

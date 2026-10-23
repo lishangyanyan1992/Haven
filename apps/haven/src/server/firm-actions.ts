@@ -12,7 +12,7 @@ import { intakeUrl, replaceFirmLink, setFirmLinkActive } from "@/lib/firms/links
 import { saveFirmIntakeQuestions, validateIntakeQuestionList } from "@/lib/firms/intake-questions";
 import { saveFirmRequiredDocuments } from "@/lib/firms/required-documents";
 import { validateRequiredDocumentList } from "@/lib/document-vault";
-import type { IntakeQuestionItem, RequiredDocumentItem } from "@/lib/firms/types";
+import { FIRM_PIPELINE_STATUS_LABEL, type FirmPipelineStatus, type IntakeQuestionItem, type RequiredDocumentItem } from "@/lib/firms/types";
 
 /**
  * Firm dashboard actions. The firm always comes from requireFirmMember(),
@@ -118,23 +118,18 @@ export async function updateFirmClientPipelineStatusAction(
   pipelineStatus: unknown
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const membership = await requireFirmMember();
-  const validStatuses = new Set([
-    "new_lead",
-    "contacted",
-    "consultation_scheduled",
-    "consultation_completed",
-    "contract_sent",
-    "contract_signed",
-    "archived"
-  ]);
-  if (typeof pipelineStatus !== "string" || !validStatuses.has(pipelineStatus)) {
+  if (
+    typeof pipelineStatus !== "string" ||
+    !Object.hasOwn(FIRM_PIPELINE_STATUS_LABEL, pipelineStatus)
+  ) {
     return { ok: false, error: "Invalid pipeline status" };
   }
-  await updateFirmClientPipelineStatus(
+  const updated = await updateFirmClientPipelineStatus(
     membership.firmId,
     firmClientId,
-    pipelineStatus as any
+    pipelineStatus as FirmPipelineStatus
   );
+  if (!updated) return { ok: false, error: "Client not found" };
   revalidatePath("/firm");
   revalidatePath("/firm/clients");
   revalidatePath(`/firm/clients/${firmClientId}`);
