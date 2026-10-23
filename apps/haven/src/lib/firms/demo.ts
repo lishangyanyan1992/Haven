@@ -1,4 +1,5 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getDefaultRequiredDocuments } from "@/lib/document-vault";
 import type { SharedAnswers } from "@/lib/firms/answers";
 import type { FirmClientStatus } from "@/lib/firms/types";
 
@@ -987,6 +988,12 @@ export async function seedDemoFirm(
   if (firmError) throw new Error(`Could not verify firm: ${firmError.message}`);
   if (!firm) throw new Error(`Firm not found: ${firmId}`);
   if (!firm.is_demo) throw new Error(`Refusing to seed demo data on non-demo firm: ${firmId}`);
+
+  // Ensure demo firm has default required documents configured
+  await admin()
+    .from("firms")
+    .update({ required_documents: getDefaultRequiredDocuments() })
+    .eq("id", firmId);
 
   // Fetch existing firm_clients for this firm to preserve showcase user_ids and link_id
   const { data: existingRows, error: fetchError } = await admin()

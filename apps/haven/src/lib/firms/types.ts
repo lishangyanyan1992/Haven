@@ -1,9 +1,16 @@
 /** Rows of the firm tables (migration 0033_firms.sql). */
 
+export type RequiredDocumentItem = {
+  key: string;
+  label: string;
+  isCustom?: boolean;
+};
+
 export type FirmRow = {
   id: string;
   name: string;
   is_demo: boolean;
+  required_documents: RequiredDocumentItem[] | null;
   created_at: string;
 };
 

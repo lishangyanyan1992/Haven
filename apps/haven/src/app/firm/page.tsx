@@ -3,11 +3,13 @@ import Link from "next/link";
 import { requireFirmMember } from "@/lib/firms/access";
 import { listFirmClients } from "@/lib/firms/clients";
 import { getCurrentFirmLink, intakeUrl } from "@/lib/firms/links";
+import { getFirmRequiredDocuments } from "@/lib/firms/required-documents";
 import { FIRM_CLIENT_STATUS_LABEL } from "@/lib/firms/status";
 import { TIER_LABEL, type UrgencyTier } from "@/lib/firms/urgency";
 import { noIndexMetadata } from "@/lib/seo";
 import { FirmHeader } from "./FirmHeader";
 import { LinkControls } from "./LinkControls";
+import { RequiredDocumentsControls } from "./RequiredDocumentsControls";
 
 export const metadata = { ...noIndexMetadata, title: "Firm dashboard · Haven" };
 export const dynamic = "force-dynamic";
@@ -33,9 +35,10 @@ const TIER_STYLE: Record<UrgencyTier, string> = {
 
 export default async function FirmDashboardPage() {
   const membership = await requireFirmMember("/firm");
-  const [clients, link] = await Promise.all([
+  const [clients, link, requiredDocs] = await Promise.all([
     listFirmClients(membership.firmId),
-    getCurrentFirmLink(membership.firmId)
+    getCurrentFirmLink(membership.firmId),
+    getFirmRequiredDocuments(membership.firmId)
   ]);
   const newCount = clients.filter((c) => c.isNew).length;
 
@@ -54,6 +57,8 @@ export default async function FirmDashboardPage() {
             </p>
           ) : null}
         </div>
+
+        <RequiredDocumentsControls initialItems={requiredDocs} />
 
         <LinkControls initialUrl={link ? intakeUrl(link.token) : null} isActive={Boolean(link?.is_active)} />
 
@@ -114,7 +119,20 @@ export default async function FirmDashboardPage() {
                           {FIRM_CLIENT_STATUS_LABEL[client.status]}
                         </span>
                       </td>
-                      <td className="px-3 py-3">{client.documentCount}</td>
+                      <td className="px-3 py-3">
+                        {client.totalRequiredCount && client.totalRequiredCount > 0 ? (
+                          <div className="flex flex-col">
+                            <span className="font-medium text-[var(--haven-ink)]">
+                              {client.requiredDocumentCount ?? 0}/{client.totalRequiredCount} req
+                            </span>
+                            <span className="text-[11px] text-[var(--haven-ink-mid)]">
+                              {client.documentCount} total
+                            </span>
+                          </div>
+                        ) : (
+                          <span>{client.documentCount}</span>
+                        )}
+                      </td>
                       <td className="px-3 py-3">{formatDate(client.joinedAt)}</td>
                     </tr>
                   ))}

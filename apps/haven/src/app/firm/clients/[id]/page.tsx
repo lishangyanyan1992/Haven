@@ -178,8 +178,77 @@ export default async function FirmClientPage({ params }: { params: Promise<{ id:
         </div>
 
         <section className="rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-5 sm:p-6">
-          <h2 className="text-h3">Documents</h2>
-          {client.documents.length === 0 ? (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-h3">Documents</h2>
+            {client.requiredDocuments.length > 0 && (
+              <span className="rounded-full bg-[var(--haven-cream)] px-2.5 py-1 text-[12px] font-semibold text-[var(--haven-ink)]">
+                {client.requiredDocuments.filter((r) => r.isUploaded).length}/{client.requiredDocuments.length} required uploaded
+              </span>
+            )}
+          </div>
+
+          {client.requiredDocuments.length > 0 ? (
+            <div className="mt-4 space-y-6">
+              <div>
+                <h3 className="text-body-sm font-semibold uppercase tracking-wider text-[var(--haven-ink-mid)]">
+                  Required Checklist
+                </h3>
+                <ul className="mt-2 divide-y divide-[var(--color-border)]">
+                  {client.requiredDocuments.map((req) => (
+                    <li className="flex flex-wrap items-center justify-between gap-3 py-3" key={req.key}>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-body-sm font-medium text-[var(--haven-ink)]">{req.label}</p>
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                              req.isUploaded
+                                ? "bg-[var(--haven-sage-light)] text-[var(--haven-ink)]"
+                                : "bg-[var(--haven-blush-light)] text-[var(--haven-blush-ink)]"
+                            }`}
+                          >
+                            {req.isUploaded ? "Uploaded" : "Missing"}
+                          </span>
+                        </div>
+                        {req.documents.map((doc) => (
+                          <p className="mt-0.5 text-[12px] text-[var(--haven-ink-mid)]" key={doc.id}>
+                            {doc.name} · uploaded {formatDate(doc.uploadedAt)}
+                          </p>
+                        ))}
+                      </div>
+                      {req.documents.length > 0 && (
+                        <div className="flex items-center gap-2">
+                          {req.documents.map((doc) => (
+                            <OpenDocumentButton documentId={doc.id} firmClientId={client.id} key={doc.id} />
+                          ))}
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {client.additionalDocuments.length > 0 && (
+                <div className="border-t border-[var(--color-border)] pt-4">
+                  <h3 className="text-body-sm font-semibold uppercase tracking-wider text-[var(--haven-ink-mid)]">
+                    Additional Documents ({client.additionalDocuments.length})
+                  </h3>
+                  <ul className="mt-2 divide-y divide-[var(--color-border)]">
+                    {client.additionalDocuments.map((doc) => (
+                      <li className="flex flex-wrap items-center justify-between gap-3 py-3" key={doc.id}>
+                        <div className="min-w-0">
+                          <p className="truncate text-body-sm font-medium text-[var(--haven-ink)]">{doc.name}</p>
+                          <p className="text-[12px] text-[var(--haven-ink-mid)]">
+                            {doc.kind} · uploaded {formatDate(doc.uploadedAt)}
+                          </p>
+                        </div>
+                        <OpenDocumentButton documentId={doc.id} firmClientId={client.id} />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          ) : client.documents.length === 0 ? (
             <p className="text-body-sm mt-3 text-[var(--haven-ink-mid)]">No documents uploaded yet.</p>
           ) : (
             <ul className="mt-3 divide-y divide-[var(--color-border)]">

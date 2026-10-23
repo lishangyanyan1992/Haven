@@ -24,12 +24,16 @@ function admin() {
 }
 
 /**
- * Who gets documents: anyone the test switch (DOCUMENT_READING_ALLOWLIST)
- * names, plus every client who joined a law firm, since uploading documents
- * is part of a firm's intake.
+ * Who gets documents: all signed-in clients have access to the document vault
+ * and context reading by default. If DOCUMENT_READING_DISABLED is "true", reading
+ * is turned off. If DOCUMENT_READING_ALLOWLIST is non-empty and not "*", it restricts
+ * to the specified emails plus firm clients.
  */
 export async function documentContextAvailableFor(email: string | null | undefined) {
-  const list = (env.DOCUMENT_READING_ALLOWLIST ?? "").split(",").map((v) => v.trim().toLowerCase()).filter(Boolean);
+  if (process.env.DOCUMENT_READING_DISABLED === "true") return false;
+  const raw = env.DOCUMENT_READING_ALLOWLIST?.trim();
+  if (!raw || raw === "*") return true;
+  const list = raw.split(",").map((v) => v.trim().toLowerCase()).filter(Boolean);
   if (list.includes("*")) return true;
   if (Boolean(email) && list.includes(String(email).toLowerCase())) return true;
   return isJoinedFirmClientEmail(email);

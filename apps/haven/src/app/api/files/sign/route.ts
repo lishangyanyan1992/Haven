@@ -183,6 +183,11 @@ export async function POST(request: Request) {
     }
 
     const inferred = inferDocumentMetadata(file.name, file.type, customLabel);
+    const explicitKind = String(formData.get("documentKind") ?? "").trim();
+    const explicitLabel = String(formData.get("displayLabel") ?? "").trim();
+    const documentKind = explicitKind || inferred.documentKind;
+    const displayLabel = explicitLabel || customLabel?.trim() || inferred.displayLabel;
+
     const extensionSafeName = sanitizeFilename(file.name || "document");
     const storagePath = `${user.id}/${new Date().toISOString().slice(0, 7)}/${randomUUID()}-${extensionSafeName}`;
     const admin = await ensureUserProfile(user);
@@ -208,8 +213,8 @@ export async function POST(request: Request) {
         user_id: user.id,
         storage_path: storagePath,
         original_name: file.name,
-        display_label: inferred.displayLabel,
-        document_kind: inferred.documentKind,
+        display_label: displayLabel,
+        document_kind: documentKind,
         source_kind: "manual_upload",
         file_size_bytes: file.size,
         mime_type: contentType,

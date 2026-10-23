@@ -1,5 +1,6 @@
 import { HAVEN_VAULT_BUCKET } from "@/lib/document-vault";
 import type { SharedAnswers } from "@/lib/firms/answers";
+import { getFirmRequiredDocuments } from "@/lib/firms/required-documents";
 import { compareByUrgency, rankUrgency, type Urgency } from "@/lib/firms/urgency";
 import { firmClientStatus, isNewFirmClient } from "@/lib/firms/status";
 import type { FirmClientRow, FirmClientStatus } from "@/lib/firms/types";
@@ -27,6 +28,8 @@ export type FirmClientSummary = {
   status: FirmClientStatus;
   isNew: boolean;
   documentCount: number;
+  requiredDocumentCount?: number;
+  totalRequiredCount?: number;
   joinedAt: string | null;
   createdAt: string;
   urgency: Urgency;
@@ -43,20 +46,48 @@ async function firmClientRows(firmId: string): Promise<FirmClientRow[]> {
 }
 
 export async function listFirmClients(firmId: string): Promise<FirmClientSummary[]> {
-  const rows = await firmClientRows(firmId);
+  const [rows, requiredDocs] = await Promise.all([
+    firmClientRows(firmId),
+    getFirmRequiredDocuments(firmId)
+  ]);
   const userIds = rows.map((r) => r.user_id).filter((id): id is string => Boolean(id));
 
   const docCounts = new Map<string, number>();
+  const userDocKinds = new Map<string, Set<string>>();
+
   if (userIds.length > 0) {
-    const { data: docRows } = await admin().from("user_documents").select("user_id").in("user_id", userIds);
-    for (const d of docRows ?? []) docCounts.set(d.user_id, (docCounts.get(d.user_id) ?? 0) + 1);
+    const { data: docRows } = await admin()
+      .from("user_documents")
+      .select("user_id, document_kind")
+      .in("user_id", userIds);
+    for (const d of docRows ?? []) {
+      docCounts.set(d.user_id, (docCounts.get(d.user_id) ?? 0) + 1);
+      if (!userDocKinds.has(d.user_id)) {
+        userDocKinds.set(d.user_id, new Set<string>());
+      }
+      userDocKinds.get(d.user_id)!.add(d.document_kind);
+    }
   }
 
+  const totalRequired = requiredDocs?.length ?? 0;
   const now = new Date();
   const summaries: FirmClientSummary[] = rows.map((row) => {
     const answers = (row.shared_answers ?? {}) as SharedAnswers;
     const status = firmClientStatus(row, answers);
     const fullName = typeof answers.fullName === "string" ? answers.fullName.trim() : "";
+
+    let requiredDocumentCount: number | undefined;
+    if (totalRequired > 0) {
+      const kinds = row.user_id ? userDocKinds.get(row.user_id) : undefined;
+      let count = 0;
+      if (kinds) {
+        for (const req of requiredDocs ?? []) {
+          if (kinds.has(req.key)) count += 1;
+        }
+      }
+      requiredDocumentCount = count;
+    }
+
     return {
       id: row.id,
       displayName: fullName || row.normalized_email,
@@ -65,6 +96,8 @@ export async function listFirmClients(firmId: string): Promise<FirmClientSummary
       status,
       isNew: isNewFirmClient(row),
       documentCount: row.user_id ? docCounts.get(row.user_id) ?? 0 : 0,
+      requiredDocumentCount,
+      totalRequiredCount: totalRequired > 0 ? totalRequired : undefined,
       joinedAt: row.joined_at,
       createdAt: row.created_at,
       urgency: rankUrgency(answers, now)
@@ -85,7 +118,16 @@ export type FirmClientDocument = {
   id: string;
   name: string;
   kind: string;
+  documentKind: string;
   uploadedAt: string;
+};
+
+export type FirmRequiredDocumentStatus = {
+  key: string;
+  label: string;
+  isCustom?: boolean;
+  isUploaded: boolean;
+  documents: FirmClientDocument[];
 };
 
 export type FirmClientDetail = {
@@ -96,17 +138,22 @@ export type FirmClientDetail = {
   completedAt: string | null;
   answers: SharedAnswers;
   documents: FirmClientDocument[];
+  requiredDocuments: FirmRequiredDocumentStatus[];
+  additionalDocuments: FirmClientDocument[];
 };
 
 /** One client of this firm, or null. Always filters by both ids. */
 export async function getFirmClient(firmId: string, firmClientId: string): Promise<FirmClientDetail | null> {
   if (!/^[0-9a-f-]{36}$/i.test(firmClientId)) return null;
-  const { data: row } = await admin()
-    .from("firm_clients")
-    .select("*")
-    .eq("firm_id", firmId)
-    .eq("id", firmClientId)
-    .maybeSingle();
+  const [{ data: row }, requiredDocs] = await Promise.all([
+    admin()
+      .from("firm_clients")
+      .select("*")
+      .eq("firm_id", firmId)
+      .eq("id", firmClientId)
+      .maybeSingle(),
+    getFirmRequiredDocuments(firmId)
+  ]);
   if (!row) return null;
   const client = row as FirmClientRow;
 
@@ -122,9 +169,31 @@ export async function getFirmClient(firmId: string, firmClientId: string): Promi
       id: d.id,
       name: d.original_name,
       kind: d.display_label || d.document_kind,
+      documentKind: d.document_kind,
       uploadedAt: d.uploaded_at
     }));
   }
+
+  const requiredDocuments: FirmRequiredDocumentStatus[] = [];
+  const requiredKeys = new Set<string>();
+
+  if (requiredDocs && requiredDocs.length > 0) {
+    for (const req of requiredDocs) {
+      requiredKeys.add(req.key);
+      const matchingDocs = documents.filter((d) => d.documentKind === req.key);
+      requiredDocuments.push({
+        key: req.key,
+        label: req.label,
+        isCustom: req.isCustom,
+        isUploaded: matchingDocs.length > 0,
+        documents: matchingDocs
+      });
+    }
+  }
+
+  const additionalDocuments = requiredDocs && requiredDocs.length > 0
+    ? documents.filter((d) => !requiredKeys.has(d.documentKind))
+    : documents;
 
   return {
     id: client.id,
@@ -133,7 +202,9 @@ export async function getFirmClient(firmId: string, firmClientId: string): Promi
     joinedAt: client.joined_at,
     completedAt: client.completed_at,
     answers,
-    documents
+    documents,
+    requiredDocuments,
+    additionalDocuments
   };
 }
 
