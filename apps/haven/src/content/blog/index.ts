@@ -106,6 +106,7 @@ import { microsoftBradSmithPermSuspensionResponse2026Post } from "@/content/blog
 import { dhsFinalRuleEndsEadAutomaticExtensions2026Post } from "@/content/blog/posts/dhs-final-rule-ead-auto-extension-2026";
 import { h1bSalaryThresholdBill140k2026Post } from "@/content/blog/posts/h1b-salary-threshold-bill-140k-2026";
 import { uscisPremiumProcessingTimeframeProposalOira2026Post } from "@/content/blog/posts/uscis-premium-processing-timeframe-proposal-oira-2026";
+import { november2026VisaBulletinDatesForFilingPost } from "@/content/blog/posts/november-2026-visa-bulletin-dates-for-filing";
 import { guides } from "@/content/guides";
 import type { Guide } from "@/content/guides/types";
 import type { BlogPost } from "@/content/blog/types";
@@ -251,5 +252,6 @@ export const blogPosts = [
   dhsFinalRuleEndsEadAutomaticExtensions2026Post,
   h1bSalaryThresholdBill140k2026Post,
   uscisPremiumProcessingTimeframeProposalOira2026Post,
+  november2026VisaBulletinDatesForFilingPost,
   ...guideBlogPosts
 ];
