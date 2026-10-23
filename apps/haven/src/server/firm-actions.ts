@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 
 import { requireFirmMember } from "@/lib/firms/access";
-import { firmDocumentUrl } from "@/lib/firms/clients";
+import { firmDocumentUrl, getFirmClientDossier, updateFirmClientPipelineStatus } from "@/lib/firms/clients";
 import { resetDemoFirm } from "@/lib/firms/demo";
 import { claimFirmInvite, requestFirmIntake, type IntakeResult } from "@/lib/firms/intake";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -12,7 +12,7 @@ import { intakeUrl, replaceFirmLink, setFirmLinkActive } from "@/lib/firms/links
 import { saveFirmIntakeQuestions, validateIntakeQuestionList } from "@/lib/firms/intake-questions";
 import { saveFirmRequiredDocuments } from "@/lib/firms/required-documents";
 import { validateRequiredDocumentList } from "@/lib/document-vault";
-import type { IntakeQuestionItem, RequiredDocumentItem } from "@/lib/firms/types";
+import { FIRM_PIPELINE_STATUS_LABEL, type FirmPipelineStatus, type IntakeQuestionItem, type RequiredDocumentItem } from "@/lib/firms/types";
 
 /**
  * Firm dashboard actions. The firm always comes from requireFirmMember(),
@@ -94,10 +94,55 @@ export async function claimFirmInviteAction(claimToken: string): Promise<{ joine
   return { joined: result === "joined" };
 }
 
-/** Public: the email box on a firm's intake link. */
-export async function requestFirmIntakeAction(token: string, email: string): Promise<IntakeResult> {
+/** Public: the intake form on a firm's intake link. */
+export async function requestFirmIntakeAction(
+  token: string,
+  email: string,
+  fullName?: string,
+  phone?: string
+): Promise<IntakeResult> {
   const headerList = await headers();
   const forwarded = headerList.get("x-forwarded-for") ?? "";
   const ip = forwarded.split(",")[0]?.trim() || headerList.get("x-real-ip") || "unknown";
-  return requestFirmIntake(String(token ?? ""), String(email ?? ""), ip);
+  return requestFirmIntake(
+    String(token ?? ""),
+    String(email ?? ""),
+    String(fullName ?? ""),
+    String(phone ?? ""),
+    ip
+  );
+}
+
+export async function updateFirmClientPipelineStatusAction(
+  firmClientId: string,
+  pipelineStatus: unknown
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const membership = await requireFirmMember();
+  if (
+    typeof pipelineStatus !== "string" ||
+    !Object.hasOwn(FIRM_PIPELINE_STATUS_LABEL, pipelineStatus)
+  ) {
+    return { ok: false, error: "Invalid pipeline status" };
+  }
+  const updated = await updateFirmClientPipelineStatus(
+    membership.firmId,
+    firmClientId,
+    pipelineStatus as FirmPipelineStatus
+  );
+  if (!updated) return { ok: false, error: "Client not found" };
+  revalidatePath("/firm");
+  revalidatePath("/firm/clients");
+  revalidatePath(`/firm/clients/${firmClientId}`);
+  return { ok: true };
+}
+
+export async function exportFirmClientDossierAction(firmClientId: string): Promise<{
+  ok: boolean;
+  dossier?: any;
+  error?: string;
+}> {
+  const membership = await requireFirmMember();
+  const dossier = await getFirmClientDossier(membership.firmId, firmClientId);
+  if (!dossier) return { ok: false, error: "Client not found" };
+  return { ok: true, dossier };
 }

@@ -9,6 +9,9 @@ import { FIRM_CLIENT_STATUS_LABEL } from "@/lib/firms/status";
 import { rankUrgency, TIER_LABEL } from "@/lib/firms/urgency";
 import { noIndexMetadata } from "@/lib/seo";
 import { FirmHeader } from "../../FirmHeader";
+import { ContactQuickActions } from "../../ContactQuickActions";
+import { ExportCmsButton } from "../../ExportCmsButton";
+import { PipelineStatusSelect } from "../../PipelineStatusSelect";
 import { OpenDocumentButton } from "./OpenDocumentButton";
 
 export const metadata = { ...noIndexMetadata, title: "Client · Haven" };
@@ -137,7 +140,7 @@ export default async function FirmClientPage({ params }: { params: Promise<{ id:
   }
 
   await markFirmClientReviewed(membership.firmId, client.id);
-  const fullName = typeof client.answers.fullName === "string" ? client.answers.fullName.trim() : "";
+  const fullName = client.fullName || (typeof client.answers.fullName === "string" ? client.answers.fullName.trim() : "");
   const name = fullName || client.email;
   const urgency = rankUrgency(client.answers);
   const enabledKeys = new Set(intakeQuestions.map((q) => q.key));
@@ -182,20 +185,35 @@ export default async function FirmClientPage({ params }: { params: Promise<{ id:
           All clients
         </Link>
 
-        <div>
-          <p className="text-label">
-            {TIER_LABEL[urgency.tier]} priority
-          </p>
-          <h1 className="text-h1 mt-2">{name}</h1>
-          {fullName && fullName !== client.email ? (
-            <p className="text-body-sm text-[var(--haven-ink-mid)]">{client.email}</p>
-          ) : null}
-          <p className="text-body mt-2 text-[var(--haven-ink)]">{urgency.reason}</p>
-          <p className="text-body-sm mt-2 text-[var(--haven-ink-mid)]">
-            {FIRM_CLIENT_STATUS_LABEL[client.status]}
-            {client.joinedAt ? ` · joined ${formatDate(client.joinedAt)}` : ""}
-          </p>
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-label">
+                {TIER_LABEL[urgency.tier]} priority
+              </span>
+              <PipelineStatusSelect
+                firmClientId={client.id}
+                initialStatus={client.pipelineStatus}
+              />
+            </div>
+            <h1 className="text-h1 mt-2">{name}</h1>
+            <p className="text-body mt-2 text-[var(--haven-ink)]">{urgency.reason}</p>
+            <p className="text-body-sm mt-2 text-[var(--haven-ink-mid)]">
+              Intake: {FIRM_CLIENT_STATUS_LABEL[client.status]}
+              {client.joinedAt ? ` · joined ${formatDate(client.joinedAt)}` : ""}
+            </p>
+          </div>
+          <div className="pt-2">
+            <ExportCmsButton clientName={name} firmClientId={client.id} />
+          </div>
         </div>
+
+        {/* High-visibility contact information & quick actions */}
+        <ContactQuickActions
+          email={client.email}
+          phone={client.phone}
+          subject={`Immigration Intake Follow-Up for ${name}`}
+        />
 
         <div className="grid gap-4 lg:grid-cols-2">
           {groups.map((group) => (

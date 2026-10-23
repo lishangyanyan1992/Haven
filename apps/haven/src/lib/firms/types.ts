@@ -37,10 +37,32 @@ export type FirmIntakeLinkRow = {
   created_at: string;
 };
 
+export type FirmPipelineStatus =
+  | "new_lead"
+  | "contacted"
+  | "consultation_scheduled"
+  | "consultation_completed"
+  | "contract_sent"
+  | "contract_signed"
+  | "archived";
+
+export const FIRM_PIPELINE_STATUS_LABEL: Record<FirmPipelineStatus, string> = {
+  new_lead: "New lead",
+  contacted: "Contacted",
+  consultation_scheduled: "Consultation scheduled",
+  consultation_completed: "Consultation completed",
+  contract_sent: "Contract sent",
+  contract_signed: "Contract signed",
+  archived: "Archived"
+};
+
 export type FirmClientRow = {
   id: string;
   firm_id: string;
   normalized_email: string;
+  phone?: string | null;
+  full_name?: string | null;
+  pipeline_status?: FirmPipelineStatus;
   user_id: string | null;
   link_id: string | null;
   email_sent_at: string;
