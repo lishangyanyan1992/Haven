@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, FileText, MessageCircle, Send, ShieldAlert } from "lucide-react";
+import { ArrowRight, CheckCircle2, ClipboardList, FileCheck, FileText, Sparkles, UserCheck } from "lucide-react";
 
 import { BlogCard } from "@/components/app/blog-card";
 import { HavenBrand } from "@/components/app/haven-brand";
@@ -11,93 +11,125 @@ import { absoluteUrl } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 
 const HOME_DESCRIPTION =
-  "Haven is an invitation-only client assistant for immigration law firms. Invite your clients to upload their documents and get plain-language answers between appointments.";
+  "Haven is a client intake, urgency triage, and AI-assisted preparation platform for immigration law firms. Collect structured intakes, organize required documents, and triage leads by urgency.";
 
 const steps = [
   {
-    icon: Send,
-    title: "Invite your clients",
-    description: "Send each client an invite from your firm. Haven is closed to everyone else."
+    icon: UserCheck,
+    title: "Invite clients or share your link",
+    description: "Send clients an invite directly or embed your intake link on your website. Collect prospective leads and current clients in one unified queue."
   },
   {
-    icon: FileText,
-    title: "They upload their documents",
-    description: "Approval notices, I-20s, work permits. Haven reads them, so answers start from the client's own dates."
+    icon: ClipboardList,
+    title: "They answer questions & upload files",
+    description: "Clients complete your firm's customized intake questions (status, employer, priority dates) and upload required notices directly into a secure vault."
   },
   {
-    icon: MessageCircle,
-    title: "They ask, Haven answers",
-    description: "Plain-language answers built from what people in the same situation did. Anything that needs a lawyer goes back to you."
+    icon: Sparkles,
+    title: "Triage urgency & prep your response",
+    description: "Receive a prioritized lead queue ranked by urgency (expiring visas, layoffs, RFE deadlines). Haven AI helps you analyze the case and prep your client response."
   }
 ];
 
 export const metadata: Metadata = {
-  title: "Haven — A client assistant for immigration law firms",
+  title: "Haven — Client Intake & Urgency Triage for Immigration Law Firms",
   description: HOME_DESCRIPTION,
   alternates: {
     canonical: "/"
   },
   openGraph: {
     url: absoluteUrl("/"),
-    title: "Haven — A client assistant for immigration law firms",
+    title: "Haven — Client Intake & Urgency Triage for Immigration Law Firms",
     description: HOME_DESCRIPTION
   },
   twitter: {
-    title: "Haven — A client assistant for immigration law firms",
+    title: "Haven — Client Intake & Urgency Triage for Immigration Law Firms",
     description: HOME_DESCRIPTION
   }
 };
 
 /**
- * Shows the differentiator rather than asserting it: many real accounts on one
- * visa path, narrowing into a single answer weighed against your own case.
- * Deliberately no invented case counts — the claim stays qualitative.
+ * Visual preview of the firm triage and lead prioritization queue,
+ * highlighting urgency ranking, checklist progress, and AI-assisted response prep.
  */
-function CrowdWisdomGraphic() {
-  const accounts = [
-    { label: "Most common", text: "Filed for H-4 to hold status while job hunting" },
-    { label: "Also worked", text: "Found a cap-exempt employer and transferred" },
-    { label: "Cost them time", text: "Waited on the transfer before starting the new job" }
+function FirmTriageGraphic() {
+  const leads = [
+    {
+      name: "Alex Chen",
+      visa: "H-1B",
+      reason: "Layoff grace period ends in 18 days",
+      urgency: "Urgent",
+      urgencyClass: "bg-[var(--haven-blush-light)] text-[var(--haven-blush-ink)]",
+      docs: "3/3 uploaded"
+    },
+    {
+      name: "Priya Sharma",
+      visa: "F-1 OPT",
+      reason: "OPT expiring · evaluating STEM extension & O-1",
+      urgency: "Soon",
+      urgencyClass: "bg-[var(--haven-sand)] text-[var(--haven-ink)]",
+      docs: "2/3 uploaded"
+    },
+    {
+      name: "Lucas Silva",
+      visa: "EB-2 PERM",
+      reason: "I-140 approved · priority date tracking",
+      urgency: "Later",
+      urgencyClass: "bg-[var(--haven-sky-light)] text-[var(--haven-ink)]",
+      docs: "1/2 uploaded"
+    }
   ];
 
   return (
-    <div className="rounded-[1.5rem] border border-[rgba(74,92,84,0.16)] bg-[rgba(255,255,255,0.72)] p-5 shadow-[0_12px_30px_-18px_rgba(44,54,48,0.28)] sm:p-6">
-      <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-[var(--haven-ink-mid)]">
-        Real accounts, same visa path
-      </p>
+    <div className="rounded-[1.5rem] border border-[rgba(74,92,84,0.16)] bg-[rgba(255,255,255,0.85)] p-5 shadow-[0_12px_30px_-18px_rgba(44,54,48,0.28)] sm:p-6">
+      <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-3">
+        <div>
+          <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-[var(--haven-ink-mid)]">
+            Incoming Client & Lead Triage
+          </p>
+          <p className="text-[13px] text-[var(--haven-ink)] font-medium mt-0.5">Prioritized by timeline & case urgency</p>
+        </div>
+        <span className="rounded-full bg-[var(--haven-ink)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--haven-cream)]">
+          Live Queue
+        </span>
+      </div>
 
-      <div className="mt-4 space-y-2.5">
-        {accounts.map((account) => (
+      <div className="mt-3.5 space-y-2.5">
+        {leads.map((lead) => (
           <div
-            className="rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] px-4 py-3"
-            key={account.text}
+            className="rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-3 sm:p-3.5"
+            key={lead.name}
           >
-            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--haven-ink-mid)]">
-              {account.label}
-            </p>
-            <p className="mt-1 text-[14px] leading-snug text-[var(--haven-ink)]">{account.text}</p>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-[14px] font-semibold text-[var(--haven-ink)]">{lead.name}</span>
+                <span className="rounded bg-[var(--haven-cream)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--haven-ink-mid)]">
+                  {lead.visa}
+                </span>
+              </div>
+              <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${lead.urgencyClass}`}>
+                {lead.urgency}
+              </span>
+            </div>
+            <p className="mt-1 text-[13px] leading-snug text-[var(--haven-ink-mid)]">{lead.reason}</p>
+            <div className="mt-2 flex items-center justify-between border-t border-[var(--color-border)] pt-2 text-[11px] text-[var(--haven-ink-mid)]">
+              <span className="inline-flex items-center gap-1 font-medium text-[var(--haven-ink)]">
+                <FileCheck className="h-3.5 w-3.5 text-[var(--haven-sage)]" />
+                {lead.docs}
+              </span>
+              <span>Intake complete</span>
+            </div>
           </div>
         ))}
       </div>
 
-      <div aria-hidden="true" className="flex justify-center py-3">
-        <svg fill="none" height="30" viewBox="0 0 120 30" width="120">
-          <g stroke="var(--haven-ink-mid)" strokeLinecap="round" strokeOpacity="0.45" strokeWidth="1.5">
-            <path d="M14 0 V8 Q14 17 60 17" />
-            <path d="M60 0 V17" />
-            <path d="M106 0 V8 Q106 17 60 17" />
-            <path d="M60 17 V25" />
-            <path d="M55 21 L60 26 L65 21" strokeLinejoin="round" />
-          </g>
-        </svg>
-      </div>
-
-      <div className="rounded-[var(--radius-xl)] bg-[var(--haven-ink)] px-4 py-3.5">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[rgba(247,244,239,0.72)]">
-          Your answer
-        </p>
-        <p className="mt-1 text-[14px] leading-snug text-[var(--haven-cream)]">
-          Weighed against your visa, your dates, and your employer.
+      <div className="mt-4 rounded-[var(--radius-xl)] bg-[var(--haven-ink)] p-4 text-[var(--haven-cream)]">
+        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[rgba(247,244,239,0.78)]">
+          <Sparkles className="h-3.5 w-3.5 text-[var(--haven-sand)]" />
+          Haven AI Response Prep
+        </div>
+        <p className="mt-1.5 text-[13px] leading-relaxed text-[var(--haven-cream)]">
+          Surfaces critical dates, gaps in status, and recommended response outlines based on the client&apos;s questionnaire and uploaded documents.
         </p>
       </div>
     </div>
@@ -119,35 +151,23 @@ export default function HomePage() {
           <div className="content-container-visual flex flex-col items-center pt-10 pb-14 text-center md:pt-12 md:pb-16 lg:pt-14 lg:pb-20">
             <p className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--haven-white)] px-3.5 py-1.5 text-[13px] font-medium text-[var(--haven-ink-mid)]">
               <span className="h-1.5 w-1.5 rounded-full bg-[var(--haven-ink)]" />
-              Invitation only · for immigration law firms
+              For immigration law firms
             </p>
-            <h1 className="text-display mt-5 max-w-[22ch]">
-              Your clients&apos; questions, answered between appointments.
+            <h1 className="text-display mt-5 max-w-[24ch]">
+              Structured client intake, urgency triage, and faster responses.
             </h1>
-            <p className="text-body mt-5 max-w-[58ch]">
-              Invite your clients to Haven. They upload their documents and ask in plain words. Haven answers with what
-              people in the same situation actually did, so your team spends less time on intake and repeat questions.
+            <p className="text-body mt-5 max-w-[62ch]">
+              Share your intake link on your website or invite clients directly. They answer questions about their case situation and upload required documents. Haven prioritizes every lead by urgency and helps you prepare your response in minutes.
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link className={buttonVariants({ size: "lg" })} href="/register">
-                Request an invite for your firm
+              <Link className={buttonVariants({ size: "lg" })} href="/register?role=lawyer">
+                Request a pilot for your firm
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link className={buttonVariants({ variant: "outline", size: "lg" })} href="/register">
                 My lawyer invited me
               </Link>
-            </div>
-
-            <div className="mt-10 w-full max-w-[46rem] rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] px-5 py-4 text-left sm:px-6 sm:py-5">
-              <p className="flex items-start gap-2.5 text-[16px] font-semibold leading-snug text-[var(--haven-ink)]">
-                <ShieldAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" />
-                Haven doesn&apos;t replace you.
-              </p>
-              <p className="text-body-sm mt-2 text-[var(--haven-ink-mid)]">
-                Haven does not give legal advice. It shares what other people in the same situation went through, and
-                tells clients to bring any decision they can&apos;t undo to their attorney: you.
-              </p>
             </div>
           </div>
         </section>
@@ -156,7 +176,7 @@ export default function HomePage() {
           <div className={pageSectionInnerClass}>
             <div className="max-w-[76ch]">
               <p className="text-label">How it works</p>
-              <h2 className="text-h1 mt-4 text-balance">Three steps, and your clients stop waiting on email.</h2>
+              <h2 className="text-h1 mt-4 text-balance">From first inquiry to prepared response in three simple steps.</h2>
             </div>
             <div className="mt-10 grid gap-4 md:grid-cols-3 md:gap-5">
               {steps.map((step, index) => (
@@ -180,19 +200,30 @@ export default function HomePage() {
           <div className={pageSectionInnerClass}>
             <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
               <div className="max-w-[62ch]">
-                <p className="text-label">Why the answers are different</p>
-                <h2 className="text-h1 mt-4 text-balance">Answers grounded in real outcomes, not a forum thread.</h2>
+                <p className="text-label">Smart Intake & Urgency Triage</p>
+                <h2 className="text-h1 mt-4 text-balance">Know who needs you first—before the consultation even begins.</h2>
                 <p className="text-body mt-4">
-                  Your clients are already searching Reddit at midnight. Haven gives them something better: thousands of
-                  moderated, real accounts from people on the same visa path, weighed against the client&apos;s own
-                  documents.
+                  Prospective clients and current petitioners arrive with complex, time-sensitive situations: impending grace period expirations, upcoming travel, or urgent USCIS RFE notices.
                 </p>
                 <p className="text-body mt-4">
-                  It covers the moments that send clients into a panic (the lottery, the layoff, the deadline) and the
-                  slow questions that eat your team&apos;s time: where a case stands, what a filing means, what comes next.
+                  Haven automatically parses the client&apos;s questionnaire and documents to rank leads by urgency tier. When you review a case, Haven AI gives you a structured situation brief and helps you think through your response so your team can follow up swiftly and accurately.
                 </p>
+                <div className="mt-6 flex flex-col gap-2.5 text-body-sm font-medium text-[var(--haven-ink)]">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-[var(--haven-sage)] shrink-0" />
+                    <span>Configurable intake questions & document checklists tailored to your firm</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-[var(--haven-sage)] shrink-0" />
+                    <span>Automated urgency classification based on real immigration deadlines</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-[var(--haven-sage)] shrink-0" />
+                    <span>AI-assisted case analysis and response drafting for attorneys</span>
+                  </div>
+                </div>
               </div>
-              <CrowdWisdomGraphic />
+              <FirmTriageGraphic />
             </div>
           </div>
         </section>
@@ -204,7 +235,7 @@ export default function HomePage() {
             <div className="mt-10 grid gap-4 md:grid-cols-2 md:gap-5">
               <article className="rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-cream)] p-6 xl:p-8">
                 <h3 className="text-h2">Invited by your lawyer?</h3>
-                <p className="text-body mt-2">Use the email they invited to create your account, then upload your documents and ask away.</p>
+                <p className="text-body mt-2">Use the email your law firm invited to access your account, complete your intake questionnaire, and securely upload your case documents.</p>
                 <Link className={cn(buttonVariants(), "mt-5")} href="/register">
                   Accept my invite
                 </Link>
@@ -265,19 +296,19 @@ export default function HomePage() {
 
         <section className={cn(pageSectionClass, "content-container-visual bg-[var(--haven-cream)] pt-16 pb-20 md:pt-20 md:pb-20 lg:pt-24 lg:pb-24")}>
           <div className="rounded-[var(--radius-2xl)] bg-[var(--haven-ink)] px-6 py-10 text-[var(--haven-cream)] md:px-10 md:py-12">
-            <h2 className="text-h1 max-w-[20ch] text-[var(--haven-cream)]">
-              Give your clients somewhere to go between appointments.
+            <h2 className="text-h1 max-w-[22ch] text-[var(--haven-cream)]">
+              Streamline your firm&apos;s intake and respond to urgent leads faster.
             </h2>
-            <p className="mt-4 max-w-[52ch] text-[15px] leading-relaxed text-[rgba(253,250,246,0.72)]">
-              Haven is opening to a small group of immigration firms. Request an invite and we&apos;ll set yours up.
+            <p className="mt-4 max-w-[54ch] text-[15px] leading-relaxed text-[rgba(253,250,246,0.72)]">
+              Haven is opening pilots to a select group of immigration law firms. Request a pilot for your practice and see your intake triage in action.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link className={buttonVariants({ variant: "cream", size: "lg" })} href="/register">
-                Request an invite
+              <Link className={buttonVariants({ variant: "cream", size: "lg" })} href="/register?role=lawyer">
+                Request a pilot for your firm
                 <ArrowRight className="h-4 w-4" />
               </Link>
-              <Link className={buttonVariants({ variant: "ghost-light", size: "lg" })} href="/login">
-                Sign in
+              <Link className={buttonVariants({ variant: "ghost-light", size: "lg" })} href="/login?role=lawyer">
+                Lawyer sign in
               </Link>
             </div>
           </div>

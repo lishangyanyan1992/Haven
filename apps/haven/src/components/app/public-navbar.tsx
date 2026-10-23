@@ -11,7 +11,7 @@ const HAVEN_HOME_URL = "https://haven-h1b.com/";
 
 
 const navItems = [
-  { href: "/", label: "Ask" },
+  { href: "/", label: "Product" },
   { href: "/blog", label: "Blog" }
 ];
 
