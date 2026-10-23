@@ -606,14 +606,17 @@ export async function saveCaseJourneyDatesAction(formData: FormData): Promise<{ 
     i140Approved
   };
 
-  await persistProfileDraft(user.id, setupDraft);
+  const profile = await persistProfileDraft(user.id, setupDraft);
   const sharedForm = formLimitedTo(formData, DEADLINE_KEYS, "except");
-  await recordFirmSharedAnswers(user.id, setupDraft, {
+  const firmSaved = await recordFirmSharedAnswers(user.id, setupDraft, {
     has: (key: string) =>
       sharedForm.has(key) &&
       (!["visaType", "countryOfBirth", "preferenceCategory"].includes(key) ||
         String(formData.get(key) ?? "").trim().length > 0)
   });
+  if (!profile || !firmSaved) {
+    throw new Error("Could not save case journey data");
+  }
   await saveDeadlineAnswers(user.id, formData);
 
   cookieStore.delete(ONBOARDING_OVERRIDE_COOKIE);

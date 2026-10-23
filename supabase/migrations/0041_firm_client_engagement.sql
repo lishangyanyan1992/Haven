@@ -10,7 +10,7 @@ alter table public.firm_clients
 
 alter table public.firm_clients
   add constraint firm_clients_engagement_state_is_object
-  check (jsonb_typeof(engagement_state) = 'object');
+  check (jsonb_typeof(engagement_state) = 'object') not valid;
 
 alter table public.user_profiles
   add column if not exists i140_filed boolean not null default false;

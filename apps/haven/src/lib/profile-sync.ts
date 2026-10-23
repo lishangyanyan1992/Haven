@@ -194,7 +194,8 @@ export async function persistProfileDraft(userId: string, rawDraft: ProfileDraft
   const { data: existingRow } = await admin.from("user_profiles").select("*").eq("id", userId).maybeSingle();
   const patch = normalizeDraft(rawDraft, (existingRow as Record<string, unknown> | null) ?? null);
 
-  await admin.from("user_profiles").update(patch).eq("id", userId);
+  const { error: updateError } = await admin.from("user_profiles").update(patch).eq("id", userId);
+  if (updateError) return null;
 
   const { data: row } = await admin.from("user_profiles").select("*").eq("id", userId).single();
   if (!row) return null;
