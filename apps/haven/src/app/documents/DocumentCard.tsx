@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Download, Edit3, ExternalLink, FileText, Loader2, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -19,11 +19,46 @@ const STATUS: Record<NonNullable<UserDocument["readingStatus"]>, string> = {
   not_requested: "Not read yet"
 };
 
-export function DocumentCard({ document }: { document: UserDocument }) {
+export type DocumentCategoryOption = {
+  key: string;
+  label: string;
+};
+
+export function DocumentCard({
+  document,
+  availableCategories
+}: {
+  document: UserDocument;
+  availableCategories?: DocumentCategoryOption[];
+}) {
   const [isEditing, setIsEditing] = useState(false);
   const [editLabel, setEditLabel] = useState(document.displayLabel || document.originalName);
   const [editKind, setEditKind] = useState<string>(document.documentKind || "other");
   const status = document.readingStatus ?? "not_requested";
+
+  const categories = useMemo(() => {
+    const list: DocumentCategoryOption[] = PRESET_REQUIRED_DOCUMENTS.map((p) => ({ key: p.key, label: p.label }));
+    const seen = new Set(list.map((c) => c.key));
+
+    if (availableCategories) {
+      for (const cat of availableCategories) {
+        if (!seen.has(cat.key)) {
+          list.push(cat);
+          seen.add(cat.key);
+        }
+      }
+    }
+
+    if (document.documentKind && !seen.has(document.documentKind)) {
+      list.push({
+        key: document.documentKind,
+        label: document.displayLabel || document.documentKind
+      });
+      seen.add(document.documentKind);
+    }
+
+    return list;
+  }, [availableCategories, document.documentKind, document.displayLabel]);
 
   return (
     <div className="flex flex-col gap-3 rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -59,12 +94,12 @@ export function DocumentCard({ document }: { document: UserDocument }) {
               value={editKind}
               onChange={(e) => {
                 setEditKind(e.target.value);
-                const match = PRESET_REQUIRED_DOCUMENTS.find((p) => p.key === e.target.value);
+                const match = categories.find((c) => c.key === e.target.value);
                 if (match) setEditLabel(match.label);
               }}
               className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--haven-white)] px-2.5 py-1 text-body-sm text-[var(--haven-ink)]"
             >
-              {PRESET_REQUIRED_DOCUMENTS.map((p) => (
+              {categories.map((p) => (
                 <option key={p.key} value={p.key}>
                   {p.label}
                 </option>

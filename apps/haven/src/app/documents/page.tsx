@@ -15,7 +15,7 @@ import { getCrisisState } from "@/lib/get-crisis-state";
 import { getInboxPageData } from "@/lib/repositories/case-compass";
 import { noIndexMetadata } from "@/lib/seo";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { DocumentCard } from "./DocumentCard";
+import { DocumentCard, type DocumentCategoryOption } from "./DocumentCard";
 import type { UserDocument } from "@/types/domain";
 
 export const metadata = noIndexMetadata;
@@ -38,6 +38,11 @@ export default async function DocumentsPage() {
   // Partition documents if firm has required documents
   const hasFirmRequirements = Boolean(requiredDocs && requiredDocs.length > 0);
   const requiredKeys = new Set(requiredDocs?.map((r) => r.key) ?? []);
+
+  const availableCategories: DocumentCategoryOption[] = [
+    ...PRESET_REQUIRED_DOCUMENTS.map((p) => ({ key: p.key, label: p.label })),
+    ...(requiredDocs?.filter((r) => r.isCustom).map((r) => ({ key: r.key, label: r.label })) ?? [])
+  ];
 
   const firmChecklist = (requiredDocs ?? []).map((req) => {
     const matchingDocs = documents.filter((d) => d.documentKind === req.key);
@@ -80,7 +85,7 @@ export default async function DocumentsPage() {
             <div>
               <p className="text-body-sm font-semibold text-[var(--haven-ink)]">Upload a document</p>
               <div className="mt-2">
-                <DocumentContextUploader allowCategorySelect />
+                <DocumentContextUploader allowCategorySelect availableCategories={availableCategories} />
               </div>
             </div>
           </CardContent>
@@ -131,7 +136,11 @@ export default async function DocumentsPage() {
                     {item.isUploaded ? (
                       <div className="mt-3 space-y-2">
                         {item.documents.map((doc) => (
-                          <DocumentCard document={doc} key={doc.id} />
+                          <DocumentCard
+                            availableCategories={availableCategories}
+                            document={doc}
+                            key={doc.id}
+                          />
                         ))}
                       </div>
                     ) : (
@@ -156,7 +165,11 @@ export default async function DocumentsPage() {
               ) : (
                 <div className="space-y-3">
                   {additionalDocuments.map((doc) => (
-                    <DocumentCard document={doc} key={doc.id} />
+                    <DocumentCard
+                      availableCategories={availableCategories}
+                      document={doc}
+                      key={doc.id}
+                    />
                   ))}
                 </div>
               )}
@@ -174,7 +187,11 @@ export default async function DocumentsPage() {
             ) : (
               <div className="space-y-3">
                 {documents.map((doc) => (
-                  <DocumentCard document={doc} key={doc.id} />
+                  <DocumentCard
+                    availableCategories={availableCategories}
+                    document={doc}
+                    key={doc.id}
+                  />
                 ))}
               </div>
             )}

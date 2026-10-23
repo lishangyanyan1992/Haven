@@ -57,6 +57,11 @@ async function main() {
   ]);
   check("validation: deduplicates keys safely", dupRes.ok && dupRes.items[0].key !== dupRes.items[1].key, JSON.stringify(dupRes));
 
+  const preserveKeyRes = validateRequiredDocumentList([
+    { key: "custom_existing_key_2", label: "Existing Key Label", isCustom: true }
+  ]);
+  check("validation: preserves existing custom key", preserveKeyRes.ok && preserveKeyRes.items[0].key === "custom_existing_key_2", JSON.stringify(preserveKeyRes));
+
   // 4. Filename auto-detection
   const i94Meta = inferDocumentMetadata("most-recent-i-94-arrival.pdf");
   check("infer: i-94 detection", i94Meta.documentKind === "i94_record", JSON.stringify(i94Meta));

@@ -134,8 +134,8 @@ export function validateRequiredDocumentList(items: unknown): { ok: true; items:
 
     const isCustom = Boolean((raw as any).isCustom);
     let key = typeof (raw as any).key === "string" ? (raw as any).key.trim() : "";
-    if (!key || isCustom) {
-      key = isCustom ? slugifyCustomKey(label) : key || slugifyCustomKey(label);
+    if (!key) {
+      key = slugifyCustomKey(label);
     }
 
     // Ensure uniqueness

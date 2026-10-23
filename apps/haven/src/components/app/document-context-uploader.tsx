@@ -1,7 +1,7 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { startTransition, useRef, useState } from "react";
+import { startTransition, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Upload } from "lucide-react";
 
@@ -14,12 +14,14 @@ export function DocumentContextUploader({
   displayLabel,
   buttonLabel = "Upload",
   allowCategorySelect = false,
+  availableCategories,
   compact = false
 }: {
   documentKind?: string;
   displayLabel?: string;
   buttonLabel?: string;
   allowCategorySelect?: boolean;
+  availableCategories?: Array<{ key: string; label: string }>;
   compact?: boolean;
 }) {
   const router = useRouter();
@@ -27,6 +29,20 @@ export function DocumentContextUploader({
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedKind, setSelectedKind] = useState<string>(documentKind ?? "");
+
+  const categories = useMemo(() => {
+    const list = [...PRESET_REQUIRED_DOCUMENTS.map((p) => ({ key: p.key, label: p.label }))];
+    const seen = new Set(list.map((c) => c.key));
+    if (availableCategories) {
+      for (const cat of availableCategories) {
+        if (!seen.has(cat.key)) {
+          list.push(cat);
+          seen.add(cat.key);
+        }
+      }
+    }
+    return list;
+  }, [availableCategories]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -36,8 +52,8 @@ export function DocumentContextUploader({
     const effectiveKind = documentKind || selectedKind;
     if (effectiveKind) {
       formData.set("documentKind", effectiveKind);
-      const preset = PRESET_REQUIRED_DOCUMENTS.find((p) => p.key === effectiveKind);
-      formData.set("displayLabel", displayLabel || preset?.label || effectiveKind);
+      const match = categories.find((p) => p.key === effectiveKind);
+      formData.set("displayLabel", displayLabel || match?.label || effectiveKind);
     }
 
     setIsUploading(true);
@@ -68,7 +84,7 @@ export function DocumentContextUploader({
             onChange={(e) => setSelectedKind(e.target.value)}
           >
             <option value="">Auto-detect category</option>
-            {PRESET_REQUIRED_DOCUMENTS.map((p) => (
+            {categories.map((p) => (
               <option key={p.key} value={p.key}>
                 {p.label}
               </option>
