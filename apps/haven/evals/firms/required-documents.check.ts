@@ -77,6 +77,15 @@ async function main() {
     preserveQuestionKey.ok && preserveQuestionKey.items[0].key === "custom_q_prior_denial_2",
     JSON.stringify(preserveQuestionKey)
   );
+  const duplicatePresetQuestion = validateIntakeQuestionList([
+    { key: "visaType", label: "Current visa status" },
+    { key: "visaType", label: "Current visa status" }
+  ]);
+  check(
+    "questions: rejects duplicate preset keys",
+    !duplicatePresetQuestion.ok,
+    JSON.stringify(duplicatePresetQuestion)
+  );
 
   // 3. Isolated function inspection: ensure saveFirmRequiredDocuments updates ONLY scoped to firmId
   const sourcePath = resolve(process.cwd(), "src/lib/firms/required-documents.ts");

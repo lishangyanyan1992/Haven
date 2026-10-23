@@ -167,13 +167,17 @@ export function validateIntakeQuestionList(
       if (!isCustomQuestionKey(key)) {
         key = slugifyCustomQuestionKey(label);
       }
+    } else if (seenKeys.has(key)) {
+      return { ok: false, error: `Duplicate preset question: ${key}` };
     }
 
     let finalKey = key;
-    let counter = 2;
-    while (seenKeys.has(finalKey)) {
-      finalKey = `${key}_${counter}`;
-      counter += 1;
+    if (isCustom) {
+      let counter = 2;
+      while (seenKeys.has(finalKey)) {
+        finalKey = `${key}_${counter}`;
+        counter += 1;
+      }
     }
     seenKeys.add(finalKey);
 
