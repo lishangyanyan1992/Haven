@@ -8,7 +8,7 @@ updates:
       time: "05:00"
       timezone: "America/Chicago"
     # Disable routine version-update PRs so Dependabot only opens security PRs
-    # and never triggers failed Vercel preview emails for breaking major bumps.
+    # (note: security updates can still include breaking major bumps).
     open-pull-requests-limit: 0
     ignore:
       # Next.js 16's build-time type checking still requires TypeScript's
