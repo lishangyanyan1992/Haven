@@ -59,3 +59,35 @@ export async function deleteVaultDocument(formData: FormData) {
   revalidatePath("/planner");
   revalidatePath("/documents");
 }
+
+export async function updateVaultDocumentAction(formData: FormData) {
+  const user = await requireUser();
+  const documentId = String(formData.get("documentId") ?? "").trim();
+  const displayLabel = String(formData.get("displayLabel") ?? "").trim();
+  const documentKind = String(formData.get("documentKind") ?? "").trim();
+
+  if (!documentId) {
+    throw new Error("Missing document ID.");
+  }
+  if (!displayLabel) {
+    throw new Error("Document label cannot be empty.");
+  }
+
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin
+    .from("user_documents")
+    .update({
+      display_label: displayLabel,
+      ...(documentKind ? { document_kind: documentKind } : {})
+    })
+    .eq("id", documentId)
+    .eq("user_id", user.id);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/documents");
+  revalidatePath("/inbox");
+  revalidatePath("/firm");
+}

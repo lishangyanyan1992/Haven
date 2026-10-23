@@ -51,12 +51,15 @@ export type VaultDocumentKind =
   | "h1b_petition"
   | "perm_certification"
   | "passport_biographic_page"
+  | "i94_record"
+  | "i20_form"
   | "uscis_notice"
   | "paystub"
   | "visa_stamp"
   | "ead_card"
   | "attorney_letter"
-  | "other";
+  | "other"
+  | (string & {});
 export type VaultDocumentSource = "manual_upload" | "email_ingest";
 
 export interface ImmigrationProfile {

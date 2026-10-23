@@ -1451,18 +1451,21 @@ export type Database = {
           id: string
           is_demo: boolean
           name: string
+          required_documents: Json | null
         }
         Insert: {
           created_at?: string
           id?: string
           is_demo?: boolean
           name: string
+          required_documents?: Json | null
         }
         Update: {
           created_at?: string
           id?: string
           is_demo?: boolean
           name?: string
+          required_documents?: Json | null
         }
         Relationships: []
       }

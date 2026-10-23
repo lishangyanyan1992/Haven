@@ -9,11 +9,28 @@ import { resetDemoFirm } from "@/lib/firms/demo";
 import { claimFirmInvite, requestFirmIntake, type IntakeResult } from "@/lib/firms/intake";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { intakeUrl, replaceFirmLink, setFirmLinkActive } from "@/lib/firms/links";
+import { saveFirmRequiredDocuments } from "@/lib/firms/required-documents";
+import { validateRequiredDocumentList } from "@/lib/document-vault";
+import type { RequiredDocumentItem } from "@/lib/firms/types";
 
 /**
  * Firm dashboard actions. The firm always comes from requireFirmMember(),
  * never from the caller. evals/firms/isolation.check.ts enforces this.
  */
+
+export async function saveFirmRequiredDocumentsAction(
+  items: unknown
+): Promise<{ ok: true; items: RequiredDocumentItem[] } | { ok: false; error: string }> {
+  const membership = await requireFirmMember();
+  const validation = validateRequiredDocumentList(items);
+  if (!validation.ok) {
+    return { ok: false, error: validation.error };
+  }
+  const saved = await saveFirmRequiredDocuments(membership.firmId, items);
+  revalidatePath("/firm");
+  revalidatePath("/documents");
+  return { ok: true, items: saved };
+}
 
 export async function setFirmLinkActiveAction(isActive: boolean) {
   const membership = await requireFirmMember();

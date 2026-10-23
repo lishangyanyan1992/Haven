@@ -1,34 +1,175 @@
+import type { RequiredDocumentItem } from "@/lib/firms/types";
 import type { UserDocument, VaultDocumentKind } from "@/types/domain";
 
 export const HAVEN_VAULT_BUCKET = "haven-vault";
 export const MAX_DOCUMENT_BYTES = 15 * 1024 * 1024;
 
+export type PresetRequiredDocument = {
+  key: string;
+  label: string;
+  detail: string;
+  crisisCritical?: boolean;
+};
+
+export const PRESET_REQUIRED_DOCUMENTS: PresetRequiredDocument[] = [
+  {
+    key: "passport_biographic_page",
+    label: "Passport biographic page",
+    detail: "Needed immediately for filings, status changes, and emergency legal intake.",
+    crisisCritical: true
+  },
+  {
+    key: "i94_record",
+    label: "Most recent I-94",
+    detail: "Proof of legal status and lawful admission into the United States.",
+    crisisCritical: true
+  },
+  {
+    key: "uscis_notice",
+    label: "I-797 approval / receipt notice",
+    detail: "Official notice of action from USCIS for pending or approved petitions.",
+    crisisCritical: false
+  },
+  {
+    key: "h1b_petition",
+    label: "H-1B petition packet",
+    detail: "Petition, LCA, and approval notice together for transfer or extension counsel.",
+    crisisCritical: true
+  },
+  {
+    key: "i140_notice",
+    label: "I-140 approval notice",
+    detail: "First document needed for AC-21 portability, H-4 EAD eligibility, or priority date retention.",
+    crisisCritical: true
+  },
+  {
+    key: "perm_certification",
+    label: "PERM certification",
+    detail: "Labor certification record from the Department of Labor.",
+    crisisCritical: true
+  },
+  {
+    key: "ead_card",
+    label: "EAD card",
+    detail: "Employment Authorization Document front and back.",
+    crisisCritical: false
+  },
+  {
+    key: "paystub",
+    label: "Recent paystubs or W-2",
+    detail: "Recent proof of active employment and wage compliance.",
+    crisisCritical: false
+  },
+  {
+    key: "visa_stamp",
+    label: "Visa foil / stamp",
+    detail: "Entry visa stamp foil inside your passport.",
+    crisisCritical: false
+  },
+  {
+    key: "i20_form",
+    label: "Form I-20 or DS-2019",
+    detail: "Certificate of eligibility for nonimmigrant student or exchange visitor status.",
+    crisisCritical: false
+  },
+  {
+    key: "other",
+    label: "Other supporting document",
+    detail: "Any other supporting notice, letter, or immigration filing.",
+    crisisCritical: false
+  }
+];
+
+export const DEFAULT_PRESET_KEYS = [
+  "passport_biographic_page",
+  "i94_record",
+  "uscis_notice",
+  "h1b_petition"
+];
+
+export function getDefaultRequiredDocuments(): RequiredDocumentItem[] {
+  return DEFAULT_PRESET_KEYS.map((key) => {
+    const preset = PRESET_REQUIRED_DOCUMENTS.find((p) => p.key === key);
+    return {
+      key,
+      label: preset?.label ?? key,
+      isCustom: false
+    };
+  });
+}
+
+export function findPresetDocument(key: string): PresetRequiredDocument | undefined {
+  return PRESET_REQUIRED_DOCUMENTS.find((p) => p.key === key);
+}
+
+export function slugifyCustomKey(label: string): string {
+  const sanitized = label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 40);
+  return `custom_${sanitized || "document"}`;
+}
+
+export function validateRequiredDocumentList(items: unknown): { ok: true; items: RequiredDocumentItem[] } | { ok: false; error: string } {
+  if (!Array.isArray(items)) {
+    return { ok: false, error: "Required documents must be a list." };
+  }
+  if (items.length === 0) {
+    return { ok: false, error: "Please select at least one required document." };
+  }
+  if (items.length > 25) {
+    return { ok: false, error: "You can specify at most 25 required documents." };
+  }
+
+  const seenKeys = new Set<string>();
+  const validated: RequiredDocumentItem[] = [];
+
+  for (const raw of items) {
+    if (typeof raw !== "object" || !raw) continue;
+    const label = typeof (raw as any).label === "string" ? (raw as any).label.trim() : "";
+    if (!label || label.length > 80) {
+      return { ok: false, error: "Document labels must be between 1 and 80 characters." };
+    }
+
+    const isCustom = Boolean((raw as any).isCustom);
+    let key = typeof (raw as any).key === "string" ? (raw as any).key.trim() : "";
+    if (!key) {
+      key = slugifyCustomKey(label);
+    }
+
+    // Ensure uniqueness
+    let finalKey = key;
+    let counter = 2;
+    while (seenKeys.has(finalKey)) {
+      finalKey = `${key}_${counter}`;
+      counter += 1;
+    }
+    seenKeys.add(finalKey);
+
+    validated.push({
+      key: finalKey,
+      label,
+      isCustom: isCustom || finalKey.startsWith("custom_")
+    });
+  }
+
+  if (validated.length === 0) {
+    return { ok: false, error: "Please select at least one valid required document." };
+  }
+
+  return { ok: true, items: validated };
+}
+
 export const VAULT_ESSENTIALS: Array<{
   kind: VaultDocumentKind;
   title: string;
   detail: string;
-}> = [
-  {
-    kind: "i140_notice",
-    title: "I-140 approval notice",
-    detail: "This is the first document an attorney will ask for when you need portability or backup options."
-  },
-  {
-    kind: "h1b_petition",
-    title: "H-1B petition packet",
-    detail: "Keep the petition, LCA, and approval notice together so transfer counsel has a clean starting point."
-  },
-  {
-    kind: "perm_certification",
-    title: "PERM certification",
-    detail: "Critical for understanding where your green card process actually stands."
-  },
-  {
-    kind: "passport_biographic_page",
-    title: "Passport biographic page",
-    detail: "Needed immediately for filings, status changes, and emergency legal intake."
-  }
-];
+}> = PRESET_REQUIRED_DOCUMENTS.slice(0, 4).map((preset) => ({
+  kind: preset.key as VaultDocumentKind,
+  title: preset.label,
+  detail: preset.detail
+}));
 
 export function inferDocumentMetadata(fileName: string, mimeType?: string | null, customLabel?: string | null) {
   const normalized = `${fileName} ${mimeType ?? ""}`.toLowerCase();
@@ -67,16 +208,17 @@ export function inferDocumentMetadata(fileName: string, mimeType?: string | null
 
   if (/i[\s-]?94\b|arrival record|admission record/.test(normalized)) {
     return {
-      documentKind: "other" as const,
-      displayLabel: customLabel?.trim() || "I-94 arrival record",
+      documentKind: "i94_record" as const,
+      displayLabel: customLabel?.trim() || "Most recent I-94",
       crisisCritical: true
     };
   }
 
-  if (/i[\s-]?20\b|certificate of eligibility/.test(normalized)) {
+  if (/i[\s-]?20\b|certificate of eligibility|ds[\s-]?2019/.test(normalized)) {
+    const isDs2019 = /ds[\s-]?2019/.test(normalized);
     return {
-      documentKind: "other" as const,
-      displayLabel: customLabel?.trim() || "Form I-20",
+      documentKind: "i20_form" as const,
+      displayLabel: customLabel?.trim() || (isDs2019 ? "Form DS-2019" : "Form I-20"),
       crisisCritical: false
     };
   }
