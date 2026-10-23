@@ -607,6 +607,10 @@ export async function saveCaseJourneyDatesAction(formData: FormData): Promise<{ 
   };
 
   const profile = await persistProfileDraft(user.id, setupDraft);
+  if (!profile) {
+    throw new Error("Could not save profile data");
+  }
+
   const sharedForm = formLimitedTo(formData, DEADLINE_KEYS, "except");
   const firmSaved = await recordFirmSharedAnswers(user.id, setupDraft, {
     has: (key: string) =>
@@ -614,10 +618,14 @@ export async function saveCaseJourneyDatesAction(formData: FormData): Promise<{ 
       (!["visaType", "countryOfBirth", "preferenceCategory"].includes(key) ||
         String(formData.get(key) ?? "").trim().length > 0)
   });
-  if (!profile || !firmSaved) {
-    throw new Error("Could not save case journey data");
+  if (!firmSaved) {
+    throw new Error("Could not update firm records");
   }
-  await saveDeadlineAnswers(user.id, formData);
+
+  const deadlineForm = new FormData();
+  for (const [key, value] of formData.entries()) deadlineForm.append(key, value);
+  if (statusEndDate) deadlineForm.set("statusEndUnknown", "");
+  await saveDeadlineAnswers(user.id, deadlineForm);
 
   cookieStore.delete(ONBOARDING_OVERRIDE_COOKIE);
 
