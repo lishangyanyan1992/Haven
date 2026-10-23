@@ -10,7 +10,7 @@ import {
   PRESET_INTAKE_QUESTIONS,
   slugifyCustomQuestionKey,
   type IntakeQuestionGroup
-} from "@/lib/firms/intake-questions";
+} from "@/lib/firms/intake-question-catalog";
 import type { IntakeQuestionItem } from "@/lib/firms/types";
 import { saveFirmIntakeQuestionsAction } from "@/server/firm-actions";
 

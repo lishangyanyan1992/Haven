@@ -12,7 +12,7 @@ import { SIGNED_IN_HOME } from "@/lib/archived-routes";
 import { DeadlineFields } from "@/components/app/deadline-fields";
 import { DocumentContextUploader } from "@/components/app/document-context-uploader";
 import { findPresetDocument } from "@/lib/document-vault";
-import { getDefaultIntakeQuestions } from "@/lib/firms/intake-questions";
+import { getDefaultIntakeQuestions } from "@/lib/firms/intake-question-catalog";
 import type { IntakeQuestionItem, RequiredDocumentItem } from "@/lib/firms/types";
 
 export type UploadedIntakeDocument = {
@@ -227,6 +227,8 @@ function estimateRemainingWait(priorityDate: string, country: string, category: 
 const ONBOARDING_STORAGE_KEY = "haven-onboarding-progress";
 const ONBOARDING_OVERRIDE_COOKIE = "haven_onboarding_override";
 const ONBOARDING_STARTED_PREFIX = "haven-mixpanel-onboarding-started";
+const EMPTY_REQUIRED_DOCUMENTS: RequiredDocumentItem[] = [];
+const EMPTY_UPLOADED_DOCUMENTS: UploadedIntakeDocument[] = [];
 
 export function OnboardingFlow({
   saveStepAction,
@@ -235,8 +237,8 @@ export function OnboardingFlow({
   userEmail,
   firmName,
   intakeQuestions,
-  requiredDocuments = [],
-  initialUploadedDocuments = []
+  requiredDocuments = EMPTY_REQUIRED_DOCUMENTS,
+  initialUploadedDocuments = EMPTY_UPLOADED_DOCUMENTS
 }: {
   saveStepAction: (step: number, data: FormData) => Promise<void>;
   initialStep: number;
@@ -283,6 +285,7 @@ export function OnboardingFlow({
   const saveStepActionRef = useRef(saveStepAction);
   const currentStepRef = useRef(currentStep);
   const formDataRef = useRef(formData);
+  const activeStepsRef = useRef(activeSteps);
 
   useEffect(() => {
     setUploadedDocuments(initialUploadedDocuments);
@@ -291,6 +294,7 @@ export function OnboardingFlow({
   useEffect(() => { saveStepActionRef.current = saveStepAction; }, [saveStepAction]);
   useEffect(() => { currentStepRef.current = currentStep; }, [currentStep]);
   useEffect(() => { formDataRef.current = formData; }, [formData]);
+  useEffect(() => { activeStepsRef.current = activeSteps; }, [activeSteps]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -304,18 +308,22 @@ export function OnboardingFlow({
         return;
       }
       if (parsed.formData) setFormData((prev) => ({ ...prev, ...parsed.formData }));
-      if (typeof parsed.currentStep === "number" && activeSteps.some((s) => s.id === parsed.currentStep)) {
+      if (typeof parsed.currentStep === "number" && activeStepsRef.current.some((s) => s.id === parsed.currentStep)) {
         setCurrentStep(parsed.currentStep);
       }
     } catch {
       window.localStorage.removeItem(ONBOARDING_STORAGE_KEY);
     }
-  }, [userEmail, activeSteps]);
+  }, [userEmail]);
 
   useEffect(() => {
-    const match = activeSteps.find((s) => s.id === initialStep);
-    setCurrentStep(match ? match.id : activeSteps[0].id);
-  }, [initialStep, activeSteps]);
+    const match = activeStepsRef.current.find((s) => s.id === initialStep);
+    setCurrentStep(match ? match.id : activeStepsRef.current[0].id);
+  }, [initialStep]);
+
+  useEffect(() => {
+    setCurrentStep((prev) => (activeSteps.some((s) => s.id === prev) ? prev : activeSteps[0].id));
+  }, [activeSteps]);
 
   useEffect(() => {
     setShowFieldErrors(false);

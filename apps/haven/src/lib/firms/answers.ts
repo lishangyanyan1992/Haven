@@ -1,4 +1,4 @@
-import { isCustomQuestionKey } from "@/lib/firms/intake-questions";
+import { isCustomQuestionKey } from "@/lib/firms/intake-question-catalog";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
