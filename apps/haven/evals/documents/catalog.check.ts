@@ -69,6 +69,9 @@ async function main() {
   const i20Meta = inferDocumentMetadata("signed-form-i-20.pdf");
   check("infer: i-20 detection", i20Meta.documentKind === "i20_form", JSON.stringify(i20Meta));
 
+  const ds2019Meta = inferDocumentMetadata("j1-ds-2019-signed.pdf");
+  check("infer: ds-2019 detection", ds2019Meta.documentKind === "i20_form" && ds2019Meta.displayLabel === "Form DS-2019", JSON.stringify(ds2019Meta));
+
   const passportMeta = inferDocumentMetadata("my_passport_page.jpg");
   check("infer: passport detection", passportMeta.documentKind === "passport_biographic_page", JSON.stringify(passportMeta));
 

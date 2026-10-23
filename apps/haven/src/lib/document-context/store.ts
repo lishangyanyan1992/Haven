@@ -5,6 +5,7 @@
  */
 
 import { env } from "@/lib/env";
+import { isInvitedEmail } from "@/lib/access";
 import { isJoinedFirmClientEmail } from "@/lib/firms/intake";
 import { HAVEN_VAULT_BUCKET } from "@/lib/document-vault";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -24,19 +25,25 @@ function admin() {
 }
 
 /**
- * Who gets documents: all signed-in clients have access to the document vault
- * and context reading by default. If DOCUMENT_READING_DISABLED is "true", reading
- * is turned off. If DOCUMENT_READING_ALLOWLIST is non-empty and not "*", it restricts
- * to the specified emails plus firm clients.
+ * Who gets documents: all signed-in invited clients and firm clients have access
+ * to the document vault and context reading. If DOCUMENT_READING_DISABLED is "true",
+ * reading is turned off. If DOCUMENT_READING_ALLOWLIST is non-empty, it grants access
+ * immediately to matching emails (or everyone if "*").
  */
 export async function documentContextAvailableFor(email: string | null | undefined) {
   if (process.env.DOCUMENT_READING_DISABLED === "true") return false;
   const raw = env.DOCUMENT_READING_ALLOWLIST?.trim();
-  if (!raw || raw === "*") return true;
-  const list = raw.split(",").map((v) => v.trim().toLowerCase()).filter(Boolean);
-  if (list.includes("*")) return true;
-  if (Boolean(email) && list.includes(String(email).toLowerCase())) return true;
-  return isJoinedFirmClientEmail(email);
+  if (raw) {
+    const list = raw.split(",").map((v) => v.trim().toLowerCase()).filter(Boolean);
+    if (list.includes("*")) return true;
+    if (Boolean(email) && list.includes(String(email).toLowerCase())) return true;
+  }
+  if (!email) return false;
+  const [invited, firmClient] = await Promise.all([
+    isInvitedEmail(email),
+    isJoinedFirmClientEmail(email)
+  ]);
+  return invited || firmClient;
 }
 
 // ── Queue ─────────────────────────────────────────────────────────────────────

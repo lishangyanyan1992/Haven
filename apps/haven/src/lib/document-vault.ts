@@ -215,9 +215,10 @@ export function inferDocumentMetadata(fileName: string, mimeType?: string | null
   }
 
   if (/i[\s-]?20\b|certificate of eligibility|ds[\s-]?2019/.test(normalized)) {
+    const isDs2019 = /ds[\s-]?2019/.test(normalized);
     return {
       documentKind: "i20_form" as const,
-      displayLabel: customLabel?.trim() || "Form I-20",
+      displayLabel: customLabel?.trim() || (isDs2019 ? "Form DS-2019" : "Form I-20"),
       crisisCritical: false
     };
   }

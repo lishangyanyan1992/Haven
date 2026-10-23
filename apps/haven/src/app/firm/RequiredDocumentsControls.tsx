@@ -210,6 +210,7 @@ export function RequiredDocumentsControls({
                   >
                     <span>{item.label}</span>
                     <button
+                      aria-label={`Remove ${item.label}`}
                       className="text-[var(--haven-ink-mid)] hover:text-[var(--haven-blush-ink)]"
                       onClick={() => handleRemoveCustom(idx)}
                       type="button"
