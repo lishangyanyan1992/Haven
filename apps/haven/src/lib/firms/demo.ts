@@ -990,10 +990,14 @@ export async function seedDemoFirm(
   if (!firm.is_demo) throw new Error(`Refusing to seed demo data on non-demo firm: ${firmId}`);
 
   // Ensure demo firm has default required documents configured
-  await admin()
+  const { error: reqDocsError } = await admin()
     .from("firms")
     .update({ required_documents: getDefaultRequiredDocuments() })
     .eq("id", firmId);
+
+  if (reqDocsError) {
+    throw new Error(`Could not seed firm required documents: ${reqDocsError.message}`);
+  }
 
   // Fetch existing firm_clients for this firm to preserve showcase user_ids and link_id
   const { data: existingRows, error: fetchError } = await admin()

@@ -102,6 +102,8 @@ export function RequiredDocumentsControls({
         const res = await saveFirmRequiredDocumentsAction(itemsToSave);
         if (res.ok) {
           setIsEditing(false);
+        } else {
+          setError(res.error);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to save required documents.");
