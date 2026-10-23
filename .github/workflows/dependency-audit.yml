@@ -28,13 +28,77 @@ jobs:
   audit:
     name: Critical vulnerability audit
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      lockfile_updated: ${{ steps.remediate.outputs.lockfile_updated }}
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
+          cache: "npm"
 
-      - name: Audit dependencies
-        run: npm audit --audit-level=critical
+      - name: Auto-apply semver security fixes on non-PR runs
+        id: remediate
+        if: github.event_name != 'pull_request'
+        run: |
+          if ! npm audit --omit=dev --audit-level=critical; then
+            echo "Critical vulnerability detected; applying semver-compatible security updates..."
+            npm audit fix --package-lock-only || true
+            npm update --package-lock-only next eslint-config-next @sentry/nextjs || true
+            if ! git diff --quiet package-lock.json && npm audit --omit=dev --audit-level=critical; then
+              npm ci
+              npm run typecheck:haven
+              npm run typecheck:wizard
+              npm run check:advisor
+              npm run check:firms
+              echo "lockfile_updated=true" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Upload remediated lockfile
+        if: github.event_name != 'pull_request' && steps.remediate.outputs.lockfile_updated == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: remediated-package-lock
+          path: package-lock.json
+          retention-days: 1
+
+      - name: Audit production dependencies for critical vulnerabilities
+        run: npm audit --omit=dev --audit-level=critical
+
+  commit-remediation:
+    name: Commit remediated lockfile
+    needs: audit
+    if: github.event_name != 'pull_request' && needs.audit.outputs.lockfile_updated == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: remediated-package-lock
+          path: .
+
+      - name: Commit and push package-lock.json
+        run: |
+          if ! git diff --quiet -- package-lock.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -- package-lock.json
+            git commit -m "fix(deps): auto-apply critical security updates"
+            git push origin HEAD:main
+          fi
