@@ -1,3 +1,4 @@
+import { isCustomQuestionKey } from "@/lib/firms/intake-questions";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -35,12 +36,15 @@ export const SHARED_ANSWER_KEYS = [
   "travelDate"
 ] as const;
 
+export type CustomQuestionKey = `custom_q_${string}`;
 export type SharedAnswerKey = (typeof SHARED_ANSWER_KEYS)[number];
-export type SharedAnswers = Partial<Record<SharedAnswerKey, string | string[]>>;
+export type SharedAnswers = Partial<Record<SharedAnswerKey, string | string[]>> &
+  Record<CustomQuestionKey, string | string[]>;
 
 /** The answered setup fields from a setup or settings form submission. */
 export function pickSharedAnswers(draft: Record<string, unknown>): SharedAnswers {
   const out: SharedAnswers = {};
+  const outRecord = out as Record<string, string | string[] | undefined>;
   for (const key of SHARED_ANSWER_KEYS) {
     const value = draft[key];
     if (Array.isArray(value)) {
@@ -48,6 +52,15 @@ export function pickSharedAnswers(draft: Record<string, unknown>): SharedAnswers
       if (items.length) out[key] = items;
     } else if (typeof value === "string" && value.trim()) {
       out[key] = value.trim();
+    }
+  }
+  for (const [key, value] of Object.entries(draft)) {
+    if (!isCustomQuestionKey(key)) continue;
+    if (Array.isArray(value)) {
+      const items = value.map(String).map((v) => v.trim()).filter(Boolean);
+      if (items.length) outRecord[key] = items;
+    } else if (typeof value === "string" && value.trim()) {
+      outRecord[key] = value.trim();
     }
   }
   return out;
@@ -95,14 +108,21 @@ export function sharedAnswersFromProfile(p: Record<string, any> | null): SharedA
 export function mergeSharedAnswers(current: SharedAnswers, draft: Record<string, unknown>, form: Pick<FormData, "has">) {
   // Unticked checkboxes send nothing, so concerns count as sent whenever
   // the screen they sit on (with spouse status) was sent.
-  const submitted = SHARED_ANSWER_KEYS.filter(
-    (key) => form.has(key) || (key === "topConcerns" && form.has("spouseVisaStatus"))
+  const customKeys = Array.from(
+    new Set([...Object.keys(current), ...Object.keys(draft)].filter(isCustomQuestionKey))
   );
-  const picked = pickSharedAnswers(draft);
+  const submitted: string[] = [
+    ...SHARED_ANSWER_KEYS.filter(
+      (key) => form.has(key) || (key === "topConcerns" && form.has("spouseVisaStatus"))
+    ),
+    ...customKeys.filter((key) => form.has(key))
+  ];
+  const picked = pickSharedAnswers(draft) as Record<string, string | string[] | undefined>;
   const next: SharedAnswers = { ...current };
+  const nextRecord = next as Record<string, string | string[] | undefined>;
   for (const key of submitted) {
-    if (picked[key] !== undefined) next[key] = picked[key];
-    else delete next[key];
+    if (picked[key] !== undefined) nextRecord[key] = picked[key];
+    else delete nextRecord[key];
   }
   return { next, changed: submitted.length > 0 };
 }

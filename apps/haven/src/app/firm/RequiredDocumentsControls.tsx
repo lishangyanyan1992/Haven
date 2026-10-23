@@ -6,7 +6,7 @@ import { Check, Edit3, FileText, Loader2, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  DEFAULT_PRESET_KEYS,
+  getDefaultRequiredDocuments,
   PRESET_REQUIRED_DOCUMENTS,
   slugifyCustomKey
 } from "@/lib/document-vault";
@@ -18,17 +18,14 @@ export function RequiredDocumentsControls({
 }: {
   initialItems: RequiredDocumentItem[] | null;
 }) {
-  const [savedItems, setSavedItems] = useState<RequiredDocumentItem[] | null>(initialItems);
-  const isUnconfigured = savedItems === null;
-  const [isEditing, setIsEditing] = useState(isUnconfigured);
+  const [savedItems, setSavedItems] = useState<RequiredDocumentItem[]>(() =>
+    initialItems && initialItems.length > 0 ? initialItems : getDefaultRequiredDocuments()
+  );
+  const [isEditing, setIsEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  // If unconfigured, initialize with default presets checked
   const [selectedPresets, setSelectedPresets] = useState<Set<string>>(() => {
-    if (savedItems === null) {
-      return new Set(DEFAULT_PRESET_KEYS);
-    }
     const set = new Set<string>();
     for (const item of savedItems) {
       if (!item.isCustom) set.add(item.key);
@@ -37,7 +34,6 @@ export function RequiredDocumentsControls({
   });
 
   const [customItems, setCustomItems] = useState<Array<{ key: string; label: string }>>(() => {
-    if (savedItems === null) return [];
     return savedItems.filter((item) => item.isCustom).map((i) => ({ key: i.key, label: i.label }));
   });
 
@@ -117,18 +113,16 @@ export function RequiredDocumentsControls({
 
   function handleCancel() {
     setError(null);
-    if (savedItems !== null) {
-      const presets = new Set<string>();
-      for (const item of savedItems) {
-        if (!item.isCustom) presets.add(item.key);
-      }
-      setSelectedPresets(presets);
-      setCustomItems(savedItems.filter((i) => i.isCustom).map((i) => ({ key: i.key, label: i.label })));
-      setIsEditing(false);
+    const presets = new Set<string>();
+    for (const item of savedItems) {
+      if (!item.isCustom) presets.add(item.key);
     }
+    setSelectedPresets(presets);
+    setCustomItems(savedItems.filter((i) => i.isCustom).map((i) => ({ key: i.key, label: i.label })));
+    setIsEditing(false);
   }
 
-  const currentItems = savedItems ?? [];
+  const currentItems = savedItems;
 
   return (
     <section className="rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-5 sm:p-6">
@@ -136,14 +130,9 @@ export function RequiredDocumentsControls({
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-h3">Required client documents</h2>
-            {isUnconfigured && (
-              <span className="rounded-full bg-[var(--haven-blush-light)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--haven-blush-ink)]">
-                Setup required
-              </span>
-            )}
           </div>
           <p className="text-body-sm mt-1 text-[var(--haven-ink-mid)]">
-            Documents your firm expects clients to upload into their Document Vault.
+            Documents your firm asks clients to upload during intake and in their Document Vault.
           </p>
         </div>
         {!isEditing && (
@@ -252,12 +241,10 @@ export function RequiredDocumentsControls({
               {isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Check className="mr-1.5 h-4 w-4" />}
               {isPending ? "Saving..." : "Save required documents"}
             </Button>
-            {!isUnconfigured && (
-              <Button disabled={isPending} onClick={handleCancel} type="button" variant="outline">
-                <X className="mr-1.5 h-4 w-4" />
-                Cancel
-              </Button>
-            )}
+            <Button disabled={isPending} onClick={handleCancel} type="button" variant="outline">
+              <X className="mr-1.5 h-4 w-4" />
+              Cancel
+            </Button>
           </div>
         </div>
       )}

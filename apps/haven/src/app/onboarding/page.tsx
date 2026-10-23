@@ -13,6 +13,8 @@ import { persistProfileDraft, ONBOARDING_OVERRIDE_COOKIE } from "@/lib/profile-s
 import { env } from "@/lib/env";
 import { noIndexMetadata } from "@/lib/seo";
 import { formLimitedTo, recordFirmSharedAnswers } from "@/lib/firms/answers";
+import { getDefaultIntakeQuestions, getFirmIntakeQuestions, isCustomQuestionKey } from "@/lib/firms/intake-questions";
+import { getFirmRequiredDocuments } from "@/lib/firms/required-documents";
 import { DEADLINE_KEYS, loadDeadlineAnswers, markDeadlinesPrompted, saveDeadlineAnswers } from "@/lib/deadlines";
 import { getClientFirm, markFirmClientCompleted } from "@/lib/firms/intake";
 
@@ -21,7 +23,14 @@ const EMAIL_INGEST_DOMAIN = env.EMAIL_INGEST_DOMAIN ?? "import.haven-h1b.com";
 export const metadata = noIndexMetadata;
 
 function buildDraft(data: FormData) {
+  const customAnswers: Record<string, string> = {};
+  for (const [key, value] of data.entries()) {
+    if (isCustomQuestionKey(key) && typeof value === "string") {
+      customAnswers[key] = value;
+    }
+  }
   return {
+    ...customAnswers,
     visaType: String(data.get("visaType") ?? ""),
     countryOfBirth: String(data.get("countryOfBirth") ?? ""),
     primaryGoal: String(data.get("primaryGoal") ?? ""),
@@ -38,7 +47,7 @@ function buildDraft(data: FormData) {
   };
 }
 
-async function saveStepAction(step: number, data: FormData) {
+async function saveStepAction(_step: number, data: FormData) {
   "use server";
 
   const supabase = await createSupabaseServerClient();
@@ -48,8 +57,8 @@ async function saveStepAction(step: number, data: FormData) {
   const admin = createSupabaseAdminClient() as any;
   const fullName = String(user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "Haven user");
 
-  // Setup finishes on step 5, "Your deadlines".
-  const isExplicitCompletion = step === 5 && data.get("_complete") === "true";
+  // Setup finishes when the client submits the final active step.
+  const isExplicitCompletion = data.get("_complete") === "true";
 
   if (isExplicitCompletion) {
     // Final explicit completion: persist all data and mark complete via email_alias
@@ -107,9 +116,27 @@ export default async function OnboardingPage({
 
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const requestedStep = Number(resolvedSearchParams?.step ?? "");
-  const initialStep = Number.isFinite(requestedStep) && requestedStep >= 1 && requestedStep <= 5 ? requestedStep : 1;
+  const initialStep = Number.isFinite(requestedStep) && requestedStep >= 1 && requestedStep <= 6 ? requestedStep : 1;
   const firm = await getClientFirm(user?.id);
-  const savedDeadlines = user ? await loadDeadlineAnswers(user.id) : {};
+  const [savedDeadlines, intakeQuestions, requiredDocuments, uploadedDocsResult] = await Promise.all([
+    user ? loadDeadlineAnswers(user.id) : Promise.resolve({}),
+    firm ? getFirmIntakeQuestions(firm.firmId) : Promise.resolve(getDefaultIntakeQuestions()),
+    firm ? getFirmRequiredDocuments(firm.firmId) : Promise.resolve([]),
+    user && firm
+      ? (createSupabaseAdminClient() as any)
+          .from("user_documents")
+          .select("id, original_name, display_label, document_kind")
+          .eq("user_id", user.id)
+          .order("uploaded_at", { ascending: false })
+      : Promise.resolve({ data: [] })
+  ]);
+
+  const initialUploadedDocuments = ((uploadedDocsResult?.data ?? []) as any[]).map((doc) => ({
+    id: String(doc.id),
+    originalName: String(doc.original_name ?? ""),
+    displayLabel: String(doc.display_label ?? doc.document_kind ?? ""),
+    documentKind: String(doc.document_kind ?? "")
+  }));
 
   return (
     <div className="min-h-screen">
@@ -127,7 +154,16 @@ export default async function OnboardingPage({
           <FirmSharingNote firmName={firm.firmName} />
         </div>
       ) : null}
-      <OnboardingFlow initialDeadlines={savedDeadlines} initialStep={initialStep} saveStepAction={saveStepAction} userEmail={userEmail} />
+      <OnboardingFlow
+        firmName={firm?.firmName}
+        initialDeadlines={savedDeadlines}
+        initialStep={initialStep}
+        initialUploadedDocuments={initialUploadedDocuments}
+        intakeQuestions={intakeQuestions}
+        requiredDocuments={requiredDocuments}
+        saveStepAction={saveStepAction}
+        userEmail={userEmail}
+      />
     </div>
   );
 }

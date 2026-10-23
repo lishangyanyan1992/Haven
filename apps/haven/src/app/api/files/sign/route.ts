@@ -258,6 +258,7 @@ export async function POST(request: Request) {
     revalidatePath("/dashboard");
     revalidatePath("/planner");
     revalidatePath("/documents");
+    revalidatePath("/onboarding");
 
     return NextResponse.json({
       id: document.id,

@@ -60,6 +60,17 @@ async function main() {
   const noConcerns = mergeSharedAnswers(before, { spouseVisaStatus: "H4", topConcerns: [] }, form(["spouseVisaStatus"])).next;
   check("answers: unticking every concern clears them", !("topConcerns" in noConcerns), JSON.stringify(noConcerns));
 
+  const withCustom = mergeSharedAnswers(
+    before,
+    { custom_q_prior_denial: "No prior denials" },
+    form(["custom_q_prior_denial"])
+  ).next;
+  check(
+    "answers: custom intake question answers are saved and merged",
+    withCustom.custom_q_prior_denial === "No prior denials" && withCustom.visaType === "H1B",
+    JSON.stringify(withCustom)
+  );
+
   check(
     "answers: green card stage from profile",
     sharedAnswersFromProfile({ country_of_birth: "India", i140_approved: true, perm_stage: "not_started" }).greenCardStage === "i140_approved",

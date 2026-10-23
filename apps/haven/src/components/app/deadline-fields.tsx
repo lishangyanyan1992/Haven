@@ -26,115 +26,132 @@ function Optional() {
   return <span className="font-normal text-[var(--color-text-tertiary)]">(optional)</span>;
 }
 
-export function DeadlineFields({ values, onChange }: { values: DeadlineValues; onChange: (key: Key, value: string) => void }) {
+export function DeadlineFields({
+  values,
+  onChange,
+  enabledKeys
+}: {
+  values: DeadlineValues;
+  onChange: (key: Key, value: string) => void;
+  enabledKeys?: Set<string>;
+}) {
   // Changing an answer clears the date that only made sense with it.
   const set = (key: Key, value: string, clears?: Key) => {
     onChange(key, value);
     if (clears) onChange(clears, "");
   };
   const notSure = values.statusEndUnknown === "yes";
+  const show = (key: string) => !enabledKeys || enabledKeys.has(key);
 
   return (
     <div className="space-y-5">
-      <div>
-        <label className="field-label" htmlFor="deadline-status-end">
-          When does your current status end? <Optional />
-        </label>
-        <p className="text-body-sm mb-2 text-[var(--color-text-secondary)]">
-          The date on your I-94, or your visa or EAD end date, whichever comes first.
-        </p>
-        <Input
-          disabled={notSure}
-          id="deadline-status-end"
-          onChange={(e) => set("statusEndDate", e.target.value)}
-          type="date"
-          value={notSure ? "" : values.statusEndDate ?? ""}
-        />
-        <label className="mt-2 flex items-center gap-2 text-body-sm">
-          <input
-            checked={notSure}
-            onChange={(e) => set("statusEndUnknown", e.target.checked ? "yes" : "", e.target.checked ? "statusEndDate" : undefined)}
-            type="checkbox"
+      {show("statusEndDate") ? (
+        <div>
+          <label className="field-label" htmlFor="deadline-status-end">
+            When does your current status end? <Optional />
+          </label>
+          <p className="text-body-sm mb-2 text-[var(--color-text-secondary)]">
+            The date on your I-94, or your visa or EAD end date, whichever comes first.
+          </p>
+          <Input
+            disabled={notSure}
+            id="deadline-status-end"
+            onChange={(e) => set("statusEndDate", e.target.value)}
+            type="date"
+            value={notSure ? "" : values.statusEndDate ?? ""}
           />
-          Not sure
-        </label>
-      </div>
-
-      <div>
-        <label className="field-label" htmlFor="deadline-job-ended">
-          Has your job ended, or is it about to? <Optional />
-        </label>
-        <Select
-          id="deadline-job-ended"
-          onChange={(e) => set("jobEnded", e.target.value, e.target.value === "yes" ? undefined : "lastWorkDay")}
-          value={values.jobEnded ?? ""}
-        >
-          <option value="">Choose one</option>
-          <option value="no">No</option>
-          <option value="yes">Yes</option>
-        </Select>
-        {values.jobEnded === "yes" ? (
-          <div className="mt-3">
-            <label className="field-label" htmlFor="deadline-last-day">
-              Last day of work (or the planned last day)
-            </label>
-            <Input id="deadline-last-day" onChange={(e) => set("lastWorkDay", e.target.value)} type="date" value={values.lastWorkDay ?? ""} />
-          </div>
-        ) : null}
-      </div>
-
-      <div>
-        <label className="field-label" htmlFor="deadline-agency-type">
-          Any deadline from USCIS or a consulate? <Optional />
-        </label>
-        <Select
-          id="deadline-agency-type"
-          onChange={(e) => set("agencyDeadlineType", e.target.value, e.target.value ? undefined : "agencyDeadlineDate")}
-          value={values.agencyDeadlineType ?? ""}
-        >
-          <option value="">None</option>
-          <option value="rfe">Request for evidence (RFE) response</option>
-          <option value="interview">Interview</option>
-          <option value="biometrics">Biometrics appointment</option>
-          <option value="other">Other deadline</option>
-        </Select>
-        {values.agencyDeadlineType ? (
-          <div className="mt-3">
-            <label className="field-label" htmlFor="deadline-agency-date">
-              Date
-            </label>
-            <Input
-              id="deadline-agency-date"
-              onChange={(e) => set("agencyDeadlineDate", e.target.value)}
-              type="date"
-              value={values.agencyDeadlineDate ?? ""}
+          <label className="mt-2 flex items-center gap-2 text-body-sm">
+            <input
+              checked={notSure}
+              onChange={(e) => set("statusEndUnknown", e.target.checked ? "yes" : "", e.target.checked ? "statusEndDate" : undefined)}
+              type="checkbox"
             />
-          </div>
-        ) : null}
-      </div>
+            Not sure
+          </label>
+        </div>
+      ) : null}
 
-      <div>
-        <label className="field-label" htmlFor="deadline-travel">
-          Planning to travel outside the US soon? <Optional />
-        </label>
-        <Select
-          id="deadline-travel"
-          onChange={(e) => set("travelPlanned", e.target.value, e.target.value === "yes" ? undefined : "travelDate")}
-          value={values.travelPlanned ?? ""}
-        >
-          <option value="">Choose one</option>
-          <option value="no">No</option>
-          <option value="yes">Yes</option>
-        </Select>
-        {values.travelPlanned === "yes" ? (
-          <div className="mt-3">
-            <label className="field-label" htmlFor="deadline-travel-date">
-              Departure date
-            </label>
-            <Input id="deadline-travel-date" onChange={(e) => set("travelDate", e.target.value)} type="date" value={values.travelDate ?? ""} />
-          </div>
-        ) : null}
-      </div>
+      {show("jobEnded") ? (
+        <div>
+          <label className="field-label" htmlFor="deadline-job-ended">
+            Has your job ended, or is it about to? <Optional />
+          </label>
+          <Select
+            id="deadline-job-ended"
+            onChange={(e) => set("jobEnded", e.target.value, e.target.value === "yes" ? undefined : "lastWorkDay")}
+            value={values.jobEnded ?? ""}
+          >
+            <option value="">Choose one</option>
+            <option value="no">No</option>
+            <option value="yes">Yes</option>
+          </Select>
+          {values.jobEnded === "yes" ? (
+            <div className="mt-3">
+              <label className="field-label" htmlFor="deadline-last-day">
+                Last day of work (or the planned last day)
+              </label>
+              <Input id="deadline-last-day" onChange={(e) => set("lastWorkDay", e.target.value)} type="date" value={values.lastWorkDay ?? ""} />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {show("agencyDeadlineType") ? (
+        <div>
+          <label className="field-label" htmlFor="deadline-agency-type">
+            Any deadline from USCIS or a consulate? <Optional />
+          </label>
+          <Select
+            id="deadline-agency-type"
+            onChange={(e) => set("agencyDeadlineType", e.target.value, e.target.value ? undefined : "agencyDeadlineDate")}
+            value={values.agencyDeadlineType ?? ""}
+          >
+            <option value="">None</option>
+            <option value="rfe">Request for evidence (RFE) response</option>
+            <option value="interview">Interview</option>
+            <option value="biometrics">Biometrics appointment</option>
+            <option value="other">Other deadline</option>
+          </Select>
+          {values.agencyDeadlineType ? (
+            <div className="mt-3">
+              <label className="field-label" htmlFor="deadline-agency-date">
+                Date
+              </label>
+              <Input
+                id="deadline-agency-date"
+                onChange={(e) => set("agencyDeadlineDate", e.target.value)}
+                type="date"
+                value={values.agencyDeadlineDate ?? ""}
+              />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {show("travelPlanned") ? (
+        <div>
+          <label className="field-label" htmlFor="deadline-travel">
+            Planning to travel outside the US soon? <Optional />
+          </label>
+          <Select
+            id="deadline-travel"
+            onChange={(e) => set("travelPlanned", e.target.value, e.target.value === "yes" ? undefined : "travelDate")}
+            value={values.travelPlanned ?? ""}
+          >
+            <option value="">Choose one</option>
+            <option value="no">No</option>
+            <option value="yes">Yes</option>
+          </Select>
+          {values.travelPlanned === "yes" ? (
+            <div className="mt-3">
+              <label className="field-label" htmlFor="deadline-travel-date">
+                Departure date
+              </label>
+              <Input id="deadline-travel-date" onChange={(e) => set("travelDate", e.target.value)} type="date" value={values.travelDate ?? ""} />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
