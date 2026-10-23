@@ -437,6 +437,70 @@ async function main() {
     check("no PERM in the question: no aside", !plainSaved.includes(aside));
   }
 
+  // --- Moderation outage fails safe -----------------------------------------
+  // The moderation call used to treat any error as "not flagged", so a crisis
+  // message during an outage got an ordinary answer. Now an error or a missing
+  // client falls back to a local distress check and is marked unavailable.
+
+  {
+    const throwingClient = {
+      moderations: {
+        create: async () => {
+          throw new Error("simulated moderation outage");
+        }
+      }
+    } as unknown as Parameters<typeof svc.moderateMessage>[2];
+    const cleanClient = {
+      moderations: {
+        create: async () => ({ results: [{ flagged: false, categories: {} }] })
+      }
+    } as unknown as Parameters<typeof svc.moderateMessage>[2];
+
+    const originalError = console.error;
+    console.error = () => {};
+    try {
+      const crisis = await svc.moderateMessage("I can't do this anymore, I want to kill myself", undefined, throwingClient);
+      check("moderation outage: distress message still flagged as distress", crisis.flagged && crisis.distress === true);
+      check("moderation outage: result marked unavailable", crisis.unavailable === true);
+
+      const ordinary = await svc.moderateMessage("I was laid off yesterday, how long is my grace period?", undefined, throwingClient);
+      check("moderation outage: ordinary question not flagged", !ordinary.flagged, JSON.stringify(ordinary));
+      check("moderation outage: ordinary question marked unavailable", ordinary.unavailable === true);
+
+      const chinese = await svc.moderateMessage("签证没了，我真的不想活了", undefined, throwingClient);
+      check("moderation outage: Chinese distress message flagged", chinese.flagged && chinese.distress === true);
+
+      const noClient = await svc.moderateMessage("I keep thinking about ending my life", undefined, null);
+      check("no moderation client: distress message flagged", noClient.flagged && noClient.distress === true);
+
+      const healthy = await svc.moderateMessage("I want to kill myself", undefined, cleanClient);
+      check("moderation healthy: its own answer is used, not the backup", !healthy.flagged && healthy.unavailable === false);
+
+      const events: StreamEvent[] = [];
+      for await (const event of svc.streamAdvisorResponse(
+        { content: "My visa is gone and honestly I want to end my life", history: [] },
+        {
+          loadSnapshot: async () => ({ snapshot: havenSnapshot, contextSource: "mock" as const }),
+          moderate: (content, parent) => svc.moderateMessage(content, parent, throwingClient),
+          classifyIntent: (async () => null) as typeof import("@/lib/advisor/intent-router").classifyIntent,
+          chatClient: null
+        }
+      )) {
+        events.push(event);
+      }
+      const done = events.find((event) => event?.type === "done") as
+        | Extract<NonNullable<StreamEvent>, { type: "done" }>
+        | undefined;
+      check(
+        "moderation outage end to end: crisis support shown, not an immigration answer",
+        done?.assistantMessage.content === guardrailText("MSG_CRISIS_SUPPORT"),
+        (done?.assistantMessage.content ?? "").slice(0, 120)
+      );
+    } finally {
+      console.error = originalError;
+    }
+  }
+
   console.log(`advisor safety boundary: ${passed} passed, ${failures.length} failed`);
   if (failures.length > 0) {
     for (const failure of failures) console.error(`  FAIL ${failure}`);

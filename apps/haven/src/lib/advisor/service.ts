@@ -2480,16 +2480,54 @@ export function routerSkipReason(input: {
   return null;
 }
 
-async function moderateMessage(content: string, parent?: LangfuseParent) {
-  const client = getOpenAIClient();
+// Backup screen for when the moderation API can't answer (outage, timeout, no
+// key). It used to fail open: any error read as "not flagged", so a self-harm
+// disclosure during an outage got an immigration answer instead of the crisis
+// hand-off. This list only has to catch the clear cases while the real check is
+// down, so it errs toward routing to crisis support. A false positive costs one
+// extra crisis-resources reply; a miss costs far more.
+const LOCAL_DISTRESS_PATTERNS: RegExp[] = [
+  /\bsuicid(e|al)\b/i,
+  /\bkill(ing)?\s+my\s*self\b/i,
+  /\bend(ing)?\s+(it\s+all|my\s+(own\s+)?life)\b/i,
+  /\btake\s+my\s+(own\s+)?life\b/i,
+  /\b(want|wanna|going)\s+(to\s+)?die\b/i,
+  /\bbetter\s+off\s+dead\b/i,
+  /\bno\s+(reason|point)\s+(to|in)\s+(live|living|go(ing)?\s+on)\b/i,
+  /\b(hurt|harm|cut)(ing)?\s+my\s*self\b/i,
+  /\bself[\s-]?harm\b/i,
+  /自杀|轻生|不想活|想死|活不下去/
+];
+
+export function detectDistressLocally(content: string): boolean {
+  return LOCAL_DISTRESS_PATTERNS.some((pattern) => pattern.test(content));
+}
+
+function moderationUnavailable(content: string) {
+  const distress = detectDistressLocally(content);
+  return {
+    flagged: distress,
+    categories: distress ? ["self-harm/local-fallback"] : ([] as string[]),
+    distress,
+    unavailable: true
+  };
+}
+
+export async function moderateMessage(
+  content: string,
+  parent?: LangfuseParent,
+  // Tests pass a stub client; production always uses the real one.
+  clientOverride?: Pick<OpenAI, "moderations"> | null
+) {
+  const client = clientOverride !== undefined ? clientOverride : getOpenAIClient();
 
   if (!client) {
-    return { flagged: false };
+    return moderationUnavailable(content);
   }
 
-  try {
-    const span = parent?.span({ name: "openai-moderation", input: { content } });
+  const span = parent?.span({ name: "openai-moderation", input: { content } });
 
+  try {
     const moderation = await client.moderations.create({
       model: "omni-moderation-latest",
       input: content
@@ -2509,9 +2547,18 @@ async function moderateMessage(content: string, parent?: LangfuseParent) {
 
     span?.end({ output: { flagged, categories, distress } });
 
-    return { flagged, categories, distress };
-  } catch {
-    return { flagged: false, categories: [] as string[], distress: false };
+    return { flagged, categories, distress, unavailable: false };
+  } catch (err) {
+    const fallback = moderationUnavailable(content);
+    // Marked as an error so an outage shows up in Langfuse instead of looking
+    // like a clean pass.
+    span?.end({
+      output: { error: String(err), fallback: true, distress: fallback.distress },
+      level: "ERROR",
+      statusMessage: "Moderation unavailable; used local distress check"
+    });
+    console.error("[advisor] moderation call failed; using local distress check", err);
+    return fallback;
   }
 }
 
@@ -4082,7 +4129,7 @@ async function scorePreviousAnswer(input: {
   }
 }
 
-type ModerationResult = { flagged: boolean; categories?: string[]; distress?: boolean };
+type ModerationResult = { flagged: boolean; categories?: string[]; distress?: boolean; unavailable?: boolean };
 
 /**
  * Seams for the deterministic checks. Production passes nothing; tests swap in
@@ -4196,6 +4243,10 @@ export async function* streamAdvisorResponse(
 
   const moderation = await (deps.moderate ?? moderateMessage)(content, trace);
 
+  if (moderation.unavailable) {
+    trace?.update({ metadata: { moderationUnavailable: true } });
+  }
+
   if (moderation.flagged) {
     // Only ever hand back a real thread id. This previously fell back to the
     // literal "session", the client stored it, and the next request failed
@@ -4248,6 +4299,7 @@ export async function* streamAdvisorResponse(
         // measurable now that the two are handled differently.
         moderationCategories: moderation.categories,
         moderationDistress: moderation.distress,
+        moderationUnavailable: moderation.unavailable ?? false,
         guardrailsFired: [guardrailId]
       },
       output: {
