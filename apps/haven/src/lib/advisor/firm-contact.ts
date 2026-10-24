@@ -16,6 +16,10 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
  *
  * Nothing here records which answer or conversation a request came from. A
  * lawyer reading a request has no path back to the chat.
+ *
+ * Trusting the stored answer depends on users being unable to write one: only
+ * the server inserts advisor_messages (migration 0045), and
+ * evals/firms/contact-requests.check.ts keeps it that way.
  */
 
 export type ContactRequestResult =
@@ -55,7 +59,7 @@ export async function sendFirmContactRequest(userId: string, traceId: string, db
       .select("answer_payload")
       .eq("user_id", userId)
       .eq("role", "assistant")
-      .eq("retrieval_metadata->>traceId", traceId)
+      .filter("retrieval_metadata->>traceId", "eq", traceId)
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!message) return { status: "unavailable", reason: "not_found" };

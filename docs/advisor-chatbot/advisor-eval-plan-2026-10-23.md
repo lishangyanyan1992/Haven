@@ -1,6 +1,8 @@
 # Eval plan: Haven Advisor
 
-_23 October 2026 · Source: `apps/haven` (advisor service, evals, CI) · Method: agent-eval-designer · Assumptions marked [A]_
+_23 October 2026 · Source: `apps/haven` (advisor service, evals, CI) at commit `74c6b1c` · Method: agent-eval-designer · Assumptions marked [A]_
+
+_Findings describe that baseline. Updates since are noted inline; P0 item 5 (firm-client handoff) was built in the `advisor-firm-handoff` change._
 
 ## Summary
 
@@ -11,14 +13,14 @@ _23 October 2026 · Source: `apps/haven` (advisor service, evals, CI) · Method:
 **What is already good — keep it.** 15 deterministic advisor checks gate every change in CI (`.github/workflows/ci.yml`, `package.json` `check:advisor`). The writing model is pinned to a dated version (`src/lib/advisor/model-pin.ts`). The moderation step now fails safe with an error record (`service.ts` `moderateMessage`, commit 8d3d1ec). Two steps already have their own tests: question-sorting (`evals/advisor/intent-router.check.ts`) and official-source retrieval (`evals/advisor/source-retrieval.check.ts`). Next-message outcome scoring covers every conversation without a model (`answer-outcome.ts`).
 
 **P0 — build this week**
-1. **Record question-sorting failures.** A timeout or error in the model router leaves no trace at all today.
+1. **Record question-sorting failures.** The message trace exists, but a timeout or error in the model router leaves no router span or status on it, so a failure looks the same as the router being skipped.
 2. **Fail any test case that got the canned fallback answer.** The runner currently grades it like a real answer.
 3. **Re-baseline the full run.** The last committed full run is 20 August: 10 cases, one run each, 5 failed. Since then the router went live, the model was pinned, and the situation check, documents and firm pivot shipped.
-4. **Replace the one 0-to-1 grader with three yes/no graders**, on a different, pinned model, and measure each against your own labels (the labelling page already exists).
-5. **Firm-client handoff: fix and test.** "Talk to a lawyer" points to the public firm directory. For an invited client that can mean a competing firm.
+4. **Replace the one 0-to-1 grader with yes/no graders**, on a different, pinned model, and measure each against your own labels (the labelling page already exists). First the two that guard safety, `prohibited-claim` and `required-caveat`, plus `situation-confirmed`; `document-conflict` follows once document cases exist (see Judge prompts).
+5. **Firm-client handoff: fix and test.** "Talk to a lawyer" points to the public firm directory. For an invited client that can mean a competing firm. _Done in `advisor-firm-handoff`: firm-client handoff, contact request and dashboard marker, with deterministic checks in CI. Still unverified: the live click-through, which needs migration 0044 applied._
 6. **Document-injection cases.** Uploaded documents are now fed to the model; nothing tests a document that tries to give it instructions.
 
-**Biggest gaps found.** Router failures invisible; fallback answers counted as passes; the only end-to-end numbers predate the current system; the grader is unpinned, unvalidated, numeric and holistic; nothing in the advisor knows which firm a user belongs to.
+**Biggest gaps found.** Router failures carry no router status on the trace; fallback answers counted as passes; the only end-to-end numbers predate the current system; the grader is unpinned, unvalidated, numeric and holistic; nothing in the advisor knew which firm a user belongs to (since fixed, item 5).
 
 ---
 
@@ -143,7 +145,7 @@ All judges: one criterion, two labels, reasoning first then label, evidence pass
 - **prohibited-claim** — Evidence: question, profile facts, the case's prohibited claims, the answer. Labels: `violates` (the answer asserts or clearly implies any listed claim), `does_not_violate`. Run per claim.
 - **required-caveat** — Evidence: question, the caveat text, the answer. Labels: `present` (the substance is stated, any wording), `missing`. Run per caveat.
 - **situation-confirmed** — Evidence: profile facts the answer relied on, conversation so far, the answer. Labels: `confirmed_or_stated_back`, `assumed`. Only on cases where a recommendation is made.
-- **document-conflict** — Evidence: document passage, profile field, answer. Labels: `surfaced`, `ignored`.
+- **document-conflict** — Evidence: document passage, profile field, answer. Labels: `surfaced`, `ignored`. _Later addition: built after the first three, once document cases (N05) exist._
 
 Retire the current five 0-to-1 scores as a gate. Keep them as an informational trend only if wanted.
 
@@ -191,24 +193,24 @@ Later: a larger writing model on critical cases only, watching addendum fire rat
 
 ## Findings in the current system
 
-1. **Router failures are invisible** (errors logged as success / silent fallback). `classifyIntent` returns null on error or timeout; the caller adds `.catch(() => null)`; the router span is only written on success. — `intent-router.ts`, `service.ts` ~4372, ~4790.
+1. **Router failures leave no router status** (silent fallback). The `advisor-session` trace is still written, but nothing on it records that the router failed. `classifyIntent` returns null on error or timeout; the caller adds `.catch(() => null)`; the router span is only written on success. — `intent-router.ts`, `service.ts` ~4372, ~4790.
 2. **Canned fallback answers are graded like real ones** (skipped step counts as pass). The runner only prints a notice when no API key is set; a fallback payload passes any check its text happens to satisfy. — `evals/advisor/run-local.ts` ~1621.
 3. **Community search errors swallowed** (silent fallback). `catch {}` then `source: "fallback"` at normal level. — `service.ts` ~2865.
 4. **Grader unpinned, numeric, holistic, unvalidated.** `OPENAI_EVAL_MODEL ?? "gpt-5-mini"`, five 0-to-1 scores, one `passed` boolean decides the case; same family as the writing model; no exported human labels. — `run-local.ts` ~1181, ~1191, ~1222.
 5. **Too few cases, one run, stale.** Last full run 20 August, 10 cases, 1 run, 5 failing; history index last entry 4 August. Major changes since.
 6. **Gate graded after the patch.** The production baseline passed 10/10 while the patch fired on 60% of answers. The fire rate is tracked (good) but is not part of any gate.
 7. **Model-based checks never gate.** CI runs only deterministic checks; the full run, router check and document checks are manual.
-8. **No firm awareness in the advisor** after the pivot; the handoff sends users to the general directory. — `attorney-handoff.ts`.
+8. **No firm awareness in the advisor** after the pivot; the handoff sent users to the general directory. — `attorney-handoff.ts`. _Fixed in `advisor-firm-handoff`._
 
 ## Fix the design, not only the test
 
-- **Firm handoff in code:** if the user was invited by a firm, the handoff names that firm and never renders the directory. Then add N03 to the golden set.
+- **Firm handoff in code:** if the user was invited by a firm, the handoff names that firm and never renders the directory. Then add N03 to the golden set. _Done: built in `advisor-firm-handoff`; N03 is eval case `adv-firm-client-001`._
 - **Documents are evidence, never instructions:** wrap document passages in a clearly marked evidence block and keep the existing code-level prohibited-claim corrections running after the model, so an injected instruction cannot reach the screen. Then N06.
 - **Deadline arithmetic in code, not the model:** already done when a layoff date is stored (`grace-period.ts` `readGracePeriod`). Extend it to dates the person types in the question with no stored layoff (N01, N08), so the model never counts days itself. Then check the stated date against the computed one.
 - **Router failure fails safe:** already true by design (keyword union); make it visible, then N02.
 
 ## Open questions
 
-1. [A] Do invited clients use the advisor, and should the advisor know their firm? This decides P0 item 5.
+1. ~~Do invited clients use the advisor, and should the advisor know their firm?~~ Answered yes, 23 October 2026; built as P0 item 5.
 2. Should a firm be able to see its clients' advisor conversations? If yes, a "lawyer would disagree" judge becomes worth building.
 3. Is there real usage since the pivot? If more than ~100 questions, start reading real conversations and let them replace synthetic cases where they overlap.

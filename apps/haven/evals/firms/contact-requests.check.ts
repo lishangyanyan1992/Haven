@@ -44,6 +44,11 @@ function memoryDb(tables: Record<string, Row[]>) {
           filters.push((row) => read(row, column) === value);
           return chain;
         },
+        filter: (column: string, operator: string, value: unknown) => {
+          if (operator !== "eq") throw new Error(`stub supports eq only, got ${operator}`);
+          filters.push((row) => read(row, column) === value);
+          return chain;
+        },
         is: (column: string, value: unknown) => {
           filters.push((row) => (row[column] ?? null) === value);
           return chain;
@@ -204,6 +209,24 @@ async function main() {
     check("a database failure is reported, not thrown", failed.status === "unavailable" && failed.reason === "error", JSON.stringify(failed));
     const failedStatus = await quiet(() => getOpenFirmContactRequest("user-1", failing));
     check("a status failure reads as nothing open", failedStatus.sentAt === null, JSON.stringify(failedStatus));
+  }
+
+  // ------------------------------------- users cannot forge a stored answer
+  //
+  // The offer is trusted because it comes from a stored assistant answer. That
+  // holds only while users cannot insert advisor_messages themselves: replay the
+  // migrations and check no insert policy survives on that table.
+  {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const dir = path.resolve(new URL("../../../../supabase/migrations", import.meta.url).pathname);
+    const live = new Set<string>();
+    for (const file of fs.readdirSync(dir).filter((name) => name.endsWith(".sql")).sort()) {
+      const sql = fs.readFileSync(path.join(dir, file), "utf8").replace(/--[^\n]*/g, "");
+      for (const m of sql.matchAll(/create policy\s+"([^"]+)"\s+on public\.advisor_messages\s+for\s+(insert|all)\b/gi)) live.add(m[1]);
+      for (const m of sql.matchAll(/drop policy\s+(?:if exists\s+)?"([^"]+)"\s+on public\.advisor_messages/gi)) live.delete(m[1]);
+    }
+    check("no user can insert advisor_messages (the offer's source)", live.size === 0, [...live].join(", "));
   }
 
   console.log(`\n${pass}/${pass + failures.length} passed`);
