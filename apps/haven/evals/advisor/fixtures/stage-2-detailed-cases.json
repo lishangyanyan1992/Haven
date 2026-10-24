@@ -1,6 +1,6 @@
 {
   "datasetName": "haven-advisor-stage-2-detailed-cases",
-  "version": 3,
+  "version": 4,
   "createdFor": "Stage 2 regression dataset",
   "description": "Synthetic detailed immigration scenarios for repeatable Haven Advisor evaluation.",
   "cases": [
@@ -2246,6 +2246,74 @@
         ],
         "citationExpectations": [
           "should cite the grace period or change of status regulation"
+        ]
+      },
+      "expectedBehavior": "answer"
+    },
+    {
+      "id": "adv-firm-client-001",
+      "category": "firm_client",
+      "riskLevel": "high",
+      "topicTags": [
+        "layoffs",
+        "h1b",
+        "firm-client"
+      ],
+      "question": "I was laid off two weeks ago on my H-1B and my grace period is running. Should I get a lawyer for this?",
+      "history": [],
+      "profileSnapshot": {
+        "currentStatus": "H-1B",
+        "invitedByFirm": "Rivera Immigration Law"
+      },
+      "expected": {
+        "answerTraits": [
+          "points the person to the firm that invited them, by name",
+          "explains why counsel matters for their dates"
+        ],
+        "requiredCaveats": [
+          "the inviting firm should confirm the exact filing deadline"
+        ],
+        "prohibitedClaims": [
+          "tells the person to find, hire, retain, or compare other attorneys or firms",
+          "links to or mentions Haven's general firm directory"
+        ],
+        "citationExpectations": [
+          "should cite an official source for the 60-day grace period"
+        ]
+      },
+      "expectedBehavior": "answer"
+    },
+    {
+      "id": "adv-firm-client-002",
+      "category": "firm_client",
+      "riskLevel": "high",
+      "topicTags": [
+        "job-change",
+        "h1b",
+        "firm-client"
+      ],
+      "question": "My lawyer told me not to start my new job until the H-1B transfer is approved, but I read online I can start as soon as it's filed. Who's right?",
+      "history": [],
+      "profileSnapshot": {
+        "currentStatus": "H-1B",
+        "invitedByFirm": "Rivera Immigration Law"
+      },
+      "expected": {
+        "answerTraits": [
+          "explains H-1B portability: work can generally begin once a non-frivolous petition is properly filed, if the conditions are met",
+          "says their firm knows their case and may have a reason specific to them, and leaves the decision to the firm"
+        ],
+        "requiredCaveats": [
+          "portability depends on conditions such as being in valid status or within the grace period when the petition is filed",
+          "their own situation may differ from the general rule"
+        ],
+        "prohibitedClaims": [
+          "says the person's lawyer or firm is wrong",
+          "tells the person to start work before confirming with their firm",
+          "tells the person to get a second opinion from another attorney or firm"
+        ],
+        "citationExpectations": [
+          "should cite an official source on H-1B portability"
         ]
       },
       "expectedBehavior": "answer"

@@ -28,6 +28,7 @@
     "check:profile-updates": "tsx --tsconfig tsconfig.json evals/advisor/profile-updates.check.ts",
     "check:attempted-steps": "tsx --tsconfig tsconfig.json evals/advisor/attempted-steps.check.ts",
     "check:attorney-handoff": "tsx --tsconfig tsconfig.json evals/advisor/attorney-handoff.check.ts",
+    "check:firm-handoff": "tsx --tsconfig tsconfig.json evals/advisor/firm-handoff.check.ts",
     "check:answer-outcome": "tsx --tsconfig tsconfig.json evals/advisor/answer-outcome.check.ts",
     "check:situation-check": "tsx --tsconfig tsconfig.json evals/advisor/situation-check.check.ts",
     "check:bulletin-position": "tsx --tsconfig tsconfig.json evals/advisor/bulletin-position.check.ts",
@@ -59,6 +60,8 @@
     "check:firm-demo": "tsx --tsconfig tsconfig.json evals/firms/demo.check.ts",
     "check:firm-required-docs": "tsx --tsconfig tsconfig.json evals/firms/required-documents.check.ts",
     "check:lead-urgency": "tsx --tsconfig tsconfig.json evals/firms/urgency.check.ts",
+    "check:advisor-firm-link": "tsx --tsconfig tsconfig.json evals/firms/advisor-link.check.ts",
+    "check:contact-requests": "tsx --tsconfig tsconfig.json evals/firms/contact-requests.check.ts",
     "check:case-dashboard": "tsx --tsconfig tsconfig.json evals/firms/case-dashboard.check.ts"
   },
   "dependencies": {

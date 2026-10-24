@@ -21,6 +21,19 @@ function admin() {
   return createSupabaseAdminClient() as any;
 }
 
+/**
+ * A client asking, from the advisor, to be contacted (specs/firm-contact-requests).
+ * Holds only what the client saw and chose to send: the practice area, their
+ * dates and the suggested questions. Nothing links it back to a conversation.
+ */
+export type FirmContactRequest = {
+  id: string;
+  sentAt: string;
+  practiceArea: string;
+  dates: string[];
+  questions: string[];
+};
+
 export type FirmClientSummary = {
   id: string;
   displayName: string;
@@ -37,6 +50,8 @@ export type FirmClientSummary = {
   joinedAt: string | null;
   createdAt: string;
   urgency: Urgency;
+  /** Shown beside the urgency, never part of it: asking does not move anyone up the list. */
+  openContactRequest: { id: string; sentAt: string } | null;
 };
 
 async function firmClientRows(firmId: string): Promise<FirmClientRow[]> {
@@ -49,10 +64,42 @@ async function firmClientRows(firmId: string): Promise<FirmClientRow[]> {
   return (data ?? []) as FirmClientRow[];
 }
 
+function toContactRequest(row: any): FirmContactRequest {
+  const strings = (value: unknown) => (Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : []);
+  return {
+    id: row.id,
+    sentAt: row.created_at,
+    practiceArea: row.practice_area,
+    dates: strings(row.dates),
+    questions: strings(row.questions)
+  };
+}
+
+/**
+ * This firm's open contact requests, by firm client id.
+ *
+ * A failure reads as "none open" rather than taking the dashboard down: the
+ * marker is an addition to the list, and losing it for a moment is better than
+ * losing the list.
+ */
+async function openContactRequests(firmId: string): Promise<Map<string, FirmContactRequest>> {
+  const { data, error } = await admin()
+    .from("firm_contact_requests")
+    .select("id, firm_client_id, practice_area, dates, questions, created_at")
+    .eq("firm_id", firmId)
+    .is("handled_at", null);
+  if (error) {
+    console.error("[firm] could not load contact requests", error.message);
+    return new Map();
+  }
+  return new Map((data ?? []).map((row: any) => [row.firm_client_id as string, toContactRequest(row)]));
+}
+
 export async function listFirmClients(firmId: string): Promise<FirmClientSummary[]> {
-  const [rows, requiredDocs] = await Promise.all([
+  const [rows, requiredDocs, contactRequests] = await Promise.all([
     firmClientRows(firmId),
-    getFirmRequiredDocuments(firmId)
+    getFirmRequiredDocuments(firmId),
+    openContactRequests(firmId)
   ]);
   const userIds = rows.map((r) => r.user_id).filter((id): id is string => Boolean(id));
 
@@ -111,7 +158,11 @@ export async function listFirmClients(firmId: string): Promise<FirmClientSummary
       totalRequiredCount: totalRequired > 0 ? totalRequired : undefined,
       joinedAt: row.joined_at,
       createdAt: row.created_at,
-      urgency: rankUrgency(answers, now)
+      urgency: rankUrgency(answers, now),
+      openContactRequest: (() => {
+        const request = contactRequests.get(row.id);
+        return request ? { id: request.id, sentAt: request.sentAt } : null;
+      })()
     };
   });
 
@@ -157,19 +208,21 @@ export type FirmClientDetail = {
   documents: FirmClientDocument[];
   requiredDocuments: FirmRequiredDocumentStatus[];
   additionalDocuments: FirmClientDocument[];
+  openContactRequest: FirmContactRequest | null;
 };
 
 /** One client of this firm, or null. Always filters by both ids. */
 export async function getFirmClient(firmId: string, firmClientId: string): Promise<FirmClientDetail | null> {
   if (!/^[0-9a-f-]{36}$/i.test(firmClientId)) return null;
-  const [{ data: row }, requiredDocs] = await Promise.all([
+  const [{ data: row }, requiredDocs, contactRequest] = await Promise.all([
     admin()
       .from("firm_clients")
       .select("*")
       .eq("firm_id", firmId)
       .eq("id", firmClientId)
       .maybeSingle(),
-    getFirmRequiredDocuments(firmId)
+    getFirmRequiredDocuments(firmId),
+    openContactRequestFor(firmId, firmClientId)
   ]);
   if (!row) return null;
   const client = row as FirmClientRow;
@@ -234,8 +287,42 @@ export async function getFirmClient(firmId: string, firmClientId: string): Promi
     answers,
     documents,
     requiredDocuments,
-    additionalDocuments
+    additionalDocuments,
+    openContactRequest: contactRequest
   };
+}
+
+async function openContactRequestFor(firmId: string, firmClientId: string): Promise<FirmContactRequest | null> {
+  const { data, error } = await admin()
+    .from("firm_contact_requests")
+    .select("id, practice_area, dates, questions, created_at")
+    .eq("firm_id", firmId)
+    .eq("firm_client_id", firmClientId)
+    .is("handled_at", null)
+    .maybeSingle();
+  if (error) {
+    console.error("[firm] could not load contact request", error.message);
+    return null;
+  }
+  return data ? toContactRequest(data) : null;
+}
+
+/**
+ * Marks one of this firm's open contact requests handled. Touches only the
+ * request: the client's stage and urgency are the firm's and the dates' to
+ * decide, not a side effect of answering a request.
+ */
+export async function markContactRequestHandled(firmId: string, requestId: string, handledBy: string): Promise<boolean> {
+  if (!/^[0-9a-f-]{36}$/i.test(requestId)) return false;
+  const { data, error } = await admin()
+    .from("firm_contact_requests")
+    .update({ handled_at: new Date().toISOString(), handled_by: handledBy })
+    .eq("firm_id", firmId)
+    .eq("id", requestId)
+    .is("handled_at", null)
+    .select("id");
+  if (error) throw new Error(`Could not mark the request handled: ${error.message}`);
+  return Boolean(data && data.length > 0);
 }
 
 /** Updates a client's engagement stage and note, scoped to this firm. */

@@ -18,7 +18,17 @@ export const advisorAnswerPayloadSchema = z.object({
   haven_context_used: z.array(z.string()),
   community_context_used: z.array(z.string()),
   follow_up_questions: z.array(z.string()),
-  refusal_or_escalation_reason: z.string().optional()
+  refusal_or_escalation_reason: z.string().optional(),
+  // Set by code on a firm client's handoff, never by the model, so it is not in
+  // advisorAnswerJsonSchema below.
+  firm_contact_offer: z
+    .object({
+      firmName: z.string().min(1),
+      practiceArea: z.string().min(1),
+      dates: z.array(z.string()),
+      questions: z.array(z.string())
+    })
+    .optional()
 });
 
 export const advisorAnswerJsonSchema = {

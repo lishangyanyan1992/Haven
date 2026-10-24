@@ -12,6 +12,7 @@ import { FirmHeader } from "../../FirmHeader";
 import { ContactQuickActions } from "../../ContactQuickActions";
 import { ExportCmsButton } from "../../ExportCmsButton";
 import { PipelineStatusSelect } from "../../PipelineStatusSelect";
+import { ContactRequestPanel } from "./ContactRequestPanel";
 import { EngagementStageControls } from "./EngagementStageControls";
 import { OpenDocumentButton } from "./OpenDocumentButton";
 
@@ -208,6 +209,8 @@ export default async function FirmClientPage({ params }: { params: Promise<{ id:
             <ExportCmsButton clientName={name} firmClientId={client.id} />
           </div>
         </div>
+
+        {client.openContactRequest ? <ContactRequestPanel firmClientId={client.id} request={client.openContactRequest} /> : null}
 
         {/* High-visibility contact information & quick actions */}
         <ContactQuickActions

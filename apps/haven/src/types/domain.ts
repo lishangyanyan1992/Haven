@@ -370,6 +370,19 @@ export interface AdvisorAnswerPayload {
   community_context_used: string[];
   follow_up_questions: string[];
   refusal_or_escalation_reason?: string;
+  /**
+   * Present only on a firm client's lawyer handoff: what "Let [firm] know" would
+   * send. The server rebuilds the contact request from this stored copy, never
+   * from the browser, so the firm receives exactly what was shown.
+   */
+  firm_contact_offer?: AdvisorFirmContactOffer;
+}
+
+export interface AdvisorFirmContactOffer {
+  firmName: string;
+  practiceArea: string;
+  dates: string[];
+  questions: string[];
 }
 
 export interface AdvisorMessage {

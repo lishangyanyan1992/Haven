@@ -28,8 +28,9 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import type { AdvisorStreamEvent, AdvisorUsage } from "@/lib/advisor/service";
 import { trackEvent } from "@/lib/mixpanel";
-import type { AdvisorAnswerPayload, AdvisorMessage } from "@/types/domain";
+import type { AdvisorAnswerPayload, AdvisorFirmContactOffer, AdvisorMessage } from "@/types/domain";
 import { PENDING_QUESTION_KEY } from "@/lib/pending-question";
+import { getFirmContactRequestStatusAction, sendFirmContactRequestAction } from "@/server/firm-contact-actions";
 
 type AdvisorWorkspaceProps = {
   advisorUsage: AdvisorUsage;
@@ -635,6 +636,124 @@ function UserMessageCard({ message }: { message: AdvisorMessage }) {
 
 const REPORT_REASONS = ["Wrong facts", "Didn't fit my case", "Confusing", "Out of date"];
 
+/**
+ * "Let [firm] know", under a firm client's lawyer handoff.
+ *
+ * Shows exactly what the firm will receive before anything is sent, and sends
+ * only the answer's trace id: the server reads the offer from the stored answer
+ * and the firm from the person's own record, so nothing typed here or in the
+ * conversation can reach the firm. Whether a request is already open is asked
+ * on render, so a reloaded answer reflects what the firm has done since.
+ */
+function FirmContactOffer({ offer, traceId }: { offer: AdvisorFirmContactOffer; traceId: string }) {
+  const [state, setState] = useState<"checking" | "idle" | "previewing" | "sending" | "sent" | "error">("checking");
+  const [sentAt, setSentAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    getFirmContactRequestStatusAction()
+      .then((status) => {
+        if (!live) return;
+        setSentAt(status.sentAt);
+        setState(status.sentAt ? "sent" : "idle");
+      })
+      .catch(() => live && setState("idle"));
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  const send = useCallback(async () => {
+    setState("sending");
+    try {
+      const result = await sendFirmContactRequestAction(traceId);
+      if (result.status === "sent" || result.status === "already_sent") {
+        setSentAt(result.sentAt);
+        setState("sent");
+        trackEvent("advisor_firm_contact_requested", { alreadyOpen: result.status === "already_sent" });
+        return;
+      }
+      setState("error");
+    } catch {
+      setState("error");
+    }
+  }, [traceId]);
+
+  if (state === "checking") return null;
+
+  if (state === "sent") {
+    return (
+      <div className="rounded-[var(--radius-lg)] border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] px-4 py-3">
+        <p className="text-body-sm text-[var(--haven-ink)]">
+          {offer.firmName} has your request{sentAt ? ` (sent ${relativeTime(sentAt)})` : ""}. They see the dates and questions
+          above, not this conversation.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--haven-sand)] p-4">
+      {state === "previewing" || state === "sending" ? (
+        <>
+          <p className="text-body-sm font-medium text-[var(--haven-ink)]">What {offer.firmName} will see</p>
+          <p className="mt-1 text-caption text-[var(--color-text-secondary)]">
+            Only this. Nothing you wrote here, and none of Haven&apos;s answer.
+          </p>
+          <div className="mt-3 space-y-2 text-body-sm text-[var(--haven-ink)]">
+            <p>
+              <span className="font-medium">About:</span> {offer.practiceArea}
+            </p>
+            {offer.dates.length > 0 && (
+              <ul className="list-disc space-y-1 pl-5">
+                {offer.dates.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            )}
+            <ul className="list-disc space-y-1 pl-5">
+              {offer.questions.map((question) => (
+                <li key={question}>{question}</li>
+              ))}
+            </ul>
+          </div>
+          <div className="mt-3 flex items-center gap-3">
+            <button
+              className="rounded-full bg-[var(--haven-ink)] px-4 py-2 text-[13px] font-medium text-[var(--haven-cream)] transition-colors hover:bg-[var(--haven-ink-mid)] disabled:opacity-60"
+              disabled={state === "sending"}
+              onClick={() => void send()}
+              type="button"
+            >
+              {state === "sending" ? "Sending…" : `Send to ${offer.firmName}`}
+            </button>
+            <button
+              className="text-caption text-[var(--color-text-secondary)] transition-colors hover:text-[var(--haven-ink)]"
+              disabled={state === "sending"}
+              onClick={() => setState("idle")}
+              type="button"
+            >
+              Cancel
+            </button>
+          </div>
+        </>
+      ) : (
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            className="rounded-full bg-[var(--haven-ink)] px-4 py-2 text-[13px] font-medium text-[var(--haven-cream)] transition-colors hover:bg-[var(--haven-ink-mid)]"
+            onClick={() => setState("previewing")}
+            type="button"
+          >
+            Let {offer.firmName} know
+          </button>
+          <p className="text-caption text-[var(--color-text-secondary)]">
+            {state === "error" ? "That didn't go through. Try again in a moment." : "Ask them to get in touch. You'll see what they get first."}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AdvisorAnswerCard({
   message,
   isPending,
@@ -885,6 +1004,10 @@ function AdvisorAnswerCard({
               <div className="flex flex-wrap gap-2">
                 <Badge variant="urgent">Needs caution</Badge>
               </div>
+            )}
+
+            {traceId && message.answerPayload.firm_contact_offer && (
+              <FirmContactOffer offer={message.answerPayload.firm_contact_offer} traceId={traceId} />
             )}
 
             {sourcesPanel}

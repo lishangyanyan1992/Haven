@@ -49,6 +49,7 @@
  * the dashboard end up describing different days.
  */
 
+import type { AdvisorFirmLink } from "@/lib/firms/advisor-link";
 import { havenSnapshot } from "@/lib/repositories/mock-data";
 import type { ActiveLayoffEvent, HavenWorkspaceSnapshot, ImmigrationProfile, TimelineEvent } from "@/types/domain";
 
@@ -61,6 +62,8 @@ export type TestPersona = {
   snapshot: HavenWorkspaceSnapshot;
   /** Passages from the persona's uploaded documents, as the document search returns them. */
   documentPassages?: Array<{ documentLabel: string; page: number; content: string; similarity: number }>;
+  /** The firm that invited this persona, standing in for the firm_clients lookup. Absent means no firm. */
+  firmLink?: AdvisorFirmLink;
 };
 
 /**
@@ -371,6 +374,35 @@ export const DOCUMENT_TEST_PERSONAS: TestPersona[] = [
 ];
 
 /**
+ * Personas invited by a law firm (evals/advisor fixtures in category firm_client).
+ *
+ * Arjun at day 5 again, so the only thing that differs from the plain day-5
+ * persona is the firm: whatever changes in the answer is the firm's doing. One
+ * persona per side of the line the wording turns on — a lead the firm has not
+ * signed, and a signed client.
+ */
+const dayFive = TEST_PERSONAS.find((entry) => entry.id === "day-5");
+
+export const FIRM_TEST_PERSONAS: TestPersona[] = dayFive
+  ? [
+      {
+        ...dayFive,
+        id: "firm-lead",
+        situation: `${dayFive.situation} Invited by Rivera Immigration Law; a new lead, not yet signed.`,
+        tests: "That a firm's lead is sent back to that firm, never to the directory, and the firm is not called their lawyer.",
+        firmLink: { kind: "firm", firmId: "persona-firm", firmName: "Rivera Immigration Law", firmClientId: "persona-firm-client", pipelineStatus: "new_lead" }
+      },
+      {
+        ...dayFive,
+        id: "firm-signed",
+        situation: `${dayFive.situation} A signed client of Rivera Immigration Law.`,
+        tests: "That a signed client is pointed to their lawyer at the firm, and the advisor defers to the firm on their case.",
+        firmLink: { kind: "firm", firmId: "persona-firm", firmName: "Rivera Immigration Law", firmClientId: "persona-firm-client", pipelineStatus: "contract_signed" }
+      }
+    ]
+  : [];
+
+/**
  * Which persona this process is running as, if any.
  *
  * Deliberately returns null for an unrecognised value rather than throwing or
@@ -381,7 +413,7 @@ export const DOCUMENT_TEST_PERSONAS: TestPersona[] = [
 export function resolveTestPersona(value: string | undefined = process.env.ADVISOR_TEST_PERSONA): TestPersona | null {
   const wanted = value?.trim();
   if (!wanted) return null;
-  return [...TEST_PERSONAS, ...DOCUMENT_TEST_PERSONAS].find((candidate) => candidate.id === wanted) ?? null;
+  return [...TEST_PERSONAS, ...DOCUMENT_TEST_PERSONAS, ...FIRM_TEST_PERSONAS].find((candidate) => candidate.id === wanted) ?? null;
 }
 
 export function testPersonaIds(): string[] {

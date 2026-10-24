@@ -198,6 +198,116 @@ async function main() {
 
   check("nothing the Advisor says links to a parked route", deadLinks.length === 0, deadLinks.join("\n      "));
 
+  // ------------------------------------------------- a firm's own client
+  //
+  // Since Haven became invitation-only, most people asking were invited by a law
+  // firm. Sending them to the directory hands that firm's client to its
+  // competitors (specs/advisor-attorney-handoff). And until the firm signs them,
+  // it is not their lawyer, so the wording must not say it is.
+  const STAGES = [
+    "new_lead",
+    "contacted",
+    "consultation_scheduled",
+    "consultation_completed",
+    "contract_sent",
+    "contract_signed",
+    "archived"
+  ] as const;
+  const firmLink = (stage: (typeof STAGES)[number], name = "Rivera Immigration Law") => ({
+    kind: "firm" as const,
+    firmId: "firm-1",
+    firmName: name,
+    firmClientId: "fc-1",
+    pipelineStatus: stage
+  });
+  const buildFor = (firm: Parameters<typeof buildAttorneyHandoff>[0]["firm"], context = {}) =>
+    buildAttorneyHandoff({
+      topics: ["layoffs"] as never,
+      answer: "You should speak to an immigration attorney this week.",
+      context,
+      alreadyDelivered: false,
+      firm,
+      today
+    });
+
+  for (const stage of STAGES) {
+    const built = buildFor(firmLink(stage), { layoffDate: "2026-08-03" });
+    const text = built?.text ?? "";
+    check(`firm client (${stage}): names the firm`, text.includes("Rivera Immigration Law"), text || "(nothing)");
+    check(`firm client (${stage}): no directory link`, !text.includes("/lawyers"), text);
+    check(`firm client (${stage}): no suggestion to look for another firm`, !/boutique|look for a|browse|other firms|shop around/i.test(text), text);
+    check(`firm client (${stage}): no not-a-referral note`, !/not a referral/i.test(text), text);
+    const signed = stage === "contract_signed";
+    check(
+      signed ? `firm client (${stage}): "your lawyer at" the firm` : `firm client (${stage}): never "your lawyer" or "your attorney"`,
+      signed ? /your lawyer at Rivera Immigration Law/.test(text) : !/your (lawyer|attorney)/i.test(text) && /the firm that invited you, Rivera Immigration Law/.test(text),
+      text
+    );
+    check(`firm client (${stage}): still says what to bring and ask`, /Take with you:/.test(text) && /Worth asking:/.test(text) && /August 3, 2026/.test(text), text);
+    check(`firm client (${stage}): offers to let the firm know`, built?.contactOffer?.firmName === "Rivera Immigration Law", JSON.stringify(built?.contactOffer));
+  }
+
+  // The offer carries the dated lines and the questions shown, nothing else.
+  const offerBuilt = buildFor(firmLink("new_lead"), { layoffDate: "2026-08-03", priorityDate: "2022-03-15" });
+  const offer = offerBuilt?.contactOffer;
+  check(
+    "contact offer: only the dated take-with-you lines",
+    offer?.dates.length === 2 && offer.dates.every((line) => (offerBuilt?.text ?? "").includes(line)) && !offer.dates.some((line) => /I-797/.test(line)),
+    JSON.stringify(offer?.dates)
+  );
+  check(
+    "contact offer: exactly the questions shown",
+    (offer?.questions.length ?? 0) >= 3 && (offer?.questions ?? []).every((q) => (offerBuilt?.text ?? "").includes(`- ${q}`)),
+    JSON.stringify(offer?.questions)
+  );
+  check("contact offer: practice area matches the block", offer?.practiceArea === offerBuilt?.practiceArea, JSON.stringify(offer));
+  check(
+    "contact offer: has no field beyond firm, area, dates and questions",
+    JSON.stringify(Object.keys(offer ?? {}).sort()) === JSON.stringify(["dates", "firmName", "practiceArea", "questions"]),
+    JSON.stringify(Object.keys(offer ?? {}))
+  );
+
+  // A firm's name is its own text. It must not become a link in the block.
+  const hostile = buildFor(firmLink("new_lead", "Evil Law [click](https://example.com)"));
+  check("a firm name cannot inject a link", !/\]\(https?:/.test(hostile?.text ?? ""), hostile?.text ?? "(nothing)");
+
+  // Someone the owner invited directly: today's directory handoff, no offer.
+  const noFirm = buildFor({ kind: "none" });
+  const legacy = build(["layoffs"], "You should speak to an immigration attorney this week.");
+  check("no firm: the same directory handoff as before", noFirm !== null && noFirm.text === legacy?.text, noFirm?.text ?? "(nothing)");
+  check("no firm: no contact offer", noFirm?.contactOffer === null, JSON.stringify(noFirm?.contactOffer));
+  check("omitting the firm means no firm", legacy?.contactOffer === null && legacy?.text === noFirm?.text, legacy?.text ?? "(nothing)");
+
+  // Lookup failed: no directory (they may be a firm client), no offer, but the
+  // dates and questions are still worth having.
+  const unknown = buildFor({ kind: "unknown" }, { layoffDate: "2026-08-03" });
+  check("unknown firm: no directory link", !(unknown?.text ?? "").includes("/lawyers"), unknown?.text ?? "(nothing)");
+  check("unknown firm: no other-firm suggestion", !/boutique|browse|not a referral/i.test(unknown?.text ?? ""), unknown?.text ?? "(nothing)");
+  check("unknown firm: no contact offer", unknown?.contactOffer === null, JSON.stringify(unknown?.contactOffer));
+  check("unknown firm: still dates and questions", /August 3, 2026/.test(unknown?.text ?? "") && /Worth asking:/.test(unknown?.text ?? ""), unknown?.text ?? "(nothing)");
+
+  // Once per thread holds across every heading, old and new.
+  for (const [label, built] of [
+    ["firm (not signed)", buildFor(firmLink("contacted"))],
+    ["firm (signed)", buildFor(firmLink("contract_signed"))],
+    ["unknown", unknown],
+    ["no firm", noFirm]
+  ] as const) {
+    check(`a delivered ${label} handoff is detectable in thread history`, HANDOFF_DELIVERED.test(built?.text ?? ""), built?.text ?? "(nothing)");
+  }
+  check(
+    "a firm handoff is not repeated after an older directory handoff",
+    buildAttorneyHandoff({
+      topics: ["layoffs"] as never,
+      answer: "Talk to an immigration attorney.",
+      context: {},
+      alreadyDelivered: HANDOFF_DELIVERED.test(recommended?.text ?? ""),
+      firm: firmLink("new_lead"),
+      today
+    }) === null,
+    "it repeated"
+  );
+
   console.log(`\n${pass} passed, ${failures.length} failed`);
   if (failures.length > 0) process.exit(1);
 }

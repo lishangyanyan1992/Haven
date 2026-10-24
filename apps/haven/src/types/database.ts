@@ -1313,6 +1313,57 @@ export type Database = {
           },
         ]
       }
+      firm_contact_requests: {
+        Row: {
+          created_at: string
+          dates: Json
+          firm_client_id: string
+          firm_id: string
+          handled_at: string | null
+          handled_by: string | null
+          id: string
+          practice_area: string
+          questions: Json
+        }
+        Insert: {
+          created_at?: string
+          dates?: Json
+          firm_client_id: string
+          firm_id: string
+          handled_at?: string | null
+          handled_by?: string | null
+          id?: string
+          practice_area: string
+          questions?: Json
+        }
+        Update: {
+          created_at?: string
+          dates?: Json
+          firm_client_id?: string
+          firm_id?: string
+          handled_at?: string | null
+          handled_by?: string | null
+          id?: string
+          practice_area?: string
+          questions?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "firm_contact_requests_firm_client_id_fkey"
+            columns: ["firm_client_id"]
+            isOneToOne: false
+            referencedRelation: "firm_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "firm_contact_requests_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       firm_intake_links: {
         Row: {
           created_at: string
