@@ -230,7 +230,9 @@ async function main() {
       const rlsOff = new RegExp(String.raw`^\s*alter\s+table\s+(?:if\s+exists\s+)?(?:only\s+)?${TABLE}\s+disable\s+row\s+level\s+security`, "is");
       const nameOf = (m: RegExpExecArray) => m[1] ?? m[2].toLowerCase();
       for (const raw of files) {
-        for (const statement of raw.replace(/--[^\n]*/g, "").split(";")) {
+        // Both comment forms are whitespace to Postgres, so neither may hide a statement.
+        const sql = raw.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/--[^\n]*/g, "");
+        for (const statement of sql.split(";")) {
           const created = create.exec(statement);
           if (created) {
             const command = /\bfor\s+(all|select|insert|update|delete)\b/i.exec(created[3])?.[1]?.toLowerCase() ?? "all";
@@ -270,6 +272,11 @@ async function main() {
       caught(`drop policy if exists "a" on public.advisor_messages;\ncreate policy "a" on public.advisor_messages for insert with check (true);`)
     );
     check("matcher: catches row level security turned off", caught(`alter table public.advisor_messages disable row level security;`));
+    check(
+      "matcher: a block comment does not hide a policy",
+      caught(`/* reason */ create policy allow_insert on public.advisor_messages for insert with check (true);`) &&
+        caught(`create /* x */ policy "a" on public.advisor_messages /* y */ for insert with check (true);`)
+    );
   }
 
   console.log(`\n${pass}/${pass + failures.length} passed`);
