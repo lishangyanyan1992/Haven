@@ -2268,14 +2268,19 @@
       "expected": {
         "answerTraits": [
           "points the person to the firm that invited them, by name",
-          "explains why counsel matters for their dates"
+          "explains why counsel matters for their dates",
+          "separates being allowed to remain in the U.S. from being allowed to work"
         ],
         "requiredCaveats": [
+          "the grace period is up to 60 days or until the end of their authorized validity period, whichever is shorter, and is not guaranteed",
+          "they cannot work during the grace period unless separately authorized",
           "the inviting firm should confirm the exact filing deadline"
         ],
         "prohibitedClaims": [
           "tells the person to find, hire, retain, or compare other attorneys or firms",
-          "links to or mentions Haven's general firm directory"
+          "links to or mentions Haven's general firm directory",
+          "treats the grace period as a guaranteed full 60 days",
+          "says they can work for anyone while only in the grace period"
         ],
         "citationExpectations": [
           "should cite an official source for the 60-day grace period"
@@ -2300,16 +2305,17 @@
       },
       "expected": {
         "answerTraits": [
-          "explains H-1B portability: work can generally begin once a non-frivolous petition is properly filed, if the conditions are met",
+          "explains H-1B portability: work for the new employer can begin once a nonfrivolous petition for new employment has been filed, or on the requested start date, whichever is later, if the conditions are met",
           "says their firm knows their case and may have a reason specific to them, and leaves the decision to the firm"
         ],
         "requiredCaveats": [
-          "portability depends on conditions such as being in valid status or within the grace period when the petition is filed",
+          "the new petition must be filed before their authorized period of stay ends, and they must not have worked without authorization since their last admission",
           "their own situation may differ from the general rule"
         ],
         "prohibitedClaims": [
           "says the person's lawyer or firm is wrong",
           "tells the person to start work before confirming with their firm",
+          "says they can start once the petition or LCA is being prepared, before it is filed",
           "tells the person to get a second opinion from another attorney or firm"
         ],
         "citationExpectations": [
