@@ -218,15 +218,32 @@ async function main() {
   // migrations and check no insert-capable policy survives on that table. A
   // policy with no FOR clause applies to ALL commands, insert included.
   {
+    // Replayed statement by statement, in migration order, because a drop and a
+    // re-create of the same name can sit in one file. Unquoted names fold to
+    // lower case, as Postgres does. Turning row level security off counts too.
     const insertPoliciesLive = (files: string[]) => {
       const live = new Set<string>();
+      const NAME = String.raw`(?:"([^"]+)"|([A-Za-z_][A-Za-z0-9_$]*))`;
+      const TABLE = String.raw`(?:public\.)?"?advisor_messages"?\b`;
+      const create = new RegExp(String.raw`^\s*create\s+policy\s+${NAME}\s+on\s+${TABLE}(.*)$`, "is");
+      const drop = new RegExp(String.raw`^\s*drop\s+policy\s+(?:if\s+exists\s+)?${NAME}\s+on\s+${TABLE}`, "is");
+      const rlsOff = new RegExp(String.raw`^\s*alter\s+table\s+(?:if\s+exists\s+)?(?:only\s+)?${TABLE}\s+disable\s+row\s+level\s+security`, "is");
+      const nameOf = (m: RegExpExecArray) => m[1] ?? m[2].toLowerCase();
       for (const raw of files) {
-        const sql = raw.replace(/--[^\n]*/g, "");
-        for (const m of sql.matchAll(/create\s+policy\s+"([^"]+)"\s+on\s+(?:public\.)?advisor_messages\b([^;]*);/gi)) {
-          const command = /\bfor\s+(all|select|insert|update|delete)\b/i.exec(m[2])?.[1]?.toLowerCase() ?? "all";
-          if (command === "insert" || command === "all") live.add(m[1]);
+        for (const statement of raw.replace(/--[^\n]*/g, "").split(";")) {
+          const created = create.exec(statement);
+          if (created) {
+            const command = /\bfor\s+(all|select|insert|update|delete)\b/i.exec(created[3])?.[1]?.toLowerCase() ?? "all";
+            if (command === "insert" || command === "all") live.add(nameOf(created));
+            continue;
+          }
+          const dropped = drop.exec(statement);
+          if (dropped) {
+            live.delete(nameOf(dropped));
+            continue;
+          }
+          if (rlsOff.test(statement)) live.add("(row level security disabled)");
         }
-        for (const m of sql.matchAll(/drop\s+policy\s+(?:if\s+exists\s+)?"([^"]+)"\s+on\s+(?:public\.)?advisor_messages\b/gi)) live.delete(m[1]);
       }
       return live;
     };
@@ -246,6 +263,13 @@ async function main() {
     check("matcher: catches an unqualified table name", caught(`create policy "a" on advisor_messages for insert with check (true);`));
     check("matcher: ignores FOR SELECT", !caught(`create policy "a" on public.advisor_messages for select using (true);`));
     check("matcher: a later drop removes it", insertPoliciesLive([`create policy "a" on public.advisor_messages for insert with check (true);`, `drop policy if exists "a" on public.advisor_messages;`]).size === 0);
+    check("matcher: catches an unquoted policy name", caught(`create policy allow_insert on public.advisor_messages for insert with check (true);`));
+    check("matcher: an unquoted drop removes an unquoted create", insertPoliciesLive([`create policy Allow_Insert on public.advisor_messages for insert with check (true);`, `drop policy allow_insert on public.advisor_messages;`]).size === 0);
+    check(
+      "matcher: catches drop then re-create in one file",
+      caught(`drop policy if exists "a" on public.advisor_messages;\ncreate policy "a" on public.advisor_messages for insert with check (true);`)
+    );
+    check("matcher: catches row level security turned off", caught(`alter table public.advisor_messages disable row level security;`));
   }
 
   console.log(`\n${pass}/${pass + failures.length} passed`);
