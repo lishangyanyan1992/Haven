@@ -215,18 +215,37 @@ async function main() {
   //
   // The offer is trusted because it comes from a stored assistant answer. That
   // holds only while users cannot insert advisor_messages themselves: replay the
-  // migrations and check no insert policy survives on that table.
+  // migrations and check no insert-capable policy survives on that table. A
+  // policy with no FOR clause applies to ALL commands, insert included.
   {
+    const insertPoliciesLive = (files: string[]) => {
+      const live = new Set<string>();
+      for (const raw of files) {
+        const sql = raw.replace(/--[^\n]*/g, "");
+        for (const m of sql.matchAll(/create\s+policy\s+"([^"]+)"\s+on\s+(?:public\.)?advisor_messages\b([^;]*);/gi)) {
+          const command = /\bfor\s+(all|select|insert|update|delete)\b/i.exec(m[2])?.[1]?.toLowerCase() ?? "all";
+          if (command === "insert" || command === "all") live.add(m[1]);
+        }
+        for (const m of sql.matchAll(/drop\s+policy\s+(?:if\s+exists\s+)?"([^"]+)"\s+on\s+(?:public\.)?advisor_messages\b/gi)) live.delete(m[1]);
+      }
+      return live;
+    };
+
     const fs = await import("node:fs");
     const path = await import("node:path");
     const dir = path.resolve(new URL("../../../../supabase/migrations", import.meta.url).pathname);
-    const live = new Set<string>();
-    for (const file of fs.readdirSync(dir).filter((name) => name.endsWith(".sql")).sort()) {
-      const sql = fs.readFileSync(path.join(dir, file), "utf8").replace(/--[^\n]*/g, "");
-      for (const m of sql.matchAll(/create policy\s+"([^"]+)"\s+on public\.advisor_messages\s+for\s+(insert|all)\b/gi)) live.add(m[1]);
-      for (const m of sql.matchAll(/drop policy\s+(?:if exists\s+)?"([^"]+)"\s+on public\.advisor_messages/gi)) live.delete(m[1]);
-    }
+    const files = fs.readdirSync(dir).filter((name) => name.endsWith(".sql")).sort().map((name) => fs.readFileSync(path.join(dir, name), "utf8"));
+    const live = insertPoliciesLive(files);
     check("no user can insert advisor_messages (the offer's source)", live.size === 0, [...live].join(", "));
+
+    // The matcher itself, against the forms a future migration might use.
+    const caught = (sql: string) => insertPoliciesLive([sql]).size > 0;
+    check("matcher: catches FOR INSERT", caught(`create policy "a" on public.advisor_messages for insert with check (true);`));
+    check("matcher: catches FOR ALL", caught(`create policy "a" on public.advisor_messages for all using (true);`));
+    check("matcher: catches a policy with no FOR (means ALL)", caught(`create policy "a" on public.advisor_messages using (user_id = auth.uid());`));
+    check("matcher: catches an unqualified table name", caught(`create policy "a" on advisor_messages for insert with check (true);`));
+    check("matcher: ignores FOR SELECT", !caught(`create policy "a" on public.advisor_messages for select using (true);`));
+    check("matcher: a later drop removes it", insertPoliciesLive([`create policy "a" on public.advisor_messages for insert with check (true);`, `drop policy if exists "a" on public.advisor_messages;`]).size === 0);
   }
 
   console.log(`\n${pass}/${pass + failures.length} passed`);
