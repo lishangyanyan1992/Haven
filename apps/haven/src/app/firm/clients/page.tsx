@@ -5,6 +5,7 @@ import { requireFirmMember } from "@/lib/firms/access";
 import { listFirmClients } from "@/lib/firms/clients";
 import { noIndexMetadata } from "@/lib/seo";
 import { ContactQuickActions } from "../ContactQuickActions";
+import { ContactRequestMarker } from "../ContactRequestMarker";
 import { ExportCmsButton } from "../ExportCmsButton";
 import { FirmHeader } from "../FirmHeader";
 import { FirmNavTabs } from "../FirmNavTabs";
@@ -18,12 +19,15 @@ function formatDate(value: string | null) {
   return new Date(value).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-export default async function RetainedClientsPage() {
+export default async function RetainedClientsPage({ searchParams }: { searchParams: Promise<{ asked?: string }> }) {
   const membership = await requireFirmMember("/firm/clients");
   const allClients = await listFirmClients(membership.firmId);
+  const askedOnly = (await searchParams).asked === "1";
 
   const leads = allClients.filter((c) => c.pipelineStatus !== "contract_signed");
-  const retainedClients = allClients.filter((c) => c.pipelineStatus === "contract_signed");
+  const allRetained = allClients.filter((c) => c.pipelineStatus === "contract_signed");
+  const retainedClients = askedOnly ? allRetained.filter((c) => c.openContactRequest) : allRetained;
+  const askedCount = allRetained.filter((c) => c.openContactRequest).length;
 
   return (
     <div className="min-h-screen bg-[var(--haven-cream)]">
@@ -36,13 +40,13 @@ export default async function RetainedClientsPage() {
           </div>
           <span className="rounded-full bg-[var(--haven-sage-light)] border border-[var(--haven-sage-mid)] px-3.5 py-1.5 text-body-sm font-semibold text-[var(--haven-ink)] flex items-center gap-1.5">
             <CheckCircle2 className="h-4 w-4 text-emerald-700" />
-            {retainedClients.length} Retained Clients
+            {allRetained.length} Retained Clients
           </span>
         </div>
 
         {/* Tab navigation between Leads and Retained Clients */}
         <FirmNavTabs
-          clientsCount={retainedClients.length}
+          clientsCount={allRetained.length}
           current="clients"
           leadsCount={leads.length}
         />
@@ -53,11 +57,19 @@ export default async function RetainedClientsPage() {
             <p className="text-body-sm mt-1 text-[var(--haven-ink-mid)]">
               Clients who have signed contracts with your firm. Download complete dossiers and document files to upload into your Case Management System (CMS).
             </p>
+            {askedCount > 0 || askedOnly ? (
+              <Link
+                className="mt-3 inline-flex items-center gap-1.5 text-body-sm font-medium text-[var(--haven-ink)] underline underline-offset-4"
+                href={askedOnly ? "/firm/clients" : "/firm/clients?asked=1"}
+              >
+                {askedOnly ? "Show all retained clients" : `Show only those who asked to be contacted (${askedCount})`}
+              </Link>
+            ) : null}
           </div>
 
           {retainedClients.length === 0 ? (
             <div className="p-8 text-center text-body-sm text-[var(--haven-ink-mid)] space-y-3">
-              <p>No retained clients yet.</p>
+              <p>{askedOnly ? "No retained client has an open request to be contacted." : "No retained clients yet."}</p>
               <p className="text-[13px]">
                 When an active lead signs a retainer agreement, mark their pipeline stage as <strong>Contract signed</strong> on the Leads dashboard and they will appear here.
               </p>
@@ -92,6 +104,11 @@ export default async function RetainedClientsPage() {
                         >
                           {client.displayName}
                         </Link>
+                        {client.openContactRequest ? (
+                          <div>
+                            <ContactRequestMarker firmClientId={client.id} sentAt={client.openContactRequest.sentAt} />
+                          </div>
+                        ) : null}
                       </td>
 
                       <td className="px-3 py-3">

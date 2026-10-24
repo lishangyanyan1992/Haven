@@ -48,7 +48,8 @@ import {
 } from "@/lib/advisor/thread-state";
 import { getThreadMessages, listThreads, persistExchange, type AdvisorThreadSummary } from "@/lib/advisor/threads";
 import { collectAttempts, renderAttemptsForPrompt } from "@/lib/advisor/attempted-steps";
-import { buildAttorneyHandoff, HANDOFF_DELIVERED } from "@/lib/advisor/attorney-handoff";
+import { buildAttorneyHandoff, HANDOFF_DELIVERED, pointCounselToFirm, renderFirmForPrompt } from "@/lib/advisor/attorney-handoff";
+import { getAdvisorFirmLink, type AdvisorFirmLink } from "@/lib/firms/advisor-link";
 import { readAnswerOutcome, recordOutcome, IMMEDIATE_LANDED, type ImmediateOutcome } from "@/lib/advisor/answer-outcome";
 import { checkSituation, renderSituationForPrompt } from "@/lib/advisor/situation-check";
 import { APPENDED_BLOCK_LABELS, splitAnswer } from "@/lib/advisor/answer-shape";
@@ -4159,6 +4160,28 @@ export interface AdvisorStreamDeps {
    * without a model call.
    */
   chatClient?: Pick<OpenAI, "chat"> | null;
+  /** Which firm invited the user. Tests pass a fixed answer instead of reading firm_clients. */
+  loadFirmLink?: (userId: string) => Promise<AdvisorFirmLink>;
+}
+
+/**
+ * The firm behind this user, for the lawyer handoff.
+ *
+ * A mock identity never reads the database: it takes the test persona's firm, or
+ * none. That keeps eval runs on the production code path without a firm_clients
+ * row, the same way personas stand in for the profile.
+ */
+function loadFirmLinkFor(identity: AdvisorIdentity, deps: AdvisorStreamDeps): Promise<AdvisorFirmLink> {
+  return Promise.resolve()
+    .then(() =>
+      deps.loadFirmLink
+        ? deps.loadFirmLink(identity.id)
+        : identity.isMock
+          ? (resolveTestPersona()?.firmLink ?? { kind: "none" as const })
+          : getAdvisorFirmLink(identity.id)
+    )
+    // A failed lookup costs the handoff its destination, never the answer.
+    .catch((): AdvisorFirmLink => ({ kind: "unknown" }));
 }
 
 export async function* streamAdvisorResponse(
@@ -4178,6 +4201,12 @@ export async function* streamAdvisorResponse(
   }
 
   const { content, history: submittedHistory, conversationId } = parsed.data;
+
+  // Started now and awaited where it is needed: the scope redirects below reply
+  // without a model call and still have to send a firm's client to that firm,
+  // and the full answer reads it alongside retrieval. Either way it never adds
+  // a wait of its own.
+  const firmLinkPromise = loadFirmLinkFor(identity, deps);
 
   // The client sends `[...messages, newMessage]`, so the current question arrives
   // inside its own history. Normalising at the boundary keeps "history" meaning
@@ -4503,7 +4532,7 @@ export async function* streamAdvisorResponse(
   );
   if (!scope.inScope) {
     const scopePayload: AdvisorAnswerPayload = {
-      answer_markdown: guardrailText(scope.guardrailId),
+      answer_markdown: pointCounselToFirm(guardrailText(scope.guardrailId), await firmLinkPromise),
       confidence: "high",
       // The redirects carry their own hand-off to counsel in the copy, where it
       // is specific to the deadline that matters. A generic disclaimer stapled
@@ -4692,7 +4721,7 @@ export async function* streamAdvisorResponse(
     const escalate = threadState.consecutiveMisses >= 2;
     const guardrailId = escalate ? "MSG_ESCALATE_AFTER_MISSES" : "MSG_CLARIFY_UNRECOGNIZED";
     const repairPayload: AdvisorAnswerPayload = {
-      answer_markdown: guardrailText(guardrailId),
+      answer_markdown: pointCounselToFirm(guardrailText(guardrailId), await firmLinkPromise),
       confidence: "low",
       disclaimer: guardrailText("MSG_DISCLAIMER"),
       external_citations: [],
@@ -4814,13 +4843,15 @@ export async function* streamAdvisorResponse(
   // Live bulletin stays gated on the topic: only fetched for bulletin questions,
   // so an OPT or layoff answer never carries a bulletin citation it did not use.
   const isBulletinQuestion = topics.includes("visa-bulletin");
-  const [knowledge, community, caseStats, liveBulletin] = await Promise.all([
+  // The firm lookup started at the top; awaited here alongside retrieval.
+  const [knowledge, community, caseStats, liveBulletin, firmLink] = await Promise.all([
     retrieveKnowledge(content, topics, retrievalSpan),
     retrieveCommunity(content, topics, snapshot, retrievalSpan),
     wantsCaseOutcomeStats(content, topics)
       ? getCaseOutcomeStats(buildCaseSegmentFilters(snapshot.profile, content, topics), retrievalSpan)
       : Promise.resolve(null),
-    isBulletinQuestion ? getLiveBulletinSnapshot() : Promise.resolve(null)
+    isBulletinQuestion ? getLiveBulletinSnapshot() : Promise.resolve(null),
+    firmLinkPromise
   ]);
 
   // Genuinely dependent: there is no position to render without a live bulletin.
@@ -4835,6 +4866,16 @@ export async function* streamAdvisorResponse(
       liveBulletin: liveBulletin?.bulletinLabel ?? "none",
       liveBulletinAgeDays: liveBulletin?.ageDays ?? null,
       bulletinPositionResolved: Boolean(bulletinPosition)
+    }
+  });
+
+  // Which handoff this person can get. The firm's name stays off the trace; the
+  // kind and the stage are what the handoff decision turns on, and "unknown" is
+  // the rate worth watching, since it hides the directory from everyone it hits.
+  trace?.update({
+    metadata: {
+      firmLink: firmLink.kind,
+      firmPipelineStatus: firmLink.kind === "firm" ? firmLink.pipelineStatus : null
     }
   });
 
@@ -4970,6 +5011,7 @@ export async function* streamAdvisorResponse(
     ...(situationLines.length > 0
       ? [buildContextBlock("What you know about them, and what you do not", situationLines), ""]
       : []),
+    ...(firmLink.kind === "firm" ? [buildContextBlock("Their law firm", renderFirmForPrompt(firmLink)), ""] : []),
     buildContextBlock("Whether a community story opens this answer", renderStoryLeadForPrompt(storyLead)),
     "",
     buildContextBlock("Decision guardrails", decisionGuardrails),
@@ -5284,6 +5326,8 @@ export async function* streamAdvisorResponse(
     .filter((turn) => turn.role === "assistant")
     .map((turn) => turn.content)
     .join("\n\n");
+  // Who is asking decides where it points: a firm's own client goes back to that
+  // firm, never to the directory of its competitors (see attorney-handoff.ts).
   const handoff = buildAttorneyHandoff({
     topics,
     answer: fullText,
@@ -5291,7 +5335,8 @@ export async function* streamAdvisorResponse(
       layoffDate: snapshot.activeLayoffEvent?.layoffDate ?? null,
       priorityDate: snapshot.profile.priorityDate ?? null
     },
-    alreadyDelivered: HANDOFF_DELIVERED.test(priorAssistantText)
+    alreadyDelivered: HANDOFF_DELIVERED.test(priorAssistantText),
+    firm: firmLink
   });
   if (handoff) {
     const handoffText = `\n\n${handoff.text}`;
@@ -5382,6 +5427,7 @@ export async function* streamAdvisorResponse(
     haven_context_used: havenContextUsed,
     community_context_used: communityUsed,
     follow_up_questions: buildFollowUpQuestions(topics),
+    ...(handoff?.contactOffer ? { firm_contact_offer: handoff.contactOffer } : {})
   };
 
   trace?.update({

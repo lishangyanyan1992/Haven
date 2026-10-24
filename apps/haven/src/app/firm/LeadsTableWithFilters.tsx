@@ -10,6 +10,7 @@ import { FIRM_PIPELINE_STATUS_LABEL, type FirmPipelineStatus } from "@/lib/firms
 import { TIER_LABEL, type UrgencyTier } from "@/lib/firms/urgency";
 import type { FirmClientSummary } from "@/lib/firms/clients";
 import { ContactQuickActions } from "./ContactQuickActions";
+import { ContactRequestMarker } from "./ContactRequestMarker";
 import { PipelineStatusSelect } from "./PipelineStatusSelect";
 
 const STATUS_STYLE: Record<string, string> = {
@@ -37,6 +38,7 @@ export function LeadsTableWithFilters({ leads }: { leads: FirmClientSummary[] })
   const [pipelineFilter, setPipelineFilter] = useState<string>("all");
   const [visaFilter, setVisaFilter] = useState<string>("all");
   const [dateRangeFilter, setDateRangeFilter] = useState<string>("all");
+  const [askedOnly, setAskedOnly] = useState(false);
 
   const availableVisas = useMemo(() => {
     const set = new Set<string>();
@@ -48,6 +50,7 @@ export function LeadsTableWithFilters({ leads }: { leads: FirmClientSummary[] })
 
   const filteredLeads = useMemo(() => {
     return leads.filter((lead) => {
+      if (askedOnly && !lead.openContactRequest) return false;
       if (tierFilter !== "all" && lead.urgency.tier !== tierFilter) return false;
       if (pipelineFilter !== "all" && lead.pipelineStatus !== pipelineFilter) return false;
       if (visaFilter !== "all" && (lead.visaType || "Unknown") !== visaFilter) return false;
@@ -68,7 +71,7 @@ export function LeadsTableWithFilters({ leads }: { leads: FirmClientSummary[] })
       }
       return true;
     });
-  }, [leads, search, tierFilter, pipelineFilter, visaFilter, dateRangeFilter]);
+  }, [leads, search, tierFilter, pipelineFilter, visaFilter, dateRangeFilter, askedOnly]);
 
   const handleExportCsv = () => {
     const headers = [
@@ -215,6 +218,16 @@ export function LeadsTableWithFilters({ leads }: { leads: FirmClientSummary[] })
               <option value="30d">Last 30 days</option>
               <option value="90d">Last 90 days</option>
             </select>
+
+            <label className="flex items-center gap-1.5 text-body-sm text-[var(--haven-ink)]">
+              <input
+                checked={askedOnly}
+                className="h-3.5 w-3.5"
+                onChange={(e) => setAskedOnly(e.target.checked)}
+                type="checkbox"
+              />
+              Asked to be contacted
+            </label>
           </div>
         </div>
       </div>
@@ -261,6 +274,11 @@ export function LeadsTableWithFilters({ leads }: { leads: FirmClientSummary[] })
                       <span className="ml-2 rounded-full bg-[var(--haven-ink)] px-2 py-0.5 text-[11px] font-semibold text-[var(--haven-cream)]">
                         NEW
                       </span>
+                    ) : null}
+                    {lead.openContactRequest ? (
+                      <div>
+                        <ContactRequestMarker firmClientId={lead.id} sentAt={lead.openContactRequest.sentAt} />
+                      </div>
                     ) : null}
                   </td>
 

@@ -4,7 +4,13 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 
 import { requireFirmMember } from "@/lib/firms/access";
-import { firmDocumentUrl, getFirmClientDossier, saveFirmClientEngagement, updateFirmClientPipelineStatus } from "@/lib/firms/clients";
+import {
+  firmDocumentUrl,
+  getFirmClientDossier,
+  markContactRequestHandled,
+  saveFirmClientEngagement,
+  updateFirmClientPipelineStatus
+} from "@/lib/firms/clients";
 import { resetDemoFirm } from "@/lib/firms/demo";
 import { validateEngagementUpdate } from "@/lib/firms/engagement";
 import { claimFirmInvite, requestFirmIntake, type IntakeResult } from "@/lib/firms/intake";
@@ -157,6 +163,21 @@ export async function updateFirmClientPipelineStatusAction(
   revalidatePath("/firm/clients");
   revalidatePath(`/firm/clients/${firmClientId}`);
   return { ok: true };
+}
+
+/** Marks one of this firm's open contact requests handled, so the client can ask again. */
+export async function markContactRequestHandledAction(
+  firmClientId: string,
+  requestId: string
+): Promise<{ ok: boolean }> {
+  const membership = await requireFirmMember();
+  const handled = await markContactRequestHandled(membership.firmId, requestId, membership.userId);
+  if (handled) {
+    revalidatePath("/firm");
+    revalidatePath("/firm/clients");
+    revalidatePath(`/firm/clients/${firmClientId}`);
+  }
+  return { ok: handled };
 }
 
 export async function exportFirmClientDossierAction(firmClientId: string): Promise<{

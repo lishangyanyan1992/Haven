@@ -93,6 +93,17 @@ async function main() {
   check("pdf: contains xref and %%EOF", pdfStr.includes("xref\n") && pdfStr.trimEnd().endsWith("%%EOF"));
   check("pdf: all showcase documents have valid definitions", Object.keys(SHOWCASE_DOCUMENTS).length === 8);
 
+  // A demo lead has asked to be contacted, so the marker is visible in demos,
+  // and the request holds what a real one would: built by the advisor's handoff.
+  const { buildDemoContactRequest, DEMO_CONTACT_REQUEST_EMAIL } = await import("@/lib/firms/demo");
+  const refDate = new Date("2026-10-23T15:00:00Z");
+  const demoRequest = buildDemoContactRequest(refDate);
+  check("demo contact request: belongs to a demo lead", DEMO_LEAD_TEMPLATES.some((t) => t.email === DEMO_CONTACT_REQUEST_EMAIL), DEMO_CONTACT_REQUEST_EMAIL);
+  check("demo contact request: built", demoRequest !== null, "null");
+  check("demo contact request: has the lead's dates", (demoRequest?.dates.length ?? 0) >= 1 && /60-day/.test(demoRequest?.dates[0] ?? ""), JSON.stringify(demoRequest?.dates));
+  check("demo contact request: has questions", (demoRequest?.questions.length ?? 0) >= 3, JSON.stringify(demoRequest?.questions));
+  check("demo contact request: sent before the reset time", new Date(demoRequest?.created_at ?? 0) < refDate, demoRequest?.created_at ?? "");
+
   console.log(`\n${pass}/${pass + failures.length} passed`);
   if (failures.length) process.exit(1);
 }

@@ -1,3 +1,4 @@
+import { buildAttorneyHandoff } from "@/lib/advisor/attorney-handoff";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getDefaultRequiredDocuments } from "@/lib/document-vault";
 import type { SharedAnswers } from "@/lib/firms/answers";
@@ -1058,7 +1059,67 @@ export async function seedDemoFirm(
     }
   }
 
+  await seedDemoContactRequest(firmId, refDate);
+
   return { count: DEMO_LEAD_TEMPLATES.length };
+}
+
+/** The demo lead who has asked to be contacted, so the marker shows in demos. */
+export const DEMO_CONTACT_REQUEST_EMAIL = "arjun.menon@example.invalid";
+
+/**
+ * The request that lead would have sent, built by the advisor's own handoff so
+ * the demo shows exactly what a real client's request contains.
+ */
+export function buildDemoContactRequest(refDate: Date) {
+  const template = DEMO_LEAD_TEMPLATES.find((t) => t.email === DEMO_CONTACT_REQUEST_EMAIL);
+  if (!template) return null;
+  const answers = buildDemoAnswers(template, refDate);
+  const handoff = buildAttorneyHandoff({
+    topics: ["layoffs"],
+    answer: "You should speak to an immigration attorney this week.",
+    context: {
+      layoffDate: typeof answers.lastWorkDay === "string" ? answers.lastWorkDay : null,
+      priorityDate: typeof answers.priorityDate === "string" ? answers.priorityDate : null
+    },
+    alreadyDelivered: false,
+    firm: { kind: "firm", firmId: "demo", firmName: "your firm", firmClientId: "demo", pipelineStatus: "new_lead" },
+    today: refDate
+  });
+  const offer = handoff?.contactOffer;
+  if (!offer) return null;
+  return {
+    practice_area: offer.practiceArea,
+    dates: offer.dates,
+    questions: offer.questions,
+    created_at: new Date(refDate.getTime() - 2 * 60 * 60 * 1000).toISOString()
+  };
+}
+
+/**
+ * Replace the demo firm's contact requests with the one sample. Best effort:
+ * a database without the contact-requests table yet should still reset the
+ * rest of the demo.
+ */
+async function seedDemoContactRequest(firmId: string, refDate: Date) {
+  const request = buildDemoContactRequest(refDate);
+  if (!request) return;
+  const { error: clearError } = await admin().from("firm_contact_requests").delete().eq("firm_id", firmId);
+  if (clearError) {
+    console.error("[firm-demo] could not reset contact requests", clearError.message);
+    return;
+  }
+  const { data: lead } = await admin()
+    .from("firm_clients")
+    .select("id")
+    .eq("firm_id", firmId)
+    .eq("normalized_email", DEMO_CONTACT_REQUEST_EMAIL)
+    .maybeSingle();
+  if (!lead) return;
+  const { error } = await admin()
+    .from("firm_contact_requests")
+    .insert({ firm_id: firmId, firm_client_id: lead.id, ...request });
+  if (error) console.error("[firm-demo] could not seed a contact request", error.message);
 }
 
 export function toProfileVisaType(visa: unknown): "OPT" | "STEM OPT" | "H1B" | "H4" | "O-1" | "GC" | "Citizen" {

@@ -16,6 +16,10 @@
  * 5. The urgency ranking (src/lib/firms/urgency.ts) reaches outside the
  *    firm's shared answers: it may import only from src/lib/firms and must
  *    not touch the database, the network or the environment.
+ * 6. firm_contact_requests is readable by anyone but its own firm's lawyers,
+ *    or writable from the browser at all. Its migration may grant exactly one
+ *    policy: a lawyer select keyed on haven_firm_id(). Clients send requests
+ *    through a server action that derives the firm itself.
  *
  * The rules also run against small deliberately broken examples, which must
  * fail, so the check can't quietly stop checking.
@@ -66,7 +70,8 @@ const FIRM_DATA_FUNCTIONS = [
   "getCurrentFirmLink",
   "setFirmLinkActive",
   "replaceFirmLink",
-  "resetDemoFirm"
+  "resetDemoFirm",
+  "markContactRequestHandled"
 ];
 
 /** Rules 1-3 on firm data files. Returns failure messages. */
@@ -83,7 +88,11 @@ function checkDataFiles(files: Source[]) {
     for (const [name, fn] of functions) {
       if (PUBLIC_BY_TOKEN.has(name)) continue;
       const takesFirm = /\bfirmId\b/.test(fn.params);
-      const firmQueries = [...statements(fn.body, '.from("firm_clients")'), ...statements(fn.body, '.from("firm_intake_links")')];
+      const firmQueries = [
+        ...statements(fn.body, '.from("firm_clients")'),
+        ...statements(fn.body, '.from("firm_intake_links")'),
+        ...statements(fn.body, '.from("firm_contact_requests")')
+      ];
       const rpcs = statements(fn.body, ".rpc(");
       if ((firmQueries.length || rpcs.length) && !takesFirm) failures.push(`${file.name} ${name}(): firm data functions must take firmId`);
       for (const q of firmQueries) {
@@ -140,6 +149,44 @@ function checkPureRanking(file: Source) {
   return failures;
 }
 
+/**
+ * Rule 7: a contact request never moves anyone. Code that touches
+ * firm_contact_requests must not update firm_clients (the stage), and the
+ * ranking must not see the request.
+ */
+function checkContactRequestsMoveNothing(file: Source) {
+  const failures: string[] = [];
+  for (const [name, fn] of topLevelFunctions(file.source)) {
+    if (!fn.body.includes('.from("firm_contact_requests")')) continue;
+    if (statements(fn.body, '.from("firm_clients")').some((q) => /\.update\(/.test(q.text))) {
+      failures.push(`${file.name} ${name}(): handles contact requests and updates firm_clients`);
+    }
+  }
+  for (const call of file.source.matchAll(/(rankUrgency|compareByUrgency)\(([\s\S]*?)\)\s*[;,)]/g)) {
+    if (/contact/i.test(call[2])) failures.push(`${file.name}: ${call[1]} is given the contact request`);
+  }
+  return failures;
+}
+
+/** Rule 6: contact requests are lawyer-read-only at the database. */
+function checkContactRequestPolicies(file: Source) {
+  const failures: string[] = [];
+  const sql = file.source.replace(/--[^\n]*/g, "");
+  if (!/alter table public\.firm_contact_requests enable row level security/i.test(sql)) {
+    failures.push(`${file.name}: row level security not enabled on firm_contact_requests`);
+  }
+  const policies = [...sql.matchAll(/create policy[^;]*?on public\.firm_contact_requests([^;]*);/gis)].map((m) => m[1]);
+  if (policies.length !== 1) failures.push(`${file.name}: expected exactly one policy on firm_contact_requests, found ${policies.length}`);
+  for (const policy of policies) {
+    if (!/\bfor select\b/i.test(policy)) failures.push(`${file.name}: a policy other than select: ${policy.replace(/\s+/g, " ").trim()}`);
+    if (!/using\s*\(\s*firm_id\s*=\s*public\.haven_firm_id\(\)\s*\)/i.test(policy)) {
+      failures.push(`${file.name}: select policy not keyed on haven_firm_id(): ${policy.replace(/\s+/g, " ").trim()}`);
+    }
+  }
+  if (/grant\s+[^;]*\bon\s+(table\s+)?public\.firm_contact_requests\b/i.test(sql)) failures.push(`${file.name}: grants on firm_contact_requests`);
+  return failures;
+}
+
 async function main() {
   const fs = await import("node:fs");
   const path = await import("node:path");
@@ -170,6 +217,14 @@ async function main() {
   for (const file of [read("src/server/firm-actions.ts"), ...pages]) check(`${file.name}: firm comes from requireFirmMember()`, checkCallers([file]));
 
   check("src/lib/firms/urgency.ts: ranking is a pure function of shared answers", checkPureRanking(read("src/lib/firms/urgency.ts")));
+
+  check("src/lib/firms/clients.ts: a contact request never changes stage or urgency", checkContactRequestsMoveNothing(read("src/lib/firms/clients.ts")));
+
+  const contactMigration: Source = {
+    name: "supabase/migrations/0044_firm_contact_requests.sql",
+    source: fs.readFileSync(path.join(root, "../../supabase/migrations/0044_firm_contact_requests.sql"), "utf8")
+  };
+  check(`${contactMigration.name}: contact requests readable only by the firm's lawyers, never written from the browser`, checkContactRequestPolicies(contactMigration));
 
   // ------------------------------------------------ broken examples that must be caught
   const bad = (name: string, source: string) => ({ name: `example:${name}`, source });
@@ -224,6 +279,58 @@ async function main() {
     checkCallers([bad("caller", `const membership = await requireFirmMember();\nawait getFirmClient(params.firmId, id);\n`)]),
     true
   );
+
+  check(
+    "catches handling a request that also moves the stage",
+    checkContactRequestsMoveNothing(
+      bad(
+        "moves-stage",
+        `export async function markContactRequestHandled(firmId: string, id: string) {\n  await db.from("firm_contact_requests").update({ handled_at: now }).eq("firm_id", firmId).eq("id", id);\n  await db.from("firm_clients").update({ pipeline_status: "contacted" }).eq("firm_id", firmId);\n}\n`
+      )
+    ),
+    true
+  );
+  check(
+    "catches a ranking that sees the request",
+    checkContactRequestsMoveNothing(bad("ranks-request", `const u = rankUrgency(answers, now, row.openContactRequest);\n`)),
+    true
+  );
+  check(
+    "catches an unscoped contact request query",
+    checkDataFiles([bad("unscoped-request", `export async function markContactRequestHandled(firmId: string, id: string) {\n  await db.from("firm_contact_requests").update({ handled_at: now }).eq("id", id);\n}\n`)]),
+    true
+  );
+
+  const policyExample = (extra: string) =>
+    bad(
+      "contact-policy",
+      `alter table public.firm_contact_requests enable row level security;\ncreate policy "lawyers read" on public.firm_contact_requests for select to authenticated using (firm_id = public.haven_firm_id());\n${extra}`
+    );
+  check(
+    "catches a client insert policy on contact requests",
+    checkContactRequestPolicies(
+      policyExample(`create policy "clients write" on public.firm_contact_requests for insert to authenticated with check (true);\n`)
+    ),
+    true
+  );
+  check(
+    "catches a contact request read not keyed on the firm",
+    checkContactRequestPolicies(
+      bad(
+        "contact-open-read",
+        `alter table public.firm_contact_requests enable row level security;\ncreate policy "anyone reads" on public.firm_contact_requests for select to authenticated using (true);\n`
+      )
+    ),
+    true
+  );
+  check(
+    "catches contact requests without row level security",
+    checkContactRequestPolicies(
+      bad("contact-no-rls", `create policy "lawyers read" on public.firm_contact_requests for select to authenticated using (firm_id = public.haven_firm_id());\n`)
+    ),
+    true
+  );
+  check("accepts the lawyer-read-only contact policy", checkContactRequestPolicies(policyExample("")));
 
   console.log(`\n${pass}/${pass + failures.length} passed`);
   if (failures.length) process.exit(1);

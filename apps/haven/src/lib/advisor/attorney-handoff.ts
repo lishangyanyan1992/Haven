@@ -33,6 +33,7 @@
  */
 
 import type { TopicBucket } from "@/lib/advisor/topics";
+import type { AdvisorFirmLink } from "@/lib/firms/advisor-link";
 import { readGracePeriod } from "@/lib/advisor/grace-period";
 import { isArchivedPath } from "@/lib/archived-routes";
 
@@ -164,6 +165,14 @@ export interface HandoffContext {
  * rule that governs every other place the Advisor touches a date.
  */
 function whatToBring(context: HandoffContext, today: Date): string[] {
+  return [...datesToBring(context, today), ...DOCUMENTS_TO_BRING];
+}
+
+/**
+ * The dated half of "take with you" — the only part of it that is about this
+ * person, and so the part a contact request carries to their firm.
+ */
+function datesToBring(context: HandoffContext, today: Date): string[] {
   const items: string[] = [];
 
   const grace = context.layoffDate ? readGracePeriod(context.layoffDate, today) : null;
@@ -176,11 +185,13 @@ function whatToBring(context: HandoffContext, today: Date): string[] {
     items.push(`Your priority date — Haven has it as ${formatDate(context.priorityDate)}.`);
   }
 
-  items.push("Your most recent I-797 approval notices and your current I-94.");
-  items.push("Any receipt notices for filings that are still pending.");
-
   return items;
 }
+
+const DOCUMENTS_TO_BRING = [
+  "Your most recent I-797 approval notices and your current I-94.",
+  "Any receipt notices for filings that are still pending."
+];
 
 function formatDate(iso: string): string {
   return new Intl.DateTimeFormat("en-US", {
@@ -231,9 +242,51 @@ const RECOMMENDS_COUNSEL = new RegExp(
 const NOT_A_REFERRAL =
   "Haven does not take a fee for any listing and a listing is not a referral — confirm licensing, scope, and fees with the firm directly.";
 
+/**
+ * What a firm client can send their firm from the handoff: exactly the dated
+ * lines and questions the block shows them, and nothing from the conversation.
+ * Stored on the answer so the server can rebuild the request from what was
+ * actually rendered rather than from anything the browser sends.
+ */
+export interface FirmContactOffer {
+  firmName: string;
+  practiceArea: PracticeArea;
+  dates: string[];
+  questions: string[];
+}
+
 export interface AttorneyHandoff {
   text: string;
   practiceArea: PracticeArea;
+  /** Present only for a firm client. */
+  contactOffer: FirmContactOffer | null;
+}
+
+/** Headings, one per destination. HANDOFF_DELIVERED must match every one of them. */
+const HEADING_DIRECTORY = "**Finding one, and getting your money's worth**";
+const HEADING_UNKNOWN = "**Before you talk to a lawyer**";
+const headingForFirm = (destination: string) => `**Talking to ${destination}**`;
+
+/**
+ * A firm's name is the firm's own text, dropped into markdown the user sees.
+ * Escaped so a name can never become a link, emphasis or a list.
+ */
+function plainName(name: string): string {
+  return name.replace(/[\\`*_[\]()#<>!|~]/g, (char) => `\\${char}`).replace(/\s+/g, " ").trim();
+}
+
+/**
+ * How to refer to the firm, which depends on whether it represents them.
+ *
+ * Only a signed contract makes the firm their lawyer. Before that — a new lead,
+ * a booked consultation, a contract sent but not signed, or a lead the firm has
+ * archived — it is the firm that invited them, and saying "your lawyer" would
+ * claim a relationship that does not exist. Archived still points back to the
+ * firm: sending a closed lead to the directory hands it to a competitor.
+ */
+export function firmDestination(firm: Extract<AdvisorFirmLink, { kind: "firm" }>): string {
+  const name = plainName(firm.firmName);
+  return firm.pipelineStatus === "contract_signed" ? `your lawyer at ${name}` : `the firm that invited you, ${name}`;
 }
 
 /**
@@ -243,12 +296,21 @@ export interface AttorneyHandoff {
  * already delivered one — repeating the same block every turn is how a genuinely
  * useful thing turns into something people scroll past, and the safety lines that
  * sit near it get scrolled past with it.
+ *
+ * Where it points depends on who is asking (specs/advisor-attorney-handoff):
+ *
+ *   firm      their own firm, never the directory, plus the contact offer
+ *   none      the directory filtered to the practice area (unchanged)
+ *   unknown   no destination at all — someone who may be a firm client must
+ *             never be shown the directory — but still the dates and questions
  */
 export function buildAttorneyHandoff(input: {
   topics: readonly TopicBucket[];
   answer: string;
   context: HandoffContext;
   alreadyDelivered: boolean;
+  /** Which firm invited this person. Omitted means no firm. */
+  firm?: AdvisorFirmLink;
   today?: Date;
 }): AttorneyHandoff | null {
   if (input.alreadyDelivered) return null;
@@ -256,6 +318,42 @@ export function buildAttorneyHandoff(input: {
 
   const practiceArea = practiceAreaFor(input.topics);
   const today = input.today ?? new Date();
+  const firm = input.firm ?? { kind: "none" as const };
+  const questions = QUESTIONS[questionSetFor(input.topics)];
+  const bringAndAsk = [
+    "Take with you:",
+    ...whatToBring(input.context, today).map((item) => `- ${item}`),
+    "",
+    "Worth asking:",
+    ...questions.map((question) => `- ${question}`)
+  ];
+
+  if (firm.kind === "firm") {
+    const destination = firmDestination(firm);
+    const lines = [
+      headingForFirm(destination),
+      "",
+      firm.pipelineStatus === "contract_signed"
+        ? `Take this to ${destination}. They know your case, so start with the questions below.`
+        : `Take this to ${destination}. They can look at your specific situation.`,
+      "",
+      ...bringAndAsk
+    ];
+    return {
+      text: lines.join("\n"),
+      practiceArea,
+      contactOffer: {
+        firmName: firm.firmName,
+        practiceArea,
+        dates: datesToBring(input.context, today),
+        questions: [...questions]
+      }
+    };
+  }
+
+  if (firm.kind === "unknown") {
+    return { text: [HEADING_UNKNOWN, "", ...bringAndAsk].join("\n"), practiceArea, contactOffer: null };
+  }
 
   // The directory was parked in the August 2026 simplification, and a link to a
   // parked route lands on "this page isn't part of Haven right now" — a worse
@@ -268,22 +366,68 @@ export function buildAttorneyHandoff(input: {
   const directoryLive = !isArchivedPath("/lawyers");
 
   const lines = [
-    "**Finding one, and getting your money's worth**",
+    HEADING_DIRECTORY,
     "",
     directoryLive
       ? `[Browse ${practiceArea === "Immigration" ? "immigration" : practiceArea} firms in Haven's directory](/lawyers?focus=${encodeURIComponent(practiceArea)}) — small and boutique practices, filterable by state and language spoken.`
       : `Look for a small or boutique firm that lists ${practiceArea === "Immigration" ? "employment-based immigration" : practiceArea} work — they are generally faster to answer and cheaper than high-volume shops.`,
     "",
-    "Take with you:",
-    ...whatToBring(input.context, today).map((item) => `- ${item}`),
-    "",
-    "Worth asking:",
-    ...QUESTIONS[questionSetFor(input.topics)].map((question) => `- ${question}`),
+    ...bringAndAsk,
     ...(directoryLive ? ["", NOT_A_REFERRAL] : [])
   ];
 
-  return { text: lines.join("\n"), practiceArea };
+  return { text: lines.join("\n"), practiceArea, contactOffer: null };
+}
+
+/**
+ * The fixed replies that skip the model — a declined topic, "I still don't follow
+ * you" — carry their own "talk to an immigration attorney". For a firm's client
+ * that sentence has to end at their firm, so one line naming it is added. Only
+ * when the reply actually recommends counsel; nothing changes for anyone else.
+ */
+export function pointCounselToFirm(text: string, firm: AdvisorFirmLink): string {
+  if (firm.kind !== "firm" || !RECOMMENDS_COUNSEL.test(text)) return text;
+  return `${text}\n\nTake this to ${firmDestination(firm)}.`;
+}
+
+/**
+ * Lines for the answer prompt when the person was invited by a firm, or none.
+ *
+ * The handoff block is code and always names the firm, but the model writes the
+ * answer above it and left alone says "find an immigration attorney" — advice
+ * to shop around, given to a client their firm paid to bring in. So the model is
+ * told whose client this is, how to refer to the firm at this stage, and what to
+ * do when the firm's advice and the general rule seem to disagree.
+ */
+export function renderFirmForPrompt(firm: AdvisorFirmLink): string[] {
+  if (firm.kind !== "firm") return [];
+  const name = firm.firmName.replace(/\s+/g, " ").trim();
+  const signed = firm.pipelineStatus === "contract_signed";
+  return [
+    signed
+      ? `This person is a client of ${name}, which represents them. Refer to it as "your lawyer at ${name}".`
+      : `This person was invited to Haven by ${name}, which has not yet agreed to represent them. Refer to it as "the firm that invited you, ${name}". Never call it their lawyer or attorney.`,
+    `Where they need counsel, point them to ${name}. Never tell them to find, hire, retain, compare or shop for an attorney or another firm.`,
+    `If they say ${name} told them something that seems to differ from the general rule, explain the general rule, say that their own situation may differ, and leave the decision about their case to ${name}. Never say the firm is wrong.`
+  ];
+}
+
+/**
+ * Whether an answer tells someone to go and find a lawyer — wrong for a firm's
+ * own client, who already has a firm to go to. Used by the evals; the handoff
+ * itself is code and cannot say this.
+ */
+const SHOP_FOR_COUNSEL = new RegExp(
+  [
+    String.raw`\b(find(?:ing)?|hir(?:e|ing)|retain(?:ing)?|engag(?:e|ing)|shop(?:ping)?(?:\s+around)?\s+for|look(?:ing)?\s+for|search(?:ing)?\s+for|compar(?:e|ing))\b[^.]{0,40}\b(an?|another|other|new|different|second)\s+(immigration\s+)?(attorney|lawyer|firm|counsel)s?\b`,
+    String.raw`\bshop(?:ping)?\s+around\b`
+  ].join("|"),
+  "i"
+);
+
+export function tellsFirmClientToShopForCounsel(answer: string): boolean {
+  return SHOP_FOR_COUNSEL.test(answer);
 }
 
 /** Detects a handoff already delivered earlier in the thread. */
-export const HANDOFF_DELIVERED = /Finding one, and getting your money'?s worth/i;
+export const HANDOFF_DELIVERED = /Finding one, and getting your money'?s worth|\*\*Talking to (?:your lawyer at|the firm that invited you,) |\*\*Before you talk to a lawyer\*\*/i;
