@@ -1,14 +1,39 @@
 import assert from "node:assert/strict";
 
 import { env } from "@/lib/env";
-import { getAllowedAdminEmails, isAdminEmail } from "@/lib/admin-auth";
+import {
+  DEFAULT_ADMIN_PASSCODE,
+  getAllowedAdminEmails,
+  getExpectedAdminToken,
+  isAdminEmail,
+  isValidPasscode
+} from "@/lib/admin-auth";
 
 function runTests() {
   // Test fallback to COMMUNITY_IMPORT_REVIEWER_EMAILS when ADMIN_EMAILS is empty
   const originalAdmin = env.ADMIN_EMAILS;
   const originalReviewer = env.COMMUNITY_IMPORT_REVIEWER_EMAILS;
+  const originalPasscode = env.ADMIN_PASSCODE;
 
   try {
+    // 1. Passcode verification tests
+    assert.equal(DEFAULT_ADMIN_PASSCODE, "901008");
+    env.ADMIN_PASSCODE = undefined;
+    assert.ok(isValidPasscode("901008"));
+    assert.ok(isValidPasscode("  901008  "));
+    assert.ok(!isValidPasscode("123456"));
+    assert.ok(!isValidPasscode(""));
+    assert.ok(!isValidPasscode(null));
+    assert.ok(!isValidPasscode(undefined));
+
+    // Custom passcode override
+    env.ADMIN_PASSCODE = "secret-pass-789";
+    assert.ok(isValidPasscode("secret-pass-789"));
+    assert.ok(!isValidPasscode("901008"));
+    assert.ok(getExpectedAdminToken().length > 0);
+    env.ADMIN_PASSCODE = undefined;
+
+    // 2. Email authorization tests
     env.ADMIN_EMAILS = undefined;
     env.COMMUNITY_IMPORT_REVIEWER_EMAILS = "reviewer@haven.com, SecondReviewer@haven.com";
 
@@ -42,6 +67,7 @@ function runTests() {
   } finally {
     env.ADMIN_EMAILS = originalAdmin;
     env.COMMUNITY_IMPORT_REVIEWER_EMAILS = originalReviewer;
+    env.ADMIN_PASSCODE = originalPasscode;
   }
 }
 

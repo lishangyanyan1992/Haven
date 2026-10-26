@@ -1,9 +1,56 @@
 "use server";
 
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
-import { getAdminUser } from "@/lib/admin-auth";
+import {
+  ADMIN_PASSCODE_COOKIE_NAME,
+  getAdminUser,
+  getExpectedAdminToken,
+  isValidPasscode
+} from "@/lib/admin-auth";
 import { executeVisaBulletinSync } from "@/lib/visa-bulletin-sync";
+
+export type VerifyAdminPasscodeState = {
+  status: "idle" | "error";
+  error?: string;
+};
+
+export async function verifyAdminPasscodeAction(
+  _prevState: VerifyAdminPasscodeState,
+  formData: FormData
+): Promise<VerifyAdminPasscodeState> {
+  const passcode = String(formData.get("passcode") ?? "");
+  const rawRedirect = String(formData.get("redirectTo") ?? "/admin").trim();
+  const redirectTo = rawRedirect.startsWith("/admin") ? rawRedirect : "/admin";
+
+  if (!isValidPasscode(passcode)) {
+    return {
+      status: "error",
+      error: "Incorrect passcode. Please try again."
+    };
+  }
+
+  const cookieStore = await cookies();
+  cookieStore.set(ADMIN_PASSCODE_COOKIE_NAME, getExpectedAdminToken(), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 7 // 7 days
+  });
+
+  revalidatePath("/admin");
+  redirect(redirectTo);
+}
+
+export async function lockAdminAction() {
+  const cookieStore = await cookies();
+  cookieStore.delete(ADMIN_PASSCODE_COOKIE_NAME);
+  revalidatePath("/admin");
+  redirect("/admin");
+}
 
 export type SyncBulletinActionResponse = {
   success: boolean;

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import OpenAI from "openai";
 
 import { buildAnonymousCommentAuthor, readPublishDraft, readSourcePublishedAt } from "@/lib/community-imports";
-import { isAdminEmail } from "@/lib/admin-auth";
+import { hasAdminPasscodeCookie, isAdminEmail } from "@/lib/admin-auth";
 import { env } from "@/lib/env";
 import { flushLangfuse, getOrCreatePrompt, getStoryLangfuseClient } from "@/lib/langfuse";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -671,10 +671,15 @@ function formatAutoReviewNotes(result: AutoReviewVerdict, prefix: string) {
 }
 
 async function requireReviewer() {
+  const isPasscode = await hasAdminPasscodeCookie();
   const supabase = await createSupabaseServerClient();
   const {
     data: { user }
   } = await supabase.auth.getUser();
+
+  if (isPasscode) {
+    return user ?? null;
+  }
 
   if (!user) {
     throw new Error("Authentication required.");
@@ -922,7 +927,7 @@ async function publishCommunityImportItem(params: {
   };
   moderationNotes: string;
   publishedComments: Array<{ authorKey: string; authorLabel: string; body: string }>;
-  userId: string;
+  userId?: string | null;
 }) {
   const { admin, draft, item, moderationNotes, publishedComments, userId } = params;
   const communitySpaceId = await getDefaultCommunitySpaceId(admin);
@@ -949,6 +954,10 @@ async function publishCommunityImportItem(params: {
     source: item.source
   });
 
+  const validUserId = userId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)
+    ? userId
+    : null;
+
   const { error } = await admin
     .from("community_import_items")
     .update({
@@ -965,7 +974,7 @@ async function publishCommunityImportItem(params: {
         traceId: item.langfuse_trace_id
       }),
       approved_at: new Date().toISOString(),
-      approved_by: userId,
+      approved_by: validUserId,
       rejected_at: null,
       published_post_id: publishedPostId
     })
@@ -1169,7 +1178,7 @@ async function runReviewCommunityImportAction({
     trackStoryEvent({
       importItemId: item.id,
       metadata: {
-        reviewer_hash: hashReviewerId(user.id)
+        reviewer_hash: hashReviewerId(user?.id ?? "admin-passcode")
       },
       name: "community-import.human-review",
       output: {
@@ -1230,7 +1239,7 @@ async function runReviewCommunityImportAction({
     trackStoryEvent({
       importItemId: item.id,
       metadata: {
-        reviewer_hash: hashReviewerId(user.id)
+        reviewer_hash: hashReviewerId(user?.id ?? "admin-passcode")
       },
       name: "community-import.human-review",
       output: {
@@ -1287,13 +1296,13 @@ async function runReviewCommunityImportAction({
       item,
       moderationNotes,
       publishedComments,
-      userId: user.id
+      userId: user?.id ?? null
     });
 
     trackStoryEvent({
       importItemId: item.id,
       metadata: {
-        reviewer_hash: hashReviewerId(user.id)
+        reviewer_hash: hashReviewerId(user?.id ?? "admin-passcode")
       },
       name: "community-import.human-review",
       output: {
@@ -1390,7 +1399,7 @@ export async function autoReviewPendingCommunityImportsAction(
             item,
             moderationNotes: formatAutoReviewNotes(verdict, "Auto-approved."),
             publishedComments,
-            userId: user.id
+            userId: user?.id ?? null
           });
           approvedCount += 1;
           continue;
