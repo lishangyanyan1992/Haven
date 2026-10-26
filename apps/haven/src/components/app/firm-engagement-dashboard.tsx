@@ -111,7 +111,9 @@ export function FirmEngagementDashboard({
 
               {currentStep.key === "initial_consultation" && !bookingUrl && !bookingEmail && (
                 <div className="mt-3 rounded-[var(--radius-lg)] border border-[var(--haven-sage-mid)] bg-[var(--haven-white)]/80 px-4 py-2.5 text-body-sm text-[var(--haven-ink-mid)]">
-                  Your sponsoring legal team will review your submitted file and reach out with consultation scheduling instructions.
+                  {isConnectedToFirm
+                    ? "Your sponsoring legal team will review your submitted file and reach out with consultation scheduling instructions."
+                    : "Connect with a sponsoring law firm to unlock consultation call scheduling and retain legal representation."}
                 </div>
               )}
 

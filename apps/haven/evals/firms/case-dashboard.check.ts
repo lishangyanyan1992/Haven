@@ -273,6 +273,42 @@ async function main() {
     "expected invalid email to be rejected"
   );
 
+  const bareSchemeConfig = validateConsultationBooking({
+    bookingUrl: "https://"
+  });
+  check(
+    "validation: rejects bare scheme without destination in firm booking",
+    !bareSchemeConfig.ok,
+    "expected bare https:// to be rejected"
+  );
+
+  const bareSchemeEngagement = validateEngagementUpdate({
+    bookingUrl: "https://"
+  });
+  check(
+    "validation: rejects bare scheme in client engagement override",
+    !bareSchemeEngagement.ok,
+    "expected bare https:// in engagement override to be rejected"
+  );
+
+  const overlengthEngagementUrl = validateEngagementUpdate({
+    bookingUrl: `https://calendly.com/${"a".repeat(1005)}`
+  });
+  check(
+    "validation: rejects overlength booking URL in client engagement override",
+    !overlengthEngagementUrl.ok,
+    "expected overlength URL to be rejected"
+  );
+
+  const overlengthEngagementEmail = validateEngagementUpdate({
+    bookingEmail: `${"a".repeat(250)}@example.com`
+  });
+  check(
+    "validation: rejects overlength email in client engagement override",
+    !overlengthEngagementEmail.ok,
+    "expected overlength email to be rejected"
+  );
+
   // 4. Overlaid Immigration Journey checks
   const refNow = new Date("2026-10-23T00:00:00Z");
   const baseProfile = {

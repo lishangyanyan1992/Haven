@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import {
   buildFirmEngagementOverview,
-  FIRM_ENGAGEMENT_STAGES
+  FIRM_ENGAGEMENT_STAGES,
+  isValidBookingUrl
 } from "@/lib/firms/engagement";
 import type { FirmClientEngagementState, FirmEngagementStageKey } from "@/lib/firms/types";
 import { saveFirmClientEngagementAction } from "@/server/firm-actions";
@@ -132,8 +133,8 @@ export function EngagementStageControls({
   function handleSave() {
     setFeedback(null);
     const trimmedUrl = bookingUrl.trim();
-    if (trimmedUrl && !/^https?:\/\//i.test(trimmedUrl)) {
-      setFeedback({ kind: "error", message: "Booking link must start with https:// or http://" });
+    if (trimmedUrl && !isValidBookingUrl(trimmedUrl)) {
+      setFeedback({ kind: "error", message: "Booking link must start with https:// or http:// and include a valid destination." });
       return;
     }
     const trimmedEmail = bookingEmail.trim();

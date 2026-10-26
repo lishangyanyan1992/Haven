@@ -103,6 +103,15 @@ function isStageKey(value: unknown): value is FirmEngagementStageKey {
   return typeof value === "string" && Object.prototype.hasOwnProperty.call(STAGE_INDEX, value);
 }
 
+export function isValidBookingUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return (parsed.protocol === "http:" || parsed.protocol === "https:") && Boolean(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
 export function cleanEngagementState(raw: unknown): FirmClientEngagementState {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   const record = raw as Record<string, unknown>;
@@ -126,15 +135,15 @@ export function cleanEngagementState(raw: unknown): FirmClientEngagementState {
 
   if (typeof record.bookingUrl === "string") {
     const trimmed = record.bookingUrl.trim();
-    if (/^https?:\/\//i.test(trimmed)) {
-      out.bookingUrl = trimmed.slice(0, 1000);
+    if (trimmed.length <= 1000 && isValidBookingUrl(trimmed)) {
+      out.bookingUrl = trimmed;
     }
   }
 
   if (typeof record.bookingEmail === "string") {
     const trimmed = record.bookingEmail.trim();
-    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      out.bookingEmail = trimmed.toLowerCase().slice(0, 255);
+    if (trimmed.length <= 255 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      out.bookingEmail = trimmed.toLowerCase();
     }
   }
 
@@ -171,11 +180,11 @@ export function validateConsultationBooking(input: unknown): {
     }
     const trimmedUrl = record.bookingUrl.trim();
     if (trimmedUrl.length > 0) {
-      if (!/^https?:\/\//i.test(trimmedUrl)) {
-        return { ok: false, error: "Booking link must start with https:// or http://" };
-      }
       if (trimmedUrl.length > 1000) {
         return { ok: false, error: "Booking link must be 1,000 characters or fewer." };
+      }
+      if (!isValidBookingUrl(trimmedUrl)) {
+        return { ok: false, error: "Booking link must start with https:// or http:// and include a valid destination." };
       }
       bookingUrl = trimmedUrl;
     }
@@ -187,11 +196,11 @@ export function validateConsultationBooking(input: unknown): {
     }
     const trimmedEmail = record.bookingEmail.trim();
     if (trimmedEmail.length > 0) {
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
-        return { ok: false, error: "Please enter a valid email address." };
-      }
       if (trimmedEmail.length > 255) {
         return { ok: false, error: "Email address must be 255 characters or fewer." };
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+        return { ok: false, error: "Please enter a valid email address." };
       }
       bookingEmail = trimmedEmail.toLowerCase();
     }
@@ -218,12 +227,26 @@ export function validateEngagementUpdate(
     return { ok: false, error: "Scheduled date must be a valid YYYY-MM-DD date." };
   }
   if (record.bookingUrl !== undefined && record.bookingUrl !== null && record.bookingUrl !== "") {
-    if (typeof record.bookingUrl !== "string" || !/^https?:\/\//i.test(record.bookingUrl.trim())) {
-      return { ok: false, error: "Booking link must start with https:// or http://" };
+    if (typeof record.bookingUrl !== "string") {
+      return { ok: false, error: "Booking link must be a valid URL string." };
+    }
+    const trimmedUrl = record.bookingUrl.trim();
+    if (trimmedUrl.length > 1000) {
+      return { ok: false, error: "Booking link must be 1,000 characters or fewer." };
+    }
+    if (!isValidBookingUrl(trimmedUrl)) {
+      return { ok: false, error: "Booking link must start with https:// or http:// and include a valid destination." };
     }
   }
   if (record.bookingEmail !== undefined && record.bookingEmail !== null && record.bookingEmail !== "") {
-    if (typeof record.bookingEmail !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(record.bookingEmail.trim())) {
+    if (typeof record.bookingEmail !== "string") {
+      return { ok: false, error: "Email address must be a string." };
+    }
+    const trimmedEmail = record.bookingEmail.trim();
+    if (trimmedEmail.length > 255) {
+      return { ok: false, error: "Email address must be 255 characters or fewer." };
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
       return { ok: false, error: "Please enter a valid email address." };
     }
   }

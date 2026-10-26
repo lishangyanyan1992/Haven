@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { Calendar, Check, LoaderCircle, Mail } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { isValidBookingUrl } from "@/lib/firms/engagement";
 import { saveFirmConsultationBookingAction } from "@/server/firm-actions";
 
 type ConsultationBookingControlsProps = {
@@ -34,8 +35,8 @@ export function ConsultationBookingControls({
     const trimmedUrl = bookingUrl.trim();
     const trimmedEmail = bookingEmail.trim();
 
-    if (trimmedUrl && !/^https?:\/\//i.test(trimmedUrl)) {
-      setError("Booking link must start with https:// or http://");
+    if (trimmedUrl && !isValidBookingUrl(trimmedUrl)) {
+      setError("Booking link must start with https:// or http:// and include a valid destination.");
       return;
     }
 
