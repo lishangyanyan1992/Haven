@@ -89,7 +89,13 @@ export function ImmigrationJourneyDashboard({
   const { axis, visaTrack, jobTrack, greenCardTrack, overlayInsights, missingFields, tacticalWindow, protection } = journey;
 
   const hasUrgentDeadline =
-    protection.effectiveStayDaysRemaining !== null && protection.effectiveStayDaysRemaining <= 60;
+    (protection.effectiveStayDaysRemaining !== null && protection.effectiveStayDaysRemaining <= 60) ||
+    (protection.urgentDeadlineDaysRemaining !== null && protection.urgentDeadlineDaysRemaining <= 60);
+
+  const displayDaysRemaining =
+    protection.effectiveStayDaysRemaining ?? protection.urgentDeadlineDaysRemaining;
+  const displayEndLabel =
+    protection.effectiveStayEndLabel ?? protection.urgentDeadlineLabel;
 
   function handleSaveDates(formData: FormData) {
     setSaveMessage(null);
@@ -366,25 +372,25 @@ export function ImmigrationJourneyDashboard({
                         Urgent Stay Window
                       </span>
                       <span className="text-[12px] font-bold text-[var(--haven-blush-ink)]">
-                        {protection.effectiveStayDaysRemaining !== null
-                          ? protection.effectiveStayDaysRemaining > 0
-                            ? `${protection.effectiveStayDaysRemaining} days remaining`
-                            : protection.effectiveStayDaysRemaining === 0
+                        {displayDaysRemaining !== null
+                          ? displayDaysRemaining > 0
+                            ? `${displayDaysRemaining} days remaining`
+                            : displayDaysRemaining === 0
                               ? "Expires today"
-                              : `Expired ${Math.abs(protection.effectiveStayDaysRemaining)}d ago`
+                              : `Expired ${Math.abs(displayDaysRemaining)}d ago`
                           : "Action required"}
                       </span>
                     </div>
                     <h4 className="mt-1 text-h3 text-[var(--haven-ink)]">
-                      {protection.effectiveStayDaysRemaining === null || protection.effectiveStayEndLabel === null
+                      {displayDaysRemaining === null || displayEndLabel === null
                         ? "Authorized stay deadline unavailable"
-                        : protection.effectiveStayDaysRemaining >= 0
-                          ? `Authorized stay deadline: ${protection.effectiveStayEndLabel}`
-                          : `Authorized stay deadline passed on ${protection.effectiveStayEndLabel}`}
+                        : displayDaysRemaining >= 0
+                          ? `Authorized stay deadline: ${displayEndLabel}`
+                          : `Authorized stay deadline passed on ${displayEndLabel}`}
                     </h4>
                     <p className="mt-1 text-body-sm leading-relaxed text-[var(--color-text-secondary)] max-w-[70ch]">
                       {protection.reconciliationNotice ??
-                        `Under 8 CFR § 214.1(l)(2), you have ${protection.effectiveStayDaysRemaining ?? 0} days remaining to file a change of status, submit an H-1B transfer petition, or arrange departure.`}
+                        `Under 8 CFR § 214.1(l)(2), you have ${displayDaysRemaining ?? 0} days remaining to file a change of status, submit an H-1B transfer petition, or arrange departure.`}
                     </p>
                   </div>
                 </div>

@@ -152,6 +152,8 @@ export type JourneyProtectionStatus = {
   effectiveStayEndDate: string | null;
   effectiveStayEndLabel: string | null;
   effectiveStayDaysRemaining: number | null;
+  urgentDeadlineDaysRemaining: number | null;
+  urgentDeadlineLabel: string | null;
   reconciliationNotice: string | null;
   portabilitySummary: string | null;
 };
@@ -1170,6 +1172,20 @@ export function buildImmigrationJourney(input: {
     }
   }
 
+  const urgentDeadlineDaysRemaining =
+    effectiveStayDaysRemaining !== null
+      ? effectiveStayDaysRemaining
+      : isLaidOff && daysUntilExpiry !== null
+        ? daysUntilExpiry
+        : null;
+
+  const urgentDeadlineLabel =
+    effectiveStayEndLabel !== null
+      ? effectiveStayEndLabel
+      : isLaidOff && visaExpiryDate
+        ? formatDateLabel(visaExpiryDate)
+        : null;
+
   const protection: JourneyProtectionStatus = {
     isAc21PortabilityUnlocked,
     hasI140Approval: Boolean(profile.i140Approved),
@@ -1177,6 +1193,8 @@ export function buildImmigrationJourney(input: {
     effectiveStayEndDate: effectiveStayEndDate ? toIsoDate(effectiveStayEndDate) : null,
     effectiveStayEndLabel,
     effectiveStayDaysRemaining,
+    urgentDeadlineDaysRemaining,
+    urgentDeadlineLabel,
     reconciliationNotice,
     portabilitySummary
   };

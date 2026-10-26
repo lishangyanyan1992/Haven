@@ -504,6 +504,30 @@ async function main() {
     `headline=${laidOffNoLastWorkDay.visaTrack.headline}, badge=${laidOffNoLastWorkDay.visaTrack.statusBadge}`
   );
 
+  // Laid-off profile without lastWorkDay but imminent visa expiry exposes urgent deadline
+  const laidOffImminentExpiryNoLastWorkDay = buildImmigrationJourney({
+    profile: {
+      ...baseProfile,
+      visaType: "H1B",
+      currentVisaExpiryDate: "2026-10-29",
+      employmentStatus: "laid_off"
+    },
+    deadlines: {
+      statusEndDate: "2026-10-29",
+      jobEnded: "yes"
+    },
+    signals,
+    now: userTestNow
+  });
+
+  check(
+    "reconciliation: laid-off profile without lastWorkDay but imminent I-94 exposes urgent deadline of 3 days",
+    laidOffImminentExpiryNoLastWorkDay.protection.effectiveStayEndDate === null &&
+      laidOffImminentExpiryNoLastWorkDay.protection.urgentDeadlineDaysRemaining === 3 &&
+      laidOffImminentExpiryNoLastWorkDay.protection.urgentDeadlineLabel === "Oct 29, 2026",
+    `days=${laidOffImminentExpiryNoLastWorkDay.protection.urgentDeadlineDaysRemaining}`
+  );
+
   // Active employed user with far-out visa expiry does not satisfy urgent stay banner condition
   const activeEmployedFarExpiry = buildImmigrationJourney({
     profile: {
