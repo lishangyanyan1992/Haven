@@ -188,7 +188,13 @@ function PinInspectionPopover({
               TONE_BADGE_CLASS[pin.tone]
             )}
           >
-            {pin.status === "urgent" ? "Critical" : pin.status === "today" ? "Anchor" : pin.tone}
+            {isToday || pin.status === "today"
+              ? "Anchor"
+              : pin.status === "urgent"
+                ? "Critical"
+                : pin.status === "past"
+                  ? "Elapsed"
+                  : "Upcoming"}
           </span>
           {countdownText && (
             <span
@@ -321,6 +327,27 @@ export function ImmigrationJourneyDashboard({
   };
 
   const { axis, visaTrack, jobTrack, greenCardTrack, overlayInsights, missingFields, tacticalWindow, protection } = journey;
+
+  const hasMilestoneTarget = (pinId: string): boolean => {
+    const targets = [
+      pinId,
+      ...(PIN_ALIASES[pinId] ?? []),
+      pinId.replace(/^(visa|job|gc)-/, "tactical-"),
+      pinId.replace(/^tactical-/, "job-"),
+      pinId.replace(/^tactical-/, "visa-"),
+      pinId.replace(/^tactical-/, "gc-")
+    ];
+    return targets.some((t) => {
+      const matchTactical = tacticalWindow.pins.some((p) => p.id === t);
+      const matchGcNode = greenCardTrack.nodes.some(
+        (n) =>
+          n.key === t ||
+          (t === "gc-pd" && n.key === "priority_date") ||
+          (t === "gc-i140" && n.key === "i140")
+      );
+      return matchTactical || matchGcNode;
+    });
+  };
 
   const hasUrgentDeadline =
     (protection.effectiveStayDaysRemaining !== null && protection.effectiveStayDaysRemaining <= 60) ||
@@ -781,6 +808,7 @@ export function ImmigrationJourneyDashboard({
                 activePinId={activeInspectedPinId}
                 onSelectPin={handleSelectPin}
                 onScrollToMilestone={scrollToMilestone}
+                hasMilestoneTarget={hasMilestoneTarget}
               />
 
               <OverlaySwimlane
@@ -795,6 +823,7 @@ export function ImmigrationJourneyDashboard({
                 activePinId={activeInspectedPinId}
                 onSelectPin={handleSelectPin}
                 onScrollToMilestone={scrollToMilestone}
+                hasMilestoneTarget={hasMilestoneTarget}
               />
             </div>
           </div>
@@ -1238,7 +1267,8 @@ function OverlaySwimlane({
   macroBracket,
   activePinId,
   onSelectPin,
-  onScrollToMilestone
+  onScrollToMilestone,
+  hasMilestoneTarget
 }: {
   title: string;
   subtitle: string;
@@ -1251,6 +1281,7 @@ function OverlaySwimlane({
   activePinId: string | null;
   onSelectPin: (pinId: string) => void;
   onScrollToMilestone?: (pinId: string) => void;
+  hasMilestoneTarget?: (pinId: string) => boolean;
 }) {
   return (
     <div className="grid grid-cols-1 gap-3 py-4 lg:grid-cols-[210px_minmax(0,1fr)] lg:items-center">
@@ -1345,7 +1376,11 @@ function OverlaySwimlane({
                     <PinInspectionPopover
                       pin={pin}
                       onClose={() => onSelectPin(pin.id)}
-                      onViewMatchingCard={() => onScrollToMilestone?.(pin.id)}
+                      onViewMatchingCard={
+                        hasMilestoneTarget?.(pin.id)
+                          ? () => onScrollToMilestone?.(pin.id)
+                          : undefined
+                      }
                       position="bottom"
                     />
                   </div>
