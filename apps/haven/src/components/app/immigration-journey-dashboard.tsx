@@ -7,6 +7,7 @@ import {
   CalendarClock,
   CheckCircle2,
   CircleAlert,
+  Clock,
   Compass,
   Flag,
   Layers,
@@ -514,45 +515,78 @@ export function ImmigrationJourneyDashboard({
             )}
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            {greenCardTrack.nodes.map((node, index) => {
-              const isCompleted = node.status === "completed";
-              const isCurrent = node.status === "current";
-              return (
-                <div
-                  key={node.key}
-                  className={cn(
-                    "rounded-[var(--radius-xl)] border p-4 flex flex-col justify-between",
-                    isCompleted
-                      ? "border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)]"
-                      : isCurrent
-                        ? "border-[var(--haven-ink)] bg-[var(--haven-white)] ring-1 ring-[var(--haven-ink)]"
-                        : "border-[var(--color-border)] bg-[var(--haven-white)] opacity-80"
-                  )}
-                >
-                  <div>
-                    <div className="flex items-center justify-between gap-1.5">
-                      <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--haven-ink-mid)]">
-                        Stage {index + 1}
-                      </span>
-                      {isCompleted ? (
-                        <CheckCircle2 className="h-4 w-4 text-[var(--haven-sage-strong)]" />
-                      ) : isCurrent ? (
-                        <ShieldCheck className="h-4 w-4 text-[var(--haven-ink)]" />
-                      ) : null}
+          <div className="relative">
+            <div
+              aria-label="Permanent residency stages"
+              className="flex gap-4 overflow-x-auto pb-3 pt-1 scroll-smooth snap-x snap-mandatory focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--haven-ink)] [scrollbar-width:thin] [scrollbar-color:var(--color-border)_transparent]"
+              role="region"
+              tabIndex={0}
+            >
+              {greenCardTrack.nodes.map((node, index) => {
+                const isCompleted = node.status === "completed";
+                const isCurrent = node.status === "current";
+
+                return (
+                  <div
+                    key={node.key}
+                    className={cn(
+                      "relative flex flex-col justify-between rounded-[var(--radius-xl)] border p-5 transition-colors shrink-0 snap-start",
+                      "w-[300px] sm:w-[320px] md:w-[calc((100%-32px)/3)] min-w-[280px] md:min-w-0",
+                      isCompleted
+                        ? "border-[var(--haven-sage-mid)] bg-[var(--haven-white)] shadow-xs"
+                        : isCurrent
+                          ? "border-[var(--haven-ink)] bg-[var(--haven-cream)] ring-1 ring-[var(--haven-ink)] shadow-xs"
+                          : "border-[var(--color-border)] bg-[var(--haven-white)] opacity-75"
+                    )}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--haven-ink-mid)]">
+                          Stage {index + 1}
+                        </span>
+                        {isCompleted ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--haven-sage-light)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--haven-ink)]">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-[var(--haven-sage-strong)]" />
+                            Completed
+                          </span>
+                        ) : isCurrent ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--haven-ink)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--haven-cream)]">
+                            <ShieldCheck className="h-3.5 w-3.5 text-[var(--haven-cream)]" />
+                            Active
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--haven-sand)] px-2.5 py-0.5 text-[11px] font-medium text-[var(--haven-ink-mid)]">
+                            <Clock className="h-3 w-3" />
+                            Upcoming
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="mt-3.5 text-h3 text-[var(--haven-ink)]">{node.shortLabel}</p>
+                      <p className="mt-1 text-[13px] font-semibold text-[var(--haven-ink)]">{node.badgeText}</p>
+                      <p className="mt-2 text-body-sm leading-relaxed text-[var(--color-text-secondary)]">
+                        {node.detail}
+                      </p>
                     </div>
-                    <p className="mt-2 text-h3 text-[var(--haven-ink)]">{node.shortLabel}</p>
-                    <p className="mt-1 text-[12px] font-semibold text-[var(--haven-ink-mid)]">{node.badgeText}</p>
-                    <p className="mt-1.5 text-[12px] leading-relaxed text-[var(--color-text-secondary)]">
-                      {node.detail}
-                    </p>
+
+                    <div className="mt-5 border-t border-[var(--color-border)] pt-3">
+                      <p
+                        className={cn(
+                          "text-[12px] font-medium",
+                          isCompleted
+                            ? "text-[var(--haven-ink)]"
+                            : isCurrent
+                              ? "text-[var(--haven-ink)]"
+                              : "text-[var(--haven-ink-light)]"
+                        )}
+                      >
+                        {node.dateOrMeta}
+                      </p>
+                    </div>
                   </div>
-                  <p className="mt-3 border-t border-[var(--color-border)] pt-2 text-[11px] font-medium text-[var(--haven-ink-mid)]">
-                    {node.dateOrMeta}
-                  </p>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
 
