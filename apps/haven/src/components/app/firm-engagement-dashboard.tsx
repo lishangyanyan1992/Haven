@@ -185,7 +185,12 @@ export function FirmEngagementDashboard({
 
         {/* 6-Step Engagement Pipeline Horizontal Scroll (3 boxes in view, scrollable) */}
         <div className="relative">
-          <div className="flex gap-4 overflow-x-auto pb-3 pt-1 scroll-smooth snap-x snap-mandatory focus:outline-none [scrollbar-width:thin] [scrollbar-color:var(--color-border)_transparent]">
+          <div
+            aria-label="Firm engagement steps"
+            className="flex gap-4 overflow-x-auto pb-3 pt-1 scroll-smooth snap-x snap-mandatory focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--haven-ink)] [scrollbar-width:thin] [scrollbar-color:var(--color-border)_transparent]"
+            role="region"
+            tabIndex={0}
+          >
             {steps.map((step) => {
               const isCompleted = step.status === "completed";
               const isCurrent = step.status === "current";
@@ -195,7 +200,7 @@ export function FirmEngagementDashboard({
                   key={step.key}
                   className={cn(
                     "relative flex flex-col justify-between rounded-[var(--radius-xl)] border p-5 transition-colors shrink-0 snap-start",
-                    "w-[300px] sm:w-[320px] md:w-[calc((100%-32px)/3)] min-w-[280px]",
+                    "w-[300px] sm:w-[320px] md:w-[calc((100%-32px)/3)] min-w-[280px] md:min-w-0",
                     isCompleted
                       ? "border-[var(--haven-sage-mid)] bg-[var(--haven-white)] shadow-xs"
                       : isCurrent
