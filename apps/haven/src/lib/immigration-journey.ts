@@ -175,6 +175,7 @@ export type TacticalTimelineView = {
 export type JourneyProtectionStatus = {
   isAc21PortabilityUnlocked: boolean;
   hasI140Approval: boolean;
+  isRevocationProtected?: boolean;
   isGraceCappedByVisa: boolean;
   protectingSponsor?: string | null;
   retainedPriorityDate?: string | null;
@@ -349,22 +350,6 @@ export function resolveEffectivePriorityDate(profile: ImmigrationProfile): {
         };
       }
     }
-
-    const pendingWithDate = profile.immigrantPetitions.find(
-      p => !isPetitionWithdrawn(p) && (p.priorityDate || p.permFilingDate)
-    );
-    if (pendingWithDate) {
-      const parsed = parseIsoDate(pendingWithDate.priorityDate || pendingWithDate.permFilingDate);
-      if (parsed) {
-        return {
-          effectiveDate: parsed,
-          isRetained: false,
-          retainedSponsorName: null,
-          retainedCategory: pendingWithDate.preferenceCategory,
-          isRecaptured: false
-        };
-      }
-    }
   }
 
   // 3. Legacy profile.priorityDate
@@ -381,7 +366,28 @@ export function resolveEffectivePriorityDate(profile: ImmigrationProfile): {
     }
   }
 
-  // 4. Fallback to permFilingDate
+  // 4. Pending active petition date
+  if (profile.immigrantPetitions && profile.immigrantPetitions.length > 0) {
+    const activePetition = findActivePetition(profile);
+    const pendingWithDate =
+      activePetition && (activePetition.priorityDate || activePetition.permFilingDate)
+        ? activePetition
+        : null;
+    if (pendingWithDate) {
+      const parsed = parseIsoDate(pendingWithDate.priorityDate || pendingWithDate.permFilingDate);
+      if (parsed) {
+        return {
+          effectiveDate: parsed,
+          isRetained: false,
+          retainedSponsorName: null,
+          retainedCategory: pendingWithDate.preferenceCategory,
+          isRecaptured: false
+        };
+      }
+    }
+  }
+
+  // 5. Fallback to permFilingDate
   if (profile.permFilingDate) {
     const parsed = parseIsoDate(profile.permFilingDate);
     return {
@@ -408,6 +414,7 @@ export function evaluateI140Protections(
 ): {
   hasApprovedI140: boolean;
   isAc21PortabilityUnlocked: boolean;
+  isRevocationProtected: boolean;
   protectingSponsor: string | null;
   i140ApprovalDate: Date | null;
   portabilitySummary: string | null;
@@ -422,31 +429,44 @@ export function evaluateI140Protections(
     );
 
     if (qualifyingPetitions.length > 0) {
+      const isUnlocked = (p: (typeof qualifyingPetitions)[number]) => {
+        if (p.isRevocationProtected) return true;
+        const d = parseIsoDate(p.i140ApprovalDate);
+        return d ? d.getTime() + 180 * DAY_MS <= nowMs : true;
+      };
+      const byApprovalDate = [...qualifyingPetitions].sort(
+        (a, b) =>
+          (parseIsoDate(a.i140ApprovalDate)?.getTime() ?? Infinity) -
+          (parseIsoDate(b.i140ApprovalDate)?.getTime() ?? Infinity)
+      );
       const protectedPetition =
-        qualifyingPetitions.find(p => p.isRevocationProtected) ?? qualifyingPetitions[0];
+        qualifyingPetitions.find(p => p.isRevocationProtected) ??
+        byApprovalDate.find(isUnlocked) ??
+        byApprovalDate[0];
       const approvalDate = parseIsoDate(protectedPetition.i140ApprovalDate);
       const sponsor = protectedPetition.sponsorName || profile.retainedPriorityDateSponsor || "prior sponsor";
 
-      let unlocked = false;
+      let isRevocationProtected = false;
       let summary = "";
 
       if (protectedPetition.isRevocationProtected) {
-        unlocked = true;
+        isRevocationProtected = true;
         summary = `Approved Form I-140 with ${sponsor} passed the 180-day portability mark under 8 CFR § 205.1. Your priority date is permanent, and AC21 3-year H-1B extensions are unlocked.`;
       } else if (approvalDate) {
-        const ac21Date = new Date(approvalDate.getTime() + 180 * DAY_MS);
-        unlocked = ac21Date.getTime() <= nowMs;
-        summary = unlocked
-          ? `Form I-140 approval with ${sponsor} reached 180-day mark on ${formatDateLabel(ac21Date)}. Your priority date is permanently protected, and AC21 3-year H-1B extensions are unlocked with any employer.`
-          : `Form I-140 approval with ${sponsor} reaches the 180-day lock-in mark on ${formatDateLabel(ac21Date)}.`;
+        const lockInDate = new Date(approvalDate.getTime() + 180 * DAY_MS);
+        isRevocationProtected = lockInDate.getTime() <= nowMs;
+        summary = isRevocationProtected
+          ? `Form I-140 approval with ${sponsor} reached 180-day mark on ${formatDateLabel(lockInDate)}. Your priority date is permanently protected, and AC21 3-year H-1B extensions are unlocked with any employer.`
+          : `Form I-140 approval with ${sponsor} unlocks AC21 3-year extensions. Revocation protection under 8 CFR § 205.1 locks in on ${formatDateLabel(lockInDate)}.`;
       } else {
-        unlocked = true;
+        isRevocationProtected = true;
         summary = `Approved Form I-140 on file with ${sponsor} protects priority date retention and unlocks AC21 3-year extensions beyond the 6-year H-1B limit.`;
       }
 
       return {
         hasApprovedI140: true,
-        isAc21PortabilityUnlocked: unlocked,
+        isAc21PortabilityUnlocked: true,
+        isRevocationProtected,
         protectingSponsor: sponsor,
         i140ApprovalDate: approvalDate,
         portabilitySummary: summary
@@ -459,6 +479,7 @@ export function evaluateI140Protections(
     return {
       hasApprovedI140: true,
       isAc21PortabilityUnlocked: true,
+      isRevocationProtected: true,
       protectingSponsor: sponsor,
       i140ApprovalDate: null,
       portabilitySummary: `Retained priority date from ${sponsor} confirms an approved Form I-140, preserving your queue position and unlocking AC21 3-year extensions.`
@@ -468,21 +489,23 @@ export function evaluateI140Protections(
   if (profile.i140Approved) {
     const approvalDate = parseIsoDate(profile.i140ApprovalDate ?? null);
     if (approvalDate) {
-      const ac21Date = new Date(approvalDate.getTime() + 180 * DAY_MS);
-      const unlocked = ac21Date.getTime() <= nowMs;
+      const lockInDate = new Date(approvalDate.getTime() + 180 * DAY_MS);
+      const isRevocationProtected = lockInDate.getTime() <= nowMs;
       return {
         hasApprovedI140: true,
-        isAc21PortabilityUnlocked: unlocked,
+        isAc21PortabilityUnlocked: true,
+        isRevocationProtected,
         protectingSponsor: profile.employerName ?? null,
         i140ApprovalDate: approvalDate,
-        portabilitySummary: unlocked
-          ? `I-140 approval reached the 180-day portability mark on ${formatDateLabel(ac21Date)}. Your priority date is permanently protected, and a new sponsor can file an H-1B transfer with AC21 3-year extensions.`
-          : `I-140 approval reaches the 180-day lock-in mark on ${formatDateLabel(ac21Date)}.`
+        portabilitySummary: isRevocationProtected
+          ? `I-140 approval reached the 180-day portability mark on ${formatDateLabel(lockInDate)}. Your priority date is permanently protected, and a new sponsor can file an H-1B transfer with AC21 3-year extensions.`
+          : `I-140 approval unlocks AC21 3-year extensions. Revocation protection under 8 CFR § 205.1 locks in on ${formatDateLabel(lockInDate)}.`
       };
     }
     return {
       hasApprovedI140: true,
       isAc21PortabilityUnlocked: true,
+      isRevocationProtected: true,
       protectingSponsor: profile.employerName ?? null,
       i140ApprovalDate: null,
       portabilitySummary:
@@ -493,6 +516,7 @@ export function evaluateI140Protections(
   return {
     hasApprovedI140: false,
     isAc21PortabilityUnlocked: false,
+    isRevocationProtected: false,
     protectingSponsor: null,
     i140ApprovalDate: null,
     portabilitySummary: null
@@ -682,9 +706,10 @@ export function buildImmigrationJourney(input: {
   const i140Protections = evaluateI140Protections(profile, todayUtc);
   const hasI140Approval = i140Protections.hasApprovedI140;
   const isAc21PortabilityUnlocked = i140Protections.isAc21PortabilityUnlocked;
+  const isRevocationProtected = i140Protections.isRevocationProtected;
   const portabilitySummary = i140Protections.portabilitySummary;
   const protectingSponsor = i140Protections.protectingSponsor;
-  const effectiveI140ApprovalDate = i140Protections.i140ApprovalDate ?? parseIsoDate(profile.i140ApprovalDate ?? null);
+  const effectiveI140ApprovalDate = i140Protections.i140ApprovalDate;
 
   // Resolve key dates across profile + deadline_answers
   const visaStartRaw = profile.h1bStartDate ?? null;
@@ -1162,24 +1187,22 @@ export function buildImmigrationJourney(input: {
   if (hasI140Approval) {
     if (effectiveI140ApprovalDate) {
       const ac21Date = new Date(effectiveI140ApprovalDate.getTime() + 180 * DAY_MS);
-      const unlocked = ac21Date.getTime() <= todayMs;
-      portabilityLabel = unlocked
+      const isProtected = isRevocationProtected || ac21Date.getTime() <= todayMs;
+      portabilityLabel = isProtected
         ? `AC21 portable (unlocked ${formatDateLabel(ac21Date)})`
-        : `AC21 unlocks ${formatDateLabel(ac21Date)}`;
+        : `AC21 extension eligible (180d lock-in ${formatDateLabel(ac21Date)})`;
       jobPins.push({
         id: "job-ac21",
-        label: unlocked ? "AC21 portability unlocked" : "AC21 180-day lock-in",
+        label: isProtected ? "AC21 portability unlocked" : "AC21 180-day lock-in",
         dateLabel: formatDateLabel(ac21Date)!,
         isoDate: toIsoDate(ac21Date),
         percent: toPercent(ac21Date.getTime()),
         tone: "sage",
-        status: unlocked ? "past" : "upcoming",
+        status: isProtected ? "past" : "upcoming",
         detail: "180 days post I-140 approval protects priority date and job portability."
       });
     } else {
-      portabilityLabel = isAc21PortabilityUnlocked
-        ? `AC21 portable (prior I-140 approved with ${protectingSponsor ?? "prior sponsor"})`
-        : "Approved I-140 on file (AC21 eligible after 180 days)";
+      portabilityLabel = `AC21 portable (prior I-140 approved with ${protectingSponsor ?? "prior sponsor"})`;
     }
   }
 
@@ -1301,13 +1324,14 @@ export function buildImmigrationJourney(input: {
               : isRetainedPriorityDate
                 ? "Pending new sponsor"
                 : "Upcoming",
-      dateOrMeta: effectiveI140ApprovalDate
-        ? `Approved ${formatDateLabel(effectiveI140ApprovalDate)}`
-        : hasI140Approval
-          ? isRetainedPriorityDate
-            ? `Recapturing at ${employerName ?? "new sponsor"}`
-            : "Approved on file"
-          : "Unlocks AC21 extensions",
+      dateOrMeta:
+        effectiveI140ApprovalDate && (isGcComplete || stageRank >= 4)
+          ? `Approved ${formatDateLabel(effectiveI140ApprovalDate)}`
+          : hasI140Approval
+            ? isRetainedPriorityDate
+              ? `Recapturing at ${employerName ?? "new sponsor"}`
+              : "Approved on file"
+            : "Unlocks AC21 extensions",
       detail: "Approves your immigrant classification and unlocks post-6-year H-1B extensions."
     },
     {
@@ -1617,6 +1641,7 @@ export function buildImmigrationJourney(input: {
   const protection: JourneyProtectionStatus = {
     isAc21PortabilityUnlocked,
     hasI140Approval,
+    isRevocationProtected,
     isGraceCappedByVisa,
     protectingSponsor,
     retainedPriorityDate: isRetainedPriorityDate && priorityDate ? toIsoDate(priorityDate) : null,
@@ -1656,9 +1681,9 @@ export function buildImmigrationJourney(input: {
     overlayInsights.push({
       id: "ac21-bridge-protection",
       title: "I-140 protects your priority date & extensions",
-      body: isAc21PortabilityUnlocked
+      body: isRevocationProtected
         ? `Even though employment ended, your approved I-140 passed the 180-day mark, permanently preserving your priority date (${formatDateLabel(priorityDate) ?? "locked"}) and allowing a new employer to sponsor 3-year H-1B extensions beyond the 6-year cap.`
-        : `Your approved I-140 preserves your priority date (${formatDateLabel(priorityDate) ?? "locked"}). Once 180 days elapse from approval, it cannot be revoked by your prior sponsor.`,
+        : `Your approved I-140 preserves your priority date (${formatDateLabel(priorityDate) ?? "locked"}) and allows a new employer to sponsor AC21 3-year extensions. Once 180 days elapse from approval, it cannot be revoked by your prior sponsor.`,
       tone: "sage"
     });
   }
