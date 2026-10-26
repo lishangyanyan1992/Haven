@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { AlertCircle, CheckCircle2, ChevronRight, Clock, ExternalLink, FileText, MessageSquareWarning, Users } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronRight, ExternalLink, MessageSquareWarning, Users } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
+import { requireAdminUser } from "@/lib/admin-auth";
 import { noIndexMetadata } from "@/lib/seo";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { ManualSyncButton } from "./ManualSyncButton";
@@ -29,13 +30,9 @@ function formatDate(iso: string | null | undefined): string {
   });
 }
 
-function formatRelativeDays(days: number): string {
-  if (days <= 0) return "today";
-  if (days === 1) return "1 day ago";
-  return `${days} days ago`;
-}
-
 export default async function AdminDashboardPage() {
+  await requireAdminUser("/admin");
+
   const admin = createSupabaseAdminClient() as any;
 
   // 1. Fetch newest Visa Bulletin entry
@@ -47,10 +44,22 @@ export default async function AdminDashboardPage() {
     .limit(1)
     .maybeSingle();
 
-  // 2. Fetch community imports counts
-  const communityPromise = admin
+  // 2. Fetch community imports metrics using head-only count queries
+  const pendingCommunityPromise = admin
     .from("community_import_items")
-    .select("id, moderation_status, published_post_id");
+    .select("id", { count: "exact", head: true })
+    .in("moderation_status", ["pending", "needs_revision"]);
+
+  const autoApprovedCommunityPromise = admin
+    .from("community_import_items")
+    .select("id", { count: "exact", head: true })
+    .eq("moderation_status", "approved")
+    .like("moderation_notes", "Auto-approved.%");
+
+  const liveCommunityPromise = admin
+    .from("community_import_items")
+    .select("id", { count: "exact", head: true })
+    .not("published_post_id", "is", null);
 
   // 3. Fetch recent firm pilot requests
   const pilotsPromise = admin
@@ -59,20 +68,40 @@ export default async function AdminDashboardPage() {
     .order("created_at", { ascending: false })
     .limit(5);
 
-  // 4. Fetch recent advisor complaints
+  // 4. Fetch recent advisor complaints (excluding null, empty, or whitespace-only feedback)
   const feedbackPromise = admin
     .from("advisor_feedback")
     .select("id, rating, feedback_text, created_at")
     .lte("rating", 0)
+    .not("feedback_text", "is", null)
+    .neq("feedback_text", "")
     .order("created_at", { ascending: false })
     .limit(5);
 
-  const [bulletinRes, communityRes, pilotsRes, feedbackRes] = await Promise.all([
+  const [
+    bulletinRes,
+    pendingCommunityRes,
+    autoApprovedCommunityRes,
+    liveCommunityRes,
+    pilotsRes,
+    feedbackRes
+  ] = await Promise.all([
     bulletinPromise,
-    communityPromise,
+    pendingCommunityPromise,
+    autoApprovedCommunityPromise,
+    liveCommunityPromise,
     pilotsPromise,
     feedbackPromise
   ]);
+
+  // Track any query errors so we never show "All systems normal" on data failure
+  const queryErrors: string[] = [];
+  if (bulletinRes.error) queryErrors.push(`Visa Bulletin feed query error: ${bulletinRes.error.message}`);
+  if (pendingCommunityRes.error) queryErrors.push(`Community pending queue query error: ${pendingCommunityRes.error.message}`);
+  if (autoApprovedCommunityRes.error) queryErrors.push(`Community auto-approved queue query error: ${autoApprovedCommunityRes.error.message}`);
+  if (liveCommunityRes.error) queryErrors.push(`Community live posts query error: ${liveCommunityRes.error.message}`);
+  if (pilotsRes.error) queryErrors.push(`Law firm inquiries query error: ${pilotsRes.error.message}`);
+  if (feedbackRes.error) queryErrors.push(`Advisor feedback query error: ${feedbackRes.error.message}`);
 
   // Compute bulletin status & staleness
   const latestBulletin = bulletinRes.data;
@@ -107,15 +136,10 @@ export default async function AdminDashboardPage() {
     isBulletinStale = monthDelta < 0 || (monthDelta === 0 && currentDay >= 15) || bulletinAgeDays > 35;
   }
 
-  // Compute community import counts
-  const communityRows = (communityRes.data as Array<{ id: string; moderation_status: string; published_post_id: string | null }>) ?? [];
-  const pendingCommunityCount = communityRows.filter(
-    (row) => row.moderation_status === "pending" || row.moderation_status === "needs_revision"
-  ).length;
-  const autoApprovedCommunityCount = communityRows.filter(
-    (row) => row.moderation_status === "approved" && !row.published_post_id
-  ).length;
-  const liveCommunityCount = communityRows.filter((row) => Boolean(row.published_post_id)).length;
+  // Community import counts
+  const pendingCommunityCount = pendingCommunityRes.count ?? 0;
+  const autoApprovedCommunityCount = autoApprovedCommunityRes.count ?? 0;
+  const liveCommunityCount = liveCommunityRes.count ?? 0;
 
   // Recent firm pilot requests
   const recentPilots = (pilotsRes.data as Array<{
@@ -127,7 +151,7 @@ export default async function AdminDashboardPage() {
     created_at: string;
   }>) ?? [];
 
-  // Recent complaints
+  // Recent complaints (trimmed text check)
   const recentFeedback = (feedbackRes.data as Array<{
     id: string;
     rating: number;
@@ -136,8 +160,12 @@ export default async function AdminDashboardPage() {
   }>) ?? [];
   const complaintsWithText = recentFeedback.filter((f) => Boolean(f.feedback_text?.trim()));
 
-  // Action required items for triage banner
+  // Action required items for triage banner (stale bulletin, pending drafts, or query errors)
   const actionItems: Array<{ message: string; href?: string; actionLabel?: string }> = [];
+
+  for (const err of queryErrors) {
+    actionItems.push({ message: err });
+  }
 
   if (isBulletinStale) {
     actionItems.push({
@@ -150,15 +178,6 @@ export default async function AdminDashboardPage() {
       message: `${pendingCommunityCount} community draft${pendingCommunityCount === 1 ? "" : "s"} waiting in the moderation queue.`,
       href: "/admin/community-imports?filter=needs-review",
       actionLabel: "Review drafts →"
-    });
-  }
-
-  if (complaintsWithText.length > 0) {
-    const latestComplaint = complaintsWithText[0];
-    actionItems.push({
-      message: `New negative advisor feedback: "${latestComplaint.feedback_text?.slice(0, 100)}${
-        (latestComplaint.feedback_text?.length ?? 0) > 100 ? "…" : ""
-      }"`
     });
   }
 
