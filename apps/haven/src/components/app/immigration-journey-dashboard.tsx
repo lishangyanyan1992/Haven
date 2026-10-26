@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { Fragment, useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -251,7 +251,7 @@ export function ImmigrationJourneyDashboard({
   }, [activeInspectedPinId]);
 
   const handleSelectPin = (pinId: string) => {
-    setActiveInspectedPinId((prev) => (prev === pinId ? null : pinId));
+    setActiveInspectedPinId((prev) => (isPinActive(pinId, prev) ? null : pinId));
     if (typeof document !== "undefined") {
       setTimeout(() => {
         const targets = [
@@ -673,7 +673,7 @@ export function ImmigrationJourneyDashboard({
                 Macro Horizon (Multi-Year Trajectory)
               </span>
               <span className="text-[11px] text-[var(--haven-ink-light)] hidden sm:inline">
-                Shaded box marks the 90-day tactical focus window below
+                Shaded box marks the immediate focus zone (90 days back to 180 days ahead)
               </span>
             </div>
 
@@ -686,7 +686,7 @@ export function ImmigrationJourneyDashboard({
               </div>
 
               <div className="relative h-8 select-none">
-                {/* 90-day focus zone indicator bar in header */}
+                {/* Focus zone indicator bar in header */}
                 {axis.macroBracket && (
                   <div
                     aria-hidden="true"
@@ -1269,7 +1269,7 @@ function OverlaySwimlane({
           {pins.map((pin) => {
             const isActive = isPinActive(pin.id, activePinId);
             return (
-              <div key={pin.id} className="pointer-events-auto">
+              <Fragment key={pin.id}>
                 <button
                   type="button"
                   data-pin-trigger
@@ -1282,7 +1282,7 @@ function OverlaySwimlane({
                     onSelectPin(pin.id);
                   }}
                   className={cn(
-                    "absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--haven-ink)]",
+                    "pointer-events-auto absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--haven-ink)]",
                     isActive
                       ? "z-40 h-4.5 w-4.5 scale-125 ring-4 ring-[var(--haven-ink)] ring-offset-2 shadow-md"
                       : "z-20 h-3.5 w-3.5 hover:scale-125 hover:z-30 hover:ring-2 hover:ring-[var(--haven-ink-mid)] shadow-xs",
@@ -1292,13 +1292,15 @@ function OverlaySwimlane({
                   title={`${pin.label}: ${pin.dateLabel} (Click to inspect)`}
                 />
                 {isActive && (
-                  <PinInspectionPopover
-                    pin={pin}
-                    onClose={() => onSelectPin(pin.id)}
-                    position="bottom"
-                  />
+                  <div className="pointer-events-none absolute inset-x-0 top-1/2 z-50">
+                    <PinInspectionPopover
+                      pin={pin}
+                      onClose={() => onSelectPin(pin.id)}
+                      position="bottom"
+                    />
+                  </div>
                 )}
-              </div>
+              </Fragment>
             );
           })}
         </div>
@@ -1400,40 +1402,43 @@ function TacticalTimelineWindow({
             {tacticalWindow.pins.map((pin) => {
               const isActive = isPinActive(pin.id, activePinId);
               return (
-                <div
-                  key={`dot-${pin.id}`}
-                  className="absolute top-[-15px] -translate-x-1/2 z-30"
-                  style={{ left: `${pin.percent}%` }}
-                >
-                  <button
-                    type="button"
-                    data-pin-trigger
-                    data-pin-id={pin.id}
-                    aria-haspopup="dialog"
-                    aria-expanded={isActive}
-                    aria-label={`Inspect milestone: ${pin.label}, ${pin.dateLabel}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSelectPin(pin.id);
-                    }}
-                    className={cn(
-                      "rounded-full border-2 shadow-xs transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--haven-ink)]",
-                      isActive
-                        ? "h-4.5 w-4.5 scale-135 ring-4 ring-[var(--haven-ink)] ring-offset-2 shadow-md z-40"
-                        : "h-3.5 w-3.5 hover:scale-125 hover:ring-2 hover:ring-[var(--haven-ink-mid)]",
-                      TONE_PIN_CLASS[pin.tone],
-                      pin.isToday && "h-4 w-4 ring-2 ring-[var(--haven-ink)] ring-offset-1"
-                    )}
-                    title={`${pin.label}: ${pin.dateLabel} (${pin.detail}) - Click to inspect`}
-                  />
-                  {isActive && (
-                    <PinInspectionPopover
-                      pin={pin}
-                      onClose={() => onSelectPin(pin.id)}
-                      position="top"
+                <Fragment key={`dot-${pin.id}`}>
+                  <div
+                    className="absolute top-[-15px] -translate-x-1/2 z-30"
+                    style={{ left: `${pin.percent}%` }}
+                  >
+                    <button
+                      type="button"
+                      data-pin-trigger
+                      data-pin-id={pin.id}
+                      aria-haspopup="dialog"
+                      aria-expanded={isActive}
+                      aria-label={`Inspect milestone: ${pin.label}, ${pin.dateLabel}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectPin(pin.id);
+                      }}
+                      className={cn(
+                        "rounded-full border-2 shadow-xs transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--haven-ink)]",
+                        isActive
+                          ? "h-4.5 w-4.5 scale-135 ring-4 ring-[var(--haven-ink)] ring-offset-2 shadow-md z-40"
+                          : "h-3.5 w-3.5 hover:scale-125 hover:ring-2 hover:ring-[var(--haven-ink-mid)]",
+                        TONE_PIN_CLASS[pin.tone],
+                        pin.isToday && "h-4 w-4 ring-2 ring-[var(--haven-ink)] ring-offset-1"
+                      )}
+                      title={`${pin.label}: ${pin.dateLabel} (${pin.detail}) - Click to inspect`}
                     />
+                  </div>
+                  {isActive && (
+                    <div className="pointer-events-none absolute inset-x-0 top-[-15px] z-50">
+                      <PinInspectionPopover
+                        pin={pin}
+                        onClose={() => onSelectPin(pin.id)}
+                        position="top"
+                      />
+                    </div>
                   )}
-                </div>
+                </Fragment>
               );
             })}
           </div>
