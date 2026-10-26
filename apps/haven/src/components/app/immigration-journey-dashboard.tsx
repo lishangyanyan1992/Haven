@@ -386,10 +386,10 @@ export function ImmigrationJourneyDashboard({
                         ? "Authorized stay deadline unavailable"
                         : displayDaysRemaining >= 0
                           ? protection.effectiveStayEndLabel === null
-                            ? `I-94 expires on ${displayEndLabel}`
+                            ? `Recorded status end date: ${displayEndLabel}`
                             : `Authorized stay deadline: ${displayEndLabel}`
                           : protection.effectiveStayEndLabel === null
-                            ? `I-94 expired on ${displayEndLabel}`
+                            ? `Recorded status end date passed on ${displayEndLabel}`
                             : `Authorized stay deadline passed on ${displayEndLabel}`}
                     </h4>
                     <p className="mt-1 text-body-sm leading-relaxed text-[var(--color-text-secondary)] max-w-[70ch]">
