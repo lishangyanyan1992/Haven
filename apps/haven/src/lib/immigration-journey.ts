@@ -51,6 +51,11 @@ export type VisaJourneyTrack = {
   capDate: string | null;
   capDateLabel: string | null;
   renewalWindowDateLabel: string | null;
+  effectiveStayEndDate?: string | null;
+  effectiveStayEndLabel?: string | null;
+  effectiveStayDaysRemaining?: number | null;
+  isGraceCappedByVisa?: boolean;
+  reconciliationNotice?: string | null;
   segments: JourneyBarSegment[];
   pins: JourneyPlotPin[];
 };
@@ -74,6 +79,11 @@ export type JobJourneyTrack = {
   lastWorkDayLabel: string | null;
   graceEndLabel: string | null;
   graceDaysRemaining: number | null;
+  effectiveStayEndDate?: string | null;
+  effectiveStayEndLabel?: string | null;
+  effectiveStayDaysRemaining?: number | null;
+  isGraceCappedByVisa?: boolean;
+  reconciliationNotice?: string | null;
   portabilityLabel: string | null;
   segments: JourneyBarSegment[];
   pins: JourneyPlotPin[];
@@ -112,6 +122,40 @@ export type OverlayInsight = {
   tone: "sage" | "sky" | "blush" | "sand";
 };
 
+export type TacticalTimelinePin = {
+  id: string;
+  label: string;
+  dateLabel: string;
+  isoDate: string;
+  percent: number;
+  tone: JourneyTrackTone;
+  status: "past" | "upcoming" | "urgent";
+  detail: string;
+  daysDiff: number;
+  isToday?: boolean;
+};
+
+export type TacticalTimelineView = {
+  startIso: string;
+  endIso: string;
+  startLabel: string;
+  endLabel: string;
+  todayPercent: number;
+  pins: TacticalTimelinePin[];
+  ticks: { label: string; percent: number }[];
+};
+
+export type JourneyProtectionStatus = {
+  isAc21PortabilityUnlocked: boolean;
+  hasI140Approval: boolean;
+  isGraceCappedByVisa: boolean;
+  effectiveStayEndDate: string | null;
+  effectiveStayEndLabel: string | null;
+  effectiveStayDaysRemaining: number | null;
+  reconciliationNotice: string | null;
+  portabilitySummary: string | null;
+};
+
 export type ImmigrationJourneyView = {
   axis: {
     startIso: string;
@@ -122,7 +166,14 @@ export type ImmigrationJourneyView = {
     todayLabel: string;
     todayPercent: number;
     ticks: { label: string; percent: number }[];
+    macroBracket: {
+      startPercent: number;
+      endPercent: number;
+      label: string;
+    };
   };
+  tacticalWindow: TacticalTimelineView;
+  protection: JourneyProtectionStatus;
   visaTrack: VisaJourneyTrack;
   jobTrack: JobJourneyTrack;
   greenCardTrack: GreenCardJourneyTrack;
@@ -246,6 +297,37 @@ export function buildImmigrationJourney(input: {
     profile.employmentStatus === "laid_off";
   const graceEndDate = lastWorkDayDate ? new Date(lastWorkDayDate.getTime() + 60 * DAY_MS) : null;
 
+  // Legal reconciliation under 8 CFR § 214.1(l)(2)
+  let effectiveStayEndDate: Date | null = null;
+  let isGraceCappedByVisa = false;
+  let reconciliationNotice: string | null = null;
+
+  if (isLaidOff && graceEndDate && visaExpiryDate) {
+    if (visaExpiryDate.getTime() < graceEndDate.getTime()) {
+      effectiveStayEndDate = visaExpiryDate;
+      isGraceCappedByVisa = true;
+      reconciliationNotice =
+        "Under 8 CFR § 214.1(l)(2), authorized stay is capped by your I-94 expiration date, which occurs before the full 60-day grace period.";
+    } else {
+      effectiveStayEndDate = graceEndDate;
+      isGraceCappedByVisa = false;
+      reconciliationNotice = null;
+    }
+  } else if (isLaidOff && graceEndDate) {
+    effectiveStayEndDate = graceEndDate;
+    isGraceCappedByVisa = false;
+    reconciliationNotice = null;
+  } else {
+    effectiveStayEndDate = visaExpiryDate;
+    isGraceCappedByVisa = false;
+    reconciliationNotice = null;
+  }
+
+  const effectiveStayDaysRemaining = effectiveStayEndDate
+    ? Math.ceil((effectiveStayEndDate.getTime() - todayMs) / DAY_MS)
+    : null;
+  const effectiveStayEndLabel = formatDateLabel(effectiveStayEndDate);
+
   const projectedGcDate = estimateFutureGcDate(profile, priorityDateIntelligence ?? null, todayUtc);
 
   // Build shared time horizon [axisStart, axisEnd]
@@ -259,6 +341,7 @@ export function buildImmigrationJourney(input: {
   if (visaExpiryDate) candidateFutureMs.push(visaExpiryDate.getTime() + 60 * DAY_MS);
   if (capDate) candidateFutureMs.push(capDate.getTime() + 60 * DAY_MS);
   if (graceEndDate) candidateFutureMs.push(graceEndDate.getTime() + 60 * DAY_MS);
+  if (effectiveStayEndDate) candidateFutureMs.push(effectiveStayEndDate.getTime() + 60 * DAY_MS);
   if (projectedGcDate) candidateFutureMs.push(projectedGcDate.getTime());
 
   const minStartMs = Math.min(...candidatePastMs);
@@ -308,6 +391,40 @@ export function buildImmigrationJourney(input: {
     visaTone = "sage";
     visaHeadline = `${profile.visaType === "Citizen" ? "Citizenship" : "Permanent residency"} complete`;
     visaSummary = "You hold permanent status and no longer depend on temporary visa renewals.";
+  } else if (isLaidOff && effectiveStayEndDate) {
+    if (effectiveStayDaysRemaining !== null && effectiveStayDaysRemaining < 0) {
+      visaLifecycle = "expired";
+      visaBadge = isGraceCappedByVisa
+        ? `Stay expired (${Math.abs(effectiveStayDaysRemaining)}d ago)`
+        : `Grace expired (${Math.abs(effectiveStayDaysRemaining)}d ago)`;
+      visaTone = "blush";
+      visaHeadline = isGraceCappedByVisa
+        ? `${profile.visaType} authorized stay expired`
+        : `${profile.visaType} 60-day grace period expired`;
+      visaSummary = isGraceCappedByVisa
+        ? `Your I-94 expired on ${effectiveStayEndLabel}, capping your grace period under 8 CFR § 214.1(l)(2). Confirm whether an extension or change of status was filed.`
+        : `Your 60-day grace period ended on ${effectiveStayEndLabel}. Confirm timely filing of a transfer, change of status, or departure.`;
+    } else if (effectiveStayDaysRemaining !== null && effectiveStayDaysRemaining <= 90) {
+      visaLifecycle = "expiring_soon";
+      visaBadge = isGraceCappedByVisa
+        ? `Grace capped · ${effectiveStayDaysRemaining}d left`
+        : `H-1B grace · ${effectiveStayDaysRemaining}d left`;
+      visaTone = effectiveStayDaysRemaining <= 30 ? "blush" : "sand";
+      visaHeadline = isGraceCappedByVisa
+        ? `${profile.visaType} grace period ends in ${effectiveStayDaysRemaining} day${effectiveStayDaysRemaining === 1 ? "" : "s"}`
+        : `${profile.visaType} in grace period (${effectiveStayDaysRemaining}d left)`;
+      visaSummary = isGraceCappedByVisa
+        ? `Employment ended ${formatDateLabel(lastWorkDayDate)}. Under 8 CFR § 214.1(l)(2), your grace period ends on your I-94 expiration date (${effectiveStayEndLabel}), not the standard 60-day mark.`
+        : `Employment ended ${formatDateLabel(lastWorkDayDate)}. While petition was approved through ${formatDateLabel(visaExpiryDate)}, authorized stay is limited to 60 consecutive days ending ${effectiveStayEndLabel}.`;
+    } else {
+      visaLifecycle = "started_active";
+      visaBadge = isGraceCappedByVisa
+        ? `Grace capped · ${effectiveStayDaysRemaining}d left`
+        : `H-1B grace · ${effectiveStayDaysRemaining}d left`;
+      visaTone = "sand";
+      visaHeadline = `${profile.visaType} in grace period through ${effectiveStayEndLabel}`;
+      visaSummary = `Authorized stay runs through ${effectiveStayEndLabel}. Coordinate a change of status or new petition before expiration.`;
+    }
   } else if (daysUntilExpiry !== null && daysUntilExpiry < 0) {
     visaLifecycle = "expired";
     visaBadge = `Expired ${Math.abs(daysUntilExpiry)}d ago`;
@@ -346,11 +463,13 @@ export function buildImmigrationJourney(input: {
   const visaPins: JourneyPlotPin[] = [];
 
   const effectiveVisaStartMs = visaStartDate ? visaStartDate.getTime() : todayMs - 180 * DAY_MS;
-  const effectiveVisaEndMs = visaExpiryDate
-    ? visaExpiryDate.getTime()
-    : capDate
-      ? capDate.getTime()
-      : todayMs + 365 * DAY_MS;
+  const effectiveVisaEndMs = isLaidOff && effectiveStayEndDate
+    ? effectiveStayEndDate.getTime()
+    : visaExpiryDate
+      ? visaExpiryDate.getTime()
+      : capDate
+        ? capDate.getTime()
+        : todayMs + 365 * DAY_MS;
 
   const visaStartPct = toPercent(effectiveVisaStartMs);
   const visaEndPct = toPercent(Math.max(effectiveVisaEndMs, effectiveVisaStartMs + 30 * DAY_MS));
@@ -408,7 +527,7 @@ export function buildImmigrationJourney(input: {
   }
 
   let renewalWindowDateLabel: string | null = null;
-  if (visaExpiryDate) {
+  if (!isLaidOff && visaExpiryDate) {
     const renewalDate = new Date(visaExpiryDate.getTime() - 180 * DAY_MS);
     renewalWindowDateLabel = formatDateLabel(renewalDate);
     if (renewalDate.getTime() > (visaStartDate?.getTime() ?? 0)) {
@@ -441,6 +560,23 @@ export function buildImmigrationJourney(input: {
         daysUntilExpiry !== null && daysUntilExpiry >= 0
           ? `${daysUntilExpiry} days remaining until current status expiration.`
           : "Current status expiration date has passed."
+    });
+  } else if (isLaidOff && effectiveStayEndDate) {
+    visaPins.push({
+      id: "visa-stay-deadline",
+      label: isGraceCappedByVisa
+        ? effectiveStayDaysRemaining !== null && effectiveStayDaysRemaining < 0
+          ? "I-94 expired (grace cap)"
+          : "Authorized stay ends (I-94)"
+        : "Authorized stay ends (60d grace)",
+      dateLabel: effectiveStayEndLabel!,
+      isoDate: toIsoDate(effectiveStayEndDate),
+      percent: toPercent(effectiveStayEndDate.getTime()),
+      tone: "blush",
+      status: "urgent",
+      detail: isGraceCappedByVisa
+        ? "I-94 expiration caps your 60-day grace period under 8 CFR § 214.1(l)(2)."
+        : "Authorized stay ends upon expiration of the 60-day grace period."
     });
   }
 
@@ -486,7 +622,17 @@ export function buildImmigrationJourney(input: {
   if (isLaidOff) {
     jobLifecycle = "grace_period";
     jobTone = "blush";
-    if (graceDaysRemaining !== null) {
+    if (isGraceCappedByVisa && effectiveStayDaysRemaining !== null) {
+      jobBadge =
+        effectiveStayDaysRemaining >= 0
+          ? `Grace capped by I-94 · ${effectiveStayDaysRemaining}d left`
+          : `Stay expired (${Math.abs(effectiveStayDaysRemaining)}d ago)`;
+      jobHeadline =
+        effectiveStayDaysRemaining >= 0
+          ? `${effectiveStayDaysRemaining} days left of authorized stay (I-94 cap)`
+          : "Authorized stay expired on I-94 expiration date";
+      jobSummary = `Employment ended ${formatDateLabel(lastWorkDayDate)}. Full 60-day window would reach ${formatDateLabel(graceEndDate)}, but your I-94 expires ${effectiveStayEndLabel}. File transfer, change of status, or depart before this date.`;
+    } else if (graceDaysRemaining !== null) {
       jobBadge =
         graceDaysRemaining >= 0
           ? `60-day grace · ${graceDaysRemaining}d left`
@@ -495,10 +641,10 @@ export function buildImmigrationJourney(input: {
         graceDaysRemaining >= 0
           ? `${graceDaysRemaining} days left in 60-day grace period`
           : "60-day grace period window has passed";
-      jobSummary = ` Employment ended ${formatDateLabel(lastWorkDayDate)}. Bridge window ends ${formatDateLabel(graceEndDate)}.`;
+      jobSummary = `Employment ended ${formatDateLabel(lastWorkDayDate)}. Bridge window ends ${formatDateLabel(graceEndDate)}.`;
     } else {
       jobBadge = "60-day grace period";
-      jobHeadline = "Employment ended — in grace period";
+      jobHeadline = "Employment ended in grace period";
       jobSummary = "Add your last day of work to plot your exact 60-day filing window.";
     }
   } else if (profile.employmentStatus === "actively_searching") {
@@ -521,7 +667,8 @@ export function buildImmigrationJourney(input: {
 
   if (isLaidOff && lastWorkDayDate && graceEndDate) {
     const layoffPct = toPercent(lastWorkDayDate.getTime());
-    const gracePct = toPercent(graceEndDate.getTime());
+    const graceTargetDate = effectiveStayEndDate ?? graceEndDate;
+    const gracePct = toPercent(graceTargetDate.getTime());
     if (layoffPct > jobStartPct) {
       jobSegments.push({
         id: "job-employed",
@@ -533,7 +680,7 @@ export function buildImmigrationJourney(input: {
     }
     jobSegments.push({
       id: "job-grace",
-      label: "60-day grace window",
+      label: isGraceCappedByVisa ? "Grace period (capped by I-94)" : "60-day grace window",
       startPercent: layoffPct,
       endPercent: Math.max(layoffPct + 2.5, gracePct),
       tone: "blush"
@@ -550,13 +697,15 @@ export function buildImmigrationJourney(input: {
     });
     jobPins.push({
       id: "job-grace-end",
-      label: "60-day grace ends",
-      dateLabel: formatDateLabel(graceEndDate)!,
-      isoDate: toIsoDate(graceEndDate),
+      label: isGraceCappedByVisa ? "Authorized stay ends (I-94 cap)" : "60-day grace ends",
+      dateLabel: formatDateLabel(graceTargetDate)!,
+      isoDate: toIsoDate(graceTargetDate),
       percent: gracePct,
       tone: "blush",
       status: "urgent",
-      detail: "File transfer, change of status, or departure before this date."
+      detail: isGraceCappedByVisa
+        ? "Under 8 CFR § 214.1(l)(2), authorized stay ends when your I-94 expires."
+        : "File transfer, change of status, or departure before this date."
     });
   } else {
     const jobEndMs = effectiveVisaEndMs;
@@ -846,11 +995,199 @@ export function buildImmigrationJourney(input: {
       : `Tracking ${ STAGE_BADGE_LABELS[gcStage].toLowerCase() } in the ${categoryLabel} queue.`);
 
   // =========================================================================
+  // TACTICAL 90-DAY WINDOW METRICS & PINS
+  // =========================================================================
+  const tacticalStartMs = todayMs - 45 * DAY_MS;
+  const tacticalEndMs = todayMs + 45 * DAY_MS;
+  const tacticalSpanMs = tacticalEndMs - tacticalStartMs;
+
+  const toTacticalPercent = (ms: number) => {
+    const raw = ((ms - tacticalStartMs) / tacticalSpanMs) * 100;
+    return Math.round(Math.min(97, Math.max(3, raw)) * 10) / 10;
+  };
+
+  const tacticalPins: TacticalTimelinePin[] = [];
+
+  // 1. Today
+  tacticalPins.push({
+    id: "tactical-today",
+    label: "Today",
+    dateLabel: formatDateLabel(todayUtc)!,
+    isoDate: toIsoDate(todayUtc),
+    percent: 50,
+    tone: "ink",
+    status: "urgent",
+    detail: "Current tracking date on your journey.",
+    daysDiff: 0,
+    isToday: true
+  });
+
+  // 2. Last work day
+  if (lastWorkDayDate && lastWorkDayDate.getTime() >= tacticalStartMs && lastWorkDayDate.getTime() <= tacticalEndMs) {
+    tacticalPins.push({
+      id: "tactical-last-day",
+      label: "Last day of work",
+      dateLabel: formatDateLabel(lastWorkDayDate)!,
+      isoDate: toIsoDate(lastWorkDayDate),
+      percent: toTacticalPercent(lastWorkDayDate.getTime()),
+      tone: "blush",
+      status: "past",
+      detail: `Employment with ${employerName ?? "sponsor"} ended.`,
+      daysDiff: Math.round((lastWorkDayDate.getTime() - todayMs) / DAY_MS)
+    });
+  }
+
+  // 3. Effective stay end date
+  if (effectiveStayEndDate && effectiveStayEndDate.getTime() >= tacticalStartMs && effectiveStayEndDate.getTime() <= tacticalEndMs) {
+    const isPast = effectiveStayEndDate.getTime() < todayMs;
+    tacticalPins.push({
+      id: "tactical-stay-end",
+      label: isLaidOff
+        ? isGraceCappedByVisa
+          ? "Stay ends (I-94 cap)"
+          : "60-day grace ends"
+        : "Visa expires",
+      dateLabel: effectiveStayEndLabel!,
+      isoDate: toIsoDate(effectiveStayEndDate),
+      percent: toTacticalPercent(effectiveStayEndDate.getTime()),
+      tone: "blush",
+      status: isPast ? "past" : "urgent",
+      detail: isLaidOff
+        ? isGraceCappedByVisa
+          ? "I-94 expiration caps authorized stay under 8 CFR § 214.1(l)(2)."
+          : "60-day grace period expires."
+        : "Current visa status expiration date.",
+      daysDiff: Math.round((effectiveStayEndDate.getTime() - todayMs) / DAY_MS)
+    });
+  }
+
+  // 4. Agency deadline if in window
+  if (deadlines.agencyDeadlineDate && deadlines.agencyDeadlineType) {
+    const agencyDate = parseIsoDate(deadlines.agencyDeadlineDate);
+    if (agencyDate && agencyDate.getTime() >= tacticalStartMs && agencyDate.getTime() <= tacticalEndMs) {
+      const typeLabels: Record<string, string> = {
+        rfe: "RFE response due",
+        interview: "Agency interview",
+        biometrics: "Biometrics appointment",
+        other: "Agency deadline"
+      };
+      tacticalPins.push({
+        id: "tactical-agency-deadline",
+        label: typeLabels[deadlines.agencyDeadlineType] ?? "Agency deadline",
+        dateLabel: formatDateLabel(agencyDate)!,
+        isoDate: toIsoDate(agencyDate),
+        percent: toTacticalPercent(agencyDate.getTime()),
+        tone: "blush",
+        status: agencyDate.getTime() < todayMs ? "past" : "urgent",
+        detail: "Upcoming agency appointment or filing response deadline.",
+        daysDiff: Math.round((agencyDate.getTime() - todayMs) / DAY_MS)
+      });
+    }
+  }
+
+  // 5. AC21 180-day milestone if in window
+  if (i140ApprovalDate) {
+    const ac21Date = new Date(i140ApprovalDate.getTime() + 180 * DAY_MS);
+    if (ac21Date.getTime() >= tacticalStartMs && ac21Date.getTime() <= tacticalEndMs) {
+      tacticalPins.push({
+        id: "tactical-ac21",
+        label: "AC21 180-day lock-in",
+        dateLabel: formatDateLabel(ac21Date)!,
+        isoDate: toIsoDate(ac21Date),
+        percent: toTacticalPercent(ac21Date.getTime()),
+        tone: "sage",
+        status: ac21Date.getTime() <= todayMs ? "past" : "upcoming",
+        detail: "180 days post I-140 approval locks in priority date retention.",
+        daysDiff: Math.round((ac21Date.getTime() - todayMs) / DAY_MS)
+      });
+    }
+  }
+
+  // 6. Renewal window opening date if in window (when not laid off)
+  if (!isLaidOff && visaExpiryDate) {
+    const renewalDate = new Date(visaExpiryDate.getTime() - 180 * DAY_MS);
+    if (renewalDate.getTime() >= tacticalStartMs && renewalDate.getTime() <= tacticalEndMs) {
+      tacticalPins.push({
+        id: "tactical-renewal-open",
+        label: "Renewal window opens",
+        dateLabel: formatDateLabel(renewalDate)!,
+        isoDate: toIsoDate(renewalDate),
+        percent: toTacticalPercent(renewalDate.getTime()),
+        tone: "sky",
+        status: renewalDate.getTime() <= todayMs ? "past" : "upcoming",
+        detail: "Earliest date (6 months prior to expiry) to file an extension.",
+        daysDiff: Math.round((renewalDate.getTime() - todayMs) / DAY_MS)
+      });
+    }
+  }
+
+  tacticalPins.sort((a, b) => a.percent - b.percent);
+
+  const tacticalTicks = [
+    { label: `${formatMonthYear(new Date(tacticalStartMs))} (–45d)`, percent: 4 },
+    { label: "–22d", percent: 27 },
+    { label: "Today", percent: 50 },
+    { label: "+23d", percent: 73 },
+    { label: `${formatMonthYear(new Date(tacticalEndMs))} (+45d)`, percent: 96 }
+  ];
+
+  const tacticalWindow: TacticalTimelineView = {
+    startIso: toIsoDate(new Date(tacticalStartMs)),
+    endIso: toIsoDate(new Date(tacticalEndMs)),
+    startLabel: formatDateLabel(new Date(tacticalStartMs))!,
+    endLabel: formatDateLabel(new Date(tacticalEndMs))!,
+    todayPercent: 50,
+    pins: tacticalPins,
+    ticks: tacticalTicks
+  };
+
+  const macroBracket = {
+    startPercent: toPercent(tacticalStartMs),
+    endPercent: toPercent(tacticalEndMs),
+    label: "90-day focus zone"
+  };
+
+  // Protection status calculation
+  let isAc21PortabilityUnlocked = false;
+  let portabilitySummary: string | null = null;
+  if (profile.i140Approved) {
+    if (i140ApprovalDate) {
+      const ac21Date = new Date(i140ApprovalDate.getTime() + 180 * DAY_MS);
+      isAc21PortabilityUnlocked = ac21Date.getTime() <= todayMs;
+      portabilitySummary = isAc21PortabilityUnlocked
+        ? `I-140 approval reached the 180-day portability mark on ${formatDateLabel(ac21Date)}. Your priority date is permanently protected, and a new sponsor can file an H-1B transfer with AC21 3-year extensions.`
+        : `I-140 approval reaches the 180-day lock-in mark on ${formatDateLabel(ac21Date)}.`;
+    } else {
+      isAc21PortabilityUnlocked = true;
+      portabilitySummary =
+        "Approved I-140 on file protects priority date retention and unlocks AC21 extensions beyond the 6-year limit.";
+    }
+  }
+
+  const protection: JourneyProtectionStatus = {
+    isAc21PortabilityUnlocked,
+    hasI140Approval: Boolean(profile.i140Approved),
+    isGraceCappedByVisa,
+    effectiveStayEndDate: effectiveStayEndDate ? toIsoDate(effectiveStayEndDate) : null,
+    effectiveStayEndLabel,
+    effectiveStayDaysRemaining,
+    reconciliationNotice,
+    portabilitySummary
+  };
+
+  // =========================================================================
   // CROSS-TRACK OVERLAY INSIGHTS
   // =========================================================================
   const overlayInsights: OverlayInsight[] = [];
 
-  if (isLaidOff && graceDaysRemaining !== null) {
+  if (isLaidOff && isGraceCappedByVisa) {
+    overlayInsights.push({
+      id: "grace-capped-by-i94",
+      title: "I-94 caps your 60-day grace period",
+      body: `Under 8 CFR § 214.1(l)(2), your authorized stay ends on ${effectiveStayEndLabel} (${effectiveStayDaysRemaining} days remaining) because your I-94 expires before day 60. You must file a change of status, transfer, or depart before this date.`,
+      tone: "blush"
+    });
+  } else if (isLaidOff && graceDaysRemaining !== null) {
     overlayInsights.push({
       id: "grace-vs-gc",
       title: "60-day grace period vs. Green Card portability",
@@ -858,6 +1195,17 @@ export function buildImmigrationJourney(input: {
         ? `Your employment ended with ${Math.max(0, graceDaysRemaining)} days left in your 60-day grace window, and your approved I-140 preserves your ${formatDateLabel(priorityDate) ?? "priority date"} and unlocks H-1B extensions with a new sponsor.`
         : `Your 60-day grace window has ${Math.max(0, graceDaysRemaining)} days remaining. Because an I-140 is not yet approved, focus first on an H-1B transfer or change of status before ${formatDateLabel(graceEndDate)}.`,
       tone: "blush"
+    });
+  }
+
+  if (isLaidOff && profile.i140Approved) {
+    overlayInsights.push({
+      id: "ac21-bridge-protection",
+      title: "I-140 protects your priority date & extensions",
+      body: isAc21PortabilityUnlocked
+        ? `Even though employment ended, your approved I-140 passed the 180-day mark, permanently preserving your priority date (${formatDateLabel(priorityDate) ?? "locked"}) and allowing a new employer to sponsor 3-year H-1B extensions beyond the 6-year cap.`
+        : `Your approved I-140 preserves your priority date (${formatDateLabel(priorityDate) ?? "locked"}). Once 180 days elapse from approval, it cannot be revoked by your prior sponsor.`,
+      tone: "sage"
     });
   }
 
@@ -880,7 +1228,7 @@ export function buildImmigrationJourney(input: {
     }
   }
 
-  if (visaExpiryDate && daysUntilExpiry !== null && daysUntilExpiry <= 180 && daysUntilExpiry >= 0) {
+  if (!isLaidOff && visaExpiryDate && daysUntilExpiry !== null && daysUntilExpiry <= 180 && daysUntilExpiry >= 0) {
     overlayInsights.push({
       id: "renewal-overlap",
       title: "Visa renewal window is open now",
@@ -917,8 +1265,11 @@ export function buildImmigrationJourney(input: {
       todayIso: toIsoDate(todayUtc),
       todayLabel: formatDateLabel(todayUtc)!,
       todayPercent,
-      ticks
+      ticks,
+      macroBracket
     },
+    tacticalWindow,
+    protection,
     visaTrack: {
       visaType: profile.visaType,
       lifecycleState: visaLifecycle,
@@ -934,6 +1285,11 @@ export function buildImmigrationJourney(input: {
       capDate: capDate ? toIsoDate(capDate) : null,
       capDateLabel: formatDateLabel(capDate),
       renewalWindowDateLabel,
+      effectiveStayEndDate: effectiveStayEndDate ? toIsoDate(effectiveStayEndDate) : null,
+      effectiveStayEndLabel,
+      effectiveStayDaysRemaining,
+      isGraceCappedByVisa,
+      reconciliationNotice,
       segments: visaSegments,
       pins: visaPins
     },
@@ -950,6 +1306,11 @@ export function buildImmigrationJourney(input: {
       lastWorkDayLabel: formatDateLabel(lastWorkDayDate),
       graceEndLabel: formatDateLabel(graceEndDate),
       graceDaysRemaining,
+      effectiveStayEndDate: effectiveStayEndDate ? toIsoDate(effectiveStayEndDate) : null,
+      effectiveStayEndLabel,
+      effectiveStayDaysRemaining,
+      isGraceCappedByVisa,
+      reconciliationNotice,
       portabilityLabel,
       segments: jobSegments,
       pins: jobPins
