@@ -254,20 +254,23 @@ export function findActivePetition(profile: ImmigrationProfile): ImmigrantPetiti
   const nonWithdrawn = profile.immigrantPetitions.filter(p => !isPetitionWithdrawn(p));
   if (nonWithdrawn.length === 0) return null;
 
+  const isEmployerType = (type: string) =>
+    type === "employer_sponsored" || type === "concurrent_employer";
+
   if (profile.employerName) {
     const empLower = profile.employerName.trim().toLowerCase();
     const currentEmployerPetition = nonWithdrawn.find(
-      p => p.petitionType === "employer_sponsored" && p.sponsorName?.trim().toLowerCase() === empLower
+      p => isEmployerType(p.petitionType) && p.sponsorName?.trim().toLowerCase() === empLower
     );
     if (currentEmployerPetition) return currentEmployerPetition;
   }
 
   const inProgressEmployer = nonWithdrawn.find(
-    p => p.petitionType === "employer_sponsored" && p.stage !== "i140_approved" && p.stage !== "i485_approved"
+    p => isEmployerType(p.petitionType) && p.stage !== "i140_approved" && p.stage !== "i485_approved"
   );
   if (inProgressEmployer) return inProgressEmployer;
 
-  const anyEmployer = nonWithdrawn.find(p => p.petitionType === "employer_sponsored");
+  const anyEmployer = nonWithdrawn.find(p => isEmployerType(p.petitionType));
   if (anyEmployer) return anyEmployer;
 
   return nonWithdrawn[0];
@@ -432,7 +435,7 @@ export function evaluateI140Protections(
       const isUnlocked = (p: (typeof qualifyingPetitions)[number]) => {
         if (p.isRevocationProtected) return true;
         const d = parseIsoDate(p.i140ApprovalDate);
-        return d ? d.getTime() + 180 * DAY_MS <= nowMs : true;
+        return Boolean(d && d.getTime() + 180 * DAY_MS <= nowMs);
       };
       const byApprovalDate = [...qualifyingPetitions].sort(
         (a, b) =>
@@ -459,8 +462,8 @@ export function evaluateI140Protections(
           ? `Form I-140 approval with ${sponsor} reached 180-day mark on ${formatDateLabel(lockInDate)}. Your priority date is permanently protected, and AC21 3-year H-1B extensions are unlocked with any employer.`
           : `Form I-140 approval with ${sponsor} unlocks AC21 3-year extensions. Revocation protection under 8 CFR § 205.1 locks in on ${formatDateLabel(lockInDate)}.`;
       } else {
-        isRevocationProtected = true;
-        summary = `Approved Form I-140 on file with ${sponsor} protects priority date retention and unlocks AC21 3-year extensions beyond the 6-year H-1B limit.`;
+        isRevocationProtected = false;
+        summary = `Approved Form I-140 on file with ${sponsor} preserves priority date retention and unlocks AC21 3-year extensions beyond the 6-year H-1B limit.`;
       }
 
       return {
@@ -479,7 +482,7 @@ export function evaluateI140Protections(
     return {
       hasApprovedI140: true,
       isAc21PortabilityUnlocked: true,
-      isRevocationProtected: true,
+      isRevocationProtected: false,
       protectingSponsor: sponsor,
       i140ApprovalDate: null,
       portabilitySummary: `Retained priority date from ${sponsor} confirms an approved Form I-140, preserving your queue position and unlocking AC21 3-year extensions.`
@@ -505,7 +508,7 @@ export function evaluateI140Protections(
     return {
       hasApprovedI140: true,
       isAc21PortabilityUnlocked: true,
-      isRevocationProtected: true,
+      isRevocationProtected: false,
       protectingSponsor: profile.employerName ?? null,
       i140ApprovalDate: null,
       portabilitySummary:
@@ -558,9 +561,11 @@ export function synthesizePetitions(
                       ? "I-485 Approved (Green Card Issued)"
                       : "Withdrawn";
 
+      const isEmployer =
+        p.petitionType === "employer_sponsored" || p.petitionType === "concurrent_employer";
       const isPrimaryActive = activePetition
         ? p.id === activePetition.id
-        : p.petitionType === "employer_sponsored" && !isPetitionWithdrawn(p);
+        : isEmployer && !isPetitionWithdrawn(p);
 
       return {
         id: p.id,
@@ -591,7 +596,7 @@ export function synthesizePetitions(
       stageLabel: "I-140 Approved (Retained)",
       priorityDateLabel: formatDateLabel(profile.retainedPriorityDate ?? profile.priorityDate),
       isApproved: true,
-      isRevocationProtected: true,
+      isRevocationProtected: false,
       isRecaptured: true,
       isPrimaryActive: false,
       notes: "Priority date locked in under 8 CFR § 204.5(e) and portable to subsequent employers."
@@ -631,8 +636,8 @@ export function synthesizePetitions(
                 : "I-485 Filed";
 
     const approvalDate = parseIsoDate(profile.i140ApprovalDate ?? null);
-    const isRevocationProtected = activeStage === "i140_approved" && (
-      !approvalDate || approvalDate.getTime() + 180 * DAY_MS <= nowUtc.getTime()
+    const isRevocationProtected = activeStage === "i140_approved" && Boolean(
+      approvalDate && approvalDate.getTime() + 180 * DAY_MS <= nowUtc.getTime()
     );
 
     summaries.push({
