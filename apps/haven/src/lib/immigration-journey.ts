@@ -4,6 +4,10 @@ import type {
   DerivedProfileSignals,
   GreenCardStage,
   ImmigrationProfile,
+  ImmigrantPetition,
+  ImmigrantPetitionStage,
+  ImmigrantPetitionType,
+  PreferenceCategory,
   PriorityDateIntelligence
 } from "@/types/domain";
 
@@ -99,6 +103,21 @@ export type GreenCardStageNode = {
   detail: string;
 };
 
+export type ImmigrantPetitionSummary = {
+  id: string;
+  sponsorName: string;
+  petitionType: ImmigrantPetitionType;
+  preferenceCategory: PreferenceCategory;
+  stage: ImmigrantPetitionStage;
+  stageLabel: string;
+  priorityDateLabel: string | null;
+  isApproved: boolean;
+  isRevocationProtected: boolean;
+  isRecaptured?: boolean;
+  isPrimaryActive?: boolean;
+  notes?: string;
+};
+
 export type GreenCardJourneyTrack = {
   stage: GreenCardStage;
   categoryLabel: string;
@@ -108,6 +127,13 @@ export type GreenCardJourneyTrack = {
   summary: string;
   priorityDate: string | null;
   priorityDateLabel: string | null;
+  retainedPriorityDate?: string | null;
+  retainedPriorityDateLabel?: string | null;
+  retainedSponsorName?: string | null;
+  isPriorityDateRecaptured?: boolean;
+  activePetitionSponsor?: string | null;
+  activePetitionStageLabel?: string | null;
+  petitions?: ImmigrantPetitionSummary[];
   estimatedRangeLabel: string | null;
   bulletinCutoffLabel: string | null;
   nodes: GreenCardStageNode[];
@@ -149,6 +175,8 @@ export type JourneyProtectionStatus = {
   isAc21PortabilityUnlocked: boolean;
   hasI140Approval: boolean;
   isGraceCappedByVisa: boolean;
+  protectingSponsor?: string | null;
+  retainedPriorityDate?: string | null;
   effectiveStayEndDate: string | null;
   effectiveStayEndLabel: string | null;
   effectiveStayDaysRemaining: number | null;
@@ -219,6 +247,20 @@ function formatMonthYear(value: Date): string {
 
 export function inferProfileGreenCardStage(profile: ImmigrationProfile): GreenCardStage {
   if (profile.i485Filed) return "i485_filed";
+
+  if (profile.immigrantPetitions && profile.immigrantPetitions.length > 0) {
+    const activePetition =
+      profile.immigrantPetitions.find(p => p.petitionType === "employer_sponsored" && !p.isWithdrawn) ??
+      profile.immigrantPetitions.find(p => !p.isWithdrawn);
+    if (activePetition) {
+      if (activePetition.stage === "i485_filed" || activePetition.stage === "i485_approved") return "i485_filed";
+      if (activePetition.stage === "i140_approved") return "i140_approved";
+      if (activePetition.stage === "i140_filed") return "i140_filed";
+      if (activePetition.stage === "perm_certified") return "perm_certified";
+      if (activePetition.stage === "perm_in_progress" || activePetition.stage === "pwd_recruitment") return "perm_in_progress";
+    }
+  }
+
   if (profile.i140Approved) return "i140_approved";
   if (profile.i140Filed) return "i140_filed";
   if (profile.permStage === "certified") return "perm_certified";
@@ -226,10 +268,319 @@ export function inferProfileGreenCardStage(profile: ImmigrationProfile): GreenCa
   return "not_started";
 }
 
+export function resolveEffectivePriorityDate(profile: ImmigrationProfile): {
+  effectiveDate: Date | null;
+  isRetained: boolean;
+  retainedSponsorName: string | null;
+  retainedCategory: PreferenceCategory | null;
+  isRecaptured: boolean;
+} {
+  // 1. Explicit retainedPriorityDate
+  if (profile.retainedPriorityDate) {
+    const parsed = parseIsoDate(profile.retainedPriorityDate);
+    if (parsed) {
+      const hasRecaptured = profile.immigrantPetitions?.some(
+        p => p.isPriorityDateRecaptured || p.stage === "i140_approved"
+      ) ?? false;
+      return {
+        effectiveDate: parsed,
+        isRetained: true,
+        retainedSponsorName: profile.retainedPriorityDateSponsor ?? null,
+        retainedCategory: profile.retainedPriorityDateCategory ?? profile.preferenceCategory,
+        isRecaptured: hasRecaptured
+      };
+    }
+  }
+
+  // 2. Search immigrantPetitions for approved I-140 petitions
+  if (profile.immigrantPetitions && profile.immigrantPetitions.length > 0) {
+    const approvedPetitions = profile.immigrantPetitions.filter(
+      p =>
+        (p.stage === "i140_approved" || p.stage === "i485_filed" || p.stage === "i485_approved") &&
+        !p.isWithdrawn &&
+        p.priorityDate
+    );
+    if (approvedPetitions.length > 0) {
+      approvedPetitions.sort((a, b) => {
+        const dateA = parseIsoDate(a.priorityDate)?.getTime() ?? Infinity;
+        const dateB = parseIsoDate(b.priorityDate)?.getTime() ?? Infinity;
+        return dateA - dateB;
+      });
+      const earliestApproved = approvedPetitions[0];
+      const parsed = parseIsoDate(earliestApproved.priorityDate);
+      if (parsed) {
+        const isFromPriorSponsor = Boolean(
+          profile.employerName &&
+          earliestApproved.sponsorName &&
+          earliestApproved.sponsorName.toLowerCase() !== profile.employerName.toLowerCase()
+        );
+        return {
+          effectiveDate: parsed,
+          isRetained: isFromPriorSponsor,
+          retainedSponsorName: earliestApproved.sponsorName,
+          retainedCategory: earliestApproved.preferenceCategory,
+          isRecaptured: earliestApproved.isPriorityDateRecaptured ?? false
+        };
+      }
+    }
+
+    const pendingWithDate = profile.immigrantPetitions.find(
+      p => !p.isWithdrawn && (p.priorityDate || p.permFilingDate)
+    );
+    if (pendingWithDate) {
+      const parsed = parseIsoDate(pendingWithDate.priorityDate || pendingWithDate.permFilingDate);
+      if (parsed) {
+        return {
+          effectiveDate: parsed,
+          isRetained: false,
+          retainedSponsorName: null,
+          retainedCategory: pendingWithDate.preferenceCategory,
+          isRecaptured: false
+        };
+      }
+    }
+  }
+
+  // 3. Legacy profile.priorityDate
+  if (profile.priorityDate) {
+    const parsed = parseIsoDate(profile.priorityDate);
+    if (parsed) {
+      return {
+        effectiveDate: parsed,
+        isRetained: Boolean(profile.retainedPriorityDateSponsor),
+        retainedSponsorName: profile.retainedPriorityDateSponsor ?? null,
+        retainedCategory: profile.preferenceCategory,
+        isRecaptured: false
+      };
+    }
+  }
+
+  // 4. Fallback to permFilingDate
+  if (profile.permFilingDate) {
+    const parsed = parseIsoDate(profile.permFilingDate);
+    return {
+      effectiveDate: parsed,
+      isRetained: false,
+      retainedSponsorName: null,
+      retainedCategory: profile.preferenceCategory,
+      isRecaptured: false
+    };
+  }
+
+  return {
+    effectiveDate: null,
+    isRetained: false,
+    retainedSponsorName: null,
+    retainedCategory: null,
+    isRecaptured: false
+  };
+}
+
+export function evaluateI140Protections(
+  profile: ImmigrationProfile,
+  nowUtc: Date
+): {
+  hasApprovedI140: boolean;
+  isAc21PortabilityUnlocked: boolean;
+  protectingSponsor: string | null;
+  i140ApprovalDate: Date | null;
+  portabilitySummary: string | null;
+} {
+  const nowMs = nowUtc.getTime();
+
+  if (profile.immigrantPetitions && profile.immigrantPetitions.length > 0) {
+    const qualifyingPetitions = profile.immigrantPetitions.filter(
+      p =>
+        (p.stage === "i140_approved" || p.stage === "i485_filed" || p.stage === "i485_approved") &&
+        !p.isWithdrawn
+    );
+
+    if (qualifyingPetitions.length > 0) {
+      const protectedPetition =
+        qualifyingPetitions.find(p => p.isRevocationProtected) ?? qualifyingPetitions[0];
+      const approvalDate = parseIsoDate(protectedPetition.i140ApprovalDate);
+      const sponsor = protectedPetition.sponsorName || profile.retainedPriorityDateSponsor || "prior sponsor";
+
+      let unlocked = false;
+      let summary = "";
+
+      if (protectedPetition.isRevocationProtected) {
+        unlocked = true;
+        summary = `Approved Form I-140 with ${sponsor} passed the 180-day portability mark under 8 CFR § 205.1. Your priority date is permanent, and AC21 3-year H-1B extensions are unlocked.`;
+      } else if (approvalDate) {
+        const ac21Date = new Date(approvalDate.getTime() + 180 * DAY_MS);
+        unlocked = ac21Date.getTime() <= nowMs;
+        summary = unlocked
+          ? `Form I-140 approval with ${sponsor} reached 180-day mark on ${formatDateLabel(ac21Date)}. Your priority date is permanently protected, and AC21 3-year H-1B extensions are unlocked with any employer.`
+          : `Form I-140 approval with ${sponsor} reaches the 180-day lock-in mark on ${formatDateLabel(ac21Date)}.`;
+      } else {
+        unlocked = true;
+        summary = `Approved Form I-140 on file with ${sponsor} protects priority date retention and unlocks AC21 3-year extensions beyond the 6-year H-1B limit.`;
+      }
+
+      return {
+        hasApprovedI140: true,
+        isAc21PortabilityUnlocked: unlocked,
+        protectingSponsor: sponsor,
+        i140ApprovalDate: approvalDate,
+        portabilitySummary: summary
+      };
+    }
+  }
+
+  if (profile.retainedPriorityDate && profile.retainedPriorityDateSponsor) {
+    return {
+      hasApprovedI140: true,
+      isAc21PortabilityUnlocked: true,
+      protectingSponsor: profile.retainedPriorityDateSponsor,
+      i140ApprovalDate: null,
+      portabilitySummary: `Retained priority date from ${profile.retainedPriorityDateSponsor} confirms an approved Form I-140, preserving your queue position and unlocking AC21 3-year extensions.`
+    };
+  }
+
+  if (profile.i140Approved) {
+    const approvalDate = parseIsoDate(profile.i140ApprovalDate ?? null);
+    if (approvalDate) {
+      const ac21Date = new Date(approvalDate.getTime() + 180 * DAY_MS);
+      const unlocked = ac21Date.getTime() <= nowMs;
+      return {
+        hasApprovedI140: true,
+        isAc21PortabilityUnlocked: unlocked,
+        protectingSponsor: profile.employerName ?? null,
+        i140ApprovalDate: approvalDate,
+        portabilitySummary: unlocked
+          ? `I-140 approval reached the 180-day portability mark on ${formatDateLabel(ac21Date)}. Your priority date is permanently protected, and a new sponsor can file an H-1B transfer with AC21 3-year extensions.`
+          : `I-140 approval reaches the 180-day lock-in mark on ${formatDateLabel(ac21Date)}.`
+      };
+    }
+    return {
+      hasApprovedI140: true,
+      isAc21PortabilityUnlocked: true,
+      protectingSponsor: profile.employerName ?? null,
+      i140ApprovalDate: null,
+      portabilitySummary:
+        "Approved I-140 on file protects priority date retention and unlocks AC21 extensions beyond the 6-year limit."
+    };
+  }
+
+  return {
+    hasApprovedI140: false,
+    isAc21PortabilityUnlocked: false,
+    protectingSponsor: null,
+    i140ApprovalDate: null,
+    portabilitySummary: null
+  };
+}
+
+export function synthesizePetitions(profile: ImmigrationProfile): ImmigrantPetitionSummary[] {
+  if (profile.immigrantPetitions && profile.immigrantPetitions.length > 0) {
+    return profile.immigrantPetitions.map(p => {
+      const isApproved = p.stage === "i140_approved" || p.stage === "i485_filed" || p.stage === "i485_approved";
+      const isProtected = p.isRevocationProtected || (isApproved && Boolean(p.i140ApprovalDate));
+      const stageLabel =
+        p.stage === "pwd_recruitment"
+          ? "Prevailing Wage & Recruitment"
+          : p.stage === "perm_in_progress"
+            ? "PERM In Progress"
+            : p.stage === "perm_certified"
+              ? "PERM Certified"
+              : p.stage === "i140_filed"
+                ? "I-140 Filed (Pending)"
+                : p.stage === "i140_approved"
+                  ? "I-140 Approved"
+                  : p.stage === "i485_filed"
+                    ? "I-485 Filed (Adjustment of Status)"
+                    : p.stage === "i485_approved"
+                      ? "I-485 Approved (Green Card Issued)"
+                      : "Withdrawn";
+      return {
+        id: p.id,
+        sponsorName: p.sponsorName,
+        petitionType: p.petitionType,
+        preferenceCategory: p.preferenceCategory,
+        stage: p.stage,
+        stageLabel,
+        priorityDateLabel: formatDateLabel(p.priorityDate),
+        isApproved,
+        isRevocationProtected: Boolean(isProtected),
+        isRecaptured: p.isPriorityDateRecaptured,
+        isPrimaryActive: p.petitionType === "employer_sponsored" && !p.isWithdrawn,
+        notes: p.notes
+      };
+    });
+  }
+
+  const summaries: ImmigrantPetitionSummary[] = [];
+
+  if (profile.retainedPriorityDateSponsor || profile.retainedPriorityDate) {
+    summaries.push({
+      id: "prior-retained-i140",
+      sponsorName: profile.retainedPriorityDateSponsor ?? "Prior Sponsoring Employer",
+      petitionType: "employer_sponsored",
+      preferenceCategory: profile.retainedPriorityDateCategory ?? profile.preferenceCategory,
+      stage: "i140_approved",
+      stageLabel: "I-140 Approved (Retained)",
+      priorityDateLabel: formatDateLabel(profile.retainedPriorityDate ?? profile.priorityDate),
+      isApproved: true,
+      isRevocationProtected: true,
+      isRecaptured: true,
+      isPrimaryActive: false,
+      notes: "Priority date locked in under 8 CFR § 204.5(e) and portable to subsequent employers."
+    });
+  }
+
+  if (profile.employerName || profile.permStage !== "not_started" || profile.i140Filed || profile.i140Approved) {
+    const activeStage: ImmigrantPetitionStage = profile.i485Filed
+      ? "i485_filed"
+      : profile.i140Approved
+        ? "i140_approved"
+        : profile.i140Filed
+          ? "i140_filed"
+          : profile.permStage === "certified"
+            ? "perm_certified"
+            : profile.permStage === "in_progress"
+              ? "perm_in_progress"
+              : "pwd_recruitment";
+
+    const stageLabel =
+      activeStage === "pwd_recruitment"
+        ? "Prevailing Wage & Recruitment"
+        : activeStage === "perm_in_progress"
+          ? "PERM In Progress"
+          : activeStage === "perm_certified"
+            ? "PERM Certified"
+            : activeStage === "i140_filed"
+              ? "I-140 Filed (Recapture Requested)"
+              : activeStage === "i140_approved"
+                ? "I-140 Approved"
+                : "I-485 Filed";
+
+    summaries.push({
+      id: "current-active-petition",
+      sponsorName: profile.employerName ?? "Current Sponsoring Employer",
+      petitionType: "employer_sponsored",
+      preferenceCategory: profile.preferenceCategory,
+      stage: activeStage,
+      stageLabel,
+      priorityDateLabel: formatDateLabel(profile.priorityDate),
+      isApproved: activeStage === "i140_approved" || activeStage === "i485_filed",
+      isRevocationProtected: false,
+      isRecaptured: Boolean(profile.retainedPriorityDate),
+      isPrimaryActive: true,
+      notes: profile.retainedPriorityDate
+        ? `Recaptures prior priority date (${formatDateLabel(profile.retainedPriorityDate)}) upon I-140 approval.`
+        : undefined
+    });
+  }
+
+  return summaries;
+}
+
 function estimateFutureGcDate(
   profile: ImmigrationProfile,
   intelligence: PriorityDateIntelligence | null,
-  today: Date
+  today: Date,
+  effectivePriorityDate?: Date | null
 ): Date | null {
   if (profile.visaType === "GC" || profile.visaType === "Citizen") {
     return today;
@@ -240,7 +591,8 @@ function estimateFutureGcDate(
   if (intelligence?.isCurrent) {
     return new Date(today.getTime() + 365 * DAY_MS);
   }
-  if (profile.priorityDate) {
+  const pd = effectivePriorityDate ?? (profile.priorityDate ? parseIsoDate(profile.priorityDate) : null);
+  if (pd) {
     // Approximate horizon for visual overlay based on category & chargeability
     const isBackloggedCountry =
       profile.countryOfBirth === "India" || profile.countryOfBirth === "China";
@@ -285,8 +637,12 @@ export function buildImmigrationJourney(input: {
       : null);
   const capDate = parseIsoDate(capDateRaw);
 
-  const priorityDateRaw = profile.priorityDate ?? null;
-  const priorityDate = parseIsoDate(priorityDateRaw);
+  const pdResolution = resolveEffectivePriorityDate(profile);
+  const priorityDate = pdResolution.effectiveDate;
+  const isRetainedPriorityDate = pdResolution.isRetained;
+  const retainedSponsorName = pdResolution.retainedSponsorName;
+  const isPriorityDateRecaptured = pdResolution.isRecaptured;
+  const petitions = synthesizePetitions(profile);
 
   const permFilingDate = parseIsoDate(profile.permFilingDate ?? null);
   const i140ApprovalDate = parseIsoDate(profile.i140ApprovalDate ?? null);
@@ -336,7 +692,12 @@ export function buildImmigrationJourney(input: {
     : null;
   const effectiveStayEndLabel = formatDateLabel(effectiveStayEndDate);
 
-  const projectedGcDate = estimateFutureGcDate(profile, priorityDateIntelligence ?? null, todayUtc);
+  const projectedGcDate = estimateFutureGcDate(
+    profile,
+    priorityDateIntelligence ?? null,
+    todayUtc,
+    priorityDate
+  );
 
   // Build shared time horizon [axisStart, axisEnd]
   const candidatePastMs: number[] = [todayMs - 365 * DAY_MS];
@@ -811,6 +1172,12 @@ export function buildImmigrationJourney(input: {
     ? `${priorityDateIntelligence.latestBulletinLabel}: ${priorityDateIntelligence.latestCutoffLabel}`
     : null;
 
+  const i140Protections = evaluateI140Protections(profile, todayUtc);
+  const hasI140Approval = i140Protections.hasApprovedI140;
+  const isAc21PortabilityUnlocked = i140Protections.isAc21PortabilityUnlocked;
+  const portabilitySummary = i140Protections.portabilitySummary;
+  const protectingSponsor = i140Protections.protectingSponsor;
+
   const gcNodes: GreenCardStageNode[] = [
     {
       key: "perm",
@@ -830,17 +1197,31 @@ export function buildImmigrationJourney(input: {
             : stageRank === 1
               ? "In progress"
               : "Not started",
-      dateOrMeta: permFilingDate ? `Filed ${formatDateLabel(permFilingDate)}` : "Step 1 of sponsorship",
+      dateOrMeta: permFilingDate
+        ? `Filed ${formatDateLabel(permFilingDate)}`
+        : employerName
+          ? `With ${employerName}`
+          : "Step 1 of sponsorship",
       detail: "Prevailing wage determination, recruitment, and DOL ETA-9089 certification."
     },
     {
       key: "priority_date",
-      label: "Priority Date Locked",
+      label: isRetainedPriorityDate ? "Priority Date (Retained)" : "Priority Date Locked",
       shortLabel: "Priority Date",
       status: priorityDate || stageRank >= 2 || isGcComplete ? "completed" : stageRank === 1 ? "current" : "upcoming",
-      badgeText: priorityDate ? formatDateLabel(priorityDate)! : "Not locked yet",
-      dateOrMeta: priorityDate ? `Queue place: ${categoryLabel}` : "Set when PERM or I-140 is filed",
-      detail: "Your place in the Visa Bulletin line based on preference category and country of birth."
+      badgeText: priorityDate
+        ? isRetainedPriorityDate
+          ? `Retained · ${formatDateLabel(priorityDate)!}`
+          : formatDateLabel(priorityDate)!
+        : "Not locked yet",
+      dateOrMeta: priorityDate
+        ? isRetainedPriorityDate
+          ? `From ${retainedSponsorName ?? "prior sponsor"} (8 CFR § 204.5(e))`
+          : `Queue place: ${categoryLabel}`
+        : "Set when PERM or I-140 is filed",
+      detail: isRetainedPriorityDate
+        ? `Locked-in queue place retained from ${retainedSponsorName ?? "prior sponsor"} and portable to subsequent employers under 8 CFR § 204.5(e).`
+        : "Your place in the Visa Bulletin line based on preference category and country of birth."
     },
     {
       key: "i140",
@@ -859,11 +1240,15 @@ export function buildImmigrationJourney(input: {
             ? "Filed / Pending"
             : stageRank === 2
               ? "Ready to file"
-              : "Upcoming",
+              : isRetainedPriorityDate
+                ? "Pending new sponsor"
+                : "Upcoming",
       dateOrMeta: i140ApprovalDate
         ? `Approved ${formatDateLabel(i140ApprovalDate)}`
-        : profile.i140Approved
-          ? "Approved on file"
+        : hasI140Approval
+          ? isRetainedPriorityDate
+            ? `Recapturing at ${employerName ?? "new sponsor"}`
+            : "Approved on file"
           : "Unlocks AC21 extensions",
       detail: "Approves your immigrant classification and unlocks post-6-year H-1B extensions."
     },
@@ -994,7 +1379,9 @@ export function buildImmigrationJourney(input: {
     isGcComplete || stageRank >= 4 ? "sage" : stageRank >= 1 ? "sky" : "sand";
   const gcHeadline = isGcComplete
     ? "Permanent residency completed"
-    : `${STAGE_BADGE_LABELS[gcStage]} · ${categoryLabel}`;
+    : isRetainedPriorityDate && priorityDate
+      ? `${STAGE_BADGE_LABELS[gcStage]} · Recapturing ${formatDateLabel(priorityDate)} PD`
+      : `${STAGE_BADGE_LABELS[gcStage]} · ${categoryLabel}`;
   const gcSummary =
     priorityDateIntelligence?.visaBulletinPosition ??
     signals.visaBulletinPosition ??
@@ -1155,23 +1542,6 @@ export function buildImmigrationJourney(input: {
     label: "90-day focus zone"
   };
 
-  // Protection status calculation
-  let isAc21PortabilityUnlocked = false;
-  let portabilitySummary: string | null = null;
-  if (profile.i140Approved) {
-    if (i140ApprovalDate) {
-      const ac21Date = new Date(i140ApprovalDate.getTime() + 180 * DAY_MS);
-      isAc21PortabilityUnlocked = ac21Date.getTime() <= todayMs;
-      portabilitySummary = isAc21PortabilityUnlocked
-        ? `I-140 approval reached the 180-day portability mark on ${formatDateLabel(ac21Date)}. Your priority date is permanently protected, and a new sponsor can file an H-1B transfer with AC21 3-year extensions.`
-        : `I-140 approval reaches the 180-day lock-in mark on ${formatDateLabel(ac21Date)}.`;
-    } else {
-      isAc21PortabilityUnlocked = true;
-      portabilitySummary =
-        "Approved I-140 on file protects priority date retention and unlocks AC21 extensions beyond the 6-year limit.";
-    }
-  }
-
   const urgentDeadlineDaysRemaining =
     effectiveStayDaysRemaining !== null
       ? effectiveStayDaysRemaining
@@ -1188,8 +1558,10 @@ export function buildImmigrationJourney(input: {
 
   const protection: JourneyProtectionStatus = {
     isAc21PortabilityUnlocked,
-    hasI140Approval: Boolean(profile.i140Approved),
+    hasI140Approval,
     isGraceCappedByVisa,
+    protectingSponsor,
+    retainedPriorityDate: isRetainedPriorityDate && priorityDate ? toIsoDate(priorityDate) : null,
     effectiveStayEndDate: effectiveStayEndDate ? toIsoDate(effectiveStayEndDate) : null,
     effectiveStayEndLabel,
     effectiveStayDaysRemaining,
@@ -1215,14 +1587,14 @@ export function buildImmigrationJourney(input: {
     overlayInsights.push({
       id: "grace-vs-gc",
       title: "60-day grace period vs. Green Card portability",
-      body: profile.i140Approved
+      body: hasI140Approval
         ? `Your employment ended with ${Math.max(0, graceDaysRemaining)} days left in your 60-day grace window, and your approved I-140 preserves your ${formatDateLabel(priorityDate) ?? "priority date"} and unlocks H-1B extensions with a new sponsor.`
         : `Your 60-day grace window has ${Math.max(0, graceDaysRemaining)} days remaining. Because an I-140 is not yet approved, focus first on an H-1B transfer or change of status before ${formatDateLabel(graceEndDate)}.`,
       tone: "blush"
     });
   }
 
-  if (isLaidOff && profile.i140Approved) {
+  if (isLaidOff && hasI140Approval) {
     overlayInsights.push({
       id: "ac21-bridge-protection",
       title: "I-140 protects your priority date & extensions",
@@ -1233,9 +1605,18 @@ export function buildImmigrationJourney(input: {
     });
   }
 
+  if (isRetainedPriorityDate && priorityDate) {
+    overlayInsights.push({
+      id: "retained-pd-recapture",
+      title: `Priority date ${formatDateLabel(priorityDate)} locked from ${retainedSponsorName ?? "prior sponsor"}`,
+      body: `Under 8 CFR § 204.5(e), your priority date is permanently retained. While ${employerName ?? "your current employer"} completes PERM and files Form I-140, your position in the ${categoryLabel} Visa Bulletin queue remains anchored to ${formatDateLabel(priorityDate)}. Additionally, your prior I-140 unlocks 3-year H-1B extensions under AC21 § 104(c).`,
+      tone: "sage"
+    });
+  }
+
   if (profile.visaType === "H1B" && capDate) {
     const daysToCap = Math.ceil((capDate.getTime() - todayMs) / DAY_MS);
-    if (profile.i140Approved) {
+    if (hasI140Approval) {
       overlayInsights.push({
         id: "cap-protected",
         title: "Visa cap & Green Card tracks are bridged",
@@ -1265,7 +1646,7 @@ export function buildImmigrationJourney(input: {
     overlayInsights.push({
       id: "steady-alignment",
       title: "How your Visa, Job, and Green Card tracks align",
-      body: profile.i140Approved
+      body: hasI140Approval
         ? `Your ${profile.visaType} status, employment with ${employerName ?? "your sponsor"}, and approved I-140 are aligned. Keep monitoring monthly Visa Bulletin movement for ${categoryLabel}.`
         : `Your ${profile.visaType} and employment tracks are active. Advancing from ${STAGE_BADGE_LABELS[gcStage]} to an approved I-140 is the key milestone that locks in your priority date and long-term visa extensions.`,
       tone: "sky"
@@ -1348,6 +1729,13 @@ export function buildImmigrationJourney(input: {
       summary: gcSummary,
       priorityDate: priorityDate ? toIsoDate(priorityDate) : null,
       priorityDateLabel: formatDateLabel(priorityDate),
+      retainedPriorityDate: isRetainedPriorityDate && priorityDate ? toIsoDate(priorityDate) : null,
+      retainedPriorityDateLabel: isRetainedPriorityDate && priorityDate ? formatDateLabel(priorityDate) : null,
+      retainedSponsorName,
+      isPriorityDateRecaptured,
+      activePetitionSponsor: employerName ?? null,
+      activePetitionStageLabel: STAGE_BADGE_LABELS[gcStage],
+      petitions,
       estimatedRangeLabel,
       bulletinCutoffLabel,
       nodes: gcNodes,

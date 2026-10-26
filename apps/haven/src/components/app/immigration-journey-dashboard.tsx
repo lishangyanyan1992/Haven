@@ -83,6 +83,7 @@ export function ImmigrationJourneyDashboard({
 }) {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
+  const [showPetitionsDrawer, setShowPetitionsDrawer] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -96,6 +97,57 @@ export function ImmigrationJourneyDashboard({
     protection.effectiveStayDaysRemaining ?? protection.urgentDeadlineDaysRemaining;
   const displayEndLabel =
     protection.effectiveStayEndLabel ?? protection.urgentDeadlineLabel;
+
+  // Consolidate Visa and Job & Sponsor into a unified work visa track
+  const isGrace = jobTrack.lifecycleState === "grace_period";
+  const combinedVisaJobBadge = isGrace ? jobTrack.statusBadge : visaTrack.statusBadge;
+  const combinedVisaJobTone = isGrace ? jobTrack.statusTone : visaTrack.statusTone;
+  const combinedVisaJobSubtitle = jobTrack.employerName
+    ? `${jobTrack.jobTitle ? `${jobTrack.jobTitle} @ ` : ""}${jobTrack.employerName}${
+        visaTrack.effectiveStayEndLabel
+          ? ` · Stay ends ${visaTrack.effectiveStayEndLabel}`
+          : visaTrack.expiryDateLabel
+            ? ` · Valid through ${visaTrack.expiryDateLabel}`
+            : ""
+      }`
+    : visaTrack.effectiveStayEndLabel
+      ? `Stay through ${visaTrack.effectiveStayEndLabel}`
+      : visaTrack.expiryDateLabel
+        ? `Valid through ${visaTrack.expiryDateLabel}`
+        : "Status validity";
+
+  const combinedVisaJobSegments = (() => {
+    if (isGrace && jobTrack.segments.length > 0) {
+      const capSegment = visaTrack.segments.find((s) => s.id === "visa-cap-window");
+      return capSegment ? [...jobTrack.segments, capSegment] : jobTrack.segments;
+    }
+    return visaTrack.segments;
+  })();
+
+  const combinedVisaJobPins = (() => {
+    const pins: typeof visaTrack.pins = [];
+    const seen = new Set<string>();
+    const candidatePins = [...jobTrack.pins, ...visaTrack.pins];
+    for (const pin of candidatePins) {
+      if (
+        pin.id === "visa-expiry" &&
+        candidatePins.some((p) => p.id === "visa-stay-deadline" || p.id === "job-grace-end")
+      ) {
+        continue;
+      }
+      if (
+        pin.id === "job-grace-end" &&
+        candidatePins.some((p) => p.id === "visa-stay-deadline")
+      ) {
+        continue;
+      }
+      const key = `${pin.isoDate}-${pin.status}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      pins.push(pin);
+    }
+    return pins.sort((a, b) => a.percent - b.percent);
+  })();
 
   function handleSaveDates(formData: FormData) {
     setSaveMessage(null);
@@ -121,13 +173,13 @@ export function ImmigrationJourneyDashboard({
                 <Layers className="h-3.5 w-3.5 text-[var(--haven-ink-mid)]" />
                 Overlaid immigration journey
               </span>
-              <Badge variant="community">3 tracks synchronized</Badge>
+              <Badge variant="community">2 tracks synchronized</Badge>
             </div>
             <CardTitle className="mt-2 text-h2">
-              Where you are across Visa, Work, and Green Card
+              Where you are across Visa & Job and Green Card
             </CardTitle>
             <p className="text-body-sm mt-1 max-w-[66ch] text-[var(--color-text-secondary)]">
-              Your visa validity, sponsoring employment, and green card queue overlaid on a single timeline so you can see how renewals, caps, and priority dates line up.
+              Your visa validity and sponsoring employment overlaid alongside your green card queue on a shared timeline so you can see how renewals, caps, and priority dates line up.
             </p>
           </div>
 
@@ -482,37 +534,16 @@ export function ImmigrationJourneyDashboard({
               </div>
             </div>
 
-            {/* Three Overlaid Macro Swimlanes */}
+            {/* Two Overlaid Macro Swimlanes */}
             <div className="mt-2 divide-y divide-[var(--color-border)]">
               <OverlaySwimlane
-                badge={visaTrack.statusBadge}
-                badgeTone={visaTrack.statusTone}
+                badge={combinedVisaJobBadge}
+                badgeTone={combinedVisaJobTone}
                 macroBracket={axis.macroBracket}
-                pins={visaTrack.pins}
-                segments={visaTrack.segments}
-                subtitle={
-                  visaTrack.effectiveStayEndLabel
-                    ? `Stay through ${visaTrack.effectiveStayEndLabel}`
-                    : visaTrack.expiryDateLabel
-                      ? `Valid through ${visaTrack.expiryDateLabel}`
-                      : "Add visa expiration date"
-                }
-                title={`Visa · ${visaTrack.visaType}`}
-                todayPercent={axis.todayPercent}
-              />
-
-              <OverlaySwimlane
-                badge={jobTrack.statusBadge}
-                badgeTone={jobTrack.statusTone}
-                macroBracket={axis.macroBracket}
-                pins={jobTrack.pins}
-                segments={jobTrack.segments}
-                subtitle={
-                  jobTrack.jobTitle
-                    ? `${jobTrack.jobTitle}${jobTrack.employerName ? ` @ ${jobTrack.employerName}` : ""}`
-                    : jobTrack.employerName ?? "Work authorization track"
-                }
-                title="Job & Sponsor"
+                pins={combinedVisaJobPins}
+                segments={combinedVisaJobSegments}
+                subtitle={combinedVisaJobSubtitle}
+                title={`Visa · ${visaTrack.visaType} & Sponsor`}
                 todayPercent={axis.todayPercent}
               />
 
@@ -542,23 +573,25 @@ export function ImmigrationJourneyDashboard({
             <h3 className="text-h3 mt-0.5">Key dates and legal protections by track</h3>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-3">
-            {/* Card 1: Visa Status Card */}
+          <div className="grid gap-5 lg:grid-cols-2">
+            {/* Card 1: Visa & Sponsoring Employer Card */}
             <div className="flex flex-col justify-between rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-5 shadow-xs">
               <div>
                 <div className="flex items-center justify-between gap-2">
                   <span className="inline-flex items-center gap-1.5 text-label">
-                    <CalendarClock className="h-3.5 w-3.5 text-[var(--haven-ink-mid)]" />
-                    Track 1 · Visa Status
+                    <Briefcase className="h-3.5 w-3.5 text-[var(--haven-ink-mid)]" />
+                    Track 1 · {visaTrack.visaType} & Sponsoring Employer
                   </span>
-                  <span className={cn("rounded-full border px-2.5 py-0.5 text-[11px] font-semibold", TONE_BADGE_CLASS[visaTrack.statusTone])}>
-                    {visaTrack.statusBadge}
+                  <span className={cn("rounded-full border px-2.5 py-0.5 text-[11px] font-semibold", TONE_BADGE_CLASS[combinedVisaJobTone])}>
+                    {combinedVisaJobBadge}
                   </span>
                 </div>
 
-                <h3 className="mt-3 text-h3 text-[var(--haven-ink)]">{visaTrack.headline}</h3>
+                <h3 className="mt-3 text-h3 text-[var(--haven-ink)]">
+                  {jobTrack.jobTitle ? `${jobTrack.jobTitle} @ ` : ""}{jobTrack.employerName ?? `${visaTrack.visaType} Status`}
+                </h3>
                 <p className="mt-1 text-body-sm leading-relaxed text-[var(--color-text-secondary)]">
-                  {visaTrack.summary}
+                  {isGrace ? jobTrack.summary : visaTrack.summary}
                 </p>
 
                 {visaTrack.reconciliationNotice && (
@@ -567,64 +600,11 @@ export function ImmigrationJourneyDashboard({
                   </div>
                 )}
 
-                <dl className="mt-4 space-y-2 border-t border-[var(--color-border)] pt-3 text-[12px]">
+                <dl className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 border-t border-[var(--color-border)] pt-3 text-[12px]">
                   <div className="flex items-center justify-between gap-2">
-                    <dt className="text-[var(--haven-ink-mid)]">Visa type</dt>
+                    <dt className="text-[var(--haven-ink-mid)]">Visa category</dt>
                     <dd className="font-semibold text-[var(--haven-ink)]">{visaTrack.visaType}</dd>
                   </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <dt className="text-[var(--haven-ink-mid)]">Status start date</dt>
-                    <dd className="font-semibold text-[var(--haven-ink)]">{visaTrack.startDateLabel ?? "Not set"}</dd>
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <dt className="text-[var(--haven-ink-mid)]">I-94 / Expiration date</dt>
-                    <dd className="font-semibold text-[var(--haven-ink)]">{visaTrack.expiryDateLabel ?? "Not set"}</dd>
-                  </div>
-                  {visaTrack.effectiveStayEndLabel && (
-                    <div className="flex items-center justify-between gap-2">
-                      <dt className="text-[var(--haven-ink)] font-medium">Effective authorized stay</dt>
-                      <dd className="font-bold text-[var(--haven-ink)]">{visaTrack.effectiveStayEndLabel}</dd>
-                    </div>
-                  )}
-                  {visaTrack.capDateLabel && (
-                    <div className="flex items-center justify-between gap-2">
-                      <dt className="text-[var(--haven-ink-mid)]">6-year statutory max</dt>
-                      <dd className="font-semibold text-[var(--haven-ink)]">{visaTrack.capDateLabel}</dd>
-                    </div>
-                  )}
-                </dl>
-              </div>
-
-              <div className="mt-5 border-t border-[var(--color-border)] pt-3">
-                <Link
-                  className="inline-flex items-center gap-1.5 text-body-sm font-semibold text-[var(--haven-ink)] underline underline-offset-4 hover:text-[var(--haven-ink-mid)]"
-                  href="/documents"
-                >
-                  <FileText className="h-3.5 w-3.5" />
-                  Upload I-94 & visa records
-                </Link>
-              </div>
-            </div>
-
-            {/* Card 2: Job & Sponsor Card */}
-            <div className="flex flex-col justify-between rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-5 shadow-xs">
-              <div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="inline-flex items-center gap-1.5 text-label">
-                    <Briefcase className="h-3.5 w-3.5 text-[var(--haven-ink-mid)]" />
-                    Track 2 · Job & Sponsor
-                  </span>
-                  <span className={cn("rounded-full border px-2.5 py-0.5 text-[11px] font-semibold", TONE_BADGE_CLASS[jobTrack.statusTone])}>
-                    {jobTrack.statusBadge}
-                  </span>
-                </div>
-
-                <h3 className="mt-3 text-h3 text-[var(--haven-ink)]">{jobTrack.headline}</h3>
-                <p className="mt-1 text-body-sm leading-relaxed text-[var(--color-text-secondary)]">
-                  {jobTrack.summary}
-                </p>
-
-                <dl className="mt-4 space-y-2 border-t border-[var(--color-border)] pt-3 text-[12px]">
                   <div className="flex items-center justify-between gap-2">
                     <dt className="text-[var(--haven-ink-mid)]">Sponsoring employer</dt>
                     <dd className="font-semibold text-[var(--haven-ink)]">{jobTrack.employerName ?? "Not recorded"}</dd>
@@ -633,6 +613,12 @@ export function ImmigrationJourneyDashboard({
                     <div className="flex items-center justify-between gap-2">
                       <dt className="text-[var(--haven-ink-mid)]">Job title</dt>
                       <dd className="font-semibold text-[var(--haven-ink)]">{jobTrack.jobTitle}</dd>
+                    </div>
+                  )}
+                  {visaTrack.startDateLabel && (
+                    <div className="flex items-center justify-between gap-2">
+                      <dt className="text-[var(--haven-ink-mid)]">Status start date</dt>
+                      <dd className="font-semibold text-[var(--haven-ink)]">{visaTrack.startDateLabel}</dd>
                     </div>
                   )}
                   {jobTrack.lastWorkDayLabel && (
@@ -647,16 +633,35 @@ export function ImmigrationJourneyDashboard({
                       <dd className="font-semibold text-[var(--haven-ink)]">{jobTrack.graceEndLabel}</dd>
                     </div>
                   )}
+                  <div className="flex items-center justify-between gap-2">
+                    <dt className="text-[var(--haven-ink-mid)]">I-94 / Expiration date</dt>
+                    <dd className="font-semibold text-[var(--haven-ink)]">{visaTrack.expiryDateLabel ?? "Not set"}</dd>
+                  </div>
+                  {visaTrack.effectiveStayEndLabel && (
+                    <div className="flex items-center justify-between gap-2 sm:col-span-2 rounded-md bg-[var(--haven-sand)]/60 px-2.5 py-1">
+                      <dt className="text-[var(--haven-ink)] font-semibold">Effective authorized stay</dt>
+                      <dd className="font-bold text-[var(--haven-ink)]">
+                        {visaTrack.effectiveStayEndLabel}
+                        {visaTrack.effectiveStayDaysRemaining !== null ? ` (${visaTrack.effectiveStayDaysRemaining}d left)` : ""}
+                      </dd>
+                    </div>
+                  )}
                   {jobTrack.portabilityLabel && (
                     <div className="flex items-center justify-between gap-2">
                       <dt className="text-[var(--haven-ink-mid)]">AC21 portability</dt>
                       <dd className="font-semibold text-[var(--haven-ink)]">{jobTrack.portabilityLabel}</dd>
                     </div>
                   )}
+                  {visaTrack.capDateLabel && (
+                    <div className="flex items-center justify-between gap-2">
+                      <dt className="text-[var(--haven-ink-mid)]">6-year statutory max</dt>
+                      <dd className="font-semibold text-[var(--haven-ink)]">{visaTrack.capDateLabel}</dd>
+                    </div>
+                  )}
                 </dl>
               </div>
 
-              <div className="mt-5 border-t border-[var(--color-border)] pt-3">
+              <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-[var(--color-border)] pt-3">
                 <Link
                   className="inline-flex items-center gap-1.5 text-body-sm font-semibold text-[var(--haven-ink)] underline underline-offset-4 hover:text-[var(--haven-ink-mid)]"
                   href="/advisor"
@@ -664,16 +669,23 @@ export function ImmigrationJourneyDashboard({
                   <ShieldCheck className="h-3.5 w-3.5" />
                   Consult attorney on bridge options
                 </Link>
+                <Link
+                  className="inline-flex items-center gap-1.5 text-body-sm font-semibold text-[var(--haven-ink)] underline underline-offset-4 hover:text-[var(--haven-ink-mid)]"
+                  href="/documents"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  Upload I-94 & visa records
+                </Link>
               </div>
             </div>
 
-            {/* Card 3: Green Card Track Card */}
+            {/* Card 2: Green Card Track Card */}
             <div className="flex flex-col justify-between rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-5 shadow-xs">
               <div>
                 <div className="flex items-center justify-between gap-2">
                   <span className="inline-flex items-center gap-1.5 text-label">
                     <Compass className="h-3.5 w-3.5 text-[var(--haven-ink-mid)]" />
-                    Track 3 · Green Card Track
+                    Track 2 · Green Card & Immigrant Petition
                   </span>
                   <span className={cn("rounded-full border px-2.5 py-0.5 text-[11px] font-semibold", TONE_BADGE_CLASS[greenCardTrack.statusTone])}>
                     {greenCardTrack.statusBadge}
@@ -685,7 +697,22 @@ export function ImmigrationJourneyDashboard({
                   {greenCardTrack.summary}
                 </p>
 
-                <dl className="mt-4 space-y-2 border-t border-[var(--color-border)] pt-3 text-[12px]">
+                {greenCardTrack.retainedPriorityDateLabel && (
+                  <div className="mt-3 rounded-[var(--radius-lg)] border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] p-3 text-[12px]">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold text-[var(--haven-ink)] flex items-center gap-1.5">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-[var(--haven-sage-strong)]" />
+                        Retained Priority Date (8 CFR § 204.5(e))
+                      </span>
+                      <span className="font-bold text-[var(--haven-ink)]">{greenCardTrack.retainedPriorityDateLabel}</span>
+                    </div>
+                    <p className="mt-1 text-[11px] text-[var(--haven-ink-mid)] leading-relaxed">
+                      Locked from {greenCardTrack.retainedSponsorName ?? "prior sponsoring employer"}. Sets your permanent queue position while {greenCardTrack.activePetitionSponsor ?? "your current employer"} completes PERM & new I-140.
+                    </p>
+                  </div>
+                )}
+
+                <dl className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 border-t border-[var(--color-border)] pt-3 text-[12px]">
                   <div className="flex items-center justify-between gap-2">
                     <dt className="text-[var(--haven-ink-mid)]">Preference category</dt>
                     <dd className="font-semibold text-[var(--haven-ink)]">{greenCardTrack.categoryLabel}</dd>
@@ -709,6 +736,84 @@ export function ImmigrationJourneyDashboard({
                     </div>
                   )}
                 </dl>
+
+                {greenCardTrack.petitions && greenCardTrack.petitions.length > 0 && (
+                  <div className="mt-4 border-t border-[var(--color-border)] pt-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowPetitionsDrawer(!showPetitionsDrawer)}
+                      className="flex w-full items-center justify-between text-body-sm font-semibold text-[var(--haven-ink)] hover:text-[var(--haven-ink-mid)] cursor-pointer"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <Briefcase className="h-3.5 w-3.5 text-[var(--haven-ink-mid)]" />
+                        Petitions & Sponsoring Employers ({greenCardTrack.petitions.length})
+                      </span>
+                      <span className="text-[12px] text-[var(--haven-ink-mid)] underline underline-offset-2">
+                        {showPetitionsDrawer ? "Hide petitions" : "View petitions & sponsors"}
+                      </span>
+                    </button>
+
+                    {showPetitionsDrawer && (
+                      <div className="mt-3 space-y-2.5">
+                        {greenCardTrack.petitions.map((petition) => (
+                          <div
+                            key={petition.id}
+                            className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--haven-cream)] p-3 text-[12px]"
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="font-bold text-[var(--haven-ink)]">{petition.sponsorName}</span>
+                                <span className="rounded-full bg-[var(--haven-white)] px-2 py-0.5 text-[10px] font-semibold text-[var(--haven-ink-mid)] border border-[var(--color-border)]">
+                                  {petition.preferenceCategory}
+                                </span>
+                                {petition.isPrimaryActive && (
+                                  <span className="rounded-full bg-[var(--haven-sky-light)] px-2 py-0.5 text-[10px] font-semibold text-[var(--haven-sky-ink)]">
+                                    Current Active Sponsor
+                                  </span>
+                                )}
+                              </div>
+                              <span
+                                className={cn(
+                                  "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                                  petition.isApproved
+                                    ? "bg-[var(--haven-sage-light)] text-[var(--haven-ink)] border border-[var(--haven-sage-mid)]"
+                                    : "bg-[var(--haven-sand)] text-[var(--haven-ink-mid)] border border-[var(--color-border)]"
+                                )}
+                              >
+                                {petition.stageLabel}
+                              </span>
+                            </div>
+
+                            <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1 text-[11px] text-[var(--haven-ink-mid)]">
+                              <div>
+                                Priority Date:{" "}
+                                <span className="font-semibold text-[var(--haven-ink)]">
+                                  {petition.priorityDateLabel ?? "TBD"}
+                                </span>
+                              </div>
+                              <div>
+                                Portability:{" "}
+                                <span className="font-semibold text-[var(--haven-ink)]">
+                                  {petition.isRevocationProtected
+                                    ? "Permanent (180+ days past approval)"
+                                    : petition.isApproved
+                                      ? "Approved (Within 180-day window)"
+                                      : "Subject to PERM certification"}
+                                </span>
+                              </div>
+                            </div>
+
+                            {petition.notes && (
+                              <p className="mt-1.5 text-[11px] text-[var(--haven-ink-mid)] italic border-t border-[var(--color-border)] pt-1.5">
+                                {petition.notes}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="mt-5 border-t border-[var(--color-border)] pt-3">
