@@ -318,10 +318,15 @@ export function buildImmigrationJourney(input: {
     effectiveStayEndDate = graceEndDate;
     isGraceCappedByVisa = false;
     reconciliationNotice = null;
-  } else {
+  } else if (!isLaidOff) {
     effectiveStayEndDate = visaExpiryDate;
     isGraceCappedByVisa = false;
     reconciliationNotice = null;
+  } else {
+    effectiveStayEndDate = null;
+    isGraceCappedByVisa = false;
+    reconciliationNotice =
+      "Employment ended, but your last day of work is missing. Enter your last day of work to calculate your authorized stay deadline.";
   }
 
   const effectiveStayDaysRemaining = effectiveStayEndDate

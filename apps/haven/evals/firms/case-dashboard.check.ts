@@ -500,7 +500,7 @@ async function main() {
     "reconciliation: laid-off profile without lastWorkDay preserves standard visa track wording without grace text",
     !laidOffNoLastWorkDay.visaTrack.headline.includes("grace") &&
       !laidOffNoLastWorkDay.visaTrack.statusBadge.includes("grace") &&
-      laidOffNoLastWorkDay.protection.effectiveStayEndDate === "2027-10-01",
+      laidOffNoLastWorkDay.protection.effectiveStayEndDate === null,
     `headline=${laidOffNoLastWorkDay.visaTrack.headline}, badge=${laidOffNoLastWorkDay.visaTrack.statusBadge}`
   );
 
