@@ -401,6 +401,161 @@ async function main() {
     `got visa=${expiredAndLaidOff.visaTrack.lifecycleState}, job=${expiredAndLaidOff.jobTrack.lifecycleState}, graceDays=${expiredAndLaidOff.jobTrack.graceDaysRemaining}`
   );
 
+  // Reconciliation Scenario 1: I-94 caps 60-day grace period under 8 CFR 214.1(l)(2)
+  const userTestNow = new Date("2026-10-26T00:00:00Z");
+  const cappedGraceJourney = buildImmigrationJourney({
+    profile: {
+      ...baseProfile,
+      visaType: "H1B",
+      currentVisaExpiryDate: "2026-10-29",
+      employmentStatus: "laid_off",
+      i140Approved: true,
+      i140ApprovalDate: "2026-03-25" // >180d by Oct 26
+    },
+    deadlines: {
+      statusEndDate: "2026-10-29",
+      jobEnded: "yes",
+      lastWorkDay: "2026-10-08",
+      agencyDeadlineDate: "2026-10-30",
+      agencyDeadlineType: "interview"
+    },
+    signals,
+    now: userTestNow
+  });
+
+  check(
+    "reconciliation: I-94 earlier than day 60 caps authorized stay to visa expiry date (3 days remaining)",
+    cappedGraceJourney.protection.isGraceCappedByVisa === true &&
+      cappedGraceJourney.protection.effectiveStayDaysRemaining === 3 &&
+      cappedGraceJourney.visaTrack.effectiveStayDaysRemaining === 3 &&
+      cappedGraceJourney.jobTrack.effectiveStayDaysRemaining === 3 &&
+      cappedGraceJourney.visaTrack.effectiveStayEndDate === "2026-10-29" &&
+      cappedGraceJourney.jobTrack.effectiveStayEndDate === "2026-10-29" &&
+      cappedGraceJourney.protection.reconciliationNotice !== null,
+    `got isCapped=${cappedGraceJourney.protection.isGraceCappedByVisa}, daysRemaining=${cappedGraceJourney.protection.effectiveStayDaysRemaining}`
+  );
+
+  check(
+    "reconciliation: tactical 90-day window metrics and pins computed with Today centered at 50%",
+    cappedGraceJourney.tacticalWindow.todayPercent === 50 &&
+      cappedGraceJourney.tacticalWindow.pins.some((p) => p.isToday) &&
+      cappedGraceJourney.tacticalWindow.pins.some((p) => p.id === "tactical-last-day") &&
+      cappedGraceJourney.tacticalWindow.pins.some((p) => p.id === "tactical-stay-end") &&
+      cappedGraceJourney.tacticalWindow.pins.some((p) => p.id === "tactical-agency-deadline") &&
+      cappedGraceJourney.axis.macroBracket.startPercent < cappedGraceJourney.axis.macroBracket.endPercent,
+    `pins=${cappedGraceJourney.tacticalWindow.pins.map((p) => p.id).join(",")}`
+  );
+
+  check(
+    "reconciliation: AC21 180-day portability protection unlocked for approved I-140",
+    cappedGraceJourney.protection.isAc21PortabilityUnlocked === true &&
+      Boolean(cappedGraceJourney.protection.portabilitySummary),
+    `unlocked=${cappedGraceJourney.protection.isAc21PortabilityUnlocked}`
+  );
+
+  // Reconciliation Scenario 2: Visa expiry is far in future (e.g. 2027), 60-day grace governs
+  const longVisaLaidOff = buildImmigrationJourney({
+    profile: {
+      ...baseProfile,
+      visaType: "H1B",
+      currentVisaExpiryDate: "2027-10-01",
+      employmentStatus: "laid_off"
+    },
+    deadlines: {
+      statusEndDate: "2027-10-01",
+      jobEnded: "yes",
+      lastWorkDay: "2026-10-08"
+    },
+    signals,
+    now: userTestNow
+  });
+
+  check(
+    "reconciliation: visa expiry after day 60 switches visa track to grace period valid through day 60",
+    longVisaLaidOff.protection.isGraceCappedByVisa === false &&
+      longVisaLaidOff.protection.effectiveStayDaysRemaining === 42 &&
+      longVisaLaidOff.visaTrack.effectiveStayDaysRemaining === 42 &&
+      longVisaLaidOff.visaTrack.headline.includes("grace period") &&
+      !longVisaLaidOff.visaTrack.headline.includes("2027"),
+    `isCapped=${longVisaLaidOff.protection.isGraceCappedByVisa}, headline=${longVisaLaidOff.visaTrack.headline}`
+  );
+
+  // Laid-off profile without lastWorkDay does not invent grace-period wording
+  const laidOffNoLastWorkDay = buildImmigrationJourney({
+    profile: {
+      ...baseProfile,
+      visaType: "H1B",
+      currentVisaExpiryDate: "2027-10-01",
+      employmentStatus: "laid_off"
+    },
+    deadlines: {
+      statusEndDate: "2027-10-01",
+      jobEnded: "yes"
+    },
+    signals,
+    now: userTestNow
+  });
+
+  check(
+    "reconciliation: laid-off profile without lastWorkDay preserves standard visa track wording without grace text",
+    !laidOffNoLastWorkDay.visaTrack.headline.includes("grace") &&
+      !laidOffNoLastWorkDay.visaTrack.statusBadge.includes("grace") &&
+      laidOffNoLastWorkDay.protection.effectiveStayEndDate === null,
+    `headline=${laidOffNoLastWorkDay.visaTrack.headline}, badge=${laidOffNoLastWorkDay.visaTrack.statusBadge}`
+  );
+
+  // Laid-off profile without lastWorkDay but imminent visa expiry exposes urgent deadline
+  const laidOffImminentExpiryNoLastWorkDay = buildImmigrationJourney({
+    profile: {
+      ...baseProfile,
+      visaType: "H1B",
+      currentVisaExpiryDate: "2026-10-29",
+      employmentStatus: "laid_off"
+    },
+    deadlines: {
+      statusEndDate: "2026-10-29",
+      jobEnded: "yes"
+    },
+    signals,
+    now: userTestNow
+  });
+
+  check(
+    "reconciliation: laid-off profile without lastWorkDay but imminent I-94 exposes urgent deadline of 3 days",
+    laidOffImminentExpiryNoLastWorkDay.protection.effectiveStayEndDate === null &&
+      laidOffImminentExpiryNoLastWorkDay.protection.urgentDeadlineDaysRemaining === 3 &&
+      laidOffImminentExpiryNoLastWorkDay.protection.urgentDeadlineLabel === "Oct 29, 2026",
+    `days=${laidOffImminentExpiryNoLastWorkDay.protection.urgentDeadlineDaysRemaining}`
+  );
+
+  // Active employed user with far-out visa expiry does not satisfy urgent stay banner condition
+  const activeEmployedFarExpiry = buildImmigrationJourney({
+    profile: {
+      ...baseProfile,
+      visaType: "H1B",
+      currentVisaExpiryDate: "2027-10-01",
+      employmentStatus: "employed"
+    },
+    deadlines: {
+      statusEndDate: "2027-10-01",
+      jobEnded: "no"
+    },
+    signals,
+    now: userTestNow
+  });
+
+  const isStayUrgent =
+    activeEmployedFarExpiry.protection.effectiveStayDaysRemaining !== null &&
+    activeEmployedFarExpiry.protection.effectiveStayDaysRemaining <= 60;
+
+  check(
+    "reconciliation: active employed user with far-out expiry does not satisfy urgent stay banner condition despite urgent today pin",
+    activeEmployedFarExpiry.tacticalWindow.pins.some((p) => p.isToday && p.status === "urgent") &&
+      !isStayUrgent &&
+      activeEmployedFarExpiry.protection.effectiveStayDaysRemaining === 340,
+    `isStayUrgent=${isStayUrgent}, days=${activeEmployedFarExpiry.protection.effectiveStayDaysRemaining}`
+  );
+
   console.log(`\n${pass}/${pass + failures.length} passed`);
   if (failures.length) process.exit(1);
 }

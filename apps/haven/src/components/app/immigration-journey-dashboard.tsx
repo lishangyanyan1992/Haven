@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Briefcase,
@@ -9,6 +10,8 @@ import {
   CircleAlert,
   Clock,
   Compass,
+  ExternalLink,
+  FileText,
   Flag,
   Layers,
   PencilLine,
@@ -18,7 +21,7 @@ import {
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -26,7 +29,8 @@ import type {
   ImmigrationJourneyView,
   JourneyBarSegment,
   JourneyPlotPin,
-  JourneyTrackTone
+  JourneyTrackTone,
+  TacticalTimelineView
 } from "@/lib/immigration-journey";
 import { saveCaseJourneyDatesAction } from "@/server/actions";
 import type { ImmigrationProfile } from "@/types/domain";
@@ -82,7 +86,16 @@ export function ImmigrationJourneyDashboard({
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const { axis, visaTrack, jobTrack, greenCardTrack, overlayInsights, missingFields } = journey;
+  const { axis, visaTrack, jobTrack, greenCardTrack, overlayInsights, missingFields, tacticalWindow, protection } = journey;
+
+  const hasUrgentDeadline =
+    (protection.effectiveStayDaysRemaining !== null && protection.effectiveStayDaysRemaining <= 60) ||
+    (protection.urgentDeadlineDaysRemaining !== null && protection.urgentDeadlineDaysRemaining <= 60);
+
+  const displayDaysRemaining =
+    protection.effectiveStayDaysRemaining ?? protection.urgentDeadlineDaysRemaining;
+  const displayEndLabel =
+    protection.effectiveStayEndLabel ?? protection.urgentDeadlineLabel;
 
   function handleSaveDates(formData: FormData) {
     setSaveMessage(null);
@@ -311,96 +324,18 @@ export function ImmigrationJourneyDashboard({
           </form>
         )}
 
-        {/* Top 3 Summary Cards for Each Track */}
-        <div className="grid gap-4 lg:grid-cols-3">
-          {/* 1. Visa Summary Card */}
-          <div className="rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-4">
-            <div className="flex items-center justify-between gap-2">
-              <span className="inline-flex items-center gap-1.5 text-label">
-                <CalendarClock className="h-3.5 w-3.5 text-[var(--haven-ink-mid)]" />
-                1. Visa status
-              </span>
-              <span className={cn("rounded-full border px-2.5 py-0.5 text-[11px] font-semibold", TONE_BADGE_CLASS[visaTrack.statusTone])}>
-                {visaTrack.statusBadge}
-              </span>
-            </div>
-            <p className="mt-2.5 text-h3 text-[var(--haven-ink)]">{visaTrack.headline}</p>
-            <p className="mt-1 text-[12px] text-[var(--color-text-secondary)]">{visaTrack.summary}</p>
-            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-[var(--color-border)] pt-2.5 text-[11px] text-[var(--haven-ink-mid)]">
-              <span>
-                Started: <strong className="text-[var(--haven-ink)]">{visaTrack.startDateLabel ?? "Not set"}</strong>
-              </span>
-              <span>
-                Expires: <strong className="text-[var(--haven-ink)]">{visaTrack.expiryDateLabel ?? "Not set"}</strong>
-              </span>
-              {visaTrack.capDateLabel && (
-                <span>
-                  6-yr cap: <strong className="text-[var(--haven-ink)]">{visaTrack.capDateLabel}</strong>
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* 2. Job / Employment Summary Card */}
-          <div className="rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-4">
-            <div className="flex items-center justify-between gap-2">
-              <span className="inline-flex items-center gap-1.5 text-label">
-                <Briefcase className="h-3.5 w-3.5 text-[var(--haven-ink-mid)]" />
-                2. Job & sponsorship
-              </span>
-              <span className={cn("rounded-full border px-2.5 py-0.5 text-[11px] font-semibold", TONE_BADGE_CLASS[jobTrack.statusTone])}>
-                {jobTrack.statusBadge}
-              </span>
-            </div>
-            <p className="mt-2.5 text-h3 text-[var(--haven-ink)]">{jobTrack.headline}</p>
-            <p className="mt-1 text-[12px] text-[var(--color-text-secondary)]">{jobTrack.summary}</p>
-            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-[var(--color-border)] pt-2.5 text-[11px] text-[var(--haven-ink-mid)]">
-              {jobTrack.portabilityLabel ? (
-                <span>
-                  Portability: <strong className="text-[var(--haven-ink)]">{jobTrack.portabilityLabel}</strong>
-                </span>
-              ) : (
-                <span>
-                  Sponsor: <strong className="text-[var(--haven-ink)]">{jobTrack.employerName ?? "Not set"}</strong>
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* 3. Green Card Track Summary Card */}
-          <div className="rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-4">
-            <div className="flex items-center justify-between gap-2">
-              <span className="inline-flex items-center gap-1.5 text-label">
-                <Compass className="h-3.5 w-3.5 text-[var(--haven-ink-mid)]" />
-                3. Green card track
-              </span>
-              <span className={cn("rounded-full border px-2.5 py-0.5 text-[11px] font-semibold", TONE_BADGE_CLASS[greenCardTrack.statusTone])}>
-                {greenCardTrack.statusBadge}
-              </span>
-            </div>
-            <p className="mt-2.5 text-h3 text-[var(--haven-ink)]">{greenCardTrack.headline}</p>
-            <p className="mt-1 text-[12px] text-[var(--color-text-secondary)]">{greenCardTrack.summary}</p>
-            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-[var(--color-border)] pt-2.5 text-[11px] text-[var(--haven-ink-mid)]">
-              <span>
-                Priority Date:{" "}
-                <strong className="text-[var(--haven-ink)]">{greenCardTrack.priorityDateLabel ?? "Not locked yet"}</strong>
-              </span>
-              {greenCardTrack.estimatedRangeLabel && (
-                <span>
-                  Horizon: <strong className="text-[var(--haven-ink)]">{greenCardTrack.estimatedRangeLabel}</strong>
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
         {/* =================================================================== */}
-        {/* SYNCHRONIZED 3-TRACK TIMELINE OVERLAY                               */}
+        {/* SYNCHRONIZED DUAL-RESOLUTION TIMELINE OVERLAY                       */}
         {/* =================================================================== */}
-        <div className="rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-4 sm:p-6">
+        <div className="rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-4 sm:p-6 shadow-xs">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--color-border)] pb-4">
             <div>
-              <p className="text-label">Synchronized timeline overlay</p>
+              <div className="flex items-center gap-2">
+                <p className="text-label">Synchronized timeline overlay</p>
+                <span className="rounded-full bg-[var(--haven-sky-light)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--haven-sky-ink)]">
+                  Dual-resolution
+                </span>
+              </div>
               <h3 className="text-h3 mt-1">Visa, Job, and Green Card tracks on one shared time axis</h3>
             </div>
             <div className="flex flex-wrap items-center gap-3 text-[11px] text-[var(--haven-ink-mid)]">
@@ -423,79 +358,371 @@ export function ImmigrationJourneyDashboard({
             </div>
           </div>
 
-          {/* Shared Time Axis Header */}
-          <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-[210px_minmax(0,1fr)]">
-            <div className="hidden lg:flex items-end pb-1">
+          {/* Urgent Action Spotlight Banner */}
+          {hasUrgentDeadline && (
+            <div className="mt-4 rounded-[var(--radius-xl)] border border-[var(--haven-blush)] bg-gradient-to-r from-[var(--haven-blush-light)] via-[var(--haven-cream)] to-[var(--haven-white)] p-4 sm:p-5 shadow-xs">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="flex items-start gap-3.5">
+                  <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--haven-blush)] text-[var(--haven-cream)] shadow-xs">
+                    <CircleAlert className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-[var(--haven-blush-ink)] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--haven-cream)]">
+                        Urgent Stay Window
+                      </span>
+                      <span className="text-[12px] font-bold text-[var(--haven-blush-ink)]">
+                        {displayDaysRemaining !== null
+                          ? displayDaysRemaining > 0
+                            ? `${displayDaysRemaining} days remaining`
+                            : displayDaysRemaining === 0
+                              ? "Expires today"
+                              : `Expired ${Math.abs(displayDaysRemaining)}d ago`
+                          : "Action required"}
+                      </span>
+                    </div>
+                    <h4 className="mt-1 text-h3 text-[var(--haven-ink)]">
+                      {displayDaysRemaining === null || displayEndLabel === null
+                        ? "Authorized stay deadline unavailable"
+                        : displayDaysRemaining >= 0
+                          ? protection.effectiveStayEndLabel === null
+                            ? `Recorded status end date: ${displayEndLabel}`
+                            : `Authorized stay deadline: ${displayEndLabel}`
+                          : protection.effectiveStayEndLabel === null
+                            ? `Recorded status end date passed on ${displayEndLabel}`
+                            : `Authorized stay deadline passed on ${displayEndLabel}`}
+                    </h4>
+                    <p className="mt-1 text-body-sm leading-relaxed text-[var(--color-text-secondary)] max-w-[70ch]">
+                      {protection.reconciliationNotice ??
+                        `Under 8 CFR § 214.1(l)(2), you have ${displayDaysRemaining ?? 0} days remaining to file a change of status, submit an H-1B transfer petition, or arrange departure.`}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 md:flex-col md:items-end shrink-0">
+                  <Link
+                    className={cn(
+                      buttonVariants({ variant: "default", size: "sm" }),
+                      "bg-[var(--haven-ink)] text-[var(--haven-cream)] hover:bg-[var(--haven-ink-mid)] shadow-xs"
+                    )}
+                    href="/advisor"
+                  >
+                    <ShieldCheck className="mr-1.5 h-4 w-4" />
+                    Consult attorney on options
+                  </Link>
+                  <Link
+                    className={cn(
+                      buttonVariants({ variant: "outline", size: "sm" }),
+                      "border-[var(--color-border-strong)] text-[var(--haven-ink)] hover:bg-[var(--haven-white)]"
+                    )}
+                    href="/documents"
+                  >
+                    <FileText className="mr-1.5 h-4 w-4" />
+                    Upload I-94 records
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Macro Horizon Section */}
+          <div className="mt-5">
+            <div className="flex items-center justify-between gap-2 mb-2">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--haven-ink-mid)]">
-                Journey track
+                Macro Horizon (Multi-Year Trajectory)
+              </span>
+              <span className="text-[11px] text-[var(--haven-ink-light)] hidden sm:inline">
+                Shaded box marks the 90-day tactical focus window below
               </span>
             </div>
 
-            <div className="relative h-8 select-none">
-              {/* Axis ticks */}
-              <div className="absolute inset-x-0 bottom-0 h-px bg-[var(--color-border-mid)]" />
-              {axis.ticks.map((tick, idx) => (
-                <div
-                  key={`${tick.label}-${idx}`}
-                  className="absolute bottom-1 -translate-x-1/2 text-[11px] font-medium text-[var(--haven-ink-light)]"
-                  style={{ left: `${tick.percent}%` }}
-                >
-                  {tick.label}
-                </div>
-              ))}
-
-              {/* Prominent Today Badge at Top of Axis */}
-              <div
-                className="absolute -top-1 z-10 -translate-x-1/2"
-                style={{ left: `${axis.todayPercent}%` }}
-              >
-                <span className="inline-flex items-center gap-1 rounded-full bg-[var(--haven-ink)] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--haven-cream)] shadow-sm whitespace-nowrap">
-                  <Flag className="h-2.5 w-2.5" />
-                  You are here
+            {/* Shared Time Axis Header */}
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[210px_minmax(0,1fr)]">
+              <div className="hidden lg:flex items-end pb-1">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--haven-ink-mid)]">
+                  Journey track
                 </span>
               </div>
+
+              <div className="relative h-8 select-none">
+                {/* 90-day focus zone indicator bar in header */}
+                {axis.macroBracket && (
+                  <div
+                    aria-hidden="true"
+                    className="absolute inset-y-1 rounded-sm bg-[var(--haven-ink)]/[0.06] border-x border-dashed border-[var(--haven-ink)]/30 pointer-events-none"
+                    style={{
+                      left: `${axis.macroBracket.startPercent}%`,
+                      width: `${Math.max(2, axis.macroBracket.endPercent - axis.macroBracket.startPercent)}%`
+                    }}
+                  />
+                )}
+
+                {/* Axis ticks */}
+                <div className="absolute inset-x-0 bottom-0 h-px bg-[var(--color-border-mid)]" />
+                {axis.ticks.map((tick, idx) => (
+                  <div
+                    key={`${tick.label}-${idx}`}
+                    className="absolute bottom-1 -translate-x-1/2 text-[11px] font-medium text-[var(--haven-ink-light)]"
+                    style={{ left: `${tick.percent}%` }}
+                  >
+                    {tick.label}
+                  </div>
+                ))}
+
+                {/* Prominent Today Badge at Top of Axis */}
+                <div
+                  className="absolute -top-1 z-10 -translate-x-1/2"
+                  style={{ left: `${axis.todayPercent}%` }}
+                >
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[var(--haven-ink)] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--haven-cream)] shadow-sm whitespace-nowrap">
+                    <Flag className="h-2.5 w-2.5" />
+                    You are here
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Three Overlaid Macro Swimlanes */}
+            <div className="mt-2 divide-y divide-[var(--color-border)]">
+              <OverlaySwimlane
+                badge={visaTrack.statusBadge}
+                badgeTone={visaTrack.statusTone}
+                macroBracket={axis.macroBracket}
+                pins={visaTrack.pins}
+                segments={visaTrack.segments}
+                subtitle={
+                  visaTrack.effectiveStayEndLabel
+                    ? `Stay through ${visaTrack.effectiveStayEndLabel}`
+                    : visaTrack.expiryDateLabel
+                      ? `Valid through ${visaTrack.expiryDateLabel}`
+                      : "Add visa expiration date"
+                }
+                title={`Visa · ${visaTrack.visaType}`}
+                todayPercent={axis.todayPercent}
+              />
+
+              <OverlaySwimlane
+                badge={jobTrack.statusBadge}
+                badgeTone={jobTrack.statusTone}
+                macroBracket={axis.macroBracket}
+                pins={jobTrack.pins}
+                segments={jobTrack.segments}
+                subtitle={
+                  jobTrack.jobTitle
+                    ? `${jobTrack.jobTitle}${jobTrack.employerName ? ` @ ${jobTrack.employerName}` : ""}`
+                    : jobTrack.employerName ?? "Work authorization track"
+                }
+                title="Job & Sponsor"
+                todayPercent={axis.todayPercent}
+              />
+
+              <OverlaySwimlane
+                badge={greenCardTrack.statusBadge}
+                badgeTone={greenCardTrack.statusTone}
+                macroBracket={axis.macroBracket}
+                pins={greenCardTrack.pins}
+                segments={greenCardTrack.segments}
+                subtitle={`${greenCardTrack.categoryLabel}${greenCardTrack.priorityDateLabel ? ` · PD ${greenCardTrack.priorityDateLabel}` : ""}`}
+                title="Green Card"
+                todayPercent={axis.todayPercent}
+              />
             </div>
           </div>
 
-          {/* Three Overlaid Swimlanes */}
-          <div className="mt-2 divide-y divide-[var(--color-border)]">
-            <OverlaySwimlane
-              badge={visaTrack.statusBadge}
-              badgeTone={visaTrack.statusTone}
-              pins={visaTrack.pins}
-              segments={visaTrack.segments}
-              subtitle={
-                visaTrack.expiryDateLabel
-                  ? `Valid through ${visaTrack.expiryDateLabel}`
-                  : "Add visa expiration date"
-              }
-              title={`Visa · ${visaTrack.visaType}`}
-              todayPercent={axis.todayPercent}
-            />
+          {/* Tactical 90-Day Zoom Window */}
+          <TacticalTimelineWindow tacticalWindow={tacticalWindow} />
+        </div>
 
-            <OverlaySwimlane
-              badge={jobTrack.statusBadge}
-              badgeTone={jobTrack.statusTone}
-              pins={jobTrack.pins}
-              segments={jobTrack.segments}
-              subtitle={
-                jobTrack.jobTitle
-                  ? `${jobTrack.jobTitle}${jobTrack.employerName ? ` @ ${jobTrack.employerName}` : ""}`
-                  : jobTrack.employerName ?? "Work authorization track"
-              }
-              title="Job & Sponsor"
-              todayPercent={axis.todayPercent}
-            />
+        {/* =================================================================== */}
+        {/* RECONCILED JOURNEY TRACK SUMMARY CARDS                              */}
+        {/* =================================================================== */}
+        <div className="space-y-3">
+          <div>
+            <p className="text-label">Track reconciliation & next steps</p>
+            <h3 className="text-h3 mt-0.5">Key dates and legal protections by track</h3>
+          </div>
 
-            <OverlaySwimlane
-              badge={greenCardTrack.statusBadge}
-              badgeTone={greenCardTrack.statusTone}
-              pins={greenCardTrack.pins}
-              segments={greenCardTrack.segments}
-              subtitle={`${greenCardTrack.categoryLabel}${greenCardTrack.priorityDateLabel ? ` · PD ${greenCardTrack.priorityDateLabel}` : ""}`}
-              title="Green Card"
-              todayPercent={axis.todayPercent}
-            />
+          <div className="grid gap-4 lg:grid-cols-3">
+            {/* Card 1: Visa Status Card */}
+            <div className="flex flex-col justify-between rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-5 shadow-xs">
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1.5 text-label">
+                    <CalendarClock className="h-3.5 w-3.5 text-[var(--haven-ink-mid)]" />
+                    Track 1 · Visa Status
+                  </span>
+                  <span className={cn("rounded-full border px-2.5 py-0.5 text-[11px] font-semibold", TONE_BADGE_CLASS[visaTrack.statusTone])}>
+                    {visaTrack.statusBadge}
+                  </span>
+                </div>
+
+                <h3 className="mt-3 text-h3 text-[var(--haven-ink)]">{visaTrack.headline}</h3>
+                <p className="mt-1 text-body-sm leading-relaxed text-[var(--color-text-secondary)]">
+                  {visaTrack.summary}
+                </p>
+
+                {visaTrack.reconciliationNotice && (
+                  <div className="mt-3 rounded-[var(--radius-lg)] border border-[var(--haven-blush)] bg-[var(--haven-blush-light)] px-3 py-2 text-[12px] font-medium leading-relaxed text-[var(--haven-blush-ink)]">
+                    {visaTrack.reconciliationNotice}
+                  </div>
+                )}
+
+                <dl className="mt-4 space-y-2 border-t border-[var(--color-border)] pt-3 text-[12px]">
+                  <div className="flex items-center justify-between gap-2">
+                    <dt className="text-[var(--haven-ink-mid)]">Visa type</dt>
+                    <dd className="font-semibold text-[var(--haven-ink)]">{visaTrack.visaType}</dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <dt className="text-[var(--haven-ink-mid)]">Status start date</dt>
+                    <dd className="font-semibold text-[var(--haven-ink)]">{visaTrack.startDateLabel ?? "Not set"}</dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <dt className="text-[var(--haven-ink-mid)]">I-94 / Expiration date</dt>
+                    <dd className="font-semibold text-[var(--haven-ink)]">{visaTrack.expiryDateLabel ?? "Not set"}</dd>
+                  </div>
+                  {visaTrack.effectiveStayEndLabel && (
+                    <div className="flex items-center justify-between gap-2">
+                      <dt className="text-[var(--haven-ink)] font-medium">Effective authorized stay</dt>
+                      <dd className="font-bold text-[var(--haven-ink)]">{visaTrack.effectiveStayEndLabel}</dd>
+                    </div>
+                  )}
+                  {visaTrack.capDateLabel && (
+                    <div className="flex items-center justify-between gap-2">
+                      <dt className="text-[var(--haven-ink-mid)]">6-year statutory max</dt>
+                      <dd className="font-semibold text-[var(--haven-ink)]">{visaTrack.capDateLabel}</dd>
+                    </div>
+                  )}
+                </dl>
+              </div>
+
+              <div className="mt-5 border-t border-[var(--color-border)] pt-3">
+                <Link
+                  className="inline-flex items-center gap-1.5 text-body-sm font-semibold text-[var(--haven-ink)] underline underline-offset-4 hover:text-[var(--haven-ink-mid)]"
+                  href="/documents"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  Upload I-94 & visa records
+                </Link>
+              </div>
+            </div>
+
+            {/* Card 2: Job & Sponsor Card */}
+            <div className="flex flex-col justify-between rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-5 shadow-xs">
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1.5 text-label">
+                    <Briefcase className="h-3.5 w-3.5 text-[var(--haven-ink-mid)]" />
+                    Track 2 · Job & Sponsor
+                  </span>
+                  <span className={cn("rounded-full border px-2.5 py-0.5 text-[11px] font-semibold", TONE_BADGE_CLASS[jobTrack.statusTone])}>
+                    {jobTrack.statusBadge}
+                  </span>
+                </div>
+
+                <h3 className="mt-3 text-h3 text-[var(--haven-ink)]">{jobTrack.headline}</h3>
+                <p className="mt-1 text-body-sm leading-relaxed text-[var(--color-text-secondary)]">
+                  {jobTrack.summary}
+                </p>
+
+                <dl className="mt-4 space-y-2 border-t border-[var(--color-border)] pt-3 text-[12px]">
+                  <div className="flex items-center justify-between gap-2">
+                    <dt className="text-[var(--haven-ink-mid)]">Sponsoring employer</dt>
+                    <dd className="font-semibold text-[var(--haven-ink)]">{jobTrack.employerName ?? "Not recorded"}</dd>
+                  </div>
+                  {jobTrack.jobTitle && (
+                    <div className="flex items-center justify-between gap-2">
+                      <dt className="text-[var(--haven-ink-mid)]">Job title</dt>
+                      <dd className="font-semibold text-[var(--haven-ink)]">{jobTrack.jobTitle}</dd>
+                    </div>
+                  )}
+                  {jobTrack.lastWorkDayLabel && (
+                    <div className="flex items-center justify-between gap-2">
+                      <dt className="text-[var(--haven-ink-mid)]">Last day of work</dt>
+                      <dd className="font-semibold text-[var(--haven-ink)]">{jobTrack.lastWorkDayLabel}</dd>
+                    </div>
+                  )}
+                  {jobTrack.graceEndLabel && (
+                    <div className="flex items-center justify-between gap-2">
+                      <dt className="text-[var(--haven-ink-mid)]">60-day calendar limit</dt>
+                      <dd className="font-semibold text-[var(--haven-ink)]">{jobTrack.graceEndLabel}</dd>
+                    </div>
+                  )}
+                  {jobTrack.portabilityLabel && (
+                    <div className="flex items-center justify-between gap-2">
+                      <dt className="text-[var(--haven-ink-mid)]">AC21 portability</dt>
+                      <dd className="font-semibold text-[var(--haven-ink)]">{jobTrack.portabilityLabel}</dd>
+                    </div>
+                  )}
+                </dl>
+              </div>
+
+              <div className="mt-5 border-t border-[var(--color-border)] pt-3">
+                <Link
+                  className="inline-flex items-center gap-1.5 text-body-sm font-semibold text-[var(--haven-ink)] underline underline-offset-4 hover:text-[var(--haven-ink-mid)]"
+                  href="/advisor"
+                >
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  Consult attorney on bridge options
+                </Link>
+              </div>
+            </div>
+
+            {/* Card 3: Green Card Track Card */}
+            <div className="flex flex-col justify-between rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-5 shadow-xs">
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1.5 text-label">
+                    <Compass className="h-3.5 w-3.5 text-[var(--haven-ink-mid)]" />
+                    Track 3 · Green Card Track
+                  </span>
+                  <span className={cn("rounded-full border px-2.5 py-0.5 text-[11px] font-semibold", TONE_BADGE_CLASS[greenCardTrack.statusTone])}>
+                    {greenCardTrack.statusBadge}
+                  </span>
+                </div>
+
+                <h3 className="mt-3 text-h3 text-[var(--haven-ink)]">{greenCardTrack.headline}</h3>
+                <p className="mt-1 text-body-sm leading-relaxed text-[var(--color-text-secondary)]">
+                  {greenCardTrack.summary}
+                </p>
+
+                <dl className="mt-4 space-y-2 border-t border-[var(--color-border)] pt-3 text-[12px]">
+                  <div className="flex items-center justify-between gap-2">
+                    <dt className="text-[var(--haven-ink-mid)]">Preference category</dt>
+                    <dd className="font-semibold text-[var(--haven-ink)]">{greenCardTrack.categoryLabel}</dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <dt className="text-[var(--haven-ink-mid)]">Priority date</dt>
+                    <dd className="font-semibold text-[var(--haven-ink)]">
+                      {greenCardTrack.priorityDateLabel ?? "Not locked yet"}
+                    </dd>
+                  </div>
+                  {greenCardTrack.bulletinCutoffLabel && (
+                    <div className="flex items-center justify-between gap-2">
+                      <dt className="text-[var(--haven-ink-mid)]">Visa Bulletin cutoff</dt>
+                      <dd className="font-semibold text-[var(--haven-ink)]">{greenCardTrack.bulletinCutoffLabel}</dd>
+                    </div>
+                  )}
+                  {greenCardTrack.estimatedRangeLabel && (
+                    <div className="flex items-center justify-between gap-2">
+                      <dt className="text-[var(--haven-ink-mid)]">Projected horizon</dt>
+                      <dd className="font-semibold text-[var(--haven-ink)]">{greenCardTrack.estimatedRangeLabel}</dd>
+                    </div>
+                  )}
+                </dl>
+              </div>
+
+              <div className="mt-5 border-t border-[var(--color-border)] pt-3">
+                <a
+                  className="inline-flex items-center gap-1.5 text-body-sm font-semibold text-[var(--haven-ink)] underline underline-offset-4 hover:text-[var(--haven-ink-mid)]"
+                  href="https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin.html"
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Check official Visa Bulletin
+                </a>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -630,7 +857,8 @@ function OverlaySwimlane({
   badgeTone,
   segments,
   pins,
-  todayPercent
+  todayPercent,
+  macroBracket
 }: {
   title: string;
   subtitle: string;
@@ -639,6 +867,7 @@ function OverlaySwimlane({
   segments: JourneyBarSegment[];
   pins: JourneyPlotPin[];
   todayPercent: number;
+  macroBracket?: { startPercent: number; endPercent: number };
 }) {
   return (
     <div className="grid grid-cols-1 gap-3 py-4 lg:grid-cols-[210px_minmax(0,1fr)] lg:items-center">
@@ -659,8 +888,20 @@ function OverlaySwimlane({
       </div>
 
       {/* Right synchronized timeline bar + pins */}
-      <div className="space-y-2.5">
+      <div>
         <div className="relative h-9 rounded-lg bg-[var(--haven-cream)] border border-[var(--color-border)] overflow-hidden">
+          {/* Shaded 90-day focus zone */}
+          {macroBracket && (
+            <div
+              aria-hidden="true"
+              className="absolute inset-y-0 bg-[var(--haven-ink)]/[0.05] border-x border-dashed border-[var(--haven-ink)]/25 pointer-events-none"
+              style={{
+                left: `${macroBracket.startPercent}%`,
+                width: `${Math.max(2, macroBracket.endPercent - macroBracket.startPercent)}%`
+              }}
+            />
+          )}
+
           {/* Plotted segments */}
           {segments.map((seg) => {
             const width = Math.max(2, seg.endPercent - seg.startPercent);
@@ -686,7 +927,7 @@ function OverlaySwimlane({
             <div
               key={pin.id}
               className={cn(
-                "absolute top-1/2 z-10 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 shadow-sm",
+                "absolute top-1/2 z-10 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 shadow-xs transition-transform hover:scale-125",
                 TONE_PIN_CLASS[pin.tone]
               )}
               style={{ left: `${pin.percent}%` }}
@@ -701,25 +942,229 @@ function OverlaySwimlane({
             style={{ left: `${todayPercent}%` }}
           />
         </div>
+      </div>
+    </div>
+  );
+}
 
-        {/* Milestone pills below the bar */}
-        {pins.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2">
-            {pins.map((pin) => (
-              <span
-                key={pin.id}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px]",
-                  TONE_BADGE_CLASS[pin.tone]
-                )}
-                title={pin.detail}
+function TacticalTimelineWindow({
+  tacticalWindow
+}: {
+  tacticalWindow: TacticalTimelineView;
+}) {
+  const upcomingUrgentPin = tacticalWindow.pins.find(
+    (p) => p.status === "urgent" && p.daysDiff >= 0 && !p.isToday
+  );
+  const urgentSpanPercent = upcomingUrgentPin ? upcomingUrgentPin.percent : null;
+
+  return (
+    <div className="mt-6 rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-cream)]/40 p-4 sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--color-border)] pb-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-label">Tactical focus window</span>
+            <span className="inline-flex items-center rounded-full bg-[var(--haven-ink)] px-2 py-0.5 text-[10px] font-semibold text-[var(--haven-cream)]">
+              90-day zoom
+            </span>
+            {upcomingUrgentPin && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-[var(--haven-blush)] bg-[var(--haven-blush-light)] px-2.5 py-0.5 text-[11px] font-bold text-[var(--haven-blush-ink)]">
+                <CircleAlert className="h-3 w-3" />
+                Urgent window active
+              </span>
+            )}
+          </div>
+          <h4 className="text-h3 mt-1">Immediate milestones and daily countdowns</h4>
+        </div>
+        <p className="text-[12px] text-[var(--haven-ink-mid)] font-medium">
+          {tacticalWindow.startLabel} (–45d) <span className="mx-1 text-[var(--haven-ink-light)]">→</span> {tacticalWindow.endLabel} (+45d)
+        </p>
+      </div>
+
+      {/* Axis Ruler Track Section */}
+      <div
+        aria-label="Tactical 90-day timeline"
+        className="mt-4 overflow-x-auto pb-2 pt-2 scroll-smooth snap-x [scrollbar-width:thin] [scrollbar-color:var(--color-border)_transparent]"
+        tabIndex={0}
+      >
+        <div className="relative min-w-[640px] px-4 pt-8 pb-3">
+          {/* Axis Ruler Track */}
+          <div className="relative h-2.5 w-full rounded-full bg-[var(--color-border-mid)]">
+            {/* Shaded past half */}
+            <div
+              className="absolute inset-y-0 left-0 rounded-l-full bg-[var(--haven-sand)] opacity-70"
+              style={{ width: "50%" }}
+            />
+            {/* Shaded future half */}
+            <div
+              className="absolute inset-y-0 right-0 rounded-r-full bg-[var(--haven-sky-light)] opacity-70"
+              style={{ width: "50%" }}
+            />
+
+            {/* Highlighted Urgent Window Span on Ruler */}
+            {urgentSpanPercent !== null && (
+              <div
+                className="absolute inset-y-0 bg-[var(--haven-blush)] shadow-xs"
+                style={{
+                  left: "50%",
+                  width: `${Math.max(2, urgentSpanPercent - 50)}%`
+                }}
+              />
+            )}
+
+            {/* Today Center Marker Line */}
+            <div
+              aria-hidden="true"
+              className="absolute -top-3.5 bottom-[-16px] left-1/2 z-20 w-0.5 -translate-x-1/2 bg-[var(--haven-ink)]"
+            />
+          </div>
+
+          {/* Urgent Span Callout Flag above ruler */}
+          {upcomingUrgentPin && (
+            <div
+              className="absolute top-0.5 -translate-x-1/2 z-30 pointer-events-none"
+              style={{ left: `${(50 + upcomingUrgentPin.percent) / 2}%` }}
+            >
+              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--haven-blush)] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[var(--haven-cream)] shadow-xs whitespace-nowrap">
+                <CircleAlert className="h-2.5 w-2.5" />
+                Urgent window ({upcomingUrgentPin.daysDiff}d)
+              </span>
+            </div>
+          )}
+
+          {/* Pin Dots on Ruler Line */}
+          <div className="relative">
+            {tacticalWindow.pins.map((pin) => (
+              <div
+                key={`dot-${pin.id}`}
+                className="absolute top-[-15px] -translate-x-1/2 z-30"
+                style={{ left: `${pin.percent}%` }}
               >
-                <span className="font-semibold">{pin.label}:</span>
-                <span>{pin.dateLabel}</span>
+                <div
+                  className={cn(
+                    "h-3.5 w-3.5 rounded-full border-2 shadow-xs transition-transform hover:scale-125",
+                    TONE_PIN_CLASS[pin.tone],
+                    pin.isToday && "h-4 w-4 ring-2 ring-[var(--haven-ink)] ring-offset-1"
+                  )}
+                  title={`${pin.label}: ${pin.dateLabel} (${pin.detail})`}
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* Ticks */}
+          <div className="relative mt-3 h-4 select-none">
+            {tacticalWindow.ticks.map((tick, i) => (
+              <span
+                key={`${tick.label}-${i}`}
+                className={cn(
+                  "absolute -translate-x-1/2 text-[11px] whitespace-nowrap",
+                  tick.percent === 50
+                    ? "font-bold text-[var(--haven-ink)]"
+                    : "font-medium text-[var(--haven-ink-mid)]"
+                )}
+                style={{ left: `${tick.percent}%` }}
+              >
+                {tick.label}
               </span>
             ))}
           </div>
-        )}
+        </div>
+      </div>
+
+      {/* Sequential Milestone Flow Cards (Collision-Free Grid) */}
+      <div className="mt-5 border-t border-[var(--color-border)] pt-4">
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--haven-ink-mid)]">
+            Immediate Milestones in Sequence
+          </p>
+          <span className="text-[11px] text-[var(--haven-ink-light)] hidden sm:inline">
+            Ordered chronologically with daily countdowns
+          </span>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {tacticalWindow.pins.map((pin) => {
+            const isToday = Boolean(pin.isToday);
+            const isUrgent = pin.status === "urgent";
+            const isPast = pin.daysDiff < 0;
+
+            return (
+              <div
+                key={`card-${pin.id}`}
+                className={cn(
+                  "relative flex flex-col justify-between rounded-[var(--radius-xl)] border p-4 transition-all shadow-2xs",
+                  isToday
+                    ? "border-[var(--haven-ink)] bg-[var(--haven-ink)] text-[var(--haven-cream)] ring-1 ring-[var(--haven-ink)] shadow-xs"
+                    : isUrgent
+                      ? "border-[var(--haven-blush)] bg-gradient-to-b from-[var(--haven-blush-light)] to-[var(--haven-white)] text-[var(--haven-ink)] ring-1 ring-[var(--haven-blush)] shadow-xs"
+                      : isPast
+                        ? "border-[var(--color-border)] bg-[var(--haven-white)]/80 text-[var(--haven-ink-mid)] opacity-85"
+                        : "border-[var(--haven-sky-mid)] bg-[var(--haven-white)] text-[var(--haven-ink)]"
+                )}
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-1.5">
+                    <span
+                      className={cn(
+                        "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+                        isToday
+                          ? "bg-[var(--haven-sand)] text-[var(--haven-ink)]"
+                          : isUrgent
+                            ? "bg-[var(--haven-blush)] text-[var(--haven-cream)]"
+                            : isPast
+                              ? "bg-[var(--haven-sand)] text-[var(--haven-ink-mid)]"
+                              : "bg-[var(--haven-sky-light)] text-[var(--haven-sky-ink)]"
+                      )}
+                    >
+                      {isToday
+                        ? "Today"
+                        : pin.daysDiff > 0
+                          ? `In ${pin.daysDiff} day${pin.daysDiff === 1 ? "" : "s"}`
+                          : `${Math.abs(pin.daysDiff)}d ago`}
+                    </span>
+                    <span
+                      className={cn(
+                        "text-[10px] font-semibold uppercase tracking-wider",
+                        isToday
+                          ? "text-[var(--haven-cream)]/80"
+                          : isUrgent
+                            ? "text-[var(--haven-blush-ink)] font-bold"
+                            : "text-[var(--haven-ink-light)]"
+                      )}
+                    >
+                      {isToday ? "Anchor" : isUrgent ? "Critical" : isPast ? "Elapsed" : "Upcoming"}
+                    </span>
+                  </div>
+
+                  <h5
+                    className={cn(
+                      "mt-2.5 text-body-sm font-bold leading-snug",
+                      isToday ? "text-[var(--haven-cream)]" : "text-[var(--haven-ink)]"
+                    )}
+                  >
+                    {pin.label}
+                  </h5>
+                  <p
+                    className={cn(
+                      "mt-1 text-[12px] font-medium",
+                      isToday ? "text-[var(--haven-sand)]" : "text-[var(--haven-ink-mid)]"
+                    )}
+                  >
+                    {pin.dateLabel}
+                  </p>
+                  <p
+                    className={cn(
+                      "mt-2 text-[12px] leading-relaxed",
+                      isToday ? "text-[var(--haven-cream)]/85" : "text-[var(--color-text-secondary)]"
+                    )}
+                  >
+                    {pin.detail}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
