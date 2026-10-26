@@ -1,36 +1,17 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
-import { AppShell } from "@/components/app/app-shell";
 import { Badge } from "@/components/ui/badge";
+import { requireAdminUser } from "@/lib/admin-auth";
 import { readPublishDraft } from "@/lib/community-imports";
-import { env } from "@/lib/env";
-import { getCrisisState } from "@/lib/get-crisis-state";
-import { getCommunityPageData } from "@/lib/repositories/case-compass";
 import { noIndexMetadata } from "@/lib/seo";
 import { getStoryTraceUrl } from "@/lib/story-observability";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Json } from "@/types/database";
 import { RawSourceDetails } from "../RawSourceDetails";
 import { ReviewActionForm } from "../ReviewActionForm";
-import { SIGNED_IN_HOME } from "@/lib/archived-routes";
 
 export const metadata = noIndexMetadata;
-
-function getAllowedReviewerEmails() {
-  return new Set(
-    (env.COMMUNITY_IMPORT_REVIEWER_EMAILS ?? "")
-      .split(",")
-      .map((v) => v.trim().toLowerCase())
-      .filter(Boolean)
-  );
-}
-
-function hasReviewerAccess(email: string) {
-  const allowedEmails = getAllowedReviewerEmails();
-  return allowedEmails.size > 0 && allowedEmails.has(email);
-}
 
 function readObject(value: Json) {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
@@ -66,21 +47,8 @@ export default async function CommunityImportDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  await requireAdminUser(`/admin/community-imports/${id}`);
 
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect(`/login?redirectTo=/admin/community-imports/${id}`);
-  }
-
-  const email = user.email?.toLowerCase() ?? "";
-
-  if (!hasReviewerAccess(email)) {
-    redirect(SIGNED_IN_HOME);
-  }
-
-  const [snapshot, crisisState] = await Promise.all([getCommunityPageData(), getCrisisState()]);
   const admin = createSupabaseAdminClient();
   const { data: row } = await admin
     .from("community_import_items")
@@ -153,8 +121,7 @@ export default async function CommunityImportDetailPage({
   };
 
   return (
-    <AppShell activePath="/profile/community" crisisState={crisisState} snapshot={snapshot}>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Back nav */}
         <Link
           className="text-body-sm text-[var(--haven-sky-ink)] hover:underline inline-flex items-center gap-1"
@@ -292,6 +259,5 @@ export default async function CommunityImportDetailPage({
           />
         </div>
       </div>
-    </AppShell>
   );
 }

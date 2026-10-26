@@ -18,3 +18,4 @@ supabase/.temp
 .vercel
 .env*.local
 __pycache__/
+.artifacts/
