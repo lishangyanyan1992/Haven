@@ -23,6 +23,7 @@ export type JourneyPlotPin = {
   tone: JourneyTrackTone;
   status: "past" | "today" | "upcoming" | "urgent";
   detail: string;
+  daysDiff?: number;
 };
 
 export type JourneyBarSegment = {
@@ -245,6 +246,58 @@ function formatMonthYear(value: Date): string {
     year: "numeric",
     timeZone: "UTC"
   });
+}
+
+export type FocusScaleAnchor = { ms: number; pct: number };
+
+export function projectFocusScalePercent(
+  ms: number,
+  anchors: FocusScaleAnchor[]
+): number {
+  if (anchors.length === 0) return 50;
+  if (ms <= anchors[0].ms) {
+    return Math.max(2, anchors[0].pct);
+  }
+  const last = anchors[anchors.length - 1];
+  if (ms >= last.ms) {
+    return Math.min(98, last.pct);
+  }
+
+  for (let i = 0; i < anchors.length - 1; i++) {
+    const a1 = anchors[i];
+    const a2 = anchors[i + 1];
+    if (ms >= a1.ms && ms <= a2.ms) {
+      const span = a2.ms - a1.ms;
+      if (span <= 0) return a1.pct;
+      const frac = (ms - a1.ms) / span;
+      const raw = a1.pct + frac * (a2.pct - a1.pct);
+      return Math.round(Math.min(98, Math.max(2, raw)) * 10) / 10;
+    }
+  }
+
+  return Math.round(Math.min(98, Math.max(2, last.pct)) * 10) / 10;
+}
+
+export function invertPercentToMs(
+  targetPct: number,
+  anchors: FocusScaleAnchor[]
+): number {
+  if (anchors.length === 0) return Date.now();
+  if (targetPct <= anchors[0].pct) return anchors[0].ms;
+  const last = anchors[anchors.length - 1];
+  if (targetPct >= last.pct) return last.ms;
+
+  for (let i = 0; i < anchors.length - 1; i++) {
+    const a1 = anchors[i];
+    const a2 = anchors[i + 1];
+    if (targetPct >= a1.pct && targetPct <= a2.pct) {
+      const pctSpan = a2.pct - a1.pct;
+      if (pctSpan <= 0) return a1.ms;
+      const frac = (targetPct - a1.pct) / pctSpan;
+      return a1.ms + frac * (a2.ms - a1.ms);
+    }
+  }
+  return last.ms;
 }
 
 export function findActivePetition(profile: ImmigrationProfile): ImmigrantPetition | null {
@@ -807,30 +860,63 @@ export function buildImmigrationJourney(input: {
 
   const minStartMs = Math.min(...candidatePastMs);
   const maxEndMs = Math.max(...candidateFutureMs, minStartMs + 365 * DAY_MS);
-  const spanMs = Math.max(maxEndMs - minStartMs, 180 * DAY_MS);
 
-  // Add 4% breathing room on both ends
-  const paddedStartMs = minStartMs - spanMs * 0.04;
-  const paddedEndMs = maxEndMs + spanMs * 0.04;
-  const totalSpanMs = paddedEndMs - paddedStartMs;
+  // Focus window around today: -90 days to +180 days (270 days total)
+  const focusPastMs = todayMs - 90 * DAY_MS;
+  const focusFutureMs = todayMs + 180 * DAY_MS;
 
-  const toPercent = (ms: number) => {
-    const raw = ((ms - paddedStartMs) / totalSpanMs) * 100;
-    return Math.round(Math.min(98, Math.max(2, raw)) * 10) / 10;
-  };
+  const isMultiYear = (maxEndMs - minStartMs) > 270 * DAY_MS;
+  const hasPastEra = isMultiYear && (minStartMs < focusPastMs - 30 * DAY_MS);
+  const hasFutureEra = isMultiYear && (maxEndMs > focusFutureMs + 30 * DAY_MS);
+
+  const anchors: FocusScaleAnchor[] = [];
+  anchors.push({ ms: minStartMs, pct: 4 });
+  if (hasPastEra) {
+    anchors.push({ ms: focusPastMs, pct: 28 });
+  }
+  anchors.push({ ms: todayMs, pct: 50 });
+  if (hasFutureEra) {
+    anchors.push({ ms: focusFutureMs, pct: 72 });
+  }
+  anchors.push({ ms: maxEndMs, pct: 96 });
+
+  const toPercent = (ms: number) => projectFocusScalePercent(ms, anchors);
 
   const todayPercent = toPercent(todayMs);
 
-  // Build 5 clean axis ticks
-  const tickCount = 5;
+  // Build 5 clean axis ticks aligned with piecewise boundaries
   const ticks: { label: string; percent: number }[] = [];
-  for (let i = 0; i < tickCount; i++) {
-    const frac = i / (tickCount - 1);
-    const ms = paddedStartMs + frac * totalSpanMs;
+  if (anchors.length === 5) {
     ticks.push({
-      label: formatMonthYear(new Date(ms)),
-      percent: Math.round((4 + frac * 92) * 10) / 10
+      label: formatMonthYear(new Date(anchors[0].ms)),
+      percent: 4
     });
+    ticks.push({
+      label: formatMonthYear(new Date(anchors[1].ms)),
+      percent: 28
+    });
+    ticks.push({
+      label: `${formatMonthYear(todayUtc)} (Today)`,
+      percent: 50
+    });
+    ticks.push({
+      label: formatMonthYear(new Date(anchors[3].ms)),
+      percent: 72
+    });
+    ticks.push({
+      label: formatMonthYear(new Date(anchors[4].ms)),
+      percent: 96
+    });
+  } else {
+    const tickPercents = [4, 27, 50, 73, 96];
+    for (const targetPct of tickPercents) {
+      const ms = invertPercentToMs(targetPct, anchors);
+      const isTodayTick = targetPct === 50;
+      ticks.push({
+        label: isTodayTick ? `${formatMonthYear(todayUtc)} (Today)` : formatMonthYear(new Date(ms)),
+        percent: targetPct
+      });
+    }
   }
 
   // =========================================================================
@@ -983,7 +1069,8 @@ export function buildImmigrationJourney(input: {
       percent: toPercent(visaStartDate.getTime()),
       tone: "sage",
       status: visaStartDate.getTime() <= todayMs ? "past" : "upcoming",
-      detail: `Initial ${profile.visaType} start date on file.`
+      detail: `Initial ${profile.visaType} start date on file.`,
+      daysDiff: Math.round((visaStartDate.getTime() - todayMs) / DAY_MS)
     });
   }
 
@@ -1000,7 +1087,8 @@ export function buildImmigrationJourney(input: {
         percent: toPercent(renewalDate.getTime()),
         tone: "sky",
         status: renewalDate.getTime() <= todayMs ? "past" : "upcoming",
-        detail: "Earliest standard window (6 months before expiry) to file an extension."
+        detail: "Earliest standard window (6 months before expiry) to file an extension.",
+        daysDiff: Math.round((renewalDate.getTime() - todayMs) / DAY_MS)
       });
     }
 
@@ -1020,7 +1108,8 @@ export function buildImmigrationJourney(input: {
       detail:
         daysUntilExpiry !== null && daysUntilExpiry >= 0
           ? `${daysUntilExpiry} days remaining until current status expiration.`
-          : "Current status expiration date has passed."
+          : "Current status expiration date has passed.",
+      daysDiff: daysUntilExpiry ?? Math.round((visaExpiryDate.getTime() - todayMs) / DAY_MS)
     });
   } else if (hasGracePeriod && effectiveStayEndDate) {
     visaPins.push({
@@ -1037,7 +1126,8 @@ export function buildImmigrationJourney(input: {
       status: "urgent",
       detail: isGraceCappedByVisa
         ? "I-94 expiration caps your 60-day grace period under 8 CFR § 214.1(l)(2)."
-        : "Authorized stay ends upon expiration of the 60-day grace period."
+        : "Authorized stay ends upon expiration of the 60-day grace period.",
+      daysDiff: effectiveStayDaysRemaining ?? Math.round((effectiveStayEndDate.getTime() - todayMs) / DAY_MS)
     });
   }
 
@@ -1052,7 +1142,8 @@ export function buildImmigrationJourney(input: {
       status: capDate.getTime() <= todayMs ? "urgent" : "upcoming",
       detail: hasI140Approval
         ? "Approved I-140 unlocks AC21 extensions beyond the 6-year cap."
-        : "6-year statutory H-1B limit unless PERM/I-140 qualifies for AC21 extension."
+        : "6-year statutory H-1B limit unless PERM/I-140 qualifies for AC21 extension.",
+      daysDiff: Math.round((capDate.getTime() - todayMs) / DAY_MS)
     });
   }
 
@@ -1154,7 +1245,8 @@ export function buildImmigrationJourney(input: {
       percent: layoffPct,
       tone: "blush",
       status: "past",
-      detail: `Employment with ${employerName ?? "sponsor"} ended.`
+      detail: `Employment with ${employerName ?? "sponsor"} ended.`,
+      daysDiff: Math.round((lastWorkDayDate.getTime() - todayMs) / DAY_MS)
     });
     jobPins.push({
       id: "job-grace-end",
@@ -1166,7 +1258,8 @@ export function buildImmigrationJourney(input: {
       status: "urgent",
       detail: isGraceCappedByVisa
         ? "Under 8 CFR § 214.1(l)(2), authorized stay ends when your I-94 expires."
-        : "File transfer, change of status, or departure before this date."
+        : "File transfer, change of status, or departure before this date.",
+      daysDiff: effectiveStayDaysRemaining ?? graceDaysRemaining ?? Math.round((graceTargetDate.getTime() - todayMs) / DAY_MS)
     });
   } else {
     const jobEndMs = effectiveVisaEndMs;
@@ -1204,7 +1297,8 @@ export function buildImmigrationJourney(input: {
         percent: toPercent(ac21Date.getTime()),
         tone: "sage",
         status: isProtected ? "past" : "upcoming",
-        detail: "180 days post I-140 approval protects priority date and job portability."
+        detail: "180 days post I-140 approval protects priority date and job portability.",
+        daysDiff: Math.round((ac21Date.getTime() - todayMs) / DAY_MS)
       });
     } else {
       portabilityLabel = `AC21 portable (prior I-140 approved with ${protectingSponsor ?? "prior sponsor"})`;
@@ -1228,7 +1322,8 @@ export function buildImmigrationJourney(input: {
         percent: toPercent(agencyDate.getTime()),
         tone: "blush",
         status: "urgent",
-        detail: "Upcoming agency deadline from your case record."
+        detail: "Upcoming agency deadline from your case record.",
+        daysDiff: Math.round((agencyDate.getTime() - todayMs) / DAY_MS)
       });
     }
   }
@@ -1420,7 +1515,8 @@ export function buildImmigrationJourney(input: {
       percent: toPercent(priorityDate.getTime()),
       tone: "sage",
       status: priorityDate.getTime() <= todayMs ? "past" : "upcoming",
-      detail: `${categoryLabel} priority date locked.`
+      detail: `${categoryLabel} priority date locked.`,
+      daysDiff: Math.round((priorityDate.getTime() - todayMs) / DAY_MS)
     });
   }
 
@@ -1433,7 +1529,8 @@ export function buildImmigrationJourney(input: {
       percent: toPercent(effectiveI140ApprovalDate.getTime()),
       tone: "sage",
       status: "past",
-      detail: protectingSponsor ? `Immigrant petition approved (${protectingSponsor}).` : "Immigrant petition approved."
+      detail: protectingSponsor ? `Immigrant petition approved (${protectingSponsor}).` : "Immigrant petition approved.",
+      daysDiff: Math.round((effectiveI140ApprovalDate.getTime() - todayMs) / DAY_MS)
     });
   }
 
@@ -1448,7 +1545,8 @@ export function buildImmigrationJourney(input: {
       status: "upcoming",
       detail:
         priorityDateIntelligence?.estimateLabel ??
-        "Estimated window based on current Visa Bulletin queue position."
+        "Estimated window based on current Visa Bulletin queue position.",
+      daysDiff: Math.round((projectedGcDate.getTime() - todayMs) / DAY_MS)
     });
   }
 
@@ -1624,9 +1722,9 @@ export function buildImmigrationJourney(input: {
   };
 
   const macroBracket = {
-    startPercent: toPercent(tacticalStartMs),
-    endPercent: toPercent(tacticalEndMs),
-    label: "90-day focus zone"
+    startPercent: toPercent(focusPastMs),
+    endPercent: toPercent(focusFutureMs),
+    label: "Immediate focus zone"
   };
 
   const urgentDeadlineDaysRemaining =
@@ -1751,10 +1849,10 @@ export function buildImmigrationJourney(input: {
 
   return {
     axis: {
-      startIso: toIsoDate(new Date(paddedStartMs)),
-      endIso: toIsoDate(new Date(paddedEndMs)),
-      startLabel: formatMonthYear(new Date(paddedStartMs)),
-      endLabel: formatMonthYear(new Date(paddedEndMs)),
+      startIso: toIsoDate(new Date(minStartMs)),
+      endIso: toIsoDate(new Date(maxEndMs)),
+      startLabel: formatMonthYear(new Date(minStartMs)),
+      endLabel: formatMonthYear(new Date(maxEndMs)),
       todayIso: toIsoDate(todayUtc),
       todayLabel: formatDateLabel(todayUtc)!,
       todayPercent,
