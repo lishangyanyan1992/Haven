@@ -60,9 +60,6 @@ export function FirmEngagementDashboard({
             <CardTitle className="mt-2 text-h2">
               {isConnectedToFirm ? `Your case with ${firmName}` : "Law firm engagement tracker"}
             </CardTitle>
-            <p className="text-body-sm mt-1 max-w-[65ch] text-[var(--color-text-secondary)]">
-              Track every step with your sponsoring legal team—from intake and document review to your initial consultation call, signed contract, and petition filing.
-            </p>
           </div>
 
           <div className="flex flex-col items-start sm:items-end gap-1.5">
@@ -186,102 +183,110 @@ export function FirmEngagementDashboard({
           </div>
         </div>
 
-        {/* 6-Step Engagement Pipeline Grid */}
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          {steps.map((step) => {
-            const isCompleted = step.status === "completed";
-            const isCurrent = step.status === "current";
+        {/* 6-Step Engagement Pipeline Horizontal Scroll (3 boxes in view, scrollable) */}
+        <div className="relative">
+          <div
+            aria-label="Firm engagement steps"
+            className="flex gap-4 overflow-x-auto pb-3 pt-1 scroll-smooth snap-x snap-mandatory focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--haven-ink)] [scrollbar-width:thin] [scrollbar-color:var(--color-border)_transparent]"
+            role="region"
+            tabIndex={0}
+          >
+            {steps.map((step) => {
+              const isCompleted = step.status === "completed";
+              const isCurrent = step.status === "current";
 
-            return (
-              <div
-                key={step.key}
-                className={cn(
-                  "relative flex flex-col justify-between rounded-[var(--radius-xl)] border p-4 transition-colors",
-                  isCompleted
-                    ? "border-[var(--haven-sage-mid)] bg-[var(--haven-white)]"
-                    : isCurrent
-                      ? "border-[var(--haven-ink)] bg-[var(--haven-cream)] ring-1 ring-[var(--haven-ink)]"
-                      : "border-[var(--color-border)] bg-[var(--haven-white)] opacity-75"
-                )}
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--haven-ink-mid)]">
-                      Step {step.index + 1}
-                    </span>
-                    {isCompleted ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-[var(--haven-sage-light)] px-2 py-0.5 text-[11px] font-semibold text-[var(--haven-ink)]">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-[var(--haven-sage)]" />
-                        {step.badgeText}
+              return (
+                <div
+                  key={step.key}
+                  className={cn(
+                    "relative flex flex-col justify-between rounded-[var(--radius-xl)] border p-5 transition-colors shrink-0 snap-start",
+                    "w-[300px] sm:w-[320px] md:w-[calc((100%-32px)/3)] min-w-[280px] md:min-w-0",
+                    isCompleted
+                      ? "border-[var(--haven-sage-mid)] bg-[var(--haven-white)] shadow-xs"
+                      : isCurrent
+                        ? "border-[var(--haven-ink)] bg-[var(--haven-cream)] ring-1 ring-[var(--haven-ink)] shadow-xs"
+                        : "border-[var(--color-border)] bg-[var(--haven-white)] opacity-75"
+                  )}
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--haven-ink-mid)]">
+                        Step {step.index + 1}
                       </span>
-                    ) : isCurrent ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-[var(--haven-ink)] px-2 py-0.5 text-[11px] font-semibold text-[var(--haven-cream)]">
-                        <CircleDot className="h-3 w-3" />
-                        {step.badgeText}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-[var(--haven-sand)] px-2 py-0.5 text-[11px] font-medium text-[var(--haven-ink-mid)]">
-                        <Clock className="h-3 w-3" />
-                        {step.badgeText}
-                      </span>
-                    )}
+                      {isCompleted ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[var(--haven-sage-light)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--haven-ink)]">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-[var(--haven-sage)]" />
+                          {step.badgeText}
+                        </span>
+                      ) : isCurrent ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[var(--haven-ink)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--haven-cream)]">
+                          <CircleDot className="h-3 w-3" />
+                          {step.badgeText}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[var(--haven-sand)] px-2.5 py-0.5 text-[11px] font-medium text-[var(--haven-ink-mid)]">
+                          <Clock className="h-3 w-3" />
+                          {step.badgeText}
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="mt-3.5 text-h3 text-[var(--haven-ink)]">{step.label}</p>
+                    <p className="mt-2 text-body-sm leading-relaxed text-[var(--color-text-secondary)]">
+                      {step.description}
+                    </p>
                   </div>
 
-                  <p className="mt-3 text-h3 text-[var(--haven-ink)]">{step.label}</p>
-                  <p className="mt-1.5 text-[12px] leading-relaxed text-[var(--color-text-secondary)]">
-                    {step.description}
-                  </p>
-                </div>
-
-                <div className="mt-4 border-t border-[var(--color-border)] pt-2.5">
-                  {step.metaText ? (
-                    <p
-                      className={cn(
-                        "text-[11px] font-medium",
-                        isCompleted
-                          ? "text-[var(--haven-ink)]"
-                          : isCurrent
+                  <div className="mt-5 border-t border-[var(--color-border)] pt-3">
+                    {step.metaText ? (
+                      <p
+                        className={cn(
+                          "text-[12px] font-medium",
+                          isCompleted
                             ? "text-[var(--haven-ink)]"
-                            : "text-[var(--haven-ink-light)]"
-                      )}
-                    >
-                      {step.metaText}
-                    </p>
-                  ) : null}
+                            : isCurrent
+                              ? "text-[var(--haven-ink)]"
+                              : "text-[var(--haven-ink-light)]"
+                        )}
+                      >
+                        {step.metaText}
+                      </p>
+                    ) : null}
 
-                  {step.actionHref && step.actionLabel && !isCompleted ? (
-                    isExternalHref(step.actionHref) ? (
-                      <a
-                        className="mt-1.5 inline-flex items-center gap-1 text-[12px] font-semibold text-[var(--haven-ink)] underline underline-offset-4 hover:text-[var(--haven-ink-mid)]"
-                        href={step.actionHref}
-                        rel="noopener noreferrer"
-                        target="_blank"
-                      >
-                        {step.actionLabel}
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    ) : isMailtoHref(step.actionHref) ? (
-                      <a
-                        className="mt-1.5 inline-flex items-center gap-1 text-[12px] font-semibold text-[var(--haven-ink)] underline underline-offset-4 hover:text-[var(--haven-ink-mid)]"
-                        href={step.actionHref}
-                      >
-                        {step.actionLabel}
-                        <Mail className="h-3 w-3" />
-                      </a>
-                    ) : (
-                      <Link
-                        className="mt-1.5 inline-flex items-center gap-1 text-[12px] font-semibold text-[var(--haven-ink)] underline underline-offset-4 hover:text-[var(--haven-ink-mid)]"
-                        href={step.actionHref}
-                      >
-                        {step.actionLabel}
-                        <ArrowRight className="h-3 w-3" />
-                      </Link>
-                    )
-                  ) : null}
+                    {step.actionHref && step.actionLabel && !isCompleted ? (
+                      isExternalHref(step.actionHref) ? (
+                        <a
+                          className="mt-2 inline-flex items-center gap-1 text-body-sm font-semibold text-[var(--haven-ink)] underline underline-offset-4 hover:text-[var(--haven-ink-mid)]"
+                          href={step.actionHref}
+                          rel="noopener noreferrer"
+                          target="_blank"
+                        >
+                          {step.actionLabel}
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      ) : isMailtoHref(step.actionHref) ? (
+                        <a
+                          className="mt-2 inline-flex items-center gap-1 text-body-sm font-semibold text-[var(--haven-ink)] underline underline-offset-4 hover:text-[var(--haven-ink-mid)]"
+                          href={step.actionHref}
+                        >
+                          {step.actionLabel}
+                          <Mail className="h-3.5 w-3.5" />
+                        </a>
+                      ) : (
+                        <Link
+                          className="mt-2 inline-flex items-center gap-1 text-body-sm font-semibold text-[var(--haven-ink)] underline underline-offset-4 hover:text-[var(--haven-ink-mid)]"
+                          href={step.actionHref}
+                        >
+                          {step.actionLabel}
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </Link>
+                      )
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </CardContent>
     </Card>

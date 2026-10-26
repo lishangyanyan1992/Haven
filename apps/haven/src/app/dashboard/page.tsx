@@ -1,15 +1,12 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
-import { CalendarClock, MessageCircle, Timer } from "lucide-react";
+import { Timer } from "lucide-react";
 
 import { DashboardChangeHighlight, DashboardChangeProvider } from "@/components/app/dashboard-change-highlight";
-import { DashboardPriorityChecklist } from "@/components/app/dashboard-priority-checklist";
 import { AppShell } from "@/components/app/app-shell";
 import { CrisisActivationModal } from "@/components/app/crisis-activation-modal";
 import { FirmEngagementDashboard } from "@/components/app/firm-engagement-dashboard";
 import { ImmigrationJourneyDashboard } from "@/components/app/immigration-journey-dashboard";
-import { ImmigrationUpdates } from "@/components/app/immigration-updates";
-import { PriorityDateCard } from "@/components/app/priority-date-card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -296,10 +293,6 @@ export default async function DashboardPage({
             profile={profile}
           />
 
-          <DashboardChangeHighlight sectionId="nextActions">
-            <DashboardPriorityChecklist initialItems={dashboard.nextActions} profileId={profile.id} />
-          </DashboardChangeHighlight>
-
           {crisisState ? (
             <DashboardChangeHighlight sectionId="crisisResolution">
               <Card variant="urgent">
@@ -329,64 +322,6 @@ export default async function DashboardPage({
               </Card>
             </DashboardChangeHighlight>
           ) : null}
-
-          <DashboardChangeHighlight sectionId="timeline">
-            <Card>
-              <CardHeader>
-                <div>
-                  <p className="text-label">Timeline</p>
-                  <CardTitle className="mt-2">Dates and milestones to keep in view</CardTitle>
-                </div>
-                <CalendarClock className="h-5 w-5 text-[var(--haven-ink-mid)]" />
-              </CardHeader>
-              <CardContent>
-                {dashboard.signals.visaBulletinPosition && (
-                  <div className="mb-5 rounded-[var(--radius-lg)] border border-[var(--haven-sky-mid)] bg-[var(--haven-sky-light)] p-4">
-                    <p className="text-label">Visa bulletin</p>
-                    <p className="text-body-sm mt-2">{dashboard.signals.visaBulletinPosition}</p>
-                  </div>
-                )}
-
-                <div className="timeline">
-                  {dashboard.timelineHighlights.map((event, index) => (
-                    <div key={event.id} className="timeline-item">
-                      <div className="timeline-track">
-                        <div className={cn("timeline-dot", index === 0 ? "timeline-dot-active" : "timeline-dot-done")} />
-                      </div>
-                      <div className="timeline-content">
-                        <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--haven-white)] p-4">
-                          <div className="flex flex-wrap items-center justify-between gap-3">
-                            <div>
-                              <p className="text-h3">{event.title}</p>
-                              <p className="text-caption mt-1">{event.dateLabel}</p>
-                            </div>
-                            <Badge variant={event.group === "upcoming" ? "urgent" : "pending"}>{event.group}</Badge>
-                          </div>
-                          <p className="text-body-sm mt-3">{event.nextAction}</p>
-                          {event.communityLinkLabel && (
-                            <Link className="mt-3 inline-flex items-center gap-2 text-body-sm text-[var(--haven-ink)] underline-offset-4 hover:underline" href="/profile/community">
-                              <MessageCircle className="h-4 w-4" />
-                              {event.communityLinkLabel}
-                            </Link>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </DashboardChangeHighlight>
-
-          {showPriorityDateSection ? (
-            <DashboardChangeHighlight sectionId="priorityDate">
-              <PriorityDateCard intelligence={priorityDateIntelligence} />
-            </DashboardChangeHighlight>
-          ) : null}
-
-          <DashboardChangeHighlight sectionId="officialUpdates">
-            <ImmigrationUpdates updates={updates} />
-          </DashboardChangeHighlight>
         </div>
       </DashboardChangeProvider>
     </AppShell>
