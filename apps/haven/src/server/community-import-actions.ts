@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import OpenAI from "openai";
 
 import { buildAnonymousCommentAuthor, readPublishDraft, readSourcePublishedAt } from "@/lib/community-imports";
+import { isAdminEmail } from "@/lib/admin-auth";
 import { env } from "@/lib/env";
 import { flushLangfuse, getOrCreatePrompt, getStoryLangfuseClient } from "@/lib/langfuse";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -669,20 +670,6 @@ function formatAutoReviewNotes(result: AutoReviewVerdict, prefix: string) {
   return `${prefix} ${result.summary} Confidence: ${result.confidence}.${issueLine}`.trim();
 }
 
-function getAllowedReviewerEmails() {
-  return new Set(
-    (env.COMMUNITY_IMPORT_REVIEWER_EMAILS ?? "")
-      .split(",")
-      .map((value) => value.trim().toLowerCase())
-      .filter(Boolean)
-  );
-}
-
-function hasReviewerAccess(email: string) {
-  const allowedEmails = getAllowedReviewerEmails();
-  return allowedEmails.size > 0 && allowedEmails.has(email);
-}
-
 async function requireReviewer() {
   const supabase = await createSupabaseServerClient();
   const {
@@ -695,7 +682,7 @@ async function requireReviewer() {
 
   const email = user.email?.toLowerCase() ?? "";
 
-  if (!hasReviewerAccess(email)) {
+  if (!isAdminEmail(email)) {
     throw new Error("Reviewer access required.");
   }
 
