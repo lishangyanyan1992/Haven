@@ -89,8 +89,7 @@ export function ImmigrationJourneyDashboard({
   const { axis, visaTrack, jobTrack, greenCardTrack, overlayInsights, missingFields, tacticalWindow, protection } = journey;
 
   const hasUrgentDeadline =
-    (protection.effectiveStayDaysRemaining !== null && protection.effectiveStayDaysRemaining <= 60) ||
-    tacticalWindow.pins.some((p) => p.status === "urgent");
+    protection.effectiveStayDaysRemaining !== null && protection.effectiveStayDaysRemaining <= 60;
 
   function handleSaveDates(formData: FormData) {
     setSaveMessage(null);
@@ -377,9 +376,11 @@ export function ImmigrationJourneyDashboard({
                       </span>
                     </div>
                     <h4 className="mt-1 text-h3 text-[var(--haven-ink)]">
-                      {protection.effectiveStayDaysRemaining !== null && protection.effectiveStayDaysRemaining >= 0
-                        ? `Authorized stay deadline: ${protection.effectiveStayEndLabel}`
-                        : `Authorized stay deadline passed on ${protection.effectiveStayEndLabel}`}
+                      {protection.effectiveStayDaysRemaining === null || protection.effectiveStayEndLabel === null
+                        ? "Authorized stay deadline unavailable"
+                        : protection.effectiveStayDaysRemaining >= 0
+                          ? `Authorized stay deadline: ${protection.effectiveStayEndLabel}`
+                          : `Authorized stay deadline passed on ${protection.effectiveStayEndLabel}`}
                     </h4>
                     <p className="mt-1 text-body-sm leading-relaxed text-[var(--color-text-secondary)] max-w-[70ch]">
                       {protection.reconciliationNotice ??

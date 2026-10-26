@@ -480,6 +480,58 @@ async function main() {
     `isCapped=${longVisaLaidOff.protection.isGraceCappedByVisa}, headline=${longVisaLaidOff.visaTrack.headline}`
   );
 
+  // Laid-off profile without lastWorkDay does not invent grace-period wording
+  const laidOffNoLastWorkDay = buildImmigrationJourney({
+    profile: {
+      ...baseProfile,
+      visaType: "H1B",
+      currentVisaExpiryDate: "2027-10-01",
+      employmentStatus: "laid_off"
+    },
+    deadlines: {
+      statusEndDate: "2027-10-01",
+      jobEnded: "yes"
+    },
+    signals,
+    now: userTestNow
+  });
+
+  check(
+    "reconciliation: laid-off profile without lastWorkDay preserves standard visa track wording without grace text",
+    !laidOffNoLastWorkDay.visaTrack.headline.includes("grace") &&
+      !laidOffNoLastWorkDay.visaTrack.statusBadge.includes("grace") &&
+      laidOffNoLastWorkDay.protection.effectiveStayEndDate === "2027-10-01",
+    `headline=${laidOffNoLastWorkDay.visaTrack.headline}, badge=${laidOffNoLastWorkDay.visaTrack.statusBadge}`
+  );
+
+  // Active employed user with far-out visa expiry does not satisfy urgent stay banner condition
+  const activeEmployedFarExpiry = buildImmigrationJourney({
+    profile: {
+      ...baseProfile,
+      visaType: "H1B",
+      currentVisaExpiryDate: "2027-10-01",
+      employmentStatus: "employed"
+    },
+    deadlines: {
+      statusEndDate: "2027-10-01",
+      jobEnded: "no"
+    },
+    signals,
+    now: userTestNow
+  });
+
+  const isStayUrgent =
+    activeEmployedFarExpiry.protection.effectiveStayDaysRemaining !== null &&
+    activeEmployedFarExpiry.protection.effectiveStayDaysRemaining <= 60;
+
+  check(
+    "reconciliation: active employed user with far-out expiry does not satisfy urgent stay banner condition despite urgent today pin",
+    activeEmployedFarExpiry.tacticalWindow.pins.some((p) => p.isToday && p.status === "urgent") &&
+      !isStayUrgent &&
+      activeEmployedFarExpiry.protection.effectiveStayDaysRemaining === 340,
+    `isStayUrgent=${isStayUrgent}, days=${activeEmployedFarExpiry.protection.effectiveStayDaysRemaining}`
+  );
+
   console.log(`\n${pass}/${pass + failures.length} passed`);
   if (failures.length) process.exit(1);
 }

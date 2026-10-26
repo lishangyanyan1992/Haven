@@ -296,13 +296,14 @@ export function buildImmigrationJourney(input: {
     deadlines.jobEnded === "yes" ||
     profile.employmentStatus === "laid_off";
   const graceEndDate = lastWorkDayDate ? new Date(lastWorkDayDate.getTime() + 60 * DAY_MS) : null;
+  const hasGracePeriod = Boolean(isLaidOff && graceEndDate);
 
   // Legal reconciliation under 8 CFR § 214.1(l)(2)
   let effectiveStayEndDate: Date | null = null;
   let isGraceCappedByVisa = false;
   let reconciliationNotice: string | null = null;
 
-  if (isLaidOff && graceEndDate && visaExpiryDate) {
+  if (hasGracePeriod && graceEndDate && visaExpiryDate) {
     if (visaExpiryDate.getTime() < graceEndDate.getTime()) {
       effectiveStayEndDate = visaExpiryDate;
       isGraceCappedByVisa = true;
@@ -313,7 +314,7 @@ export function buildImmigrationJourney(input: {
       isGraceCappedByVisa = false;
       reconciliationNotice = null;
     }
-  } else if (isLaidOff && graceEndDate) {
+  } else if (hasGracePeriod && graceEndDate) {
     effectiveStayEndDate = graceEndDate;
     isGraceCappedByVisa = false;
     reconciliationNotice = null;
@@ -391,7 +392,7 @@ export function buildImmigrationJourney(input: {
     visaTone = "sage";
     visaHeadline = `${profile.visaType === "Citizen" ? "Citizenship" : "Permanent residency"} complete`;
     visaSummary = "You hold permanent status and no longer depend on temporary visa renewals.";
-  } else if (isLaidOff && effectiveStayEndDate) {
+  } else if (hasGracePeriod && effectiveStayEndDate) {
     if (effectiveStayDaysRemaining !== null && effectiveStayDaysRemaining < 0) {
       visaLifecycle = "expired";
       visaBadge = isGraceCappedByVisa
@@ -408,7 +409,7 @@ export function buildImmigrationJourney(input: {
       visaLifecycle = "expiring_soon";
       visaBadge = isGraceCappedByVisa
         ? `Grace capped · ${effectiveStayDaysRemaining}d left`
-        : `H-1B grace · ${effectiveStayDaysRemaining}d left`;
+        : `${profile.visaType} grace · ${effectiveStayDaysRemaining}d left`;
       visaTone = effectiveStayDaysRemaining <= 30 ? "blush" : "sand";
       visaHeadline = isGraceCappedByVisa
         ? `${profile.visaType} grace period ends in ${effectiveStayDaysRemaining} day${effectiveStayDaysRemaining === 1 ? "" : "s"}`
@@ -420,7 +421,7 @@ export function buildImmigrationJourney(input: {
       visaLifecycle = "started_active";
       visaBadge = isGraceCappedByVisa
         ? `Grace capped · ${effectiveStayDaysRemaining}d left`
-        : `H-1B grace · ${effectiveStayDaysRemaining}d left`;
+        : `${profile.visaType} grace · ${effectiveStayDaysRemaining}d left`;
       visaTone = "sand";
       visaHeadline = `${profile.visaType} in grace period through ${effectiveStayEndLabel}`;
       visaSummary = `Authorized stay runs through ${effectiveStayEndLabel}. Coordinate a change of status or new petition before expiration.`;
@@ -463,7 +464,7 @@ export function buildImmigrationJourney(input: {
   const visaPins: JourneyPlotPin[] = [];
 
   const effectiveVisaStartMs = visaStartDate ? visaStartDate.getTime() : todayMs - 180 * DAY_MS;
-  const effectiveVisaEndMs = isLaidOff && effectiveStayEndDate
+  const effectiveVisaEndMs = hasGracePeriod && effectiveStayEndDate
     ? effectiveStayEndDate.getTime()
     : visaExpiryDate
       ? visaExpiryDate.getTime()
@@ -527,7 +528,7 @@ export function buildImmigrationJourney(input: {
   }
 
   let renewalWindowDateLabel: string | null = null;
-  if (!isLaidOff && visaExpiryDate) {
+  if (!hasGracePeriod && visaExpiryDate) {
     const renewalDate = new Date(visaExpiryDate.getTime() - 180 * DAY_MS);
     renewalWindowDateLabel = formatDateLabel(renewalDate);
     if (renewalDate.getTime() > (visaStartDate?.getTime() ?? 0)) {
@@ -561,7 +562,7 @@ export function buildImmigrationJourney(input: {
           ? `${daysUntilExpiry} days remaining until current status expiration.`
           : "Current status expiration date has passed."
     });
-  } else if (isLaidOff && effectiveStayEndDate) {
+  } else if (hasGracePeriod && effectiveStayEndDate) {
     visaPins.push({
       id: "visa-stay-deadline",
       label: isGraceCappedByVisa
@@ -1042,7 +1043,7 @@ export function buildImmigrationJourney(input: {
     const isPast = effectiveStayEndDate.getTime() < todayMs;
     tacticalPins.push({
       id: "tactical-stay-end",
-      label: isLaidOff
+      label: hasGracePeriod
         ? isGraceCappedByVisa
           ? "Stay ends (I-94 cap)"
           : "60-day grace ends"
@@ -1052,7 +1053,7 @@ export function buildImmigrationJourney(input: {
       percent: toTacticalPercent(effectiveStayEndDate.getTime()),
       tone: "blush",
       status: isPast ? "past" : "urgent",
-      detail: isLaidOff
+      detail: hasGracePeriod
         ? isGraceCappedByVisa
           ? "I-94 expiration caps authorized stay under 8 CFR § 214.1(l)(2)."
           : "60-day grace period expires."
@@ -1103,8 +1104,8 @@ export function buildImmigrationJourney(input: {
     }
   }
 
-  // 6. Renewal window opening date if in window (when not laid off)
-  if (!isLaidOff && visaExpiryDate) {
+  // 6. Renewal window opening date if in window (when not in grace period)
+  if (!hasGracePeriod && visaExpiryDate) {
     const renewalDate = new Date(visaExpiryDate.getTime() - 180 * DAY_MS);
     if (renewalDate.getTime() >= tacticalStartMs && renewalDate.getTime() <= tacticalEndMs) {
       tacticalPins.push({
