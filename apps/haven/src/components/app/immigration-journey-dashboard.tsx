@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useState, useTransition } from "react";
+import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -118,12 +118,29 @@ type PinPopoverData = {
 function PinInspectionPopover({
   pin,
   onClose,
+  onViewMatchingCard,
   position = "top"
 }: {
   pin: PinPopoverData;
   onClose: () => void;
+  onViewMatchingCard?: () => void;
   position?: "top" | "bottom" | "inline";
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (position === "inline") {
+      const invokingElement = document.activeElement as HTMLElement | null;
+      const timer = setTimeout(() => {
+        dialogRef.current?.focus();
+      }, 0);
+      return () => {
+        clearTimeout(timer);
+        invokingElement?.focus();
+      };
+    }
+  }, [position]);
+
   const isToday = Boolean(pin.isToday || pin.id.includes("today"));
   const daysDiff = pin.daysDiff;
 
@@ -139,13 +156,15 @@ function PinInspectionPopover({
 
   return (
     <div
+      ref={dialogRef}
+      tabIndex={position === "inline" ? -1 : undefined}
       data-pin-popover
       role="dialog"
       aria-label={`${pin.label} inspection details`}
       className={cn(
         "z-50 rounded-[var(--radius-xl)] border border-[var(--color-border-mid)] bg-[var(--haven-white)] p-3.5 shadow-xl transition-all pointer-events-auto",
         position === "inline"
-          ? "static w-full max-w-full translate-x-0"
+          ? "static w-full max-w-full translate-x-0 focus:outline-none"
           : "absolute w-72 max-w-[calc(100vw-32px)] -translate-x-1/2",
         position === "top"
           ? "bottom-full mb-3"
@@ -210,6 +229,21 @@ function PinInspectionPopover({
           {pin.detail}
         </p>
       )}
+
+      {onViewMatchingCard && (
+        <div className="mt-2.5 border-t border-[var(--color-border)] pt-2">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewMatchingCard();
+            }}
+            className="text-[11px] font-semibold text-[var(--haven-ink)] hover:text-[var(--haven-ink-mid)] underline underline-offset-2 cursor-pointer transition-colors"
+          >
+            View matching milestone ↓
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -260,36 +294,30 @@ export function ImmigrationJourneyDashboard({
     };
   }, [activeInspectedPinId]);
 
-  const handleSelectPin = (pinId: string, options?: { scrollIntoView?: boolean }) => {
-    const isCurrentlyActive = isPinActive(pinId, activeInspectedPinId);
-    if (isCurrentlyActive) {
-      setActiveInspectedPinId(null);
-      return;
+  const scrollToMilestone = (pinId: string) => {
+    if (typeof document === "undefined") return;
+    const targets = [
+      pinId,
+      ...(PIN_ALIASES[pinId] ?? []),
+      pinId.replace(/^(visa|job|gc)-/, "tactical-"),
+      pinId.replace(/^tactical-/, "job-"),
+      pinId.replace(/^tactical-/, "visa-"),
+      pinId.replace(/^tactical-/, "gc-")
+    ];
+    for (const t of targets) {
+      const elem =
+        document.getElementById(`milestone-card-${t}`) ||
+        document.getElementById(`gc-stage-node-${t}`) ||
+        document.querySelector(`[data-pin-match="${t}"]`);
+      if (elem) {
+        elem.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+        break;
+      }
     }
+  };
 
-    setActiveInspectedPinId(pinId);
-    if (options?.scrollIntoView && typeof document !== "undefined") {
-      setTimeout(() => {
-        const targets = [
-          pinId,
-          ...(PIN_ALIASES[pinId] ?? []),
-          pinId.replace(/^(visa|job|gc)-/, "tactical-"),
-          pinId.replace(/^tactical-/, "job-"),
-          pinId.replace(/^tactical-/, "visa-"),
-          pinId.replace(/^tactical-/, "gc-")
-        ];
-        for (const t of targets) {
-          const elem =
-            document.getElementById(`milestone-card-${t}`) ||
-            document.getElementById(`gc-stage-node-${t}`) ||
-            document.querySelector(`[data-pin-match="${t}"]`);
-          if (elem) {
-            elem.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-            break;
-          }
-        }
-      }, 50);
-    }
+  const handleSelectPin = (pinId: string) => {
+    setActiveInspectedPinId((prev) => (isPinActive(pinId, prev) ? null : pinId));
   };
 
   const { axis, visaTrack, jobTrack, greenCardTrack, overlayInsights, missingFields, tacticalWindow, protection } = journey;
@@ -752,6 +780,7 @@ export function ImmigrationJourneyDashboard({
                 todayPercent={axis.todayPercent}
                 activePinId={activeInspectedPinId}
                 onSelectPin={handleSelectPin}
+                onScrollToMilestone={scrollToMilestone}
               />
 
               <OverlaySwimlane
@@ -765,6 +794,7 @@ export function ImmigrationJourneyDashboard({
                 todayPercent={axis.todayPercent}
                 activePinId={activeInspectedPinId}
                 onSelectPin={handleSelectPin}
+                onScrollToMilestone={scrollToMilestone}
               />
             </div>
           </div>
@@ -774,6 +804,7 @@ export function ImmigrationJourneyDashboard({
             tacticalWindow={tacticalWindow}
             activePinId={activeInspectedPinId}
             onSelectPin={handleSelectPin}
+            onScrollToMilestone={scrollToMilestone}
           />
         </div>
 
@@ -1206,7 +1237,8 @@ function OverlaySwimlane({
   todayPercent,
   macroBracket,
   activePinId,
-  onSelectPin
+  onSelectPin,
+  onScrollToMilestone
 }: {
   title: string;
   subtitle: string;
@@ -1218,6 +1250,7 @@ function OverlaySwimlane({
   macroBracket?: { startPercent: number; endPercent: number };
   activePinId: string | null;
   onSelectPin: (pinId: string) => void;
+  onScrollToMilestone?: (pinId: string) => void;
 }) {
   return (
     <div className="grid grid-cols-1 gap-3 py-4 lg:grid-cols-[210px_minmax(0,1fr)] lg:items-center">
@@ -1312,6 +1345,7 @@ function OverlaySwimlane({
                     <PinInspectionPopover
                       pin={pin}
                       onClose={() => onSelectPin(pin.id)}
+                      onViewMatchingCard={() => onScrollToMilestone?.(pin.id)}
                       position="bottom"
                     />
                   </div>
@@ -1328,11 +1362,13 @@ function OverlaySwimlane({
 function TacticalTimelineWindow({
   tacticalWindow,
   activePinId,
-  onSelectPin
+  onSelectPin,
+  onScrollToMilestone
 }: {
   tacticalWindow: TacticalTimelineView;
   activePinId: string | null;
   onSelectPin: (pinId: string) => void;
+  onScrollToMilestone?: (pinId: string) => void;
 }) {
   const activeTacticalPin = tacticalWindow.pins.find((pin) =>
     isPinActive(pin.id, activePinId)
@@ -1453,6 +1489,7 @@ function TacticalTimelineWindow({
                       <PinInspectionPopover
                         pin={pin}
                         onClose={() => onSelectPin(pin.id)}
+                        onViewMatchingCard={() => onScrollToMilestone?.(pin.id)}
                         position="top"
                       />
                     </div>
@@ -1488,6 +1525,7 @@ function TacticalTimelineWindow({
           <PinInspectionPopover
             pin={activeTacticalPin}
             onClose={() => onSelectPin(activeTacticalPin.id)}
+            onViewMatchingCard={() => onScrollToMilestone?.(activeTacticalPin.id)}
             position="inline"
           />
         </div>
