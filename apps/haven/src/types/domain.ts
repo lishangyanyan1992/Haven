@@ -62,6 +62,45 @@ export type VaultDocumentKind =
   | (string & {});
 export type VaultDocumentSource = "manual_upload" | "email_ingest";
 
+export type ImmigrantPetitionType =
+  | "employer_sponsored"
+  | "self_petition_niw"
+  | "self_petition_eb1a"
+  | "concurrent_employer";
+
+export type ImmigrantPetitionStage =
+  | "pwd_recruitment"
+  | "perm_in_progress"
+  | "perm_certified"
+  | "i140_filed"
+  | "i140_approved"
+  | "i485_filed"
+  | "i485_approved"
+  | "withdrawn";
+
+export interface ImmigrantPetition {
+  id: string;
+  sponsorName: string;
+  petitionType: ImmigrantPetitionType;
+  preferenceCategory: PreferenceCategory;
+  stage: ImmigrantPetitionStage;
+  priorityDate?: string;
+  isPriorityDateRecaptured?: boolean;
+  permFilingDate?: string;
+  permCertifiedDate?: string;
+  i140ReceiptNumber?: string;
+  i140FiledDate?: string;
+  i140ApprovalDate?: string;
+  isRevocationProtected?: boolean;
+  isWithdrawn?: boolean;
+  withdrawnDate?: string;
+  notes?: string;
+}
+
+export function isPetitionWithdrawn(petition: ImmigrantPetition): boolean {
+  return Boolean(petition.isWithdrawn) || petition.stage === "withdrawn";
+}
+
 export interface ImmigrationProfile {
   id: string;
   fullName: string;
@@ -76,6 +115,10 @@ export interface ImmigrationProfile {
   i140Approved: boolean;
   i140ApprovalDate?: string;
   priorityDate?: string;
+  retainedPriorityDate?: string;
+  retainedPriorityDateSponsor?: string;
+  retainedPriorityDateCategory?: PreferenceCategory;
+  immigrantPetitions?: ImmigrantPetition[];
   preferenceCategory: PreferenceCategory;
   i485Filed: boolean;
   employerName?: string;

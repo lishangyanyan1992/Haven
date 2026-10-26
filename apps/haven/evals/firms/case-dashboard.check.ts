@@ -556,6 +556,129 @@ async function main() {
     `isStayUrgent=${isStayUrgent}, days=${activeEmployedFarExpiry.protection.effectiveStayDaysRemaining}`
   );
 
+  // Multi-Employer Green Card Scenario 1: Retained priority date from prior sponsor under 8 CFR § 204.5(e)
+  const multiEmployerRetainedPdJourney = buildImmigrationJourney({
+    profile: {
+      ...baseProfile,
+      visaType: "H1B",
+      employerName: "Acme AI",
+      permStage: "in_progress",
+      i140Approved: false,
+      retainedPriorityDate: "2021-03-15",
+      retainedPriorityDateSponsor: "Meta Platforms",
+      preferenceCategory: "EB-2",
+      employmentStatus: "employed"
+    },
+    signals,
+    now: userTestNow
+  });
+
+  check(
+    "multi-employer: retained priority date preserves queue position and unlocks AC21 extensions during PERM",
+    multiEmployerRetainedPdJourney.greenCardTrack.priorityDate === "2021-03-15" &&
+      multiEmployerRetainedPdJourney.greenCardTrack.retainedPriorityDate === "2021-03-15" &&
+      multiEmployerRetainedPdJourney.greenCardTrack.retainedSponsorName === "Meta Platforms" &&
+      multiEmployerRetainedPdJourney.greenCardTrack.stage === "perm_in_progress" &&
+      multiEmployerRetainedPdJourney.greenCardTrack.headline.includes("Recapturing Mar 15, 2021 PD") &&
+      multiEmployerRetainedPdJourney.protection.hasI140Approval === true &&
+      multiEmployerRetainedPdJourney.protection.isAc21PortabilityUnlocked === true &&
+      multiEmployerRetainedPdJourney.protection.protectingSponsor === "Meta Platforms" &&
+      multiEmployerRetainedPdJourney.overlayInsights.some((o) => o.id === "retained-pd-recapture"),
+    `priorityDate=${multiEmployerRetainedPdJourney.greenCardTrack.priorityDate}, headline=${multiEmployerRetainedPdJourney.greenCardTrack.headline}`
+  );
+
+  // Multi-Employer Green Card Scenario 2: Discrete immigrant petitions with approaching 6-year H-1B cap
+  const multiEmployerApproachingCapJourney = buildImmigrationJourney({
+    profile: {
+      ...baseProfile,
+      visaType: "H1B",
+      h1bStartDate: "2020-11-01",
+      employerName: "Stripe",
+      permStage: "in_progress",
+      i140Approved: false,
+      employmentStatus: "employed",
+      immigrantPetitions: [
+        {
+          id: "pet-prior",
+          sponsorName: "Amazon",
+          petitionType: "employer_sponsored",
+          preferenceCategory: "EB-2",
+          stage: "i140_approved",
+          priorityDate: "2021-06-01",
+          i140ApprovalDate: "2022-01-10",
+          isRevocationProtected: true
+        },
+        {
+          id: "pet-current",
+          sponsorName: "Stripe",
+          petitionType: "employer_sponsored",
+          preferenceCategory: "EB-2",
+          stage: "perm_in_progress",
+          permFilingDate: "2026-01-15"
+        }
+      ]
+    },
+    signals: {
+      ...signals,
+      h1bCapDate: "2026-11-01"
+    },
+    now: userTestNow
+  });
+
+  check(
+    "multi-employer: prior approved I-140 bridges H-1B cap with AC21 extensions while current PERM is pending",
+    multiEmployerApproachingCapJourney.protection.hasI140Approval === true &&
+      multiEmployerApproachingCapJourney.protection.isAc21PortabilityUnlocked === true &&
+      multiEmployerApproachingCapJourney.greenCardTrack.stage === "perm_in_progress" &&
+      multiEmployerApproachingCapJourney.overlayInsights.some((o) => o.id === "cap-protected") &&
+      !multiEmployerApproachingCapJourney.overlayInsights.some((o) => o.id === "cap-unprotected") &&
+      (multiEmployerApproachingCapJourney.greenCardTrack.petitions?.length ?? 0) === 2 &&
+      Boolean(multiEmployerApproachingCapJourney.greenCardTrack.nodes.find((n) => n.key === "priority_date")?.badgeText.includes("Retained")),
+    `hasI140Approval=${multiEmployerApproachingCapJourney.protection.hasI140Approval}, petitions=${multiEmployerApproachingCapJourney.greenCardTrack.petitions?.length}`
+  );
+
+  // Multi-Employer Green Card Scenario 3: Concurrent self-petition (EB-2 NIW) with employer PERM
+  const concurrentNiwJourney = buildImmigrationJourney({
+    profile: {
+      ...baseProfile,
+      visaType: "H1B",
+      employerName: "Databricks",
+      permStage: "in_progress",
+      employmentStatus: "employed",
+      immigrantPetitions: [
+        {
+          id: "eb2-niw",
+          sponsorName: "Self-Petition (NIW)",
+          petitionType: "self_petition_niw",
+          preferenceCategory: "EB-2 NIW",
+          stage: "i140_approved",
+          priorityDate: "2023-04-10",
+          isRevocationProtected: true
+        },
+        {
+          id: "databricks-perm",
+          sponsorName: "Databricks",
+          petitionType: "employer_sponsored",
+          preferenceCategory: "EB-2",
+          stage: "perm_in_progress"
+        }
+      ]
+    },
+    signals,
+    now: userTestNow
+  });
+
+  check(
+    "multi-employer: concurrent EB-2 NIW self-petition tracked independently alongside employer PERM",
+    concurrentNiwJourney.protection.hasI140Approval === true &&
+      concurrentNiwJourney.greenCardTrack.priorityDate === "2023-04-10" &&
+      concurrentNiwJourney.greenCardTrack.retainedPriorityDate === null &&
+      !concurrentNiwJourney.greenCardTrack.headline.includes("Recapturing") &&
+      (concurrentNiwJourney.greenCardTrack.petitions?.length ?? 0) === 2 &&
+      concurrentNiwJourney.greenCardTrack.petitions?.some((p) => p.petitionType === "self_petition_niw" && p.isApproved) === true,
+    `priorityDate=${concurrentNiwJourney.greenCardTrack.priorityDate}`
+  );
+
   console.log(`\n${pass}/${pass + failures.length} passed`);
   if (failures.length) process.exit(1);
 }
