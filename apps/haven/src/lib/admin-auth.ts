@@ -49,7 +49,7 @@ export async function requireAdminUser(redirectTo = "/admin"): Promise<{ user: U
   }
 
   if (!isAdminEmail(user.email)) {
-    redirect(SIGNED_IN_HOME);
+    redirect(`/login?error=admin_access_required&redirectTo=${encodeURIComponent(redirectTo)}`);
   }
 
   return { user, email: user.email.toLowerCase() };

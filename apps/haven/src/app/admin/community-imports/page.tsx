@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
-import { requireAdminUser } from "@/lib/admin-auth";
+import { getAdminUser } from "@/lib/admin-auth";
 import { readPublishDraft } from "@/lib/community-imports";
 import { env } from "@/lib/env";
 import { noIndexMetadata } from "@/lib/seo";
@@ -124,7 +124,10 @@ export default async function CommunityImportsAdminPage({
     ? (rawFilter as FilterValue)
     : "all";
 
-  await requireAdminUser("/admin/community-imports");
+  const adminUser = await getAdminUser();
+  if (!adminUser) {
+    return null;
+  }
 
   const admin = createSupabaseAdminClient();
   const { data: rows } = await admin

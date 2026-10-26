@@ -23,6 +23,7 @@ export function AdminHeader({ email }: { email: string }) {
           </Link>
           <span className="hidden text-body-sm text-[var(--haven-ink-mid)] md:inline">{email}</span>
           <form action={signOutAction}>
+            <input type="hidden" name="redirectTo" value="/login?redirectTo=/admin" />
             <button className="text-body-sm font-medium text-[var(--haven-ink)] underline-offset-4 hover:underline" type="submit">
               Sign out
             </button>

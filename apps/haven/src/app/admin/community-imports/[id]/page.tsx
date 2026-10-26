@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
-import { requireAdminUser } from "@/lib/admin-auth";
+import { getAdminUser } from "@/lib/admin-auth";
 import { readPublishDraft } from "@/lib/community-imports";
 import { noIndexMetadata } from "@/lib/seo";
 import { getStoryTraceUrl } from "@/lib/story-observability";
@@ -47,7 +47,10 @@ export default async function CommunityImportDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  await requireAdminUser(`/admin/community-imports/${id}`);
+  const adminUser = await getAdminUser();
+  if (!adminUser) {
+    return null;
+  }
 
   const admin = createSupabaseAdminClient();
   const { data: row } = await admin

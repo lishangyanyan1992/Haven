@@ -458,6 +458,10 @@ export async function signOutAction(formData?: FormData) {
   if (role === "lawyer") {
     redirect("/login?role=lawyer&redirectTo=/firm");
   }
+  const redirectTo = String(formData?.get("redirectTo") ?? "").trim();
+  if (redirectTo) {
+    redirect(redirectTo);
+  }
   redirect("/login");
 }
 

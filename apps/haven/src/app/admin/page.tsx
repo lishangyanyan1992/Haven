@@ -3,7 +3,7 @@ import { AlertCircle, CheckCircle2, ChevronRight, ExternalLink, MessageSquareWar
 
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { requireAdminUser } from "@/lib/admin-auth";
+import { getAdminUser } from "@/lib/admin-auth";
 import { noIndexMetadata } from "@/lib/seo";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { ManualSyncButton } from "./ManualSyncButton";
@@ -31,7 +31,10 @@ function formatDate(iso: string | null | undefined): string {
 }
 
 export default async function AdminDashboardPage() {
-  await requireAdminUser("/admin");
+  const adminUser = await getAdminUser();
+  if (!adminUser) {
+    return null;
+  }
 
   const admin = createSupabaseAdminClient() as any;
 
