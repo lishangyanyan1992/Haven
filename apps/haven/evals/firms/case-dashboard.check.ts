@@ -629,6 +629,7 @@ async function main() {
     "multi-employer: prior approved I-140 bridges H-1B cap with AC21 extensions while current PERM is pending",
     multiEmployerApproachingCapJourney.protection.hasI140Approval === true &&
       multiEmployerApproachingCapJourney.protection.isAc21PortabilityUnlocked === true &&
+      multiEmployerApproachingCapJourney.greenCardTrack.stage === "perm_in_progress" &&
       multiEmployerApproachingCapJourney.overlayInsights.some((o) => o.id === "cap-protected") &&
       !multiEmployerApproachingCapJourney.overlayInsights.some((o) => o.id === "cap-unprotected") &&
       (multiEmployerApproachingCapJourney.greenCardTrack.petitions?.length ?? 0) === 2 &&
@@ -671,6 +672,8 @@ async function main() {
     "multi-employer: concurrent EB-2 NIW self-petition tracked independently alongside employer PERM",
     concurrentNiwJourney.protection.hasI140Approval === true &&
       concurrentNiwJourney.greenCardTrack.priorityDate === "2023-04-10" &&
+      concurrentNiwJourney.greenCardTrack.retainedPriorityDate === null &&
+      !concurrentNiwJourney.greenCardTrack.headline.includes("Recapturing") &&
       (concurrentNiwJourney.greenCardTrack.petitions?.length ?? 0) === 2 &&
       concurrentNiwJourney.greenCardTrack.petitions?.some((p) => p.petitionType === "self_petition_niw" && p.isApproved) === true,
     `priorityDate=${concurrentNiwJourney.greenCardTrack.priorityDate}`

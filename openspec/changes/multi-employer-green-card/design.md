@@ -2,7 +2,7 @@
 
 ## Context
 
-Haven currently tracks an immigrant user's permanent residency pathway using scalar fields on `ImmigrationProfile`: `permStage`, `permFilingDate`, `i140Approved`, `i140ApprovalDate`, `priorityDate`, and `preferenceCategory`. See [proposal.md](file:///Users/shangyanyanli/Desktop/Haven/openspec/changes/multi-employer-green-card/proposal.md) for background and motivation.
+Haven currently tracks an immigrant user's permanent residency pathway using scalar fields on `ImmigrationProfile`: `permStage`, `permFilingDate`, `i140Approved`, `i140ApprovalDate`, `priorityDate`, and `preferenceCategory`. See [proposal.md](./proposal.md) for background and motivation.
 
 When an employee changes employers, their permanent residency journey splits into two distinct legal threads:
 1. **The Retained Immigrant Queue Standing**: Under 8 CFR § 204.5(e), an approved Form I-140 grants the beneficiary a permanent, portable Priority Date that can be recaptured by any future employer. Under AC21 § 104(c), this approved petition also entitles the worker to indefinite 3-year H-1B extensions beyond the statutory 6-year limit, regardless of whether their current employer has started PERM.
@@ -42,7 +42,7 @@ When an employee changes employers, their permanent residency journey splits int
 - **Choice**: AC21 extension eligibility is resolved as:
   ```ts
   hasQualifyingI140 = profile.i140Approved || 
-    (profile.immigrantPetitions?.some(p => p.stage === "i140_approved" && !p.isRevoked) ?? false);
+    (profile.immigrantPetitions?.some(p => (p.stage === "i140_approved" || p.stage === "i485_filed" || p.stage === "i485_approved") && !isPetitionWithdrawn(p)) ?? false);
   ```
   If `hasQualifyingI140` is true and the priority date is not current, the user is marked eligible for 3-year H-1B extensions beyond 6 years under AC21 § 104(c), regardless of their current employer's PERM progress.
 - **Rationale**: Reflects USCIS policy memo and binding regulations where I-140 approval benefits are personal to the beneficiary for extension purposes.

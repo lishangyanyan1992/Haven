@@ -10,6 +10,7 @@ import type {
   PreferenceCategory,
   PriorityDateIntelligence
 } from "@/types/domain";
+import { isPetitionWithdrawn } from "@/types/domain";
 
 export type JourneyTrackTone = "sage" | "sky" | "sand" | "blush" | "ink";
 
@@ -245,20 +246,42 @@ function formatMonthYear(value: Date): string {
   });
 }
 
+export function findActivePetition(profile: ImmigrationProfile): ImmigrantPetition | null {
+  if (!profile.immigrantPetitions || profile.immigrantPetitions.length === 0) {
+    return null;
+  }
+  const nonWithdrawn = profile.immigrantPetitions.filter(p => !isPetitionWithdrawn(p));
+  if (nonWithdrawn.length === 0) return null;
+
+  if (profile.employerName) {
+    const empLower = profile.employerName.trim().toLowerCase();
+    const currentEmployerPetition = nonWithdrawn.find(
+      p => p.petitionType === "employer_sponsored" && p.sponsorName?.trim().toLowerCase() === empLower
+    );
+    if (currentEmployerPetition) return currentEmployerPetition;
+  }
+
+  const inProgressEmployer = nonWithdrawn.find(
+    p => p.petitionType === "employer_sponsored" && p.stage !== "i140_approved" && p.stage !== "i485_approved"
+  );
+  if (inProgressEmployer) return inProgressEmployer;
+
+  const anyEmployer = nonWithdrawn.find(p => p.petitionType === "employer_sponsored");
+  if (anyEmployer) return anyEmployer;
+
+  return nonWithdrawn[0];
+}
+
 export function inferProfileGreenCardStage(profile: ImmigrationProfile): GreenCardStage {
   if (profile.i485Filed) return "i485_filed";
 
-  if (profile.immigrantPetitions && profile.immigrantPetitions.length > 0) {
-    const activePetition =
-      profile.immigrantPetitions.find(p => p.petitionType === "employer_sponsored" && !p.isWithdrawn) ??
-      profile.immigrantPetitions.find(p => !p.isWithdrawn);
-    if (activePetition) {
-      if (activePetition.stage === "i485_filed" || activePetition.stage === "i485_approved") return "i485_filed";
-      if (activePetition.stage === "i140_approved") return "i140_approved";
-      if (activePetition.stage === "i140_filed") return "i140_filed";
-      if (activePetition.stage === "perm_certified") return "perm_certified";
-      if (activePetition.stage === "perm_in_progress" || activePetition.stage === "pwd_recruitment") return "perm_in_progress";
-    }
+  const activePetition = findActivePetition(profile);
+  if (activePetition) {
+    if (activePetition.stage === "i485_filed" || activePetition.stage === "i485_approved") return "i485_filed";
+    if (activePetition.stage === "i140_approved") return "i140_approved";
+    if (activePetition.stage === "i140_filed") return "i140_filed";
+    if (activePetition.stage === "perm_certified") return "perm_certified";
+    if (activePetition.stage === "perm_in_progress" || activePetition.stage === "pwd_recruitment") return "perm_in_progress";
   }
 
   if (profile.i140Approved) return "i140_approved";
@@ -294,10 +317,11 @@ export function resolveEffectivePriorityDate(profile: ImmigrationProfile): {
 
   // 2. Search immigrantPetitions for approved I-140 petitions
   if (profile.immigrantPetitions && profile.immigrantPetitions.length > 0) {
+    const activePetition = findActivePetition(profile);
     const approvedPetitions = profile.immigrantPetitions.filter(
       p =>
         (p.stage === "i140_approved" || p.stage === "i485_filed" || p.stage === "i485_approved") &&
-        !p.isWithdrawn &&
+        !isPetitionWithdrawn(p) &&
         p.priorityDate
     );
     if (approvedPetitions.length > 0) {
@@ -309,15 +333,17 @@ export function resolveEffectivePriorityDate(profile: ImmigrationProfile): {
       const earliestApproved = approvedPetitions[0];
       const parsed = parseIsoDate(earliestApproved.priorityDate);
       if (parsed) {
+        const activeSponsor = activePetition?.sponsorName ?? profile.employerName;
         const isFromPriorSponsor = Boolean(
-          profile.employerName &&
+          earliestApproved.petitionType === "employer_sponsored" &&
+          activeSponsor &&
           earliestApproved.sponsorName &&
-          earliestApproved.sponsorName.toLowerCase() !== profile.employerName.toLowerCase()
+          earliestApproved.sponsorName.trim().toLowerCase() !== activeSponsor.trim().toLowerCase()
         );
         return {
           effectiveDate: parsed,
           isRetained: isFromPriorSponsor,
-          retainedSponsorName: earliestApproved.sponsorName,
+          retainedSponsorName: isFromPriorSponsor ? earliestApproved.sponsorName : null,
           retainedCategory: earliestApproved.preferenceCategory,
           isRecaptured: earliestApproved.isPriorityDateRecaptured ?? false
         };
@@ -325,7 +351,7 @@ export function resolveEffectivePriorityDate(profile: ImmigrationProfile): {
     }
 
     const pendingWithDate = profile.immigrantPetitions.find(
-      p => !p.isWithdrawn && (p.priorityDate || p.permFilingDate)
+      p => !isPetitionWithdrawn(p) && (p.priorityDate || p.permFilingDate)
     );
     if (pendingWithDate) {
       const parsed = parseIsoDate(pendingWithDate.priorityDate || pendingWithDate.permFilingDate);
@@ -392,7 +418,7 @@ export function evaluateI140Protections(
     const qualifyingPetitions = profile.immigrantPetitions.filter(
       p =>
         (p.stage === "i140_approved" || p.stage === "i485_filed" || p.stage === "i485_approved") &&
-        !p.isWithdrawn
+        !isPetitionWithdrawn(p)
     );
 
     if (qualifyingPetitions.length > 0) {
@@ -428,13 +454,14 @@ export function evaluateI140Protections(
     }
   }
 
-  if (profile.retainedPriorityDate && profile.retainedPriorityDateSponsor) {
+  if (profile.retainedPriorityDate) {
+    const sponsor = profile.retainedPriorityDateSponsor ?? "prior sponsor";
     return {
       hasApprovedI140: true,
       isAc21PortabilityUnlocked: true,
-      protectingSponsor: profile.retainedPriorityDateSponsor,
+      protectingSponsor: sponsor,
       i140ApprovalDate: null,
-      portabilitySummary: `Retained priority date from ${profile.retainedPriorityDateSponsor} confirms an approved Form I-140, preserving your queue position and unlocking AC21 3-year extensions.`
+      portabilitySummary: `Retained priority date from ${sponsor} confirms an approved Form I-140, preserving your queue position and unlocking AC21 3-year extensions.`
     };
   }
 
@@ -472,11 +499,24 @@ export function evaluateI140Protections(
   };
 }
 
-export function synthesizePetitions(profile: ImmigrationProfile): ImmigrantPetitionSummary[] {
+export function synthesizePetitions(
+  profile: ImmigrationProfile,
+  nowUtc: Date = new Date()
+): ImmigrantPetitionSummary[] {
   if (profile.immigrantPetitions && profile.immigrantPetitions.length > 0) {
+    const activePetition = findActivePetition(profile);
+    const nowMs = nowUtc.getTime();
+
     return profile.immigrantPetitions.map(p => {
       const isApproved = p.stage === "i140_approved" || p.stage === "i485_filed" || p.stage === "i485_approved";
-      const isProtected = p.isRevocationProtected || (isApproved && Boolean(p.i140ApprovalDate));
+      let isProtected = Boolean(p.isRevocationProtected);
+      if (!isProtected && isApproved && p.i140ApprovalDate) {
+        const approvalDate = parseIsoDate(p.i140ApprovalDate);
+        if (approvalDate && approvalDate.getTime() + 180 * DAY_MS <= nowMs) {
+          isProtected = true;
+        }
+      }
+
       const stageLabel =
         p.stage === "pwd_recruitment"
           ? "Prevailing Wage & Recruitment"
@@ -493,6 +533,11 @@ export function synthesizePetitions(profile: ImmigrationProfile): ImmigrantPetit
                     : p.stage === "i485_approved"
                       ? "I-485 Approved (Green Card Issued)"
                       : "Withdrawn";
+
+      const isPrimaryActive = activePetition
+        ? p.id === activePetition.id
+        : p.petitionType === "employer_sponsored" && !isPetitionWithdrawn(p);
+
       return {
         id: p.id,
         sponsorName: p.sponsorName,
@@ -504,7 +549,7 @@ export function synthesizePetitions(profile: ImmigrationProfile): ImmigrantPetit
         isApproved,
         isRevocationProtected: Boolean(isProtected),
         isRecaptured: p.isPriorityDateRecaptured,
-        isPrimaryActive: p.petitionType === "employer_sponsored" && !p.isWithdrawn,
+        isPrimaryActive,
         notes: p.notes
       };
     });
@@ -529,7 +574,13 @@ export function synthesizePetitions(profile: ImmigrationProfile): ImmigrantPetit
     });
   }
 
-  if (profile.employerName || profile.permStage !== "not_started" || profile.i140Filed || profile.i140Approved) {
+  const hasStartedGreenCard =
+    (profile.permStage && profile.permStage !== "not_started") ||
+    profile.i140Filed ||
+    profile.i140Approved ||
+    profile.i485Filed;
+
+  if (hasStartedGreenCard) {
     const activeStage: ImmigrantPetitionStage = profile.i485Filed
       ? "i485_filed"
       : profile.i140Approved
@@ -550,10 +601,15 @@ export function synthesizePetitions(profile: ImmigrationProfile): ImmigrantPetit
           : activeStage === "perm_certified"
             ? "PERM Certified"
             : activeStage === "i140_filed"
-              ? "I-140 Filed (Recapture Requested)"
+              ? (profile.retainedPriorityDate ? "I-140 Filed (Recapture Requested)" : "I-140 Filed (Pending)")
               : activeStage === "i140_approved"
                 ? "I-140 Approved"
                 : "I-485 Filed";
+
+    const approvalDate = parseIsoDate(profile.i140ApprovalDate ?? null);
+    const isRevocationProtected = activeStage === "i140_approved" && (
+      !approvalDate || approvalDate.getTime() + 180 * DAY_MS <= nowUtc.getTime()
+    );
 
     summaries.push({
       id: "current-active-petition",
@@ -564,8 +620,8 @@ export function synthesizePetitions(profile: ImmigrationProfile): ImmigrantPetit
       stageLabel,
       priorityDateLabel: formatDateLabel(profile.priorityDate),
       isApproved: activeStage === "i140_approved" || activeStage === "i485_filed",
-      isRevocationProtected: false,
-      isRecaptured: Boolean(profile.retainedPriorityDate),
+      isRevocationProtected,
+      isRecaptured: Boolean(profile.retainedPriorityDate && (profile.i140Filed || profile.i140Approved || profile.i485Filed)),
       isPrimaryActive: true,
       notes: profile.retainedPriorityDate
         ? `Recaptures prior priority date (${formatDateLabel(profile.retainedPriorityDate)}) upon I-140 approval.`
@@ -623,6 +679,13 @@ export function buildImmigrationJourney(input: {
   const deadlines = input.deadlines ?? {};
   const { profile, signals, activeLayoffEvent, priorityDateIntelligence } = input;
 
+  const i140Protections = evaluateI140Protections(profile, todayUtc);
+  const hasI140Approval = i140Protections.hasApprovedI140;
+  const isAc21PortabilityUnlocked = i140Protections.isAc21PortabilityUnlocked;
+  const portabilitySummary = i140Protections.portabilitySummary;
+  const protectingSponsor = i140Protections.protectingSponsor;
+  const effectiveI140ApprovalDate = i140Protections.i140ApprovalDate ?? parseIsoDate(profile.i140ApprovalDate ?? null);
+
   // Resolve key dates across profile + deadline_answers
   const visaStartRaw = profile.h1bStartDate ?? null;
   const visaStartDate = parseIsoDate(visaStartRaw);
@@ -642,10 +705,9 @@ export function buildImmigrationJourney(input: {
   const isRetainedPriorityDate = pdResolution.isRetained;
   const retainedSponsorName = pdResolution.retainedSponsorName;
   const isPriorityDateRecaptured = pdResolution.isRecaptured;
-  const petitions = synthesizePetitions(profile);
+  const petitions = synthesizePetitions(profile, todayUtc);
 
   const permFilingDate = parseIsoDate(profile.permFilingDate ?? null);
-  const i140ApprovalDate = parseIsoDate(profile.i140ApprovalDate ?? null);
 
   const lastWorkDayRaw = activeLayoffEvent?.layoffDate || (deadlines.jobEnded === "yes" ? deadlines.lastWorkDay : null) || null;
   const lastWorkDayDate = parseIsoDate(lastWorkDayRaw);
@@ -956,9 +1018,9 @@ export function buildImmigrationJourney(input: {
       dateLabel: formatDateLabel(capDate)!,
       isoDate: toIsoDate(capDate),
       percent: toPercent(capDate.getTime()),
-      tone: profile.i140Approved ? "sage" : "sand",
+      tone: hasI140Approval ? "sage" : "sand",
       status: capDate.getTime() <= todayMs ? "urgent" : "upcoming",
-      detail: profile.i140Approved
+      detail: hasI140Approval
         ? "Approved I-140 unlocks AC21 extensions beyond the 6-year cap."
         : "6-year statutory H-1B limit unless PERM/I-140 qualifies for AC21 extension."
     });
@@ -1097,9 +1159,9 @@ export function buildImmigrationJourney(input: {
   }
 
   let portabilityLabel: string | null = signals.ac21PortabilityStatus ?? null;
-  if (profile.i140Approved) {
-    if (i140ApprovalDate) {
-      const ac21Date = new Date(i140ApprovalDate.getTime() + 180 * DAY_MS);
+  if (hasI140Approval) {
+    if (effectiveI140ApprovalDate) {
+      const ac21Date = new Date(effectiveI140ApprovalDate.getTime() + 180 * DAY_MS);
       const unlocked = ac21Date.getTime() <= todayMs;
       portabilityLabel = unlocked
         ? `AC21 portable (unlocked ${formatDateLabel(ac21Date)})`
@@ -1115,7 +1177,9 @@ export function buildImmigrationJourney(input: {
         detail: "180 days post I-140 approval protects priority date and job portability."
       });
     } else {
-      portabilityLabel = "Approved I-140 on file (AC21 eligible after 180 days)";
+      portabilityLabel = isAc21PortabilityUnlocked
+        ? `AC21 portable (prior I-140 approved with ${protectingSponsor ?? "prior sponsor"})`
+        : "Approved I-140 on file (AC21 eligible after 180 days)";
     }
   }
 
@@ -1171,12 +1235,6 @@ export function buildImmigrationJourney(input: {
   const bulletinCutoffLabel = priorityDateIntelligence?.latestCutoffLabel
     ? `${priorityDateIntelligence.latestBulletinLabel}: ${priorityDateIntelligence.latestCutoffLabel}`
     : null;
-
-  const i140Protections = evaluateI140Protections(profile, todayUtc);
-  const hasI140Approval = i140Protections.hasApprovedI140;
-  const isAc21PortabilityUnlocked = i140Protections.isAc21PortabilityUnlocked;
-  const portabilitySummary = i140Protections.portabilitySummary;
-  const protectingSponsor = i140Protections.protectingSponsor;
 
   const gcNodes: GreenCardStageNode[] = [
     {
@@ -1243,8 +1301,8 @@ export function buildImmigrationJourney(input: {
               : isRetainedPriorityDate
                 ? "Pending new sponsor"
                 : "Upcoming",
-      dateOrMeta: i140ApprovalDate
-        ? `Approved ${formatDateLabel(i140ApprovalDate)}`
+      dateOrMeta: effectiveI140ApprovalDate
+        ? `Approved ${formatDateLabel(effectiveI140ApprovalDate)}`
         : hasI140Approval
           ? isRetainedPriorityDate
             ? `Recapturing at ${employerName ?? "new sponsor"}`
@@ -1337,16 +1395,16 @@ export function buildImmigrationJourney(input: {
     });
   }
 
-  if (i140ApprovalDate) {
+  if (effectiveI140ApprovalDate) {
     gcPins.push({
       id: "gc-i140",
       label: "I-140 approved",
-      dateLabel: formatDateLabel(i140ApprovalDate)!,
-      isoDate: toIsoDate(i140ApprovalDate),
-      percent: toPercent(i140ApprovalDate.getTime()),
+      dateLabel: formatDateLabel(effectiveI140ApprovalDate)!,
+      isoDate: toIsoDate(effectiveI140ApprovalDate),
+      percent: toPercent(effectiveI140ApprovalDate.getTime()),
       tone: "sage",
       status: "past",
-      detail: "Immigrant petition approved."
+      detail: protectingSponsor ? `Immigrant petition approved (${protectingSponsor}).` : "Immigrant petition approved."
     });
   }
 
@@ -1481,8 +1539,8 @@ export function buildImmigrationJourney(input: {
   }
 
   // 5. AC21 180-day milestone if in window
-  if (i140ApprovalDate) {
-    const ac21Date = new Date(i140ApprovalDate.getTime() + 180 * DAY_MS);
+  if (effectiveI140ApprovalDate) {
+    const ac21Date = new Date(effectiveI140ApprovalDate.getTime() + 180 * DAY_MS);
     if (ac21Date.getTime() >= tacticalStartMs && ac21Date.getTime() <= tacticalEndMs) {
       tacticalPins.push({
         id: "tactical-ac21",

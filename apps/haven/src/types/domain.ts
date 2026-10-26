@@ -97,6 +97,10 @@ export interface ImmigrantPetition {
   notes?: string;
 }
 
+export function isPetitionWithdrawn(petition: ImmigrantPetition): boolean {
+  return Boolean(petition.isWithdrawn) || petition.stage === "withdrawn";
+}
+
 export interface ImmigrationProfile {
   id: string;
   fullName: string;
