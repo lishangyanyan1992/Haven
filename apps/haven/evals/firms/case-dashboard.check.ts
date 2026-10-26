@@ -339,6 +339,50 @@ async function main() {
     `got todayPercent=${journey.axis.todayPercent}`
   );
   check(
+    "timeline focus scale: macro focus zone allocates 40% to 45% of bar width around today",
+    journey.axis.macroBracket.endPercent - journey.axis.macroBracket.startPercent >= 40 &&
+      journey.axis.macroBracket.endPercent - journey.axis.macroBracket.startPercent <= 45 &&
+      journey.axis.todayPercent === 50,
+    `got width=${journey.axis.macroBracket.endPercent - journey.axis.macroBracket.startPercent}, today=${journey.axis.todayPercent}`
+  );
+  check(
+    "timeline focus scale: axis ticks align with 5 piecewise boundaries and label Today at 50%",
+    journey.axis.ticks.length === 5 &&
+      journey.axis.ticks[0].percent === 4 &&
+      journey.axis.ticks[1].percent === 28 &&
+      journey.axis.ticks[2].percent === 50 &&
+      journey.axis.ticks[2].label.includes("(Today)") &&
+      journey.axis.ticks[3].percent === 72 &&
+      journey.axis.ticks[4].percent === 96,
+    `got ticks=${JSON.stringify(journey.axis.ticks)}`
+  );
+
+  // Verify strict monotonic ordering across all pins
+  const allJourneyPins = [
+    ...journey.visaTrack.pins,
+    ...journey.jobTrack.pins,
+    ...journey.greenCardTrack.pins
+  ].sort((a, b) => new Date(a.isoDate).getTime() - new Date(b.isoDate).getTime());
+  let isMonotonic = true;
+  for (let i = 0; i < allJourneyPins.length - 1; i++) {
+    if (allJourneyPins[i].percent > allJourneyPins[i + 1].percent) {
+      isMonotonic = false;
+      break;
+    }
+  }
+  check(
+    "timeline focus scale: strictly preserves chronological monotonic ordering across all pins",
+    isMonotonic && allJourneyPins.length >= 6,
+    `pins=${allJourneyPins.map((p) => `${p.id}:${p.isoDate}@${p.percent}%`).join(", ")}`
+  );
+  check(
+    "timeline focus scale: pins carry daysDiff metadata for immediate countdown inspection",
+    journey.visaTrack.pins.every((p) => typeof p.daysDiff === "number") &&
+      journey.jobTrack.pins.every((p) => typeof p.daysDiff === "number") &&
+      journey.greenCardTrack.pins.every((p) => typeof p.daysDiff === "number"),
+    "expected all pins to have daysDiff number"
+  );
+  check(
     "journey: visa track is started_active with start, renewal, expiry, and 6-year cap pins",
     journey.visaTrack.lifecycleState === "started_active" &&
       journey.visaTrack.pins.some((p) => p.id === "visa-start") &&
@@ -444,6 +488,15 @@ async function main() {
       cappedGraceJourney.tacticalWindow.pins.some((p) => p.id === "tactical-agency-deadline") &&
       cappedGraceJourney.axis.macroBracket.startPercent < cappedGraceJourney.axis.macroBracket.endPercent,
     `pins=${cappedGraceJourney.tacticalWindow.pins.map((p) => p.id).join(",")}`
+  );
+
+  const cappedLastDayPin = cappedGraceJourney.jobTrack.pins.find((p) => p.id === "job-last-day");
+  const cappedGraceEndPin = cappedGraceJourney.jobTrack.pins.find((p) => p.id === "job-grace-end");
+  check(
+    "timeline focus scale: non-colliding immediate pins allocate >= 4.5% width for 21-day grace span",
+    Boolean(cappedLastDayPin && cappedGraceEndPin) &&
+      ((cappedGraceEndPin?.percent ?? 0) - (cappedLastDayPin?.percent ?? 0)) >= 4.5,
+    `got lastDay=${cappedLastDayPin?.percent}%, graceEnd=${cappedGraceEndPin?.percent}%, diff=${(cappedGraceEndPin?.percent ?? 0) - (cappedLastDayPin?.percent ?? 0)}%`
   );
 
   check(

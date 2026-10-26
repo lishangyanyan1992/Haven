@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -30,6 +30,7 @@ import type {
   JourneyBarSegment,
   JourneyPlotPin,
   JourneyTrackTone,
+  TacticalTimelinePin,
   TacticalTimelineView
 } from "@/lib/immigration-journey";
 import { saveCaseJourneyDatesAction } from "@/server/actions";
@@ -72,6 +73,137 @@ const COUNTRY_OPTIONS = [
   "Other"
 ];
 
+const PIN_ALIASES: Record<string, string[]> = {
+  "tactical-last-day": ["job-last-day"],
+  "job-last-day": ["tactical-last-day"],
+  "tactical-stay-end": ["job-grace-end", "visa-stay-deadline", "visa-expiry"],
+  "job-grace-end": ["tactical-stay-end", "visa-stay-deadline"],
+  "visa-stay-deadline": ["tactical-stay-end", "job-grace-end"],
+  "visa-expiry": ["tactical-stay-end"],
+  "tactical-ac21": ["job-ac21"],
+  "job-ac21": ["tactical-ac21"],
+  "tactical-agency": ["job-agency-deadline", "tactical-agency-deadline"],
+  "tactical-agency-deadline": ["job-agency-deadline", "tactical-agency"],
+  "job-agency-deadline": ["tactical-agency", "tactical-agency-deadline"],
+  "tactical-renewal-open": ["visa-renewal"],
+  "visa-renewal": ["tactical-renewal-open"],
+  "gc-pd": ["priority_date"],
+  "priority_date": ["gc-pd"],
+  "gc-i140": ["i140"],
+  "i140": ["gc-i140"]
+};
+
+function isPinActive(pinId: string, activeId: string | null): boolean {
+  if (!activeId) return false;
+  if (pinId === activeId) return true;
+  if (PIN_ALIASES[pinId]?.includes(activeId)) return true;
+  if (PIN_ALIASES[activeId]?.includes(pinId)) return true;
+  const normA = pinId.replace(/^(tactical|visa|job|gc)-/, "");
+  const normB = activeId.replace(/^(tactical|visa|job|gc)-/, "");
+  return normA === normB;
+}
+
+type PinPopoverData = {
+  id: string;
+  label: string;
+  dateLabel: string;
+  percent: number;
+  tone: JourneyTrackTone;
+  status: "past" | "today" | "upcoming" | "urgent";
+  detail: string;
+  daysDiff?: number;
+  isToday?: boolean;
+};
+
+function PinInspectionPopover({
+  pin,
+  onClose,
+  position = "top"
+}: {
+  pin: PinPopoverData;
+  onClose: () => void;
+  position?: "top" | "bottom";
+}) {
+  const isToday = Boolean(pin.isToday || pin.id.includes("today"));
+  const daysDiff = pin.daysDiff;
+
+  const countdownText = isToday
+    ? "Today"
+    : typeof daysDiff === "number"
+      ? daysDiff === 0
+        ? "Today"
+        : daysDiff > 0
+          ? `${daysDiff}d left`
+          : `${Math.abs(daysDiff)}d ago`
+      : null;
+
+  return (
+    <div
+      data-pin-popover
+      role="dialog"
+      aria-label={`${pin.label} inspection details`}
+      className={cn(
+        "absolute z-50 w-72 max-w-[calc(100vw-32px)] rounded-[var(--radius-xl)] border border-[var(--color-border-mid)] bg-[var(--haven-white)] p-3.5 shadow-xl transition-all pointer-events-auto",
+        "-translate-x-1/2",
+        position === "top" ? "bottom-full mb-3" : "top-full mt-3"
+      )}
+      style={{
+        left: `clamp(148px, ${pin.percent}%, calc(100% - 148px))`
+      }}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span
+            className={cn(
+              "rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+              TONE_BADGE_CLASS[pin.tone]
+            )}
+          >
+            {pin.status === "urgent" ? "Critical" : pin.status === "today" ? "Anchor" : pin.tone}
+          </span>
+          {countdownText && (
+            <span
+              className={cn(
+                "rounded-full px-2 py-0.5 text-[10px] font-bold",
+                isToday || pin.status === "urgent"
+                  ? "bg-[var(--haven-blush-light)] text-[var(--haven-blush-ink)] border border-[var(--haven-blush)]"
+                  : "bg-[var(--haven-sand)] text-[var(--haven-ink)]"
+              )}
+            >
+              {countdownText}
+            </span>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+          className="rounded-full p-1 text-[var(--haven-ink-mid)] hover:bg-[var(--haven-sand)] hover:text-[var(--haven-ink)] transition-colors cursor-pointer"
+          aria-label="Close milestone inspection"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      <h5 className="mt-2 text-body-sm font-bold text-[var(--haven-ink)] leading-snug">
+        {pin.label}
+      </h5>
+
+      <p className="mt-0.5 text-[12px] font-medium text-[var(--haven-ink-mid)]">
+        {pin.dateLabel}
+      </p>
+
+      {pin.detail && (
+        <p className="mt-2 border-t border-[var(--color-border)] pt-2 text-[12px] leading-relaxed text-[var(--haven-ink-mid)]">
+          {pin.detail}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function ImmigrationJourneyDashboard({
   journey,
   profile,
@@ -86,6 +218,63 @@ export function ImmigrationJourneyDashboard({
   const [showPetitionsDrawer, setShowPetitionsDrawer] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [activeInspectedPinId, setActiveInspectedPinId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!activeInspectedPinId) return;
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setActiveInspectedPinId(null);
+      }
+    }
+
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        !target.closest("[data-pin-popover]") &&
+        !target.closest("[data-pin-trigger]") &&
+        !target.closest("[data-pin-match]")
+      ) {
+        setActiveInspectedPinId(null);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [activeInspectedPinId]);
+
+  const handleSelectPin = (pinId: string) => {
+    setActiveInspectedPinId((prev) => (prev === pinId ? null : pinId));
+    if (typeof document !== "undefined") {
+      setTimeout(() => {
+        const targets = [
+          pinId,
+          ...(PIN_ALIASES[pinId] ?? []),
+          pinId.replace(/^(visa|job|gc)-/, "tactical-"),
+          pinId.replace(/^tactical-/, "job-"),
+          pinId.replace(/^tactical-/, "visa-"),
+          pinId.replace(/^tactical-/, "gc-")
+        ];
+        for (const t of targets) {
+          const elem =
+            document.getElementById(`milestone-card-${t}`) ||
+            document.getElementById(`gc-stage-node-${t}`) ||
+            document.querySelector(`[data-pin-match="${t}"]`);
+          if (elem) {
+            elem.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+            break;
+          }
+        }
+      }, 50);
+    }
+  };
 
   const { axis, visaTrack, jobTrack, greenCardTrack, overlayInsights, missingFields, tacticalWindow, protection } = journey;
 
@@ -545,6 +734,8 @@ export function ImmigrationJourneyDashboard({
                 subtitle={combinedVisaJobSubtitle}
                 title={`Visa · ${visaTrack.visaType} & Sponsor`}
                 todayPercent={axis.todayPercent}
+                activePinId={activeInspectedPinId}
+                onSelectPin={handleSelectPin}
               />
 
               <OverlaySwimlane
@@ -556,12 +747,18 @@ export function ImmigrationJourneyDashboard({
                 subtitle={`${greenCardTrack.categoryLabel}${greenCardTrack.priorityDateLabel ? ` · PD ${greenCardTrack.priorityDateLabel}` : ""}`}
                 title="Green Card"
                 todayPercent={axis.todayPercent}
+                activePinId={activeInspectedPinId}
+                onSelectPin={handleSelectPin}
               />
             </div>
           </div>
 
           {/* Tactical 90-Day Zoom Window */}
-          <TacticalTimelineWindow tacticalWindow={tacticalWindow} />
+          <TacticalTimelineWindow
+            tacticalWindow={tacticalWindow}
+            activePinId={activeInspectedPinId}
+            onSelectPin={handleSelectPin}
+          />
         </div>
 
         {/* =================================================================== */}
@@ -857,18 +1054,46 @@ export function ImmigrationJourneyDashboard({
               {greenCardTrack.nodes.map((node, index) => {
                 const isCompleted = node.status === "completed";
                 const isCurrent = node.status === "current";
+                const isNodeActive = isPinActive(node.key, activeInspectedPinId);
 
                 return (
                   <div
                     key={node.key}
+                    id={`gc-stage-node-${node.key}`}
+                    data-pin-match={node.key}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Green card stage ${index + 1}: ${node.label}. ${isNodeActive ? "Inspected" : "Click to inspect"}`}
+                    onClick={() =>
+                      handleSelectPin(
+                        node.key === "priority_date"
+                          ? "gc-pd"
+                          : node.key === "i140"
+                            ? "gc-i140"
+                            : node.key
+                      )
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleSelectPin(
+                          node.key === "priority_date"
+                            ? "gc-pd"
+                            : node.key === "i140"
+                              ? "gc-i140"
+                              : node.key
+                        );
+                      }
+                    }}
                     className={cn(
-                      "relative flex flex-col justify-between rounded-[var(--radius-xl)] border p-5 transition-colors shrink-0 snap-start",
+                      "relative flex flex-col justify-between rounded-[var(--radius-xl)] border p-5 transition-all shrink-0 snap-start cursor-pointer select-none",
                       "w-[300px] sm:w-[320px] md:w-[calc((100%-32px)/3)] min-w-[280px] md:min-w-0",
+                      isNodeActive && "ring-2 ring-[var(--haven-ink)] ring-offset-2 -translate-y-1 shadow-md",
                       isCompleted
                         ? "border-[var(--haven-sage-mid)] bg-[var(--haven-white)] shadow-xs"
                         : isCurrent
                           ? "border-[var(--haven-ink)] bg-[var(--haven-cream)] ring-1 ring-[var(--haven-ink)] shadow-xs"
-                          : "border-[var(--color-border)] bg-[var(--haven-white)] opacity-75"
+                          : "border-[var(--color-border)] bg-[var(--haven-white)] opacity-75 hover:opacity-100"
                     )}
                   >
                     <div>
@@ -963,7 +1188,9 @@ function OverlaySwimlane({
   segments,
   pins,
   todayPercent,
-  macroBracket
+  macroBracket,
+  activePinId,
+  onSelectPin
 }: {
   title: string;
   subtitle: string;
@@ -973,6 +1200,8 @@ function OverlaySwimlane({
   pins: JourneyPlotPin[];
   todayPercent: number;
   macroBracket?: { startPercent: number; endPercent: number };
+  activePinId: string | null;
+  onSelectPin: (pinId: string) => void;
 }) {
   return (
     <div className="grid grid-cols-1 gap-3 py-4 lg:grid-cols-[210px_minmax(0,1fr)] lg:items-center">
@@ -993,9 +1222,9 @@ function OverlaySwimlane({
       </div>
 
       {/* Right synchronized timeline bar + pins */}
-      <div>
+      <div className="relative">
         <div className="relative h-9 rounded-lg bg-[var(--haven-cream)] border border-[var(--color-border)] overflow-hidden">
-          {/* Shaded 90-day focus zone */}
+          {/* Shaded focus zone */}
           {macroBracket && (
             <div
               aria-hidden="true"
@@ -1027,25 +1256,51 @@ function OverlaySwimlane({
             );
           })}
 
-          {/* Pin dots along the bar */}
-          {pins.map((pin) => (
-            <div
-              key={pin.id}
-              className={cn(
-                "absolute top-1/2 z-10 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 shadow-xs transition-transform hover:scale-125",
-                TONE_PIN_CLASS[pin.tone]
-              )}
-              style={{ left: `${pin.percent}%` }}
-              title={`${pin.label}: ${pin.dateLabel}`}
-            />
-          ))}
-
           {/* Vertical Today marker cutting through every lane */}
           <div
             aria-hidden="true"
-            className="absolute inset-y-0 z-20 w-0.5 bg-[var(--haven-ink)]"
+            className="absolute inset-y-0 z-10 w-0.5 bg-[var(--haven-ink)]"
             style={{ left: `${todayPercent}%` }}
           />
+        </div>
+
+        {/* Pin buttons overlay positioned above the bar (not clipped by overflow-hidden) */}
+        <div className="absolute inset-0 pointer-events-none">
+          {pins.map((pin) => {
+            const isActive = isPinActive(pin.id, activePinId);
+            return (
+              <div key={pin.id} className="pointer-events-auto">
+                <button
+                  type="button"
+                  data-pin-trigger
+                  data-pin-id={pin.id}
+                  aria-haspopup="dialog"
+                  aria-expanded={isActive}
+                  aria-label={`Inspect milestone: ${pin.label}, ${pin.dateLabel}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectPin(pin.id);
+                  }}
+                  className={cn(
+                    "absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--haven-ink)]",
+                    isActive
+                      ? "z-40 h-4.5 w-4.5 scale-125 ring-4 ring-[var(--haven-ink)] ring-offset-2 shadow-md"
+                      : "z-20 h-3.5 w-3.5 hover:scale-125 hover:z-30 hover:ring-2 hover:ring-[var(--haven-ink-mid)] shadow-xs",
+                    TONE_PIN_CLASS[pin.tone]
+                  )}
+                  style={{ left: `${pin.percent}%` }}
+                  title={`${pin.label}: ${pin.dateLabel} (Click to inspect)`}
+                />
+                {isActive && (
+                  <PinInspectionPopover
+                    pin={pin}
+                    onClose={() => onSelectPin(pin.id)}
+                    position="bottom"
+                  />
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -1053,9 +1308,13 @@ function OverlaySwimlane({
 }
 
 function TacticalTimelineWindow({
-  tacticalWindow
+  tacticalWindow,
+  activePinId,
+  onSelectPin
 }: {
   tacticalWindow: TacticalTimelineView;
+  activePinId: string | null;
+  onSelectPin: (pinId: string) => void;
 }) {
   const upcomingUrgentPin = tacticalWindow.pins.find(
     (p) => p.status === "urgent" && p.daysDiff >= 0 && !p.isToday
@@ -1088,7 +1347,7 @@ function TacticalTimelineWindow({
       {/* Axis Ruler Track Section */}
       <div
         aria-label="Tactical 90-day timeline"
-        className="mt-4 overflow-x-auto pb-2 pt-2 scroll-smooth snap-x [scrollbar-width:thin] [scrollbar-color:var(--color-border)_transparent]"
+        className="mt-4 overflow-x-auto sm:overflow-visible pb-2 pt-2 scroll-smooth snap-x [scrollbar-width:thin] [scrollbar-color:var(--color-border)_transparent]"
         tabIndex={0}
       >
         <div className="relative min-w-[640px] px-4 pt-8 pb-3">
@@ -1138,22 +1397,45 @@ function TacticalTimelineWindow({
 
           {/* Pin Dots on Ruler Line */}
           <div className="relative">
-            {tacticalWindow.pins.map((pin) => (
-              <div
-                key={`dot-${pin.id}`}
-                className="absolute top-[-15px] -translate-x-1/2 z-30"
-                style={{ left: `${pin.percent}%` }}
-              >
+            {tacticalWindow.pins.map((pin) => {
+              const isActive = isPinActive(pin.id, activePinId);
+              return (
                 <div
-                  className={cn(
-                    "h-3.5 w-3.5 rounded-full border-2 shadow-xs transition-transform hover:scale-125",
-                    TONE_PIN_CLASS[pin.tone],
-                    pin.isToday && "h-4 w-4 ring-2 ring-[var(--haven-ink)] ring-offset-1"
+                  key={`dot-${pin.id}`}
+                  className="absolute top-[-15px] -translate-x-1/2 z-30"
+                  style={{ left: `${pin.percent}%` }}
+                >
+                  <button
+                    type="button"
+                    data-pin-trigger
+                    data-pin-id={pin.id}
+                    aria-haspopup="dialog"
+                    aria-expanded={isActive}
+                    aria-label={`Inspect milestone: ${pin.label}, ${pin.dateLabel}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectPin(pin.id);
+                    }}
+                    className={cn(
+                      "rounded-full border-2 shadow-xs transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--haven-ink)]",
+                      isActive
+                        ? "h-4.5 w-4.5 scale-135 ring-4 ring-[var(--haven-ink)] ring-offset-2 shadow-md z-40"
+                        : "h-3.5 w-3.5 hover:scale-125 hover:ring-2 hover:ring-[var(--haven-ink-mid)]",
+                      TONE_PIN_CLASS[pin.tone],
+                      pin.isToday && "h-4 w-4 ring-2 ring-[var(--haven-ink)] ring-offset-1"
+                    )}
+                    title={`${pin.label}: ${pin.dateLabel} (${pin.detail}) - Click to inspect`}
+                  />
+                  {isActive && (
+                    <PinInspectionPopover
+                      pin={pin}
+                      onClose={() => onSelectPin(pin.id)}
+                      position="top"
+                    />
                   )}
-                  title={`${pin.label}: ${pin.dateLabel} (${pin.detail})`}
-                />
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
 
           {/* Ticks */}
@@ -1183,7 +1465,7 @@ function TacticalTimelineWindow({
             Immediate Milestones in Sequence
           </p>
           <span className="text-[11px] text-[var(--haven-ink-light)] hidden sm:inline">
-            Ordered chronologically with daily countdowns
+            Ordered chronologically with daily countdowns · Click card or timeline pin to inspect
           </span>
         </div>
 
@@ -1192,19 +1474,34 @@ function TacticalTimelineWindow({
             const isToday = Boolean(pin.isToday);
             const isUrgent = pin.status === "urgent";
             const isPast = pin.daysDiff < 0;
+            const isCardActive = isPinActive(pin.id, activePinId);
 
             return (
               <div
                 key={`card-${pin.id}`}
+                id={`milestone-card-${pin.id}`}
+                data-pin-match={pin.id}
+                role="button"
+                tabIndex={0}
+                aria-label={`Milestone card: ${pin.label}. ${isCardActive ? "Inspected" : "Click to inspect"}`}
+                onClick={() => onSelectPin(pin.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onSelectPin(pin.id);
+                  }
+                }}
                 className={cn(
-                  "relative flex flex-col justify-between rounded-[var(--radius-xl)] border p-4 transition-all shadow-2xs",
+                  "relative flex flex-col justify-between rounded-[var(--radius-xl)] border p-4 transition-all shadow-2xs cursor-pointer select-none",
+                  isCardActive && "ring-2 ring-[var(--haven-ink)] ring-offset-2 -translate-y-1 shadow-md",
                   isToday
-                    ? "border-[var(--haven-ink)] bg-[var(--haven-ink)] text-[var(--haven-cream)] ring-1 ring-[var(--haven-ink)] shadow-xs"
+                    ? "border-[var(--haven-ink)] bg-[var(--haven-ink)] text-[var(--haven-cream)]"
                     : isUrgent
-                      ? "border-[var(--haven-blush)] bg-gradient-to-b from-[var(--haven-blush-light)] to-[var(--haven-white)] text-[var(--haven-ink)] ring-1 ring-[var(--haven-blush)] shadow-xs"
+                      ? "border-[var(--haven-blush)] bg-gradient-to-b from-[var(--haven-blush-light)] to-[var(--haven-white)] text-[var(--haven-ink)]"
                       : isPast
-                        ? "border-[var(--color-border)] bg-[var(--haven-white)]/80 text-[var(--haven-ink-mid)] opacity-85"
-                        : "border-[var(--haven-sky-mid)] bg-[var(--haven-white)] text-[var(--haven-ink)]"
+                        ? "border-[var(--color-border)] bg-[var(--haven-white)]/80 text-[var(--haven-ink-mid)] opacity-85 hover:opacity-100"
+                        : "border-[var(--haven-sky-mid)] bg-[var(--haven-white)] text-[var(--haven-ink)]",
+                  "hover:shadow-xs hover:border-[var(--haven-ink-mid)]"
                 )}
               >
                 <div>
