@@ -9,10 +9,11 @@ import {
   getFirmClientDossier,
   markContactRequestHandled,
   saveFirmClientEngagement,
+  saveFirmConsultationBooking,
   updateFirmClientPipelineStatus
 } from "@/lib/firms/clients";
 import { resetDemoFirm } from "@/lib/firms/demo";
-import { validateEngagementUpdate } from "@/lib/firms/engagement";
+import { validateConsultationBooking, validateEngagementUpdate } from "@/lib/firms/engagement";
 import { claimFirmInvite, requestFirmIntake, type IntakeResult } from "@/lib/firms/intake";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { intakeUrl, replaceFirmLink, setFirmLinkActive } from "@/lib/firms/links";
@@ -59,6 +60,23 @@ export async function saveFirmIntakeQuestionsAction(
   revalidatePath("/firm");
   revalidatePath("/onboarding");
   return { ok: true, items: saved };
+}
+
+export async function saveFirmConsultationBookingAction(
+  payload: unknown
+): Promise<{ ok: true; booking: { bookingUrl: string | null; bookingEmail: string | null } } | { ok: false; error: string }> {
+  const membership = await requireFirmMember();
+  const validation = validateConsultationBooking(payload);
+  if (!validation.ok) {
+    return { ok: false, error: validation.error };
+  }
+  const booking = await saveFirmConsultationBooking(membership.firmId, {
+    bookingUrl: validation.bookingUrl,
+    bookingEmail: validation.bookingEmail
+  });
+  revalidatePath("/firm");
+  revalidatePath("/dashboard");
+  return { ok: true, booking };
 }
 
 export async function setFirmLinkActiveAction(isActive: boolean) {

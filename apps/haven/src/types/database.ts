@@ -1498,6 +1498,8 @@ export type Database = {
       }
       firms: {
         Row: {
+          consultation_booking_url: string | null
+          consultation_email: string | null
           created_at: string
           id: string
           intake_questions: Json | null
@@ -1506,6 +1508,8 @@ export type Database = {
           required_documents: Json | null
         }
         Insert: {
+          consultation_booking_url?: string | null
+          consultation_email?: string | null
           created_at?: string
           id?: string
           intake_questions?: Json | null
@@ -1514,6 +1518,8 @@ export type Database = {
           required_documents?: Json | null
         }
         Update: {
+          consultation_booking_url?: string | null
+          consultation_email?: string | null
           created_at?: string
           id?: string
           intake_questions?: Json | null

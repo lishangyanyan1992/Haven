@@ -79,6 +79,8 @@ export type FirmEngagementOverview = {
   nextStep: FirmEngagementStepView | null;
   scheduledDate: string | null;
   attorneyNote: string | null;
+  bookingUrl: string | null;
+  bookingEmail: string | null;
   headline: string;
   summary: string;
 };
@@ -122,6 +124,20 @@ export function cleanEngagementState(raw: unknown): FirmClientEngagementState {
     out.scheduledDate = record.scheduledDate.trim();
   }
 
+  if (typeof record.bookingUrl === "string") {
+    const trimmed = record.bookingUrl.trim();
+    if (/^https?:\/\//i.test(trimmed)) {
+      out.bookingUrl = trimmed.slice(0, 1000);
+    }
+  }
+
+  if (typeof record.bookingEmail === "string") {
+    const trimmed = record.bookingEmail.trim();
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      out.bookingEmail = trimmed.toLowerCase().slice(0, 255);
+    }
+  }
+
   if (typeof record.note === "string") {
     const trimmedNote = record.note.trim().slice(0, 280);
     if (trimmedNote) out.note = trimmedNote;
@@ -132,6 +148,56 @@ export function cleanEngagementState(raw: unknown): FirmClientEngagementState {
   }
 
   return out;
+}
+
+export function validateConsultationBooking(input: unknown): {
+  ok: true;
+  bookingUrl: string | null;
+  bookingEmail: string | null;
+} | {
+  ok: false;
+  error: string;
+} {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return { ok: false, error: "Invalid consultation booking payload." };
+  }
+  const record = input as Record<string, unknown>;
+  let bookingUrl: string | null = null;
+  let bookingEmail: string | null = null;
+
+  if (record.bookingUrl !== undefined && record.bookingUrl !== null && record.bookingUrl !== "") {
+    if (typeof record.bookingUrl !== "string") {
+      return { ok: false, error: "Booking link must be a valid URL string." };
+    }
+    const trimmedUrl = record.bookingUrl.trim();
+    if (trimmedUrl.length > 0) {
+      if (!/^https?:\/\//i.test(trimmedUrl)) {
+        return { ok: false, error: "Booking link must start with https:// or http://" };
+      }
+      if (trimmedUrl.length > 1000) {
+        return { ok: false, error: "Booking link must be 1,000 characters or fewer." };
+      }
+      bookingUrl = trimmedUrl;
+    }
+  }
+
+  if (record.bookingEmail !== undefined && record.bookingEmail !== null && record.bookingEmail !== "") {
+    if (typeof record.bookingEmail !== "string") {
+      return { ok: false, error: "Email address must be a string." };
+    }
+    const trimmedEmail = record.bookingEmail.trim();
+    if (trimmedEmail.length > 0) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+        return { ok: false, error: "Please enter a valid email address." };
+      }
+      if (trimmedEmail.length > 255) {
+        return { ok: false, error: "Email address must be 255 characters or fewer." };
+      }
+      bookingEmail = trimmedEmail.toLowerCase();
+    }
+  }
+
+  return { ok: true, bookingUrl, bookingEmail };
 }
 
 export function validateEngagementUpdate(
@@ -151,6 +217,16 @@ export function validateEngagementUpdate(
   ) {
     return { ok: false, error: "Scheduled date must be a valid YYYY-MM-DD date." };
   }
+  if (record.bookingUrl !== undefined && record.bookingUrl !== null && record.bookingUrl !== "") {
+    if (typeof record.bookingUrl !== "string" || !/^https?:\/\//i.test(record.bookingUrl.trim())) {
+      return { ok: false, error: "Booking link must start with https:// or http://" };
+    }
+  }
+  if (record.bookingEmail !== undefined && record.bookingEmail !== null && record.bookingEmail !== "") {
+    if (typeof record.bookingEmail !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(record.bookingEmail.trim())) {
+      return { ok: false, error: "Please enter a valid email address." };
+    }
+  }
   const cleaned = cleanEngagementState({
     ...record,
     updatedAt: new Date().toISOString()
@@ -168,10 +244,14 @@ export function buildFirmEngagementOverview(input: {
   uploadedDocumentCount: number;
   requiredDocumentCount: number;
   fulfilledRequiredCount: number;
+  bookingUrl?: string | null;
+  bookingEmail?: string | null;
   engagementState?: FirmClientEngagementState | null;
 }): FirmEngagementOverview {
   const firmName = input.firmName?.trim() || "Sponsoring Law Firm";
   const state = cleanEngagementState(input.engagementState);
+  const effectiveBookingUrl = state.bookingUrl ?? input.bookingUrl ?? null;
+  const effectiveBookingEmail = state.bookingEmail ?? input.bookingEmail ?? null;
 
   const lawyerStageIdx = state.stage !== undefined ? STAGE_INDEX[state.stage] : -1;
   const lawyerStageCompleted = state.stageStatus === "completed";
@@ -286,6 +366,14 @@ export function buildFirmEngagementOverview(input: {
             ? `Attorney reviewed intake ${formatShortDate(input.reviewedAt)}`
             : "Ready to schedule after intake review";
         }
+
+        if (effectiveBookingUrl) {
+          actionHref = effectiveBookingUrl;
+          actionLabel = "Book consultation call";
+        } else if (effectiveBookingEmail) {
+          actionHref = `mailto:${effectiveBookingEmail}?subject=${encodeURIComponent(`Initial consultation call - ${firmName}`)}`;
+          actionLabel = "Email to schedule call";
+        }
       } else {
         metaText = "Follows intake & document review";
       }
@@ -386,6 +474,8 @@ export function buildFirmEngagementOverview(input: {
     nextStep,
     scheduledDate: scheduledFormatted,
     attorneyNote: state.note ?? null,
+    bookingUrl: effectiveBookingUrl,
+    bookingEmail: effectiveBookingEmail,
     headline,
     summary
   };

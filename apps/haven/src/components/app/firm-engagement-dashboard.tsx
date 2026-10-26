@@ -6,7 +6,9 @@ import {
   CheckCircle2,
   CircleDot,
   Clock,
+  ExternalLink,
   FileCheck2,
+  Mail,
   MessageSquare
 } from "lucide-react";
 
@@ -15,6 +17,9 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { FirmEngagementOverview } from "@/lib/firms/engagement";
 import { cn } from "@/lib/utils";
+
+const isExternalHref = (href: string) => /^https?:\/\//i.test(href);
+const isMailtoHref = (href: string) => /^mailto:/i.test(href);
 
 export function FirmEngagementDashboard({
   engagement
@@ -32,6 +37,8 @@ export function FirmEngagementDashboard({
     nextStep,
     scheduledDate,
     attorneyNote,
+    bookingUrl,
+    bookingEmail,
     headline,
     summary
   } = engagement;
@@ -102,6 +109,12 @@ export function FirmEngagementDashboard({
                 </div>
               )}
 
+              {currentStep.key === "initial_consultation" && !bookingUrl && !bookingEmail && (
+                <div className="mt-3 rounded-[var(--radius-lg)] border border-[var(--haven-sage-mid)] bg-[var(--haven-white)]/80 px-4 py-2.5 text-body-sm text-[var(--haven-ink-mid)]">
+                  Your sponsoring legal team will review your submitted file and reach out with consultation scheduling instructions.
+                </div>
+              )}
+
               {nextStep && (
                 <p className="pt-1 text-[12px] font-medium text-[var(--haven-ink-mid)]">
                   Up next after this:{" "}
@@ -113,7 +126,38 @@ export function FirmEngagementDashboard({
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-              {currentStep.actionHref && currentStep.actionLabel ? (
+              {currentStep.key === "initial_consultation" ? (
+                <>
+                  {bookingUrl ? (
+                    <a
+                      className={buttonVariants({ variant: "default", size: "sm" })}
+                      href={bookingUrl}
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >
+                      Book consultation call
+                      <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
+                    </a>
+                  ) : bookingEmail ? (
+                    <a
+                      className={buttonVariants({ variant: "default", size: "sm" })}
+                      href={`mailto:${bookingEmail}?subject=${encodeURIComponent(`Initial consultation call - ${firmName}`)}`}
+                    >
+                      <Mail className="mr-1.5 h-3.5 w-3.5" />
+                      Email to schedule call
+                    </a>
+                  ) : null}
+
+                  {bookingUrl && bookingEmail ? (
+                    <a
+                      className="text-body-sm font-medium text-[var(--haven-ink)] underline underline-offset-4 hover:text-[var(--haven-ink-mid)] px-1"
+                      href={`mailto:${bookingEmail}?subject=${encodeURIComponent(`Initial consultation call - ${firmName}`)}`}
+                    >
+                      or email {bookingEmail} to schedule
+                    </a>
+                  ) : null}
+                </>
+              ) : currentStep.actionHref && currentStep.actionLabel ? (
                 <Link
                   className={buttonVariants({ variant: "default", size: "sm" })}
                   href={currentStep.actionHref}
@@ -204,13 +248,33 @@ export function FirmEngagementDashboard({
                   ) : null}
 
                   {step.actionHref && step.actionLabel && !isCompleted ? (
-                    <Link
-                      className="mt-1.5 inline-flex items-center gap-1 text-[12px] font-semibold text-[var(--haven-ink)] underline underline-offset-4 hover:text-[var(--haven-ink-mid)]"
-                      href={step.actionHref}
-                    >
-                      {step.actionLabel}
-                      <ArrowRight className="h-3 w-3" />
-                    </Link>
+                    isExternalHref(step.actionHref) ? (
+                      <a
+                        className="mt-1.5 inline-flex items-center gap-1 text-[12px] font-semibold text-[var(--haven-ink)] underline underline-offset-4 hover:text-[var(--haven-ink-mid)]"
+                        href={step.actionHref}
+                        rel="noopener noreferrer"
+                        target="_blank"
+                      >
+                        {step.actionLabel}
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    ) : isMailtoHref(step.actionHref) ? (
+                      <a
+                        className="mt-1.5 inline-flex items-center gap-1 text-[12px] font-semibold text-[var(--haven-ink)] underline underline-offset-4 hover:text-[var(--haven-ink-mid)]"
+                        href={step.actionHref}
+                      >
+                        {step.actionLabel}
+                        <Mail className="h-3 w-3" />
+                      </a>
+                    ) : (
+                      <Link
+                        className="mt-1.5 inline-flex items-center gap-1 text-[12px] font-semibold text-[var(--haven-ink)] underline underline-offset-4 hover:text-[var(--haven-ink-mid)]"
+                        href={step.actionHref}
+                      >
+                        {step.actionLabel}
+                        <ArrowRight className="h-3 w-3" />
+                      </Link>
+                    )
                   ) : null}
                 </div>
               </div>

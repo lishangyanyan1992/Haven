@@ -18,6 +18,8 @@ export type FirmRow = {
   is_demo: boolean;
   required_documents: RequiredDocumentItem[] | null;
   intake_questions: IntakeQuestionItem[] | null;
+  consultation_booking_url?: string | null;
+  consultation_email?: string | null;
   created_at: string;
 };
 
@@ -52,6 +54,10 @@ export type FirmClientEngagementState = {
   stageStatus?: "in_progress" | "scheduled" | "completed";
   /** Optional ISO date YYYY-MM-DD for consultation call or active milestone. */
   scheduledDate?: string;
+  /** Optional per-client consultation booking URL overriding firm default. */
+  bookingUrl?: string;
+  /** Optional per-client consultation scheduling email overriding firm default. */
+  bookingEmail?: string;
   /** Optional short note from the sponsoring firm to show the client on their Case tab. */
   note?: string;
   updatedAt?: string;
