@@ -1,9 +1,10 @@
 import { requireFirmMember } from "@/lib/firms/access";
-import { listFirmClients } from "@/lib/firms/clients";
+import { getFirmConsultationBooking, listFirmClients } from "@/lib/firms/clients";
 import { getFirmIntakeQuestions } from "@/lib/firms/intake-questions";
 import { getCurrentFirmLink, intakeUrl } from "@/lib/firms/links";
 import { getFirmRequiredDocuments } from "@/lib/firms/required-documents";
 import { noIndexMetadata } from "@/lib/seo";
+import { ConsultationBookingControls } from "./ConsultationBookingControls";
 import { FirmHeader } from "./FirmHeader";
 import { FirmNavTabs } from "./FirmNavTabs";
 import { IntakeQuestionsControls } from "./IntakeQuestionsControls";
@@ -16,11 +17,12 @@ export const dynamic = "force-dynamic";
 
 export default async function FirmDashboardPage() {
   const membership = await requireFirmMember("/firm");
-  const [allClients, link, requiredDocs, intakeQuestions] = await Promise.all([
+  const [allClients, link, requiredDocs, intakeQuestions, booking] = await Promise.all([
     listFirmClients(membership.firmId),
     getCurrentFirmLink(membership.firmId),
     getFirmRequiredDocuments(membership.firmId),
-    getFirmIntakeQuestions(membership.firmId)
+    getFirmIntakeQuestions(membership.firmId),
+    getFirmConsultationBooking(membership.firmId)
   ]);
 
   const leads = allClients.filter((c) => c.pipelineStatus !== "contract_signed");
@@ -48,6 +50,11 @@ export default async function FirmDashboardPage() {
           clientsCount={retainedClients.length}
           current="leads"
           leadsCount={leads.length}
+        />
+
+        <ConsultationBookingControls
+          initialBookingEmail={booking.bookingEmail}
+          initialBookingUrl={booking.bookingUrl}
         />
 
         <IntakeQuestionsControls initialItems={intakeQuestions} />

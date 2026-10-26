@@ -18,6 +18,7 @@ async function main() {
     buildFirmEngagementOverview,
     cleanEngagementState,
     FIRM_ENGAGEMENT_STAGES,
+    validateConsultationBooking,
     validateEngagementUpdate
   } = await import("@/lib/firms/engagement");
   const { buildImmigrationJourney } = await import("@/lib/immigration-journey");
@@ -131,6 +132,181 @@ async function main() {
     "engagement: rejects inherited prototype keys like constructor",
     !inheritedKeyEngagement.ok && !("stage" in cleanEngagementState({ stage: "constructor" })),
     "expected constructor stage to be rejected"
+  );
+
+  // Consultation booking call-to-action checks (Step 3: Initial consultation call)
+  const withBookingUrl = buildFirmEngagementOverview({
+    firmName: "Beacon Immigration Law",
+    isConnectedToFirm: true,
+    joinedAt: "2026-10-18T00:00:00Z",
+    completedAt: "2026-10-19T00:00:00Z",
+    reviewedAt: "2026-10-20T00:00:00Z",
+    uploadedDocumentCount: 4,
+    requiredDocumentCount: 4,
+    fulfilledRequiredCount: 4,
+    bookingUrl: "https://calendly.com/beacon-law/consultation",
+    engagementState: null
+  });
+  check(
+    "engagement cta: firm booking URL generates 'Book consultation call' action",
+    withBookingUrl.currentStep.key === "initial_consultation" &&
+      withBookingUrl.currentStep.actionHref === "https://calendly.com/beacon-law/consultation" &&
+      withBookingUrl.currentStep.actionLabel === "Book consultation call" &&
+      withBookingUrl.bookingUrl === "https://calendly.com/beacon-law/consultation",
+    `got actionHref=${withBookingUrl.currentStep.actionHref}, actionLabel=${withBookingUrl.currentStep.actionLabel}`
+  );
+
+  const withBookingEmail = buildFirmEngagementOverview({
+    firmName: "Beacon Immigration Law",
+    isConnectedToFirm: true,
+    joinedAt: "2026-10-18T00:00:00Z",
+    completedAt: "2026-10-19T00:00:00Z",
+    reviewedAt: "2026-10-20T00:00:00Z",
+    uploadedDocumentCount: 4,
+    requiredDocumentCount: 4,
+    fulfilledRequiredCount: 4,
+    bookingEmail: "consultations@beaconlaw.com",
+    engagementState: null
+  });
+  check(
+    "engagement cta: firm scheduling email generates mailto action",
+    withBookingEmail.currentStep.key === "initial_consultation" &&
+      Boolean(withBookingEmail.currentStep.actionHref?.startsWith("mailto:consultations@beaconlaw.com")) &&
+      withBookingEmail.currentStep.actionLabel === "Email to schedule call" &&
+      withBookingEmail.bookingEmail === "consultations@beaconlaw.com",
+    `got actionHref=${withBookingEmail.currentStep.actionHref}, actionLabel=${withBookingEmail.currentStep.actionLabel}`
+  );
+
+  const withDualChannels = buildFirmEngagementOverview({
+    firmName: "Beacon Immigration Law",
+    isConnectedToFirm: true,
+    joinedAt: "2026-10-18T00:00:00Z",
+    completedAt: "2026-10-19T00:00:00Z",
+    reviewedAt: "2026-10-20T00:00:00Z",
+    uploadedDocumentCount: 4,
+    requiredDocumentCount: 4,
+    fulfilledRequiredCount: 4,
+    bookingUrl: "https://calendly.com/beacon-law/consultation",
+    bookingEmail: "consultations@beaconlaw.com",
+    engagementState: null
+  });
+  check(
+    "engagement cta: dual channels preserves both and prioritizes booking URL as primary action",
+    withDualChannels.currentStep.key === "initial_consultation" &&
+      withDualChannels.currentStep.actionHref === "https://calendly.com/beacon-law/consultation" &&
+      withDualChannels.currentStep.actionLabel === "Book consultation call" &&
+      withDualChannels.bookingUrl === "https://calendly.com/beacon-law/consultation" &&
+      withDualChannels.bookingEmail === "consultations@beaconlaw.com",
+    `got url=${withDualChannels.bookingUrl}, email=${withDualChannels.bookingEmail}`
+  );
+
+  const withClientOverride = buildFirmEngagementOverview({
+    firmName: "Beacon Immigration Law",
+    isConnectedToFirm: true,
+    joinedAt: "2026-10-18T00:00:00Z",
+    completedAt: "2026-10-19T00:00:00Z",
+    reviewedAt: "2026-10-20T00:00:00Z",
+    uploadedDocumentCount: 4,
+    requiredDocumentCount: 4,
+    fulfilledRequiredCount: 4,
+    bookingUrl: "https://calendly.com/beacon-law/default",
+    bookingEmail: "default@beaconlaw.com",
+    engagementState: {
+      bookingUrl: "https://calendly.com/beacon-law/partner-override",
+      bookingEmail: "partner@beaconlaw.com"
+    }
+  });
+  check(
+    "engagement cta: per-client engagement override takes precedence over firm defaults",
+    withClientOverride.bookingUrl === "https://calendly.com/beacon-law/partner-override" &&
+      withClientOverride.bookingEmail === "partner@beaconlaw.com" &&
+      withClientOverride.currentStep.actionHref === "https://calendly.com/beacon-law/partner-override",
+    `got url=${withClientOverride.bookingUrl}, actionHref=${withClientOverride.currentStep.actionHref}`
+  );
+
+  const unconfigured = buildFirmEngagementOverview({
+    firmName: "Beacon Immigration Law",
+    isConnectedToFirm: true,
+    joinedAt: "2026-10-18T00:00:00Z",
+    completedAt: "2026-10-19T00:00:00Z",
+    reviewedAt: "2026-10-20T00:00:00Z",
+    uploadedDocumentCount: 4,
+    requiredDocumentCount: 4,
+    fulfilledRequiredCount: 4,
+    engagementState: null
+  });
+  check(
+    "engagement cta: unconfigured firm leaves booking channels empty with no action button",
+    unconfigured.bookingUrl === null &&
+      unconfigured.bookingEmail === null &&
+      unconfigured.currentStep.actionHref === undefined,
+    `got bookingUrl=${unconfigured.bookingUrl}, actionHref=${unconfigured.currentStep.actionHref}`
+  );
+
+  const validBookingConfig = validateConsultationBooking({
+    bookingUrl: "  https://calendly.com/test  ",
+    bookingEmail: "  TEAM@FIRM.COM  "
+  });
+  check(
+    "validation: trims and normalizes valid booking config",
+    validBookingConfig.ok &&
+      validBookingConfig.bookingUrl === "https://calendly.com/test" &&
+      validBookingConfig.bookingEmail === "team@firm.com",
+    JSON.stringify(validBookingConfig)
+  );
+
+  const invalidUrlConfig = validateConsultationBooking({
+    bookingUrl: "javascript:alert(1)"
+  });
+  check(
+    "validation: rejects non-http/https booking URL",
+    !invalidUrlConfig.ok,
+    "expected invalid URL to be rejected"
+  );
+
+  const invalidEmailConfig = validateConsultationBooking({
+    bookingEmail: "not-an-email"
+  });
+  check(
+    "validation: rejects malformed booking email",
+    !invalidEmailConfig.ok,
+    "expected invalid email to be rejected"
+  );
+
+  const bareSchemeConfig = validateConsultationBooking({
+    bookingUrl: "https://"
+  });
+  check(
+    "validation: rejects bare scheme without destination in firm booking",
+    !bareSchemeConfig.ok,
+    "expected bare https:// to be rejected"
+  );
+
+  const bareSchemeEngagement = validateEngagementUpdate({
+    bookingUrl: "https://"
+  });
+  check(
+    "validation: rejects bare scheme in client engagement override",
+    !bareSchemeEngagement.ok,
+    "expected bare https:// in engagement override to be rejected"
+  );
+
+  const overlengthEngagementUrl = validateEngagementUpdate({
+    bookingUrl: `https://calendly.com/${"a".repeat(1005)}`
+  });
+  check(
+    "validation: rejects overlength booking URL in client engagement override",
+    !overlengthEngagementUrl.ok,
+    "expected overlength URL to be rejected"
+  );
+
+  const overlengthEngagementEmail = validateEngagementUpdate({
+    bookingEmail: `${"a".repeat(250)}@example.com`
+  });
+  check(
+    "validation: rejects overlength email in client engagement override",
+    !overlengthEngagementEmail.ok,
+    "expected overlength email to be rejected"
   );
 
   // 4. Overlaid Immigration Journey checks

@@ -452,3 +452,49 @@ export async function getFirmClientDossier(firmId: string, firmClientId: string)
     documents: docsWithUrls
   };
 }
+
+export type FirmConsultationBooking = {
+  bookingUrl: string | null;
+  bookingEmail: string | null;
+};
+
+/** Load the sponsoring firm's consultation booking channels. */
+export async function getFirmConsultationBooking(firmId: string): Promise<FirmConsultationBooking> {
+  const { data, error } = await admin()
+    .from("firms")
+    .select("consultation_booking_url, consultation_email")
+    .eq("id", firmId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Could not load firm consultation booking: ${error.message}`);
+  }
+
+  return {
+    bookingUrl: data?.consultation_booking_url ?? null,
+    bookingEmail: data?.consultation_email ?? null
+  };
+}
+
+/** Save or clear the sponsoring firm's consultation booking channels. */
+export async function saveFirmConsultationBooking(
+  firmId: string,
+  input: { bookingUrl?: string | null; bookingEmail?: string | null }
+): Promise<FirmConsultationBooking> {
+  const { error } = await admin()
+    .from("firms")
+    .update({
+      consultation_booking_url: input.bookingUrl ?? null,
+      consultation_email: input.bookingEmail ?? null
+    })
+    .eq("id", firmId);
+
+  if (error) {
+    throw new Error(`Could not save firm consultation booking: ${error.message}`);
+  }
+
+  return {
+    bookingUrl: input.bookingUrl ?? null,
+    bookingEmail: input.bookingEmail ?? null
+  };
+}

@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import {
   buildFirmEngagementOverview,
-  FIRM_ENGAGEMENT_STAGES
+  FIRM_ENGAGEMENT_STAGES,
+  isValidBookingUrl
 } from "@/lib/firms/engagement";
 import type { FirmClientEngagementState, FirmEngagementStageKey } from "@/lib/firms/types";
 import { saveFirmClientEngagementAction } from "@/server/firm-actions";
@@ -51,7 +52,9 @@ function stateToOptionValue(state: FirmClientEngagementState): string {
 function optionValueToState(
   optionValue: string,
   scheduledDate: string,
-  note: string
+  note: string,
+  bookingUrl?: string,
+  bookingEmail?: string
 ): FirmClientEngagementState {
   const out: FirmClientEngagementState = {};
   if (optionValue !== "auto" && optionValue.includes(":")) {
@@ -64,6 +67,12 @@ function optionValueToState(
   }
   if (scheduledDate.trim()) {
     out.scheduledDate = scheduledDate.trim();
+  }
+  if (bookingUrl?.trim()) {
+    out.bookingUrl = bookingUrl.trim();
+  }
+  if (bookingEmail?.trim()) {
+    out.bookingEmail = bookingEmail.trim();
   }
   if (note.trim()) {
     out.note = note.trim();
@@ -94,12 +103,14 @@ export function EngagementStageControls({
 }) {
   const [selectedOption, setSelectedOption] = useState<string>(() => stateToOptionValue(initialState));
   const [scheduledDate, setScheduledDate] = useState<string>(initialState.scheduledDate ?? "");
+  const [bookingUrl, setBookingUrl] = useState<string>(initialState.bookingUrl ?? "");
+  const [bookingEmail, setBookingEmail] = useState<string>(initialState.bookingEmail ?? "");
   const [note, setNote] = useState<string>(initialState.note ?? "");
   const [savedState, setSavedState] = useState<FirmClientEngagementState>(initialState);
   const [feedback, setFeedback] = useState<{ kind: "ok" | "error"; message: string } | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const liveDraft = optionValueToState(selectedOption, scheduledDate, note);
+  const liveDraft = optionValueToState(selectedOption, scheduledDate, note, bookingUrl, bookingEmail);
   const overview = buildFirmEngagementOverview({
     firmName,
     isConnectedToFirm: true,
@@ -115,12 +126,25 @@ export function EngagementStageControls({
   const isDirty =
     selectedOption !== stateToOptionValue(savedState) ||
     scheduledDate.trim() !== (savedState.scheduledDate ?? "") ||
+    bookingUrl.trim() !== (savedState.bookingUrl ?? "") ||
+    bookingEmail.trim() !== (savedState.bookingEmail ?? "") ||
     note.trim() !== (savedState.note ?? "");
 
   function handleSave() {
     setFeedback(null);
+    const trimmedUrl = bookingUrl.trim();
+    if (trimmedUrl && !isValidBookingUrl(trimmedUrl)) {
+      setFeedback({ kind: "error", message: "Booking link must start with https:// or http:// and include a valid destination." });
+      return;
+    }
+    const trimmedEmail = bookingEmail.trim();
+    if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setFeedback({ kind: "error", message: "Please enter a valid email address." });
+      return;
+    }
+
     startTransition(async () => {
-      const payload = optionValueToState(selectedOption, scheduledDate, note);
+      const payload = optionValueToState(selectedOption, scheduledDate, note, bookingUrl, bookingEmail);
       const res = await saveFirmClientEngagementAction(firmClientId, payload);
       if (res.ok) {
         setSavedState(res.state);
@@ -221,6 +245,35 @@ export function EngagementStageControls({
             onChange={(e) => setNote(e.target.value)}
             placeholder="e.g. Call booked with Maria for Thursday at 2pm PT"
             value={note}
+          />
+        </div>
+      </div>
+
+      {/* Consultation scheduling override */}
+      <div className="mt-4 grid gap-4 border-t border-[var(--color-border)] pt-4 md:grid-cols-2">
+        <div>
+          <label className="field-label" htmlFor="firm-client-booking-url">
+            Client booking link override <span className="font-normal text-[var(--haven-ink-light)]">(optional)</span>
+          </label>
+          <Input
+            id="firm-client-booking-url"
+            onChange={(e) => setBookingUrl(e.target.value)}
+            placeholder="https://calendly.com/lawyer/custom-link"
+            type="url"
+            value={bookingUrl}
+          />
+        </div>
+
+        <div>
+          <label className="field-label" htmlFor="firm-client-booking-email">
+            Client scheduling email override <span className="font-normal text-[var(--haven-ink-light)]">(optional)</span>
+          </label>
+          <Input
+            id="firm-client-booking-email"
+            onChange={(e) => setBookingEmail(e.target.value)}
+            placeholder="attorney@yourfirm.com"
+            type="email"
+            value={bookingEmail}
           />
         </div>
       </div>

@@ -344,6 +344,8 @@ export type ClientFirmEngagementRecord = {
   joinedAt: string | null;
   completedAt: string | null;
   reviewedAt: string | null;
+  bookingUrl: string | null;
+  bookingEmail: string | null;
   engagementState: FirmClientEngagementState;
 };
 
@@ -354,17 +356,23 @@ export async function getClientFirmEngagementRecord(
   if (!userId) return null;
   const { data } = await admin()
     .from("firm_clients")
-    .select("*, firms(name)")
+    .select("*, firms(name, consultation_booking_url, consultation_email)")
     .eq("user_id", userId)
     .maybeSingle();
   if (!data?.joined_at) return null;
+  const clientState = cleanEngagementState(data.engagement_state);
+  const bookingUrl = clientState.bookingUrl ?? data.firms?.consultation_booking_url ?? null;
+  const bookingEmail = clientState.bookingEmail ?? data.firms?.consultation_email ?? null;
+
   return {
     firmId: data.firm_id,
     firmName: data.firms?.name ?? "your law firm",
     joinedAt: data.joined_at ?? null,
     completedAt: data.completed_at ?? null,
     reviewedAt: data.reviewed_at ?? null,
-    engagementState: cleanEngagementState(data.engagement_state)
+    bookingUrl,
+    bookingEmail,
+    engagementState: clientState
   };
 }
 

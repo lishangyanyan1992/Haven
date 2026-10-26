@@ -140,6 +140,8 @@ export default async function DashboardPage({
     uploadedDocumentCount: manualDocuments.length,
     requiredDocumentCount: requiredDocs.length,
     fulfilledRequiredCount,
+    bookingUrl: firmRecord?.bookingUrl ?? null,
+    bookingEmail: firmRecord?.bookingEmail ?? null,
     engagementState: firmRecord?.engagementState ?? null
   });
 
