@@ -636,9 +636,9 @@ export function synthesizePetitions(
                 : "I-485 Filed";
 
     const approvalDate = parseIsoDate(profile.i140ApprovalDate ?? null);
-    const isRevocationProtected = activeStage === "i140_approved" && Boolean(
-      approvalDate && approvalDate.getTime() + 180 * DAY_MS <= nowUtc.getTime()
-    );
+    const isRevocationProtected =
+      (activeStage === "i140_approved" || activeStage === "i485_filed") &&
+      Boolean(approvalDate && approvalDate.getTime() + 180 * DAY_MS <= nowUtc.getTime());
 
     summaries.push({
       id: "current-active-petition",
