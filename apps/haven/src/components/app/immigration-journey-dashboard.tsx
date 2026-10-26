@@ -122,7 +122,7 @@ function PinInspectionPopover({
 }: {
   pin: PinPopoverData;
   onClose: () => void;
-  position?: "top" | "bottom";
+  position?: "top" | "bottom" | "inline";
 }) {
   const isToday = Boolean(pin.isToday || pin.id.includes("today"));
   const daysDiff = pin.daysDiff;
@@ -143,13 +143,23 @@ function PinInspectionPopover({
       role="dialog"
       aria-label={`${pin.label} inspection details`}
       className={cn(
-        "absolute z-50 w-72 max-w-[calc(100vw-32px)] rounded-[var(--radius-xl)] border border-[var(--color-border-mid)] bg-[var(--haven-white)] p-3.5 shadow-xl transition-all pointer-events-auto",
-        "-translate-x-1/2",
-        position === "top" ? "bottom-full mb-3" : "top-full mt-3"
+        "z-50 rounded-[var(--radius-xl)] border border-[var(--color-border-mid)] bg-[var(--haven-white)] p-3.5 shadow-xl transition-all pointer-events-auto",
+        position === "inline"
+          ? "static w-full max-w-full translate-x-0"
+          : "absolute w-72 max-w-[calc(100vw-32px)] -translate-x-1/2",
+        position === "top"
+          ? "bottom-full mb-3"
+          : position === "bottom"
+            ? "top-full mt-3"
+            : ""
       )}
-      style={{
-        left: `clamp(148px, ${pin.percent}%, calc(100% - 148px))`
-      }}
+      style={
+        position === "inline"
+          ? undefined
+          : {
+              left: `clamp(148px, ${pin.percent}%, calc(100% - 148px))`
+            }
+      }
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -250,9 +260,15 @@ export function ImmigrationJourneyDashboard({
     };
   }, [activeInspectedPinId]);
 
-  const handleSelectPin = (pinId: string) => {
-    setActiveInspectedPinId((prev) => (isPinActive(pinId, prev) ? null : pinId));
-    if (typeof document !== "undefined") {
+  const handleSelectPin = (pinId: string, options?: { scrollIntoView?: boolean }) => {
+    const isCurrentlyActive = isPinActive(pinId, activeInspectedPinId);
+    if (isCurrentlyActive) {
+      setActiveInspectedPinId(null);
+      return;
+    }
+
+    setActiveInspectedPinId(pinId);
+    if (options?.scrollIntoView && typeof document !== "undefined") {
       setTimeout(() => {
         const targets = [
           pinId,
@@ -1318,6 +1334,9 @@ function TacticalTimelineWindow({
   activePinId: string | null;
   onSelectPin: (pinId: string) => void;
 }) {
+  const activeTacticalPin = tacticalWindow.pins.find((pin) =>
+    isPinActive(pin.id, activePinId)
+  );
   const upcomingUrgentPin = tacticalWindow.pins.find(
     (p) => p.status === "urgent" && p.daysDiff >= 0 && !p.isToday
   );
@@ -1430,7 +1449,7 @@ function TacticalTimelineWindow({
                     />
                   </div>
                   {isActive && (
-                    <div className="pointer-events-none absolute inset-x-0 top-[-15px] z-50">
+                    <div className="hidden pointer-events-none absolute inset-x-0 top-[-15px] z-50 sm:block">
                       <PinInspectionPopover
                         pin={pin}
                         onClose={() => onSelectPin(pin.id)}
@@ -1462,6 +1481,17 @@ function TacticalTimelineWindow({
           </div>
         </div>
       </div>
+
+      {/* Mobile inline inspection card (unclipped by scroll container) */}
+      {activeTacticalPin && (
+        <div className="mt-3 sm:hidden">
+          <PinInspectionPopover
+            pin={activeTacticalPin}
+            onClose={() => onSelectPin(activeTacticalPin.id)}
+            position="inline"
+          />
+        </div>
+      )}
 
       {/* Sequential Milestone Flow Cards (Collision-Free Grid) */}
       <div className="mt-5 border-t border-[var(--color-border)] pt-4">
