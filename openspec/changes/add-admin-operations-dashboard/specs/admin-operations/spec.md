@@ -15,15 +15,15 @@ The system SHALL restrict access to `/admin` routes to authenticated users whose
 
 #### Scenario: Reviewer email without admin listing
 - **WHEN** `ADMIN_EMAILS` is empty and an authenticated user whose email is only in `COMMUNITY_IMPORT_REVIEWER_EMAILS`, and who has no valid admin passcode session, visits `/admin`
-- **THEN** the system denies access
+- **THEN** the system denies access and renders the admin passcode form instead of the dashboard
 
 #### Scenario: Unauthorized authenticated user
-- **WHEN** an authenticated user whose email is not in the authorized admin list visits `/admin`
-- **THEN** the system denies access and redirects to an unauthorized notice or home page
+- **WHEN** an authenticated user whose email is not in the authorized admin list, and who has no valid admin passcode session, visits `/admin`
+- **THEN** the system denies access and renders the admin passcode form instead of the dashboard
 
 #### Scenario: Unauthenticated visitor
-- **WHEN** an unauthenticated visitor navigates to `/admin`
-- **THEN** the system redirects the visitor to `/login?redirectTo=/admin`
+- **WHEN** an unauthenticated visitor without a valid admin passcode session navigates to `/admin`
+- **THEN** the system renders the admin passcode form instead of the dashboard
 
 ### Requirement: System Operational Health Overview
 The system SHALL present an operational health summary at `/admin` displaying actionable alerts when background feeds are stale or moderation items require attention.
