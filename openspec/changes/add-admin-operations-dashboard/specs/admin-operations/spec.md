@@ -14,7 +14,7 @@ The system SHALL restrict access to `/admin` routes to authenticated users whose
 - **THEN** the system grants access and renders the admin dashboard
 
 #### Scenario: Reviewer email without admin listing
-- **WHEN** `ADMIN_EMAILS` is empty and an authenticated user whose email is only in `COMMUNITY_IMPORT_REVIEWER_EMAILS` visits `/admin`
+- **WHEN** `ADMIN_EMAILS` is empty and an authenticated user whose email is only in `COMMUNITY_IMPORT_REVIEWER_EMAILS`, and who has no valid admin passcode session, visits `/admin`
 - **THEN** the system denies access
 
 #### Scenario: Unauthorized authenticated user

@@ -36,6 +36,6 @@ None.
   - `apps/haven/src/app/admin/community-imports/page.tsx` (shared admin authorization logic)
 - **Server Actions & Utilities**:
   - Admin server actions for triggering bulletin synchronization on demand and querying operational metrics.
-  - Auth helper checking `ADMIN_EMAILS` / `COMMUNITY_IMPORT_REVIEWER_EMAILS`.
+  - Auth helper checking `ADMIN_EMAILS` only.
 - **Environment & Configuration**:
   - `ADMIN_EMAILS` added to `env.ts` schema and `.env.example`.
