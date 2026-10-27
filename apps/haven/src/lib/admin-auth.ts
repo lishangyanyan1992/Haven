@@ -57,10 +57,9 @@ export async function hasAdminPasscodeCookie(): Promise<boolean> {
 }
 
 export function getAllowedAdminEmails(): Set<string> {
-  const adminEmails = env.ADMIN_EMAILS?.trim();
-  const raw = adminEmails && adminEmails.length > 0
-    ? adminEmails
-    : env.COMMUNITY_IMPORT_REVIEWER_EMAILS ?? "";
+  // Only ADMIN_EMAILS grants admin access. There is deliberately no fallback
+  // to other email lists.
+  const raw = env.ADMIN_EMAILS?.trim() ?? "";
 
   return new Set(
     raw
