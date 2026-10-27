@@ -10,7 +10,7 @@ An administrative overview at `/admin` solves this by giving the admin immediate
 
 - **Admin Root Page (`/admin`)**: Create an admin dashboard in `apps/haven/src/app/admin/page.tsx` featuring an "Action Required" triage banner and key health cards.
 - **Admin Navigation**: Add sub-navigation between `/admin` (Overview) and `/admin/community-imports` (Community Stories).
-- **Unified Access Control**: Introduce `ADMIN_EMAILS` configuration in environment settings for admin gating, falling back to existing `COMMUNITY_IMPORT_REVIEWER_EMAILS` for backward compatibility.
+- **Unified Access Control**: Introduce `ADMIN_EMAILS` configuration in environment settings for admin gating. (The original fallback to `COMMUNITY_IMPORT_REVIEWER_EMAILS` was removed on 2026-10-26.)
 - **Visa Bulletin Freshness Monitoring**:
   - Display the latest held bulletin month, age in days, last sync timestamp, and freshness status (`CURRENT` vs `STALE`).
   - Flag the bulletin as stale when held month lags the current calendar month or exceeds 35 days without a new release.

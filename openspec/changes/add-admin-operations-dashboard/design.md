@@ -10,7 +10,7 @@ The Visa Bulletin sync logic is currently embedded in the `/api/internal/sync-bu
 
 **Goals:**
 - Provide a unified admin layout (`/admin/layout.tsx`) with shared authentication and navigation between Overview and Community Imports.
-- Implement a reusable authentication helper (`requireAdminUser()`) supporting `ADMIN_EMAILS` with backward-compatible fallback to `COMMUNITY_IMPORT_REVIEWER_EMAILS`.
+- Implement a reusable authentication helper (`requireAdminUser()`) supporting `ADMIN_EMAILS` only (the earlier fallback to `COMMUNITY_IMPORT_REVIEWER_EMAILS` was removed on 2026-10-26 for security).
 - Extract bulletin synchronization into a shared library module (`executeVisaBulletinSync`) callable by both the cron endpoint and the admin server action.
 - Build a server-rendered dashboard at `/admin/page.tsx` displaying:
   - Triage / Action Required banner for stale feeds and pending items.
@@ -27,7 +27,7 @@ The Visa Bulletin sync logic is currently embedded in the `/api/internal/sync-bu
 ## Decisions
 
 ### 1. Centralized Admin Authentication Helper
-- **Decision**: Create `apps/haven/src/lib/admin-auth.ts` defining `getAdminUser()` and `requireAdminUser()`. It parses comma-delimited emails from `ADMIN_EMAILS`, falling back to `COMMUNITY_IMPORT_REVIEWER_EMAILS`.
+- **Decision**: Create `apps/haven/src/lib/admin-auth.ts` defining `getAdminUser()` and `requireAdminUser()`. It parses comma-delimited emails from `ADMIN_EMAILS`. There is no fallback to `COMMUNITY_IMPORT_REVIEWER_EMAILS` (removed 2026-10-26).
 - **Alternatives Considered**:
   - *Keep separate checks in each page*: Leads to configuration drift and inconsistent redirects.
   - *Database-backed roles in user_profiles*: Requires schema migrations and user administration UI, which is overly complex for the current team size.

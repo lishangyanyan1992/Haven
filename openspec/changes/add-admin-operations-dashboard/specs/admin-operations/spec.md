@@ -7,11 +7,15 @@ Provides a central administrative dashboard and operational controls for Haven a
 ## ADDED Requirements
 
 ### Requirement: Admin Access Control
-The system SHALL restrict access to `/admin` routes to authenticated users whose email address appears in the configured `ADMIN_EMAILS` list or the fallback `COMMUNITY_IMPORT_REVIEWER_EMAILS` list.
+The system SHALL restrict access to `/admin` routes to authenticated users whose email address appears in the configured `ADMIN_EMAILS` list, or to visitors holding a valid admin passcode session. `COMMUNITY_IMPORT_REVIEWER_EMAILS` SHALL NOT grant admin access.
 
 #### Scenario: Authorized admin access
 - **WHEN** an authenticated user whose email is in `ADMIN_EMAILS` visits `/admin`
 - **THEN** the system grants access and renders the admin dashboard
+
+#### Scenario: Reviewer email without admin listing
+- **WHEN** `ADMIN_EMAILS` is empty and an authenticated user whose email is only in `COMMUNITY_IMPORT_REVIEWER_EMAILS` visits `/admin`
+- **THEN** the system denies access
 
 #### Scenario: Unauthorized authenticated user
 - **WHEN** an authenticated user whose email is not in the authorized admin list visits `/admin`
