@@ -49,10 +49,12 @@ function runTests() {
     env.ADMIN_PASSCODE = undefined;
 
     // Wrong-guess limit
-    assert.ok(!isPasscodeLockedOut({ visitor: 0, overall: 0 }));
-    assert.ok(!isPasscodeLockedOut({ visitor: ADMIN_PASSCODE_LIMITS.perVisitor - 1, overall: 0 }));
-    assert.ok(isPasscodeLockedOut({ visitor: ADMIN_PASSCODE_LIMITS.perVisitor, overall: 0 }));
-    assert.ok(isPasscodeLockedOut({ visitor: 0, overall: ADMIN_PASSCODE_LIMITS.overall }));
+    // (counts include the try being checked)
+    assert.ok(!isPasscodeLockedOut({ visitor: 1, overall: 1 }));
+    assert.ok(!isPasscodeLockedOut({ visitor: ADMIN_PASSCODE_LIMITS.perVisitor, overall: 1 }));
+    assert.ok(isPasscodeLockedOut({ visitor: ADMIN_PASSCODE_LIMITS.perVisitor + 1, overall: 1 }));
+    assert.ok(!isPasscodeLockedOut({ visitor: 1, overall: ADMIN_PASSCODE_LIMITS.overall }));
+    assert.ok(isPasscodeLockedOut({ visitor: 1, overall: ADMIN_PASSCODE_LIMITS.overall + 1 }));
 
     // 2. Email authorization tests
     env.ADMIN_EMAILS = undefined;

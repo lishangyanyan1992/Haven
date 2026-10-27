@@ -11,7 +11,7 @@ import {
   isPasscodeLoginEnabled,
   isValidPasscode
 } from "@/lib/admin-auth";
-import { isAdminPasscodeLocked, recordAdminPasscodeFailure } from "@/lib/admin-passcode-limit";
+import { reserveAdminPasscodeAttempt } from "@/lib/admin-passcode-limit";
 import { executeVisaBulletinSync } from "@/lib/visa-bulletin-sync";
 
 export type VerifyAdminPasscodeState = {
@@ -38,21 +38,24 @@ export async function verifyAdminPasscodeAction(
   const ip =
     headerList.get("x-forwarded-for")?.split(",")[0]?.trim() || headerList.get("x-real-ip") || "unknown";
 
-  if (await isAdminPasscodeLocked(ip)) {
+  const attempt = await reserveAdminPasscodeAttempt(ip);
+  if (!attempt.allowed) {
     return {
       status: "error",
-      error: "Too many wrong tries. Please wait 15 minutes and try again."
+      error: "Too many wrong tries. Please wait up to an hour and try again, or sign in with an admin account."
     };
   }
 
   const token = getExpectedAdminToken();
   if (!isValidPasscode(passcode) || !token) {
-    await recordAdminPasscodeFailure(ip);
+    // The attempt stays recorded as a wrong guess.
     return {
       status: "error",
       error: "Incorrect passcode. Please try again."
     };
   }
+
+  await attempt.forget();
 
   const cookieStore = await cookies();
   cookieStore.set(ADMIN_PASSCODE_COOKIE_NAME, token, {

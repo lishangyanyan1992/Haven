@@ -1,4 +1,5 @@
--- Wrong admin passcode guesses, used to lock out repeated guessing.
+-- Admin passcode attempts, used to lock out repeated guessing. Each try is
+-- written before it is checked; right passcodes and refused tries are removed.
 -- Only the server (service role) reads or writes this table.
 create table if not exists public.admin_passcode_failures (
   id bigserial primary key,
