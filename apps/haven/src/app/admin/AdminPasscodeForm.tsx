@@ -44,7 +44,7 @@ export function AdminPasscodeForm() {
               required
               autoComplete="current-password"
               placeholder="Enter passcode"
-              className="text-center font-mono tracking-widest text-base"
+              className="text-center font-mono text-base"
             />
           </div>
 

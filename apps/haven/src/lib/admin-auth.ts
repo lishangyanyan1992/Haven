@@ -6,23 +6,34 @@ import type { User } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export const DEFAULT_ADMIN_PASSCODE = "901008";
 export const ADMIN_PASSCODE_COOKIE_NAME = "haven_admin_token";
 
-export function getAdminPasscode(): string {
+// There is no built-in passcode. Passcode sign-in only works when
+// ADMIN_PASSCODE is set to something long enough that guessing it is hopeless;
+// otherwise only the emails in ADMIN_EMAILS can get in.
+export const MIN_ADMIN_PASSCODE_LENGTH = 16;
+
+export function getAdminPasscode(): string | null {
   const custom = env.ADMIN_PASSCODE?.trim();
-  return custom && custom.length > 0 ? custom : DEFAULT_ADMIN_PASSCODE;
+  if (!custom || custom.length < MIN_ADMIN_PASSCODE_LENGTH) return null;
+  return custom;
 }
 
-export function getExpectedAdminToken(): string {
+export function isPasscodeLoginEnabled(): boolean {
+  return getAdminPasscode() !== null && Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+}
+
+export function getExpectedAdminToken(): string | null {
   const passcode = getAdminPasscode();
-  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || "haven-admin-secret-salt";
+  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!passcode || !secret) return null;
   return createHmac("sha256", secret).update(`admin-passcode:${passcode}`).digest("hex");
 }
 
 export function isValidPasscode(input: string | null | undefined): boolean {
   if (!input) return false;
   const expected = getAdminPasscode();
+  if (!expected) return false;
   const inputBuf = Buffer.from(input.trim());
   const expectedBuf = Buffer.from(expected);
   if (inputBuf.length !== expectedBuf.length) return false;
@@ -35,6 +46,7 @@ export async function hasAdminPasscodeCookie(): Promise<boolean> {
     const token = cookieStore.get(ADMIN_PASSCODE_COOKIE_NAME)?.value;
     if (!token) return false;
     const expected = getExpectedAdminToken();
+    if (!expected) return false;
     const tokenBuf = Buffer.from(token);
     const expectedBuf = Buffer.from(expected);
     if (tokenBuf.length !== expectedBuf.length) return false;
@@ -45,10 +57,9 @@ export async function hasAdminPasscodeCookie(): Promise<boolean> {
 }
 
 export function getAllowedAdminEmails(): Set<string> {
-  const adminEmails = env.ADMIN_EMAILS?.trim();
-  const raw = adminEmails && adminEmails.length > 0
-    ? adminEmails
-    : env.COMMUNITY_IMPORT_REVIEWER_EMAILS ?? "";
+  // Only ADMIN_EMAILS grants admin access. There is deliberately no fallback
+  // to other email lists.
+  const raw = env.ADMIN_EMAILS?.trim() ?? "";
 
   return new Set(
     raw

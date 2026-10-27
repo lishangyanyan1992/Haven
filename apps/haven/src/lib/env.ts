@@ -39,6 +39,7 @@ const envSchema = z.object({
   COMMUNITY_IMPORT_SECRET: z.string().optional(),
   COMMUNITY_IMPORT_REVIEWER_EMAILS: z.string().optional(),
   ADMIN_EMAILS: z.string().optional(),
+  // At least 16 characters; shorter values turn passcode sign-in off.
   ADMIN_PASSCODE: z.string().optional(),
   VISA_BULLETIN_SYNC_SECRET: z.string().optional(),
   MAILGUN_API_KEY: z.string().optional(),

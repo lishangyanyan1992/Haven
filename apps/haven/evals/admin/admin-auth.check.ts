@@ -2,60 +2,75 @@ import assert from "node:assert/strict";
 
 import { env } from "@/lib/env";
 import {
-  DEFAULT_ADMIN_PASSCODE,
+  getAdminPasscode,
   getAllowedAdminEmails,
   getExpectedAdminToken,
   isAdminEmail,
   isValidPasscode
 } from "@/lib/admin-auth";
+import { ADMIN_PASSCODE_LIMITS, isPasscodeLockedOut } from "@/lib/admin-passcode-limit";
 
 function runTests() {
-  // Test fallback to COMMUNITY_IMPORT_REVIEWER_EMAILS when ADMIN_EMAILS is empty
   const originalAdmin = env.ADMIN_EMAILS;
   const originalReviewer = env.COMMUNITY_IMPORT_REVIEWER_EMAILS;
   const originalPasscode = env.ADMIN_PASSCODE;
 
   try {
-    // 1. Passcode verification tests
-    assert.equal(DEFAULT_ADMIN_PASSCODE, "901008");
+    // 1. No built-in passcode: unset means passcode sign-in is off
     env.ADMIN_PASSCODE = undefined;
-    assert.ok(isValidPasscode("901008"));
-    assert.ok(isValidPasscode("  901008  "));
-    assert.ok(!isValidPasscode("123456"));
+    assert.equal(getAdminPasscode(), null);
+    assert.ok(!isValidPasscode("901008"));
     assert.ok(!isValidPasscode(""));
     assert.ok(!isValidPasscode(null));
     assert.ok(!isValidPasscode(undefined));
+    assert.equal(getExpectedAdminToken(), null);
 
-    // Custom passcode override
-    env.ADMIN_PASSCODE = "secret-pass-789";
-    assert.ok(isValidPasscode("secret-pass-789"));
+    // A short passcode is refused outright
+    env.ADMIN_PASSCODE = "901008";
+    assert.equal(getAdminPasscode(), null);
     assert.ok(!isValidPasscode("901008"));
-    assert.ok(getExpectedAdminToken().length > 0);
+    env.ADMIN_PASSCODE = "fifteen-chars-x";
+    assert.equal(getAdminPasscode(), null);
+
+    // A long passcode works, trimmed
+    const longPasscode = "a-long-secret-passcode-2026";
+    env.ADMIN_PASSCODE = longPasscode;
+    assert.ok(isValidPasscode(longPasscode));
+    assert.ok(isValidPasscode(`  ${longPasscode}  `));
+    assert.ok(!isValidPasscode("901008"));
+    assert.ok(!isValidPasscode(`${longPasscode}x`));
+    const originalServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    process.env.SUPABASE_SERVICE_ROLE_KEY = originalServiceKey || "test-service-key";
+    assert.ok((getExpectedAdminToken() ?? "").length > 0);
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    assert.equal(getExpectedAdminToken(), null);
+    if (originalServiceKey !== undefined) process.env.SUPABASE_SERVICE_ROLE_KEY = originalServiceKey;
     env.ADMIN_PASSCODE = undefined;
 
-    // 2. Email authorization tests
+    // Wrong-guess limit
+    // (counts include the try being checked)
+    assert.ok(!isPasscodeLockedOut({ visitor: 1, overall: 1 }));
+    assert.ok(!isPasscodeLockedOut({ visitor: ADMIN_PASSCODE_LIMITS.perVisitor, overall: 1 }));
+    assert.ok(isPasscodeLockedOut({ visitor: ADMIN_PASSCODE_LIMITS.perVisitor + 1, overall: 1 }));
+    assert.ok(!isPasscodeLockedOut({ visitor: 1, overall: ADMIN_PASSCODE_LIMITS.overall }));
+    assert.ok(isPasscodeLockedOut({ visitor: 1, overall: ADMIN_PASSCODE_LIMITS.overall + 1 }));
+
+    // 2. Email authorization tests: only ADMIN_EMAILS counts
     env.ADMIN_EMAILS = undefined;
     env.COMMUNITY_IMPORT_REVIEWER_EMAILS = "reviewer@haven.com, SecondReviewer@haven.com";
+    assert.equal(getAllowedAdminEmails().size, 0);
+    assert.ok(!isAdminEmail("reviewer@haven.com"));
 
-    const allowedFallback = getAllowedAdminEmails();
-    assert.equal(allowedFallback.size, 2);
-    assert.ok(isAdminEmail("reviewer@haven.com"));
-    assert.ok(isAdminEmail("secondreviewer@haven.com"));
-    assert.ok(isAdminEmail("  SECONDREVIEWER@HAVEN.COM  "));
-    assert.ok(!isAdminEmail("stranger@haven.com"));
-    assert.ok(!isAdminEmail(null));
-    assert.ok(!isAdminEmail(""));
-
-    // Test ADMIN_EMAILS precedence
-    env.ADMIN_EMAILS = "admin1@haven.com, admin2@haven.com";
+    env.ADMIN_EMAILS = "admin1@haven.com, Admin2@haven.com";
     env.COMMUNITY_IMPORT_REVIEWER_EMAILS = "reviewer@haven.com";
-
     const allowedAdmin = getAllowedAdminEmails();
     assert.equal(allowedAdmin.size, 2);
     assert.ok(isAdminEmail("admin1@haven.com"));
-    assert.ok(isAdminEmail("admin2@haven.com"));
-    // When ADMIN_EMAILS is set, reviewer alone does not grant admin
+    assert.ok(isAdminEmail("  ADMIN2@HAVEN.COM  "));
     assert.ok(!isAdminEmail("reviewer@haven.com"));
+    assert.ok(!isAdminEmail("stranger@haven.com"));
+    assert.ok(!isAdminEmail(null));
+    assert.ok(!isAdminEmail(""));
 
     // Test empty configurations
     env.ADMIN_EMAILS = "";
