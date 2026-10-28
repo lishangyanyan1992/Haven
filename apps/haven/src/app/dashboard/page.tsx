@@ -4,7 +4,6 @@ import { Timer } from "lucide-react";
 
 import { DashboardChangeHighlight, DashboardChangeProvider } from "@/components/app/dashboard-change-highlight";
 import { AppShell } from "@/components/app/app-shell";
-import { CrisisActivationModal } from "@/components/app/crisis-activation-modal";
 import { FirmEngagementDashboard } from "@/components/app/firm-engagement-dashboard";
 import { ImmigrationJourneyDashboard } from "@/components/app/immigration-journey-dashboard";
 import { Badge } from "@/components/ui/badge";
@@ -297,15 +296,12 @@ export default async function DashboardPage({
               </section>
             ) : (
               <section className="page-intro">
-                <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="max-w-[70ch]">
-                    <p className="text-label">Case dashboard</p>
-                    <h1 className="text-h1 mt-4">
-                      Good to see you, {firstName}.
-                    </h1>
-                    {profileSummaryLine ? <p className="text-body mt-3">{profileSummaryLine}</p> : null}
-                  </div>
-                  {dashboard.signals.layoffReadinessScore !== "high" ? <CrisisActivationModal /> : null}
+                <div className="max-w-[70ch]">
+                  <p className="text-label">Case dashboard</p>
+                  <h1 className="text-h1 mt-4">
+                    Good to see you, {firstName}.
+                  </h1>
+                  {profileSummaryLine ? <p className="text-body mt-3">{profileSummaryLine}</p> : null}
                 </div>
               </section>
             )}
