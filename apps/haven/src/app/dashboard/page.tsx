@@ -141,7 +141,10 @@ export default async function DashboardPage({
           unionedRequiredDocs.push(d);
         }
       }
-      const fulfilledRequiredCount = firmDocs.filter((req) => uploadedDocKinds.has(req.key)).length;
+      const firmSuffix = record.firmId ? `_${record.firmId.slice(0, 8)}` : "";
+      const fulfilledRequiredCount = firmDocs.filter(
+        (req) => uploadedDocKinds.has(req.key) || (firmSuffix && uploadedDocKinds.has(`${req.key}${firmSuffix}`))
+      ).length;
       return buildFirmEngagementOverview({
         firmName: record.firmName,
         isConnectedToFirm: true,

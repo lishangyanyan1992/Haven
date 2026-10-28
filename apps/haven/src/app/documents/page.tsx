@@ -38,6 +38,14 @@ export default async function DocumentsPage() {
     clientFirms = await getClientFirms(user.id);
   } catch (err) {
     console.error("[documents] failed to get client firms:", err);
+    return (
+      <div className="min-h-screen bg-slate-950 px-4 py-16 flex flex-col items-center justify-center text-center">
+        <h1 className="text-xl font-semibold text-rose-300">Unable to load document requirements</h1>
+        <p className="mt-2 text-sm text-slate-400">
+          We encountered an issue loading requirements for your connected legal firms. Please reload to try again.
+        </p>
+      </div>
+    );
   }
   const firmNames = clientFirms.map((f) => f.firmName);
 
@@ -45,23 +53,35 @@ export default async function DocumentsPage() {
   if (clientFirms.length > 0) {
     const unionedKeys = new Set<string>();
     const unioned: RequiredDocumentItem[] = [];
-    for (const f of clientFirms) {
-      const docs = await getFirmRequiredDocuments(f.firmId).catch(() => []);
-      for (const d of docs) {
-        // Preset documents deduplicate by key; custom documents preserve distinct
-        // requirements across firms if their slug keys collide.
-        const docIdentity = d.isCustom ? `${d.key}:${d.label.toLowerCase().trim()}` : d.key;
-        if (!unionedKeys.has(docIdentity)) {
-          unionedKeys.add(docIdentity);
-          let finalItem = d;
-          if (d.isCustom && unioned.some((existing) => existing.key === d.key && existing.label !== d.label)) {
-            finalItem = { ...d, key: `${d.key}_${f.firmId.slice(0, 8)}` };
+    try {
+      for (const f of clientFirms) {
+        const docs = await getFirmRequiredDocuments(f.firmId);
+        for (const d of docs) {
+          // Preset documents deduplicate by key; custom documents preserve distinct
+          // requirements across firms if their slug keys collide.
+          const docIdentity = d.isCustom ? `${d.key}:${d.label.toLowerCase().trim()}` : d.key;
+          if (!unionedKeys.has(docIdentity)) {
+            unionedKeys.add(docIdentity);
+            let finalItem = d;
+            if (d.isCustom && unioned.some((existing) => existing.key === d.key && existing.label !== d.label)) {
+              finalItem = { ...d, key: `${d.key}_${f.firmId.slice(0, 8)}` };
+            }
+            unioned.push(finalItem);
           }
-          unioned.push(finalItem);
         }
       }
+      requiredDocs = unioned.length > 0 ? unioned : null;
+    } catch (err) {
+      console.error("[documents] failed to load firm required documents:", err);
+      return (
+        <div className="min-h-screen bg-slate-950 px-4 py-16 flex flex-col items-center justify-center text-center">
+          <h1 className="text-xl font-semibold text-rose-300">Unable to load document requirements</h1>
+          <p className="mt-2 text-sm text-slate-400">
+            We encountered an issue loading requirements for your connected legal firms. Please reload to try again.
+          </p>
+        </div>
+      );
     }
-    requiredDocs = unioned.length > 0 ? unioned : null;
   }
 
   const [snapshot, crisisState] = await Promise.all([getInboxPageData(), getCrisisState()]);

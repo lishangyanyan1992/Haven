@@ -161,7 +161,7 @@ export async function recordFirmSharedAnswers(userId: string, draft: Record<stri
   const admin = createSupabaseAdminClient() as any;
   const { data: rows, error: readError } = await admin
     .from("firm_clients")
-    .select("id, shared_answers, joined_at, firms(intake_questions)")
+    .select("id, firm_id, shared_answers, joined_at, firms(intake_questions)")
     .eq("user_id", userId);
   if (readError) {
     console.error("[firms] could not read shared answers", readError.message);
@@ -174,16 +174,29 @@ export async function recordFirmSharedAnswers(userId: string, draft: Record<stri
     const { next } = mergeSharedAnswers(row.shared_answers ?? {}, draft, form);
 
     // Keep all standard shared keys, but only retain custom questions configured for this firm
-    const allowedCustomKeys = new Set(
-      Array.isArray(row.firms?.intake_questions)
-        ? row.firms.intake_questions.map((q: any) => q.key).filter(isCustomQuestionKey)
-        : []
-    );
+    // (including any firm-scoped suffixed keys generated during multi-firm onboarding collision resolution)
+    const firmSuffix = row.firm_id ? `_${row.firm_id.slice(0, 8)}` : "";
+    const allowedCustomKeys = new Set<string>();
+    const suffixedKeyToOriginal = new Map<string, string>();
+    if (Array.isArray(row.firms?.intake_questions)) {
+      for (const q of row.firms.intake_questions) {
+        if (isCustomQuestionKey(q.key)) {
+          allowedCustomKeys.add(q.key);
+          if (firmSuffix) {
+            allowedCustomKeys.add(`${q.key}${firmSuffix}`);
+            suffixedKeyToOriginal.set(`${q.key}${firmSuffix}`, q.key);
+          }
+        }
+      }
+    }
 
     const scopedAnswers: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(next)) {
-      if (!isCustomQuestionKey(key) || allowedCustomKeys.has(key)) {
+      if (!isCustomQuestionKey(key)) {
         scopedAnswers[key] = value;
+      } else if (allowedCustomKeys.has(key)) {
+        const targetKey = suffixedKeyToOriginal.get(key) ?? key;
+        scopedAnswers[targetKey] = value;
       }
     }
 
