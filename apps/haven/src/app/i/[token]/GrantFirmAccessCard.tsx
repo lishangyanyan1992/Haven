@@ -9,6 +9,12 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { signOutAction } from "@/server/actions";
 import { grantFirmAccessAction } from "@/server/firm-actions";
 
+/**
+ * Card component rendered for an authenticated client opening another law firm's intake link,
+ * allowing one-click data access grant or showing already-connected status.
+ *
+ * @param props - Component properties containing firmName, token, userEmail, and connection state
+ */
 export function GrantFirmAccessCard({
   firmName,
   token,

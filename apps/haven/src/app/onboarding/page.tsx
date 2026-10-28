@@ -16,13 +16,20 @@ import { formLimitedTo, recordFirmSharedAnswers } from "@/lib/firms/answers";
 import { getDefaultIntakeQuestions, getFirmIntakeQuestions, isCustomQuestionKey } from "@/lib/firms/intake-questions";
 import { getFirmRequiredDocuments } from "@/lib/firms/required-documents";
 import { DEADLINE_KEYS, loadDeadlineAnswers, markDeadlinesPrompted, saveDeadlineAnswers } from "@/lib/deadlines";
-import { getClientFirms, markFirmClientCompleted } from "@/lib/firms/intake";
+import { getClientFirms, markFirmClientCompleted, type ClientFirmInfo } from "@/lib/firms/intake";
 import type { IntakeQuestionItem, RequiredDocumentItem } from "@/lib/firms/types";
 
 const EMAIL_INGEST_DOMAIN = env.EMAIL_INGEST_DOMAIN ?? "import.haven-h1b.com";
 
 export const metadata = noIndexMetadata;
 
+/**
+ * Builds an intake profile draft object from onboarding form data, capturing
+ * standard profile fields along with any firm-specific custom question answers.
+ *
+ * @param data - Submitted FormData from the onboarding step
+ * @returns Structured profile draft object
+ */
 function buildDraft(data: FormData) {
   const customAnswers: Record<string, string> = {};
   for (const [key, value] of data.entries()) {
@@ -50,6 +57,14 @@ function buildDraft(data: FormData) {
   };
 }
 
+/**
+ * Server action to persist onboarding draft answers per step, fan out shared
+ * answers to all joined legal firms, and record completion when the client
+ * finishes the final active step.
+ *
+ * @param _step - Current onboarding step index
+ * @param data - Submitted FormData from the active step
+ */
 async function saveStepAction(_step: number, data: FormData) {
   "use server";
 
@@ -110,6 +125,12 @@ async function saveStepAction(_step: number, data: FormData) {
   }
 }
 
+/**
+ * Onboarding page component that renders the full client intake wizard, unioning
+ * required documents and intake questions across all law firms the client has joined.
+ *
+ * @param props - Next.js page props containing query parameters
+ */
 export default async function OnboardingPage({
   searchParams
 }: {
@@ -123,7 +144,22 @@ export default async function OnboardingPage({
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const requestedStep = Number(resolvedSearchParams?.step ?? "");
   const initialStep = Number.isFinite(requestedStep) && requestedStep >= 1 && requestedStep <= 6 ? requestedStep : 1;
-  const clientFirms = await getClientFirms(user?.id);
+
+  let clientFirms: ClientFirmInfo[] = [];
+  try {
+    clientFirms = await getClientFirms(user?.id);
+  } catch (err) {
+    console.error("[onboarding] failed to get client firms:", err);
+    return (
+      <div className="min-h-screen bg-slate-950 px-4 py-16 flex flex-col items-center justify-center text-center">
+        <h1 className="text-xl font-semibold text-rose-300">Unable to load intake requirements</h1>
+        <p className="mt-2 text-sm text-slate-400">
+          We encountered an issue loading your connected legal firms. Please reload to try again.
+        </p>
+      </div>
+    );
+  }
+
   const firmNames = clientFirms.map((f) => f.firmName);
 
   const unionedRequiredDocs: RequiredDocumentItem[] = [];
@@ -139,15 +175,31 @@ export default async function OnboardingPage({
         getFirmRequiredDocuments(f.firmId)
       ]);
       for (const item of d) {
-        if (!unionedDocKeys.has(item.key)) {
-          unionedDocKeys.add(item.key);
-          unionedRequiredDocs.push(item);
+        // Preset documents deduplicate by standard key across all firms.
+        // Custom documents deduplicate if both key and label match, but preserve
+        // distinct requirements if different firms define custom documents whose slugified keys collide.
+        const docIdentity = item.isCustom ? `${item.key}:${item.label.toLowerCase().trim()}` : item.key;
+        if (!unionedDocKeys.has(docIdentity)) {
+          unionedDocKeys.add(docIdentity);
+          let finalItem = item;
+          if (item.isCustom && unionedRequiredDocs.some((existing) => existing.key === item.key && existing.label !== item.label)) {
+            finalItem = { ...item, key: `${item.key}_${f.firmId.slice(0, 8)}` };
+          }
+          unionedRequiredDocs.push(finalItem);
         }
       }
       for (const item of q) {
-        if (!unionedQuestionKeys.has(item.key)) {
-          unionedQuestionKeys.add(item.key);
-          unionedQuestions.push(item);
+        // Preset questions deduplicate by standard key across all firms.
+        // Custom questions deduplicate if both key and label match, but preserve
+        // distinct prompts if different firms define custom questions with colliding slug keys.
+        const qIdentity = item.isCustom ? `${item.key}:${item.label.toLowerCase().trim()}` : item.key;
+        if (!unionedQuestionKeys.has(qIdentity)) {
+          unionedQuestionKeys.add(qIdentity);
+          let finalItem = item;
+          if (item.isCustom && unionedQuestions.some((existing) => existing.key === item.key && existing.label !== item.label)) {
+            finalItem = { ...item, key: `${item.key}_${f.firmId.slice(0, 8)}` };
+          }
+          unionedQuestions.push(finalItem);
         }
       }
     } catch (err) {

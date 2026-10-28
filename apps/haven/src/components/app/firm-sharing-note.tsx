@@ -1,5 +1,6 @@
 import { Building2 } from "lucide-react";
 
+/** Formats a list of connected law firm names into natural conversational English. */
 function formatFirmNames(names: string[]): string {
   if (names.length === 0) return "your law firm";
   if (names.length === 1) return names[0];

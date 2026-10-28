@@ -32,6 +32,12 @@ import type { ImmigrationProfile } from "@/types/domain";
 
 export const metadata = noIndexMetadata;
 
+/**
+ * Primary client dashboard page rendering immigration status, action items,
+ * and multiple connected law firm engagement timelines with milestones and notes.
+ *
+ * @param props - Next.js page props containing query parameters
+ */
 export default async function DashboardPage({
   searchParams
 }: {

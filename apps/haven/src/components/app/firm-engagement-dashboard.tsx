@@ -24,6 +24,13 @@ import { cn } from "@/lib/utils";
 const isExternalHref = (href: string) => /^https?:\/\//i.test(href);
 const isMailtoHref = (href: string) => /^mailto:/i.test(href);
 
+/**
+ * Client-facing dashboard component displaying active engagement timelines,
+ * milestone progress, lawyer notes, and consultation booking actions for all
+ * connected law firms.
+ *
+ * @param props - Component props accepting a single engagement or an array of engagements
+ */
 export function FirmEngagementDashboard({
   engagement: initialEngagement,
   engagements

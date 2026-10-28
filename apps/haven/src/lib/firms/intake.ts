@@ -444,7 +444,11 @@ export type ClientFirmInfo = {
   intakeQuestions: IntakeQuestionItem[];
 };
 
-/** All firms a signed-in client has joined. */
+/**
+ * All firms a signed-in client has joined.
+ * Throws when a database error occurs so callers can fail closed rather than
+ * mistaking a database failure for zero connected firms.
+ */
 export async function getClientFirms(userId: string | null | undefined): Promise<ClientFirmInfo[]> {
   if (!userId) return [];
   const { data, error } = await admin()
@@ -453,7 +457,11 @@ export async function getClientFirms(userId: string | null | undefined): Promise
     .eq("user_id", userId)
     .not("joined_at", "is", null)
     .order("joined_at", { ascending: false });
-  if (error || !data) return [];
+  if (error) {
+    console.error("[firms] failed to read client firms", error.message);
+    throw new Error(`Failed to read client firms: ${error.message}`);
+  }
+  if (!data) return [];
   return data.map((row: any) => ({
     firmId: row.firm_id,
     firmName: row.firms?.name ?? "your law firm",
@@ -491,7 +499,11 @@ export async function getClientFirmEngagementRecords(
     .eq("user_id", userId)
     .not("joined_at", "is", null)
     .order("joined_at", { ascending: false });
-  if (error || !data) return [];
+  if (error) {
+    console.error("[firms] failed to read engagement records", error.message);
+    throw new Error(`Failed to read engagement records: ${error.message}`);
+  }
+  if (!data) return [];
 
   return data.map((row: any) => {
     const clientState = cleanEngagementState(row.engagement_state);

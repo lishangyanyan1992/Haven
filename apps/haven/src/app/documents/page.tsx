@@ -9,7 +9,7 @@ import GonePage from "@/app/gone/page";
 import { findPresetDocument, PRESET_REQUIRED_DOCUMENTS } from "@/lib/document-vault";
 import { documentContextAvailableFor } from "@/lib/document-context/store";
 import { FirmSharingNote } from "@/components/app/firm-sharing-note";
-import { getClientFirms } from "@/lib/firms/intake";
+import { getClientFirms, type ClientFirmInfo } from "@/lib/firms/intake";
 import type { RequiredDocumentItem } from "@/lib/firms/types";
 import { getFirmRequiredDocuments } from "@/lib/firms/required-documents";
 import { getCrisisState } from "@/lib/get-crisis-state";
@@ -22,6 +22,10 @@ import type { UserDocument } from "@/types/domain";
 export const metadata = noIndexMetadata;
 export const dynamic = "force-dynamic";
 
+/**
+ * Client document vault page that renders uploaded documents and unions required
+ * document checklists across all connected law firms while preserving firm attribution.
+ */
 export default async function DocumentsPage() {
   const supabase = await createSupabaseServerClient();
   const {
@@ -29,7 +33,12 @@ export default async function DocumentsPage() {
   } = await supabase.auth.getUser();
   if (!user || !(await documentContextAvailableFor(user.email))) return <GonePage />;
 
-  const clientFirms = await getClientFirms(user.id);
+  let clientFirms: ClientFirmInfo[] = [];
+  try {
+    clientFirms = await getClientFirms(user.id);
+  } catch (err) {
+    console.error("[documents] failed to get client firms:", err);
+  }
   const firmNames = clientFirms.map((f) => f.firmName);
 
   let requiredDocs: RequiredDocumentItem[] | null = null;
@@ -39,9 +48,16 @@ export default async function DocumentsPage() {
     for (const f of clientFirms) {
       const docs = await getFirmRequiredDocuments(f.firmId).catch(() => []);
       for (const d of docs) {
-        if (!unionedKeys.has(d.key)) {
-          unionedKeys.add(d.key);
-          unioned.push(d);
+        // Preset documents deduplicate by key; custom documents preserve distinct
+        // requirements across firms if their slug keys collide.
+        const docIdentity = d.isCustom ? `${d.key}:${d.label.toLowerCase().trim()}` : d.key;
+        if (!unionedKeys.has(docIdentity)) {
+          unionedKeys.add(docIdentity);
+          let finalItem = d;
+          if (d.isCustom && unioned.some((existing) => existing.key === d.key && existing.label !== d.label)) {
+            finalItem = { ...d, key: `${d.key}_${f.firmId.slice(0, 8)}` };
+          }
+          unioned.push(finalItem);
         }
       }
     }

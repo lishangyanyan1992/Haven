@@ -30,6 +30,13 @@ export type AdvisorFirmLink =
   | { kind: "none" }
   | { kind: "unknown" };
 
+/**
+ * Looks up the primary connected firm link for a user to inform advisor handoff wording.
+ *
+ * @param userId - ID of the authenticated client
+ * @param dbOverride - Optional DB client for testing
+ * @returns AdvisorFirmLink describing the firm, none, or unknown
+ */
 export async function getAdvisorFirmLink(
   userId: string,
   // Tests pass a stub; production always uses the service-role client.
