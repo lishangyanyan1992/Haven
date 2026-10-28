@@ -476,10 +476,11 @@ export function resolveEffectivePriorityDate(profile: ImmigrationProfile): {
   if (profile.priorityDate) {
     const parsed = parseIsoDate(profile.priorityDate);
     if (parsed) {
+      const isRetained = Boolean(profile.retainedPriorityDate);
       return {
         effectiveDate: parsed,
-        isRetained: Boolean(profile.retainedPriorityDateSponsor),
-        retainedSponsorName: profile.retainedPriorityDateSponsor ?? null,
+        isRetained,
+        retainedSponsorName: isRetained ? (profile.retainedPriorityDateSponsor ?? null) : null,
         retainedCategory: profile.preferenceCategory,
         isRecaptured: false
       };
@@ -607,29 +608,41 @@ export function evaluateI140Protections(
   }
 
   if (profile.i140Approved) {
+    const isNewPermInProgress = Boolean(
+      profile.permStage &&
+      profile.permStage !== "not_started" &&
+      profile.permStage !== "certified" &&
+      !profile.i485Filed
+    );
+    const protectingSponsor = isNewPermInProgress
+      ? (profile.retainedPriorityDateSponsor ?? null)
+      : (profile.greenCardSponsor ?? profile.retainedPriorityDateSponsor ?? null);
+
     const approvalDate = parseIsoDate(profile.i140ApprovalDate ?? null);
     if (approvalDate) {
       const lockInDate = new Date(approvalDate.getTime() + 180 * DAY_MS);
       const isRevocationProtected = lockInDate.getTime() <= nowMs;
+      const sponsorSuffix = protectingSponsor ? ` with ${protectingSponsor}` : "";
       return {
         hasApprovedI140: true,
         isAc21PortabilityUnlocked: true,
         isRevocationProtected,
-        protectingSponsor: profile.employerName ?? null,
+        protectingSponsor,
         i140ApprovalDate: approvalDate,
         portabilitySummary: isRevocationProtected
-          ? `I-140 approval reached the 180-day portability mark on ${formatDateLabel(lockInDate)}. Your priority date is permanently protected, and a new sponsor can file an H-1B transfer with AC21 3-year extensions.`
-          : `I-140 approval unlocks AC21 3-year extensions. Revocation protection under 8 CFR § 205.1 locks in on ${formatDateLabel(lockInDate)}.`
+          ? `I-140 approval${sponsorSuffix} reached the 180-day portability mark on ${formatDateLabel(lockInDate)}. Your priority date is permanently protected, and a new sponsor can file an H-1B transfer with AC21 3-year extensions.`
+          : `I-140 approval${sponsorSuffix} unlocks AC21 3-year extensions. Revocation protection under 8 CFR § 205.1 locks in on ${formatDateLabel(lockInDate)}.`
       };
     }
+    const sponsorSuffix = protectingSponsor ? ` with ${protectingSponsor}` : "";
     return {
       hasApprovedI140: true,
       isAc21PortabilityUnlocked: true,
       isRevocationProtected: false,
-      protectingSponsor: profile.employerName ?? null,
+      protectingSponsor,
       i140ApprovalDate: null,
       portabilitySummary:
-        "Approved I-140 on file protects priority date retention and unlocks AC21 extensions beyond the 6-year limit."
+        `Approved I-140 on file${sponsorSuffix} protects priority date retention and unlocks AC21 extensions beyond the 6-year limit.`
     };
   }
 
@@ -703,7 +716,7 @@ export function synthesizePetitions(
 
   const summaries: ImmigrantPetitionSummary[] = [];
 
-  if (profile.retainedPriorityDateSponsor || profile.retainedPriorityDate) {
+  if (profile.retainedPriorityDate) {
     summaries.push({
       id: "prior-retained-i140",
       sponsorName: profile.retainedPriorityDateSponsor ?? "Prior Sponsoring Employer",
@@ -711,7 +724,7 @@ export function synthesizePetitions(
       preferenceCategory: profile.retainedPriorityDateCategory ?? profile.preferenceCategory,
       stage: "i140_approved",
       stageLabel: "I-140 Approved (Retained)",
-      priorityDateLabel: formatDateLabel(profile.retainedPriorityDate ?? profile.priorityDate),
+      priorityDateLabel: formatDateLabel(profile.retainedPriorityDate),
       isApproved: true,
       isRevocationProtected: false,
       isRecaptured: true,
@@ -759,7 +772,7 @@ export function synthesizePetitions(
 
     summaries.push({
       id: "current-active-petition",
-      sponsorName: profile.employerName ?? "Current Sponsoring Employer",
+      sponsorName: profile.greenCardSponsor ?? "Unconfirmed Sponsor",
       petitionType: "employer_sponsored",
       preferenceCategory: profile.preferenceCategory,
       stage: activeStage,
@@ -2042,6 +2055,18 @@ export function buildImmigrationJourney(input: {
       verifiedByDocument: hasI140Doc
     });
   }
+  const gcSponsor = profile.greenCardSponsor || profile.retainedPriorityDateSponsor;
+  if (gcSponsor) {
+    capturedFields.push({
+      id: "cap-gc-sponsor",
+      category: "green_card",
+      label: "Green Card Sponsoring Entity",
+      value: gcSponsor,
+      sourceLabel: "Settings / Onboarding Step 3",
+      mapsToTrack: "Track 2 Sponsoring Petitioner & Priority Date Recapture",
+      verifiedByDocument: false
+    });
+  }
   if (deadlines.agencyDeadlineType && deadlines.agencyDeadlineDate) {
     const agencyParsed = parseIsoDate(deadlines.agencyDeadlineDate);
     capturedFields.push({
@@ -2193,6 +2218,33 @@ export function buildImmigrationJourney(input: {
         ? "Critical during a grace period: if your spouse holds an independent work/student visa or U.S. citizenship, filing a dependent change of status (Form I-539) or marriage-based adjustment could immediately protect your authorized stay."
         : "Prevents Haven and your attorney from evaluating dependent visa fallback or cross-chargeability options.",
       actionLabel: "Update spouse status",
+      actionHref: "/settings"
+    });
+  }
+
+  const hasStartedGreenCardStage =
+    hasI140Approval ||
+    Boolean(priorityDate) ||
+    Boolean(profile.i140Filed) ||
+    Boolean(profile.i485Filed) ||
+    (Boolean(profile.permStage) && profile.permStage !== "not_started");
+
+  if (
+    hasStartedGreenCardStage &&
+    !profile.greenCardSponsor &&
+    !profile.retainedPriorityDateSponsor &&
+    (!profile.immigrantPetitions || profile.immigrantPetitions.length === 0)
+  ) {
+    missingItems.push({
+      id: "missing-gc-sponsor-attribution",
+      category: "intake_field",
+      badge: "Sponsorship Attribution",
+      tone: "sand",
+      title: "Green card sponsoring company not confirmed",
+      detail: `Your profile records a green card case${priorityDate ? ` with priority date ${formatDateLabel(priorityDate)}` : ""}, but does not specify which company sponsored it. Never assume a green card is tied to your current employer (${profile.employerName ?? "Current"}).`,
+      impact:
+        "Knowing whether this petition was filed by a prior employer, your current employer, or self-petitioned (e.g. EB-2 NIW) determines your priority date retention rights, whether a new PERM is required, and post-6th-year H-1B extension eligibility.",
+      actionLabel: "Set sponsor in Settings",
       actionHref: "/settings"
     });
   }

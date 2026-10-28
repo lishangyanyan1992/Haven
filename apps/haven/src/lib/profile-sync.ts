@@ -20,6 +20,8 @@ type ProfileDraft = Partial<{
   currentVisaExpiryDate: string;
   employerSize: string;
   greenCardStage: string;
+  greenCardSponsor: string;
+  retainedPriorityDateSponsor: string;
   priorityDate: string;
   preferenceCategory: string;
   i140Approved: string | boolean;
@@ -54,6 +56,24 @@ function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unk
   const existingConcerns = ((existingRow?.top_concerns as string[] | null) ?? []).filter((item): item is Concern =>
     concerns.includes(item as Concern)
   );
+  const shouldUpdateDeadlineAnswers =
+    rawDraft.retainedPriorityDateSponsor !== undefined || rawDraft.greenCardSponsor !== undefined;
+  let nextDeadlineAnswers: Record<string, unknown> | undefined = undefined;
+  if (shouldUpdateDeadlineAnswers) {
+    const existingDeadlineAnswers =
+      existingRow?.deadline_answers && typeof existingRow.deadline_answers === "object"
+        ? (existingRow.deadline_answers as Record<string, unknown>)
+        : {};
+    nextDeadlineAnswers = {
+      ...existingDeadlineAnswers,
+      ...(rawDraft.greenCardSponsor !== undefined
+        ? { greenCardSponsor: asOptionalString(rawDraft.greenCardSponsor) }
+        : {}),
+      ...(rawDraft.retainedPriorityDateSponsor !== undefined
+        ? { retainedPriorityDateSponsor: asOptionalString(rawDraft.retainedPriorityDateSponsor) }
+        : {})
+    };
+  }
   const i140Approved =
     rawDraft.i140Approved !== undefined
       ? rawDraft.i140Approved === true || rawDraft.i140Approved === "true"
@@ -139,11 +159,22 @@ function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unk
     status_update_email_notifications:
       rawDraft.statusUpdateEmailNotifications !== undefined
         ? rawDraft.statusUpdateEmailNotifications === true || rawDraft.statusUpdateEmailNotifications === "true"
-        : Boolean(existingRow?.status_update_email_notifications)
+        : Boolean(existingRow?.status_update_email_notifications),
+    ...(nextDeadlineAnswers !== undefined ? { deadline_answers: nextDeadlineAnswers } : {})
   };
 }
 
 function mapProfileRow(row: Record<string, unknown>): ImmigrationProfile {
+  const deadlineMeta = (row.deadline_answers && typeof row.deadline_answers === "object" ? row.deadline_answers : {}) as Record<string, unknown>;
+  const greenCardSponsor =
+    typeof deadlineMeta.greenCardSponsor === "string" && deadlineMeta.greenCardSponsor.trim().length > 0
+      ? deadlineMeta.greenCardSponsor.trim()
+      : undefined;
+  const retainedPriorityDateSponsor =
+    typeof deadlineMeta.retainedPriorityDateSponsor === "string" && deadlineMeta.retainedPriorityDateSponsor.trim().length > 0
+      ? deadlineMeta.retainedPriorityDateSponsor.trim()
+      : undefined;
+
   return {
     id: String(row.id),
     fullName: String(row.full_name ?? ""),
@@ -158,6 +189,8 @@ function mapProfileRow(row: Record<string, unknown>): ImmigrationProfile {
     i140Approved: Boolean(row.i140_approved),
     i140ApprovalDate: (row.i140_approval_date as string | null) ?? undefined,
     priorityDate: (row.priority_date as string | null) ?? undefined,
+    greenCardSponsor,
+    retainedPriorityDateSponsor,
     preferenceCategory: row.preference_category as ImmigrationProfile["preferenceCategory"],
     i485Filed: Boolean(row.i485_filed),
     employerName: (row.employer_name as string | null) ?? undefined,

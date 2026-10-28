@@ -55,6 +55,22 @@ export default async function SettingsPage({
     });
   }
 
+  const hasStartedGreenCardStage =
+    (profile.permStage && profile.permStage !== "not_started") ||
+    Boolean(profile.i140Filed) ||
+    Boolean(profile.i140Approved) ||
+    Boolean(profile.i485Filed) ||
+    Boolean(profile.priorityDate);
+
+  if (!profile.greenCardSponsor && !profile.retainedPriorityDateSponsor && hasStartedGreenCardStage) {
+    profileGaps.push({
+      id: "gc-sponsor-attribution",
+      label: "Green card sponsor not confirmed",
+      detail: `Never assume your green card is tied to your current employer (${profile.employerName ?? "Current"}). Enter the sponsoring employer or self-petition entity below to clarify priority date retention and portability.`,
+      severity: "warning"
+    });
+  }
+
   if (profile.i140Approved && profile.permStage === "not_started") {
     profileGaps.push({
       id: "multi-employer-perm-gap",
@@ -277,6 +293,34 @@ export default async function SettingsPage({
                 </Field>
                 <Field label="Priority date">
                   <Input defaultValue={profile.priorityDate ?? ""} name="priorityDate" type="date" />
+                </Field>
+                <Field label="Sponsoring employer or petitioner">
+                  <Input
+                    defaultValue={profile.greenCardSponsor ?? ""}
+                    name="greenCardSponsor"
+                    placeholder="e.g. Prior Employer Inc., Current Employer, or Self-Petition (NIW)"
+                  />
+                  {profile.i140Approved ? (
+                    <div className="mt-4">
+                      <label htmlFor="settings-retained-i140-sponsor" className="block text-[13px] font-medium text-[var(--color-text-secondary)] mb-1">
+                        Approved I-140 prior sponsor
+                      </label>
+                      <Input
+                        defaultValue={profile.retainedPriorityDateSponsor ?? ""}
+                        id="settings-retained-i140-sponsor"
+                        name="retainedPriorityDateSponsor"
+                        placeholder="e.g. Prior Employer Inc. (approved I-140)"
+                      />
+                      <p className="mt-1 text-[12px] text-[var(--color-text-tertiary)]">
+                        The employer or petitioner that sponsored your approved Form I-140.
+                      </p>
+                    </div>
+                  ) : profile.retainedPriorityDate ? (
+                    <input type="hidden" name="retainedPriorityDateSponsor" value={profile.retainedPriorityDateSponsor ?? ""} />
+                  ) : null}
+                  <p className="mt-1 text-[12px] text-[var(--color-text-tertiary)]">
+                    Never assumed to be your current employer. Naming the sponsoring company clarifies priority date retention and portability.
+                  </p>
                 </Field>
                 <Field label="I-140 status">
                   <Select defaultValue={profile.i140Approved ? "true" : "false"} name="i140Approved">

@@ -4000,6 +4000,9 @@ const ADVISOR_PROMPT_NAME = "haven-advisor-system";
  * that no per-question block already says it. If neither is true, add it — and
  * then measure whether it changed anything, because four of the last few did not.
  */
+export const SPONSOR_SAFEGUARD_INSTRUCTION =
+  "Never assume that a green card application (PERM, Form I-140, Form I-485) or a visa is tied to the user's current employer. A green card is often sponsored by a prior employer, a prospective employer, or self-petitioned (such as EB-2 NIW or EB-1A). When green card stage, priority date, or visa status comes up and the sponsoring company is unstated or ambiguous, always ask which company or sponsor it is tied to to get a complete and accurate picture before advising on portability, extensions, or layoff impact.";
+
 export const STREAMING_SYSTEM_PROMPT = [
   // Identity and shape
   "You are Haven Advisor, an information assistant for US employment-based visas and green cards. You are not a lawyer.",
@@ -4029,6 +4032,7 @@ export const STREAMING_SYSTEM_PROMPT = [
   // deliberately not parsed, so this is the path most people's date arrives by.
   "When the Haven timeline gives a date that bears on the question — their last day of work, when their grace period ends, what has been filed and when — use it explicitly rather than describing the rule in general terms. A person asking about their deadline should be told their deadline. If the timeline shows a pending filing, say what is pending before you describe what happens to someone with nothing pending.",
   "When a profile fact materially changes your answer, name the fact you used and invite correction in one short line — for example 'I am going on your profile saying you are still employed; tell me if that has changed.' A profile is a snapshot the user last edited at some point, and employment status, PERM stage and dates go stale without either side noticing. Do not do this for facts that did not change the answer, and never turn it into a list of everything you hold.",
+  SPONSOR_SAFEGUARD_INSTRUCTION,
 
   // In-scope topic: where am I in the green card line
 
@@ -4955,7 +4959,10 @@ export async function* streamAdvisorResponse(
     .slice(0, 4)
     .filter((line) => Boolean(line) && line !== PROFILE_UNAVAILABLE_PROMPT_LINE);
 
-  const { text: systemPrompt, prompt: advisorPrompt } = await getPrompt(lf, ADVISOR_PROMPT_NAME, STREAMING_SYSTEM_PROMPT);
+  const { text: rawSystemPrompt, prompt: advisorPrompt } = await getPrompt(lf, ADVISOR_PROMPT_NAME, STREAMING_SYSTEM_PROMPT);
+  const systemPrompt = rawSystemPrompt.includes("Never assume that a green card application")
+    ? rawSystemPrompt
+    : `${rawSystemPrompt}\n\n${SPONSOR_SAFEGUARD_INSTRUCTION}`;
 
   // CD-13.1 / CD-13.4: select by id, then resolve to text, dropping orientation the
   // thread has already heard. Hard safety rules are marked `always` in the registry

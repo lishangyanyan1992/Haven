@@ -32,6 +32,8 @@ interface OnboardingData {
   h1bStartDate: string;
   employerSize: string;
   greenCardStage: string;
+  greenCardSponsor?: string;
+  retainedPriorityDateSponsor?: string;
   priorityDate: string;
   preferenceCategory: string;
   i140Approved: string; // derived from greenCardStage, not shown as a field
@@ -877,6 +879,38 @@ function Step3Form({
           <label className="field-label">Priority date <span className="text-[var(--color-text-tertiary)] font-normal">(optional)</span></label>
           <Input onChange={(e) => onChange("priorityDate", e.target.value)} type="date" value={data.priorityDate ?? ""} />
           <p className="field-helper">The date your PERM or I-140 was filed. Leave blank if not yet applicable.</p>
+        </Field>
+      )}
+      {((data.greenCardStage && data.greenCardStage !== "not_started") || Boolean(data.priorityDate)) && (
+        <Field>
+          <label className="field-label" htmlFor="onboarding-gc-sponsor">
+            Sponsoring employer or petitioner <span className="text-[var(--color-text-tertiary)] font-normal">(optional)</span>
+          </label>
+          <Input
+            id="onboarding-gc-sponsor"
+            onChange={(e) => onChange("greenCardSponsor", e.target.value)}
+            placeholder="e.g. Prior Employer, Current Employer, or Self-Petition (NIW)"
+            type="text"
+            value={data.greenCardSponsor ?? ""}
+          />
+          <p className="field-helper">
+            Never assumed to be your current employer. If this petition was filed by a previous employer or self-petitioned, naming the sponsor clarifies priority date retention and portability.
+          </p>
+          <div className="mt-4">
+            <label className="field-label" htmlFor="onboarding-prior-i140-sponsor">
+              Prior I-140 sponsor <span className="text-[var(--color-text-tertiary)] font-normal">(optional)</span>
+            </label>
+            <Input
+              id="onboarding-prior-i140-sponsor"
+              onChange={(e) => onChange("retainedPriorityDateSponsor", e.target.value)}
+              placeholder="e.g. Prior Employer Inc."
+              type="text"
+              value={data.retainedPriorityDateSponsor ?? ""}
+            />
+            <p className="field-helper">
+              If you have an earlier approved Form I-140 from another employer, name that sponsor here to evaluate priority date retention.
+            </p>
+          </div>
         </Field>
       )}
     </>

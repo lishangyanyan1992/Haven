@@ -80,6 +80,10 @@ function mapProfileRow(row: ProfileRow): ImmigrationProfile {
     typeof deadlineMeta.retainedPriorityDateSponsor === "string" && deadlineMeta.retainedPriorityDateSponsor.trim()
       ? deadlineMeta.retainedPriorityDateSponsor.trim()
       : undefined;
+  const greenCardSponsor =
+    typeof deadlineMeta.greenCardSponsor === "string" && deadlineMeta.greenCardSponsor.trim()
+      ? deadlineMeta.greenCardSponsor.trim()
+      : undefined;
   const retainedPriorityDateCategory =
     typeof deadlineMeta.retainedPriorityDateCategory === "string" && deadlineMeta.retainedPriorityDateCategory.trim()
       ? (deadlineMeta.retainedPriorityDateCategory.trim() as ImmigrationProfile["preferenceCategory"])
@@ -102,6 +106,7 @@ function mapProfileRow(row: ProfileRow): ImmigrationProfile {
     i140Approved: row.i140_approved,
     i140ApprovalDate: row.i140_approval_date ?? undefined,
     priorityDate: row.priority_date ?? undefined,
+    greenCardSponsor,
     retainedPriorityDate,
     retainedPriorityDateSponsor,
     retainedPriorityDateCategory,
