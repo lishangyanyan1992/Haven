@@ -1,5 +1,4 @@
 import { AppShell } from "@/components/app/app-shell";
-import { CrisisActivationModal } from "@/components/app/crisis-activation-modal";
 import { PlannerChecklist } from "@/components/app/planner-checklist";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -42,7 +41,6 @@ export default async function PlannerPage() {
 
             {!crisisState ? (
               <div className="flex flex-col gap-3 sm:flex-row">
-                <CrisisActivationModal />
                 <Link className={buttonVariants({ variant: "outline" })} href="/dashboard">
                   Back to dashboard
                 </Link>
