@@ -16,7 +16,8 @@ import { formLimitedTo, recordFirmSharedAnswers } from "@/lib/firms/answers";
 import { getDefaultIntakeQuestions, getFirmIntakeQuestions, isCustomQuestionKey } from "@/lib/firms/intake-questions";
 import { getFirmRequiredDocuments } from "@/lib/firms/required-documents";
 import { DEADLINE_KEYS, loadDeadlineAnswers, markDeadlinesPrompted, saveDeadlineAnswers } from "@/lib/deadlines";
-import { getClientFirm, markFirmClientCompleted } from "@/lib/firms/intake";
+import { getClientFirms, markFirmClientCompleted } from "@/lib/firms/intake";
+import type { IntakeQuestionItem, RequiredDocumentItem } from "@/lib/firms/types";
 
 const EMAIL_INGEST_DOMAIN = env.EMAIL_INGEST_DOMAIN ?? "import.haven-h1b.com";
 
@@ -119,12 +120,39 @@ export default async function OnboardingPage({
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const requestedStep = Number(resolvedSearchParams?.step ?? "");
   const initialStep = Number.isFinite(requestedStep) && requestedStep >= 1 && requestedStep <= 6 ? requestedStep : 1;
-  const firm = await getClientFirm(user?.id);
-  const [savedDeadlines, intakeQuestions, requiredDocuments, uploadedDocsResult] = await Promise.all([
+  const clientFirms = await getClientFirms(user?.id);
+  const firmNames = clientFirms.map((f) => f.firmName);
+
+  const unionedRequiredDocs: RequiredDocumentItem[] = [];
+  const unionedDocKeys = new Set<string>();
+  const unionedQuestions: IntakeQuestionItem[] = [];
+  const unionedQuestionKeys = new Set<string>();
+
+  for (const f of clientFirms) {
+    const [q, d] = await Promise.all([
+      getFirmIntakeQuestions(f.firmId).catch(() => []),
+      getFirmRequiredDocuments(f.firmId).catch(() => [])
+    ]);
+    for (const item of d) {
+      if (!unionedDocKeys.has(item.key)) {
+        unionedDocKeys.add(item.key);
+        unionedRequiredDocs.push(item);
+      }
+    }
+    for (const item of q) {
+      if (!unionedQuestionKeys.has(item.key)) {
+        unionedQuestionKeys.add(item.key);
+        unionedQuestions.push(item);
+      }
+    }
+  }
+
+  const effectiveQuestions = unionedQuestions.length > 0 ? unionedQuestions : getDefaultIntakeQuestions();
+  const effectiveDocs = unionedRequiredDocs;
+
+  const [savedDeadlines, uploadedDocsResult] = await Promise.all([
     user ? loadDeadlineAnswers(user.id) : Promise.resolve({}),
-    firm ? getFirmIntakeQuestions(firm.firmId) : Promise.resolve(getDefaultIntakeQuestions()),
-    firm ? getFirmRequiredDocuments(firm.firmId) : Promise.resolve([]),
-    user && firm
+    user && clientFirms.length > 0
       ? (createSupabaseAdminClient() as any)
           .from("user_documents")
           .select("id, original_name, display_label, document_kind")
@@ -151,18 +179,18 @@ export default async function OnboardingPage({
         </div>
       </header>
       {userId ? <MixpanelAuthTracker userId={userId} email={userEmail} /> : null}
-      {firm ? (
+      {firmNames.length > 0 ? (
         <div className="content-container-wide pt-5">
-          <FirmSharingNote firmName={firm.firmName} />
+          <FirmSharingNote firmNames={firmNames} />
         </div>
       ) : null}
       <OnboardingFlow
-        firmName={firm?.firmName}
+        firmName={firmNames.length > 0 ? firmNames.join(", ") : undefined}
         initialDeadlines={savedDeadlines}
         initialStep={initialStep}
         initialUploadedDocuments={initialUploadedDocuments}
-        intakeQuestions={intakeQuestions}
-        requiredDocuments={requiredDocuments}
+        intakeQuestions={effectiveQuestions}
+        requiredDocuments={effectiveDocs}
         saveStepAction={saveStepAction}
         userEmail={userEmail}
       />

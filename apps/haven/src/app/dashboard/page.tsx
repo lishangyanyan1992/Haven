@@ -14,7 +14,8 @@ import { buildChecklist } from "@/lib/crisis-checklist";
 import { loadDeadlineAnswers, type DeadlineAnswers } from "@/lib/deadlines";
 import { getDefaultRequiredDocuments } from "@/lib/document-vault";
 import { buildFirmEngagementOverview } from "@/lib/firms/engagement";
-import { getClientFirmEngagementRecord } from "@/lib/firms/intake";
+import type { RequiredDocumentItem } from "@/lib/firms/types";
+import { getClientFirmEngagementRecords } from "@/lib/firms/intake";
 import { getFirmRequiredDocuments } from "@/lib/firms/required-documents";
 import { getCrisisState } from "@/lib/get-crisis-state";
 import { mergeSnapshotProfile } from "@/lib/haven";
@@ -55,17 +56,14 @@ export default async function DashboardPage({
     }
   }
 
-  const [initialSnapshot, crisisState, updates, inboxData, savedDeadlines, firmRecord] = await Promise.all([
+  const [initialSnapshot, crisisState, updates, inboxData, savedDeadlines, firmRecords] = await Promise.all([
     getDashboardPageData(),
     getCrisisState(),
     getImmigrationUpdates(),
     getInboxPageData(),
     user ? loadDeadlineAnswers(user.id) : Promise.resolve({} as DeadlineAnswers),
-    user ? getClientFirmEngagementRecord(user.id) : Promise.resolve(null)
+    user ? getClientFirmEngagementRecords(user.id) : Promise.resolve([])
   ]);
-  const requiredDocs = firmRecord
-    ? await getFirmRequiredDocuments(firmRecord.firmId).catch(() => getDefaultRequiredDocuments())
-    : [];
   let snapshot = initialSnapshot;
 
   if (shouldUseOverrideFallback && overrideDraft) {
@@ -124,22 +122,56 @@ export default async function DashboardPage({
     ? []
     : inboxData.documents.filter((d) => d.sourceKind === "manual_upload");
   const uploadedDocKinds = new Set(manualDocuments.map((d) => d.documentKind));
-  const fulfilledRequiredCount = requiredDocs.filter((req) => uploadedDocKinds.has(req.key)).length;
 
-  const firmEngagement = buildFirmEngagementOverview({
-    firmName: firmRecord?.firmName ?? null,
-    isConnectedToFirm: Boolean(firmRecord),
-    joinedAt: firmRecord?.joinedAt ?? null,
-    completedAt: firmRecord?.completedAt ?? null,
-    reviewedAt: firmRecord?.reviewedAt ?? null,
-    hasProfileSetup: !profileUnavailable && Boolean(profile.countryOfBirth?.trim()),
-    uploadedDocumentCount: manualDocuments.length,
-    requiredDocumentCount: requiredDocs.length,
-    fulfilledRequiredCount,
-    bookingUrl: firmRecord?.bookingUrl ?? null,
-    bookingEmail: firmRecord?.bookingEmail ?? null,
-    engagementState: firmRecord?.engagementState ?? null
-  });
+  const unionedRequiredDocKeys = new Set<string>();
+  const unionedRequiredDocs: RequiredDocumentItem[] = [];
+
+  const firmEngagements = await Promise.all(
+    firmRecords.map(async (record) => {
+      const firmDocs = await getFirmRequiredDocuments(record.firmId).catch(() => getDefaultRequiredDocuments());
+      for (const d of firmDocs) {
+        if (!unionedRequiredDocKeys.has(d.key)) {
+          unionedRequiredDocKeys.add(d.key);
+          unionedRequiredDocs.push(d);
+        }
+      }
+      const fulfilledRequiredCount = firmDocs.filter((req) => uploadedDocKinds.has(req.key)).length;
+      return buildFirmEngagementOverview({
+        firmName: record.firmName,
+        isConnectedToFirm: true,
+        joinedAt: record.joinedAt,
+        completedAt: record.completedAt,
+        reviewedAt: record.reviewedAt,
+        hasProfileSetup: !profileUnavailable && Boolean(profile.countryOfBirth?.trim()),
+        uploadedDocumentCount: manualDocuments.length,
+        requiredDocumentCount: firmDocs.length,
+        fulfilledRequiredCount,
+        bookingUrl: record.bookingUrl,
+        bookingEmail: record.bookingEmail,
+        engagementState: record.engagementState
+      });
+    })
+  );
+
+  const defaultDocs = getDefaultRequiredDocuments();
+  const effectiveRequiredDocs = unionedRequiredDocs.length > 0 ? unionedRequiredDocs : defaultDocs;
+
+  const defaultFirmEngagement =
+    firmEngagements[0] ??
+    buildFirmEngagementOverview({
+      firmName: null,
+      isConnectedToFirm: false,
+      joinedAt: null,
+      completedAt: null,
+      reviewedAt: null,
+      hasProfileSetup: !profileUnavailable && Boolean(profile.countryOfBirth?.trim()),
+      uploadedDocumentCount: manualDocuments.length,
+      requiredDocumentCount: defaultDocs.length,
+      fulfilledRequiredCount: defaultDocs.filter((req) => uploadedDocKinds.has(req.key)).length,
+      bookingUrl: null,
+      bookingEmail: null,
+      engagementState: null
+    });
 
   const activeLayoffFromCrisis = crisisState
     ? {
@@ -168,7 +200,7 @@ export default async function DashboardPage({
       : {
           uploadedDocumentKinds: manualDocuments.map((d) => d.documentKind),
           uploadedDocumentLabels: manualDocuments.map((d) => d.originalName || d.displayLabel),
-          requiredDocumentKeys: requiredDocs.length > 0 ? requiredDocs : getDefaultRequiredDocuments(),
+          requiredDocumentKeys: effectiveRequiredDocs,
           pendingEmailSubjects,
           resumeContext: {
             phone: typeof deadlineMeta.inferredPhone === "string" ? deadlineMeta.inferredPhone : null,
@@ -307,7 +339,7 @@ export default async function DashboardPage({
             )}
           </DashboardChangeHighlight>
 
-          <FirmEngagementDashboard engagement={firmEngagement} />
+          <FirmEngagementDashboard engagement={defaultFirmEngagement} engagements={firmEngagements} />
 
           <ImmigrationJourneyDashboard
             initialStatusEndDate={savedDeadlines.statusEndDate}

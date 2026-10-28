@@ -5,7 +5,12 @@ import { isOwnerEmail, normalizeEmail } from "@/lib/access";
 import { sharedAnswersFromProfile } from "@/lib/firms/answers";
 import { cleanEngagementState } from "@/lib/firms/engagement";
 import { lookupIntakeToken } from "@/lib/firms/links";
-import type { FirmClientEngagementState, FirmClientRow } from "@/lib/firms/types";
+import type {
+  FirmClientEngagementState,
+  FirmClientRow,
+  IntakeQuestionItem,
+  RequiredDocumentItem
+} from "@/lib/firms/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -150,7 +155,12 @@ export async function requestFirmIntake(
   const [lawyer, pilotRequest, existing] = await Promise.all([
     admin().from("firm_members").select("user_id").eq("email", email).maybeSingle(),
     admin().from("firm_pilot_requests").select("id").eq("normalized_email", email).maybeSingle(),
-    admin().from("firm_clients").select("firm_id, joined_at").eq("normalized_email", email).maybeSingle()
+    admin()
+      .from("firm_clients")
+      .select("firm_id, joined_at")
+      .eq("normalized_email", email)
+      .eq("firm_id", link.firmId)
+      .maybeSingle()
   ]);
 
   if (lawyer.error || pilotRequest.error || existing.error) return { status: "sent" };
@@ -257,13 +267,22 @@ export async function claimFirmInvite(
     .maybeSingle();
   if (asLawyer) return "ignored";
 
-  const { data: row } = await admin()
+  const { data: rows, error: rowsError } = await admin()
     .from("firm_clients")
     .select("id, firm_id, user_id, joined_at, claim_token_hash, previous_claim_token_hash")
-    .eq("normalized_email", email)
-    .maybeSingle();
+    .or(`normalized_email.eq.${email},user_id.eq.${user.id}`);
+  if (rowsError || !rows || rows.length === 0) return "ignored";
+
+  const matchingRow = rows.find(
+    (r: any) =>
+      claimTokenMatches(claimToken, r.claim_token_hash) ||
+      claimTokenMatches(claimToken, r.previous_claim_token_hash)
+  );
+
+  const row = matchingRow ?? rows.find((r: any) => r.joined_at && r.user_id === user.id);
   if (!row) return "ignored";
   if (row.user_id && row.user_id !== user.id) return "ignored";
+
   // Already joined by this same person (say, the page ran twice): make sure
   // their access is in place, in case granting it failed last time.
   if (row.joined_at) return row.user_id === user.id && (await grantAccess(email, row.firm_id)) ? "joined" : "ignored";
@@ -326,16 +345,124 @@ export async function markFirmClientCompleted(userId: string) {
     .is("completed_at", null);
 }
 
-/** The firm a signed-in client joined, for the sharing reminder. */
-export async function getClientFirm(userId: string | null | undefined): Promise<{ firmId: string; firmName: string } | null> {
-  if (!userId) return null;
-  const { data } = await admin()
-    .from("firm_clients")
-    .select("firm_id, joined_at, firms(name)")
-    .eq("user_id", userId)
+/**
+ * Grant access to a firm for an already signed-in user visiting an intake link.
+ */
+export async function grantFirmAccessForUser(
+  user: { id: string; email?: string | null },
+  token: string
+): Promise<{
+  status: "granted" | "already_connected" | "invalid_link" | "inactive_link" | "is_lawyer" | "error";
+  firmName?: string;
+}> {
+  const email = normalizeEmail(user.email);
+  if (!user.id || !email) return { status: "error" };
+
+  // A firm lawyer account cannot join as a client.
+  const { data: asLawyer } = await admin()
+    .from("firm_members")
+    .select("user_id")
+    .or(`user_id.eq.${user.id},email.eq.${email}`)
     .maybeSingle();
-  if (!data?.joined_at) return null;
-  return { firmId: data.firm_id, firmName: data.firms?.name ?? "your law firm" };
+  if (asLawyer) return { status: "is_lawyer" };
+
+  const link = await lookupIntakeToken(token);
+  if (link.state === "invalid") return { status: "invalid_link" };
+  if (link.state === "inactive") return { status: "inactive_link" };
+
+  // Check if this user is already connected to this firm
+  const { data: existing } = await admin()
+    .from("firm_clients")
+    .select("id, joined_at, user_id")
+    .eq("firm_id", link.firmId)
+    .or(`user_id.eq.${user.id},normalized_email.eq.${email}`)
+    .maybeSingle();
+
+  if (existing?.joined_at) {
+    await grantAccess(email, link.firmId);
+    return { status: "already_connected", firmName: link.firmName };
+  }
+
+  if (!(await grantAccess(email, link.firmId))) return { status: "error" };
+
+  const [{ data: alias }, { data: profile }] = await Promise.all([
+    admin().from("email_aliases").select("id").eq("user_id", user.id).maybeSingle(),
+    admin().from("user_profiles").select("*").eq("id", user.id).maybeSingle()
+  ]);
+  const now = new Date().toISOString();
+
+  if (existing) {
+    const { error: updateError } = await admin()
+      .from("firm_clients")
+      .update({
+        user_id: user.id,
+        joined_at: now,
+        claim_token_hash: null,
+        previous_claim_token_hash: null,
+        completed_at: alias ? now : null,
+        shared_answers: alias ? sharedAnswersFromProfile(profile ?? null) : {}
+      })
+      .eq("id", existing.id);
+    if (updateError) {
+      console.error("[firm-intake] could not update firm client access", updateError.message);
+      return { status: "error" };
+    }
+  } else {
+    const fullName = profile?.full_name ? String(profile.full_name).trim() : null;
+    const phone = profile?.phone ? String(profile.phone).trim() : null;
+    const insertPayload: Record<string, any> = {
+      firm_id: link.firmId,
+      normalized_email: email,
+      user_id: user.id,
+      link_id: link.linkId,
+      joined_at: now,
+      pipeline_status: "new_lead",
+      completed_at: alias ? now : null,
+      shared_answers: alias ? sharedAnswersFromProfile(profile ?? null) : {}
+    };
+    if (fullName) insertPayload.full_name = fullName;
+    if (phone) insertPayload.phone = phone;
+
+    const { error: insertError } = await admin()
+      .from("firm_clients")
+      .insert(insertPayload);
+    if (insertError) {
+      console.error("[firm-intake] could not grant firm client access", insertError.message);
+      return { status: "error" };
+    }
+  }
+
+  return { status: "granted", firmName: link.firmName };
+}
+
+export type ClientFirmInfo = {
+  firmId: string;
+  firmName: string;
+  requiredDocuments: RequiredDocumentItem[];
+  intakeQuestions: IntakeQuestionItem[];
+};
+
+/** All firms a signed-in client has joined. */
+export async function getClientFirms(userId: string | null | undefined): Promise<ClientFirmInfo[]> {
+  if (!userId) return [];
+  const { data, error } = await admin()
+    .from("firm_clients")
+    .select("firm_id, joined_at, firms(name, required_documents, intake_questions)")
+    .eq("user_id", userId)
+    .not("joined_at", "is", null);
+  if (error || !data) return [];
+  return data.map((row: any) => ({
+    firmId: row.firm_id,
+    firmName: row.firms?.name ?? "your law firm",
+    requiredDocuments: Array.isArray(row.firms?.required_documents) ? row.firms.required_documents : [],
+    intakeQuestions: Array.isArray(row.firms?.intake_questions) ? row.firms.intake_questions : []
+  }));
+}
+
+/** The primary firm a signed-in client joined, for backwards compatibility. */
+export async function getClientFirm(userId: string | null | undefined): Promise<{ firmId: string; firmName: string } | null> {
+  const firms = await getClientFirms(userId);
+  return firms[0] ? { firmId: firms[0].firmId, firmName: firms[0].firmName } : null;
 }
 
 export type ClientFirmEngagementRecord = {
@@ -347,33 +474,47 @@ export type ClientFirmEngagementRecord = {
   bookingUrl: string | null;
   bookingEmail: string | null;
   engagementState: FirmClientEngagementState;
+  requiredDocuments?: string[];
 };
 
-/** Full firm engagement record for a signed-in client. */
+/** All firm engagement records for a signed-in client, ordered by joined date. */
+export async function getClientFirmEngagementRecords(
+  userId: string | null | undefined
+): Promise<ClientFirmEngagementRecord[]> {
+  if (!userId) return [];
+  const { data, error } = await admin()
+    .from("firm_clients")
+    .select("*, firms(name, consultation_booking_url, consultation_email, required_documents)")
+    .eq("user_id", userId)
+    .not("joined_at", "is", null)
+    .order("joined_at", { ascending: false });
+  if (error || !data) return [];
+
+  return data.map((row: any) => {
+    const clientState = cleanEngagementState(row.engagement_state);
+    const bookingUrl = clientState.bookingUrl ?? row.firms?.consultation_booking_url ?? null;
+    const bookingEmail = clientState.bookingEmail ?? row.firms?.consultation_email ?? null;
+
+    return {
+      firmId: row.firm_id,
+      firmName: row.firms?.name ?? "your law firm",
+      joinedAt: row.joined_at ?? null,
+      completedAt: row.completed_at ?? null,
+      reviewedAt: row.reviewed_at ?? null,
+      bookingUrl,
+      bookingEmail,
+      engagementState: clientState,
+      requiredDocuments: Array.isArray(row.firms?.required_documents) ? row.firms.required_documents : []
+    };
+  });
+}
+
+/** Full firm engagement record for a signed-in client (primary / latest firm). */
 export async function getClientFirmEngagementRecord(
   userId: string | null | undefined
 ): Promise<ClientFirmEngagementRecord | null> {
-  if (!userId) return null;
-  const { data } = await admin()
-    .from("firm_clients")
-    .select("*, firms(name, consultation_booking_url, consultation_email)")
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (!data?.joined_at) return null;
-  const clientState = cleanEngagementState(data.engagement_state);
-  const bookingUrl = clientState.bookingUrl ?? data.firms?.consultation_booking_url ?? null;
-  const bookingEmail = clientState.bookingEmail ?? data.firms?.consultation_email ?? null;
-
-  return {
-    firmId: data.firm_id,
-    firmName: data.firms?.name ?? "your law firm",
-    joinedAt: data.joined_at ?? null,
-    completedAt: data.completed_at ?? null,
-    reviewedAt: data.reviewed_at ?? null,
-    bookingUrl,
-    bookingEmail,
-    engagementState: clientState
-  };
+  const records = await getClientFirmEngagementRecords(userId);
+  return records[0] ?? null;
 }
 
 export async function isJoinedFirmClientEmail(email: string | null | undefined) {
@@ -383,6 +524,8 @@ export async function isJoinedFirmClientEmail(email: string | null | undefined) 
     .from("firm_clients")
     .select("joined_at")
     .eq("normalized_email", normalized)
+    .not("joined_at", "is", null)
+    .limit(1)
     .maybeSingle();
   return Boolean(data?.joined_at);
 }

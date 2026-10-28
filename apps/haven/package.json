@@ -62,7 +62,8 @@
     "check:lead-urgency": "tsx --tsconfig tsconfig.json evals/firms/urgency.check.ts",
     "check:advisor-firm-link": "tsx --tsconfig tsconfig.json evals/firms/advisor-link.check.ts",
     "check:contact-requests": "tsx --tsconfig tsconfig.json evals/firms/contact-requests.check.ts",
-    "check:case-dashboard": "tsx --tsconfig tsconfig.json evals/firms/case-dashboard.check.ts"
+    "check:case-dashboard": "tsx --tsconfig tsconfig.json evals/firms/case-dashboard.check.ts",
+    "check:multi-firm": "tsx --tsconfig tsconfig.json evals/firms/multi-firm.check.ts"
   },
   "dependencies": {
     "@haven/auth": "*",

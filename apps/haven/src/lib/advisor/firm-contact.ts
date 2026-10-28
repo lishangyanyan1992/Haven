@@ -35,7 +35,16 @@ function db(override?: unknown) {
 
 /** The firm_clients row for this user, or null. */
 async function clientRowFor(client: any, userId: string): Promise<{ id: string; firm_id: string } | null> {
-  const { data, error } = await client.from("firm_clients").select("id, firm_id").eq("user_id", userId).maybeSingle();
+  let query = client.from("firm_clients").select("id, firm_id").eq("user_id", userId);
+  if (typeof query.order === "function") {
+    query = query
+      .order("joined_at", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false });
+  }
+  if (typeof query.limit === "function") {
+    query = query.limit(1);
+  }
+  const { data, error } = await query.maybeSingle();
   if (error) throw new Error(error.message);
   return data ?? null;
 }
