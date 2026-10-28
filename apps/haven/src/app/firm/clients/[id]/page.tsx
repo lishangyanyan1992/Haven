@@ -96,6 +96,7 @@ const GROUPS: { title: string; rows: [string, SharedAnswerKey][] }[] = [
     rows: [
       ["Stage", "greenCardStage"],
       ["Sponsor / Petitioner", "greenCardSponsor"],
+      ["Prior I-140 sponsor", "retainedPriorityDateSponsor"],
       ["Category", "preferenceCategory"],
       ["Priority date", "priorityDate"]
     ]
