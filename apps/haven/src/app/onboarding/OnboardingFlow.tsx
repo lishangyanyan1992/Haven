@@ -887,17 +887,30 @@ function Step3Form({
             Sponsoring employer or petitioner <span className="text-[var(--color-text-tertiary)] font-normal">(optional)</span>
           </label>
           <Input
-            onChange={(e) => {
-              onChange("greenCardSponsor", e.target.value);
-              onChange("retainedPriorityDateSponsor", e.target.value);
-            }}
+            onChange={(e) => onChange("greenCardSponsor", e.target.value)}
             placeholder="e.g. Prior Employer, Current Employer, or Self-Petition (NIW)"
             type="text"
-            value={data.greenCardSponsor ?? data.retainedPriorityDateSponsor ?? ""}
+            value={data.greenCardSponsor ?? ""}
           />
           <p className="field-helper">
             Never assumed to be your current employer. If this petition was filed by a previous employer or self-petitioned, naming the sponsor clarifies priority date retention and portability.
           </p>
+          {data.retainedPriorityDateSponsor ? (
+            <div className="mt-4">
+              <label className="field-label">
+                Prior I-140 sponsor <span className="text-[var(--color-text-tertiary)] font-normal">(optional)</span>
+              </label>
+              <Input
+                onChange={(e) => onChange("retainedPriorityDateSponsor", e.target.value)}
+                placeholder="e.g. Prior Employer Inc."
+                type="text"
+                value={data.retainedPriorityDateSponsor ?? ""}
+              />
+              <p className="field-helper">
+                The employer or petitioner that sponsored your prior approved Form I-140.
+              </p>
+            </div>
+          ) : null}
         </Field>
       )}
     </>

@@ -98,7 +98,7 @@ export function sharedAnswersFromProfile(p: Record<string, any> | null): SharedA
     h1bStartDate: p.h1b_start_date ?? "",
     employerSize: p.employer_size ?? "",
     greenCardStage,
-    greenCardSponsor: (deadlineRecord.greenCardSponsor as string) ?? (deadlineRecord.retainedPriorityDateSponsor as string) ?? "",
+    greenCardSponsor: (deadlineRecord.greenCardSponsor as string) ?? "",
     priorityDate: p.priority_date ?? "",
     preferenceCategory: p.preference_category,
     spouseVisaStatus: p.spouse_visa_status,
