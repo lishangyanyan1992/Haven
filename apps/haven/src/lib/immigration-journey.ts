@@ -616,7 +616,7 @@ export function evaluateI140Protections(
         hasApprovedI140: true,
         isAc21PortabilityUnlocked: true,
         isRevocationProtected,
-        protectingSponsor: profile.employerName ?? null,
+        protectingSponsor: profile.greenCardSponsor ?? null,
         i140ApprovalDate: approvalDate,
         portabilitySummary: isRevocationProtected
           ? `I-140 approval reached the 180-day portability mark on ${formatDateLabel(lockInDate)}. Your priority date is permanently protected, and a new sponsor can file an H-1B transfer with AC21 3-year extensions.`
@@ -627,7 +627,7 @@ export function evaluateI140Protections(
       hasApprovedI140: true,
       isAc21PortabilityUnlocked: true,
       isRevocationProtected: false,
-      protectingSponsor: profile.employerName ?? null,
+      protectingSponsor: profile.greenCardSponsor ?? null,
       i140ApprovalDate: null,
       portabilitySummary:
         "Approved I-140 on file protects priority date retention and unlocks AC21 extensions beyond the 6-year limit."
@@ -760,7 +760,7 @@ export function synthesizePetitions(
 
     summaries.push({
       id: "current-active-petition",
-      sponsorName: profile.greenCardSponsor || profile.retainedPriorityDateSponsor || profile.employerName || "Current Sponsoring Employer",
+      sponsorName: profile.greenCardSponsor ?? "Unconfirmed Sponsor",
       petitionType: "employer_sponsored",
       preferenceCategory: profile.preferenceCategory,
       stage: activeStage,

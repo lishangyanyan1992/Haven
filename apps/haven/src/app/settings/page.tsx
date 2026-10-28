@@ -296,11 +296,13 @@ export default async function SettingsPage({
                 </Field>
                 <Field label="Sponsoring employer or petitioner">
                   <Input
-                    defaultValue={profile.greenCardSponsor ?? profile.retainedPriorityDateSponsor ?? ""}
+                    defaultValue={profile.greenCardSponsor ?? (profile.retainedPriorityDate ? "" : profile.retainedPriorityDateSponsor) ?? ""}
                     name="greenCardSponsor"
                     placeholder="e.g. Prior Employer Inc., Current Employer, or Self-Petition (NIW)"
                   />
-                  <input type="hidden" name="retainedPriorityDateSponsor" value={profile.retainedPriorityDateSponsor ?? ""} />
+                  {profile.retainedPriorityDate ? (
+                    <input type="hidden" name="retainedPriorityDateSponsor" value={profile.retainedPriorityDateSponsor ?? ""} />
+                  ) : null}
                   <p className="mt-1 text-[12px] text-[var(--color-text-tertiary)]">
                     Never assumed to be your current employer. Naming the sponsoring company clarifies priority date retention and portability.
                   </p>

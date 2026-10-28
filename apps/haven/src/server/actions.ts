@@ -403,7 +403,14 @@ export async function completeOnboardingAction(formData: FormData) {
     h1bStartDate: String(formData.get("h1bStartDate") ?? ""),
     employerSize: String(formData.get("employerSize") ?? ""),
     greenCardStage: String(formData.get("greenCardStage") ?? ""),
-    ...(formData.has("greenCardSponsor") ? { greenCardSponsor: String(formData.get("greenCardSponsor") ?? "").trim() } : {}),
+    ...(formData.has("greenCardSponsor")
+      ? {
+          greenCardSponsor: String(formData.get("greenCardSponsor") ?? "").trim(),
+          ...(!formData.has("retainedPriorityDateSponsor")
+            ? { retainedPriorityDateSponsor: String(formData.get("greenCardSponsor") ?? "").trim() }
+            : {})
+        }
+      : {}),
     ...(formData.has("retainedPriorityDateSponsor") ? { retainedPriorityDateSponsor: String(formData.get("retainedPriorityDateSponsor") ?? "").trim() } : {}),
     priorityDate: String(formData.get("priorityDate") ?? ""),
     preferenceCategory: String(formData.get("preferenceCategory") ?? ""),
@@ -566,7 +573,14 @@ export async function saveProfileSettingsAction(formData: FormData) {
     h1bStartDate: String(formData.get("h1bStartDate") ?? ""),
     employerSize: String(formData.get("employerSize") ?? ""),
     greenCardStage: String(formData.get("greenCardStage") ?? ""),
-    ...(formData.has("greenCardSponsor") ? { greenCardSponsor: String(formData.get("greenCardSponsor") ?? "").trim() } : {}),
+    ...(formData.has("greenCardSponsor")
+      ? {
+          greenCardSponsor: String(formData.get("greenCardSponsor") ?? "").trim(),
+          ...(!formData.has("retainedPriorityDateSponsor")
+            ? { retainedPriorityDateSponsor: String(formData.get("greenCardSponsor") ?? "").trim() }
+            : {})
+        }
+      : {}),
     ...(formData.has("retainedPriorityDateSponsor") ? { retainedPriorityDateSponsor: String(formData.get("retainedPriorityDateSponsor") ?? "").trim() } : {}),
     priorityDate: String(formData.get("priorityDate") ?? ""),
     preferenceCategory: String(formData.get("preferenceCategory") ?? ""),
@@ -609,7 +623,14 @@ export async function saveCaseJourneyDatesAction(formData: FormData): Promise<{ 
     h1bStartDate: String(formData.get("h1bStartDate") ?? ""),
     currentVisaExpiryDate: statusEndDate,
     greenCardStage,
-    ...(formData.has("greenCardSponsor") ? { greenCardSponsor: String(formData.get("greenCardSponsor") ?? "").trim() } : {}),
+    ...(formData.has("greenCardSponsor")
+      ? {
+          greenCardSponsor: String(formData.get("greenCardSponsor") ?? "").trim(),
+          ...(!formData.has("retainedPriorityDateSponsor")
+            ? { retainedPriorityDateSponsor: String(formData.get("greenCardSponsor") ?? "").trim() }
+            : {})
+        }
+      : {}),
     ...(formData.has("retainedPriorityDateSponsor") ? { retainedPriorityDateSponsor: String(formData.get("retainedPriorityDateSponsor") ?? "").trim() } : {}),
     priorityDate: String(formData.get("priorityDate") ?? ""),
     ...(preferenceCategory ? { preferenceCategory } : {}),
