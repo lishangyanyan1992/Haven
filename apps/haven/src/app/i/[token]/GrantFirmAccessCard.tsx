@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowRight, CheckCircle2, LoaderCircle, ShieldCheck } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
+import { signOutAction } from "@/server/actions";
 import { grantFirmAccessAction } from "@/server/firm-actions";
 
 export function GrantFirmAccessCard({
@@ -102,12 +103,14 @@ export function GrantFirmAccessCard({
         )}
       </Button>
 
-      <p className="text-center text-caption text-[var(--haven-ink-mid)]">
-        Not {userEmail}?{" "}
-        <Link className="font-medium text-[var(--haven-ink)] underline underline-offset-2" href="/signout">
-          Sign out
-        </Link>
-      </p>
+      <div className="text-center text-caption text-[var(--haven-ink-mid)]">
+        <span>Not {userEmail}? </span>
+        <form action={signOutAction} className="inline">
+          <button className="font-medium text-[var(--haven-ink)] underline underline-offset-2" type="submit">
+            Sign out
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

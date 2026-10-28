@@ -218,7 +218,7 @@ async function main() {
   );
   check(
     "intake: query is scoped by link.firmId in requestFirmIntake",
-    intakeSrc.includes('.eq("firm_id", link.firmId)'),
+    /select\("firm_id, joined_at"\)[\s\S]{0,120}\.eq\("firm_id", link\.firmId\)/.test(intakeSrc),
     "requestFirmIntake must scope existingClient lookup by firm_id"
   );
 

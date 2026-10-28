@@ -161,7 +161,7 @@ export async function recordFirmSharedAnswers(userId: string, draft: Record<stri
   const admin = createSupabaseAdminClient() as any;
   const { data: rows, error: readError } = await admin
     .from("firm_clients")
-    .select("id, shared_answers, joined_at")
+    .select("id, shared_answers, joined_at, firms(intake_questions)")
     .eq("user_id", userId);
   if (readError) {
     console.error("[firms] could not read shared answers", readError.message);
@@ -172,7 +172,22 @@ export async function recordFirmSharedAnswers(userId: string, draft: Record<stri
 
   for (const row of joinedRows) {
     const { next } = mergeSharedAnswers(row.shared_answers ?? {}, draft, form);
-    const { error } = await admin.from("firm_clients").update({ shared_answers: next }).eq("id", row.id);
+
+    // Keep all standard shared keys, but only retain custom questions configured for this firm
+    const allowedCustomKeys = new Set(
+      Array.isArray(row.firms?.intake_questions)
+        ? row.firms.intake_questions.map((q: any) => q.key).filter(isCustomQuestionKey)
+        : []
+    );
+
+    const scopedAnswers: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(next)) {
+      if (!isCustomQuestionKey(key) || allowedCustomKeys.has(key)) {
+        scopedAnswers[key] = value;
+      }
+    }
+
+    const { error } = await admin.from("firm_clients").update({ shared_answers: scopedAnswers }).eq("id", row.id);
     if (error) {
       console.error("[firms] could not save shared answers", error.message);
       return false;

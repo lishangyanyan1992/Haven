@@ -349,14 +349,14 @@ export async function markFirmClientCompleted(userId: string) {
  * Grant access to a firm for an already signed-in user visiting an intake link.
  */
 export async function grantFirmAccessForUser(
-  user: { id: string; email?: string | null },
+  user: { id: string; email?: string | null; email_confirmed_at?: string | null },
   token: string
 ): Promise<{
   status: "granted" | "already_connected" | "invalid_link" | "inactive_link" | "is_lawyer" | "error";
   firmName?: string;
 }> {
   const email = normalizeEmail(user.email);
-  if (!user.id || !email) return { status: "error" };
+  if (!user.id || !email || !user.email_confirmed_at) return { status: "error" };
 
   // A firm lawyer account cannot join as a client.
   const { data: asLawyer } = await admin()
@@ -377,6 +377,8 @@ export async function grantFirmAccessForUser(
     .eq("firm_id", link.firmId)
     .or(`user_id.eq.${user.id},normalized_email.eq.${email}`)
     .maybeSingle();
+
+  if (existing?.user_id && existing.user_id !== user.id) return { status: "error" };
 
   if (existing?.joined_at) {
     await grantAccess(email, link.firmId);
@@ -449,7 +451,8 @@ export async function getClientFirms(userId: string | null | undefined): Promise
     .from("firm_clients")
     .select("firm_id, joined_at, firms(name, required_documents, intake_questions)")
     .eq("user_id", userId)
-    .not("joined_at", "is", null);
+    .not("joined_at", "is", null)
+    .order("joined_at", { ascending: false });
   if (error || !data) return [];
   return data.map((row: any) => ({
     firmId: row.firm_id,

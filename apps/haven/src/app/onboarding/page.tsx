@@ -85,7 +85,10 @@ async function saveStepAction(_step: number, data: FormData) {
     const formWithFullName = {
       has: (key: string) => key === "fullName" || formLimitedTo(data, DEADLINE_KEYS, "except").has(key)
     };
-    await recordFirmSharedAnswers(user.id, draftWithFullName, formWithFullName);
+    const firmSaved = await recordFirmSharedAnswers(user.id, draftWithFullName, formWithFullName);
+    if (!firmSaved) {
+      throw new Error("Could not update firm records");
+    }
     await saveDeadlineAnswers(user.id, data);
     await admin.from("email_aliases").upsert({
       user_id: user.id,
@@ -127,24 +130,41 @@ export default async function OnboardingPage({
   const unionedDocKeys = new Set<string>();
   const unionedQuestions: IntakeQuestionItem[] = [];
   const unionedQuestionKeys = new Set<string>();
+  let requirementsFailed = false;
 
   for (const f of clientFirms) {
-    const [q, d] = await Promise.all([
-      getFirmIntakeQuestions(f.firmId).catch(() => []),
-      getFirmRequiredDocuments(f.firmId).catch(() => [])
-    ]);
-    for (const item of d) {
-      if (!unionedDocKeys.has(item.key)) {
-        unionedDocKeys.add(item.key);
-        unionedRequiredDocs.push(item);
+    try {
+      const [q, d] = await Promise.all([
+        getFirmIntakeQuestions(f.firmId),
+        getFirmRequiredDocuments(f.firmId)
+      ]);
+      for (const item of d) {
+        if (!unionedDocKeys.has(item.key)) {
+          unionedDocKeys.add(item.key);
+          unionedRequiredDocs.push(item);
+        }
       }
-    }
-    for (const item of q) {
-      if (!unionedQuestionKeys.has(item.key)) {
-        unionedQuestionKeys.add(item.key);
-        unionedQuestions.push(item);
+      for (const item of q) {
+        if (!unionedQuestionKeys.has(item.key)) {
+          unionedQuestionKeys.add(item.key);
+          unionedQuestions.push(item);
+        }
       }
+    } catch (err) {
+      console.error("[onboarding] failed loading firm requirements:", err);
+      requirementsFailed = true;
     }
+  }
+
+  if (requirementsFailed) {
+    return (
+      <div className="min-h-screen bg-slate-950 px-4 py-16 flex flex-col items-center justify-center text-center">
+        <h1 className="text-xl font-semibold text-rose-300">Unable to load intake requirements</h1>
+        <p className="mt-2 text-sm text-slate-400">
+          We encountered an issue loading requirements for your connected legal firms. Please reload to try again.
+        </p>
+      </div>
+    );
   }
 
   const effectiveQuestions = unionedQuestions.length > 0 ? unionedQuestions : getDefaultIntakeQuestions();
