@@ -61,6 +61,31 @@ export default async function DocumentsPage() {
     ? documents.filter((d) => !requiredKeys.has(d.documentKind))
     : documents;
 
+  const uploadedKinds = new Set(documents.map((d) => d.documentKind));
+  const profile = snapshot.profile;
+  const unverifiedIntakeClaims: { title: string; detail: string; neededKind: string }[] = [];
+  if (profile.currentVisaExpiryDate && !uploadedKinds.has("i94_record")) {
+    unverifiedIntakeClaims.push({
+      title: `Status end date (${profile.currentVisaExpiryDate}) is unverified by Form I-94`,
+      detail: "Your Case timeline uses this date to cap your authorized stay under 8 CFR § 214.1(l)(2), but no CBP I-94 record has been uploaded.",
+      neededKind: "Most recent I-94"
+    });
+  }
+  if (profile.i140Approved && !uploadedKinds.has("i140_notice")) {
+    unverifiedIntakeClaims.push({
+      title: `Approved ${profile.preferenceCategory} I-140 (${profile.priorityDate ?? "Priority Date"}) is unverified`,
+      detail: "Your AC21 3-year H-1B extension eligibility and priority date retention rely on an approved Form I-140 that is not yet in your Vault.",
+      neededKind: "I-140 approval notice"
+    });
+  }
+  if (profile.employmentStatus === "laid_off" && !uploadedKinds.has("paystub")) {
+    unverifiedIntakeClaims.push({
+      title: `Maintenance of status through last day of work (${profile.employerName ?? "sponsor"}) needs pay stubs`,
+      detail: "USCIS requires recent pay stubs to prove valid H-1B employment prior to your grace period when filing a transfer or change of status.",
+      neededKind: "Recent paystubs or W-2"
+    });
+  }
+
   return (
     <AppShell activePath="/documents" crisisState={crisisState} snapshot={snapshot}>
       <RefreshWhileReading active={stillReading} />
@@ -74,6 +99,41 @@ export default async function DocumentsPage() {
         </section>
 
         {firm ? <FirmSharingNote firmName={firm.firmName} /> : null}
+
+        {unverifiedIntakeClaims.length > 0 && (
+          <div className="rounded-[var(--radius-2xl)] border border-[var(--haven-blush)] bg-[var(--haven-blush-light)]/70 p-5 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <CircleAlert className="h-4 w-4 text-[var(--haven-blush-ink)] shrink-0" />
+                <p className="text-body-sm font-bold text-[var(--haven-blush-ink)]">
+                  Intake vs. Document Vault Verification Gaps ({unverifiedIntakeClaims.length})
+                </p>
+              </div>
+              <span className="rounded-full bg-[var(--haven-white)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--haven-blush-ink)] border border-[var(--haven-blush)]">
+                Client warning · Self-reported dates need notices
+              </span>
+            </div>
+            <p className="text-body-sm text-[var(--haven-ink)]">
+              Your dashboard timeline is currently plotting self-reported intake dates without the official verification notices below:
+            </p>
+            <div className="grid gap-2.5">
+              {unverifiedIntakeClaims.map((claim) => (
+                <div
+                  key={claim.title}
+                  className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--haven-white)] p-3.5"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-body-sm font-semibold text-[var(--haven-ink)]">{claim.title}</p>
+                    <span className="rounded-full bg-[var(--haven-blush-light)] px-2 py-0.5 text-[11px] font-semibold text-[var(--haven-blush-ink)]">
+                      Missing: {claim.neededKind}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[12px] text-[var(--haven-ink-mid)]">{claim.detail}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <Card>
           <CardContent className="space-y-4 pt-6">

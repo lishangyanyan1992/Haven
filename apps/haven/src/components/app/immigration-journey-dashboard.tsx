@@ -266,6 +266,7 @@ export function ImmigrationJourneyDashboard({
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [showPetitionsDrawer, setShowPetitionsDrawer] = useState(false);
+  const [showCapturedDataDrawer, setShowCapturedDataDrawer] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [activeInspectedPinId, setActiveInspectedPinId] = useState<string | null>(null);
@@ -326,7 +327,7 @@ export function ImmigrationJourneyDashboard({
     setActiveInspectedPinId((prev) => (isPinActive(pinId, prev) ? null : pinId));
   };
 
-  const { axis, visaTrack, jobTrack, greenCardTrack, overlayInsights, missingFields, tacticalWindow, protection } = journey;
+  const { axis, visaTrack, jobTrack, greenCardTrack, overlayInsights, missingFields, tacticalWindow, protection, intakeAudit } = journey;
 
   const hasMilestoneTarget = (pinId: string): boolean => {
     const targets = [
@@ -1251,6 +1252,230 @@ export function ImmigrationJourneyDashboard({
             </div>
           ))}
         </div>
+
+        {/* =================================================================== */}
+        {/* INTAKE DATA AUDIT, MISSING INFORMATION & CLIENT RISK WARNINGS       */}
+        {/* =================================================================== */}
+        {intakeAudit && (
+          <div className="rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-cream)]/60 p-4 sm:p-6 space-y-6">
+            <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--color-border)] pb-4">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-label">Intake-to-Dashboard Diagnostic & Client Risk Audit</span>
+                  {intakeAudit.criticalWarningCount > 0 ? (
+                    <span className="rounded-full bg-[var(--haven-blush-ink)] px-2.5 py-0.5 text-[11px] font-bold text-[var(--haven-cream)]">
+                      {intakeAudit.criticalWarningCount} critical client warning{intakeAudit.criticalWarningCount === 1 ? "" : "s"}
+                    </span>
+                  ) : null}
+                  {intakeAudit.missingCount > 0 ? (
+                    <span className="rounded-full border border-[var(--haven-blush)] bg-[var(--haven-blush-light)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--haven-blush-ink)]">
+                      {intakeAudit.missingCount} missing / unverified item{intakeAudit.missingCount === 1 ? "" : "s"}
+                    </span>
+                  ) : (
+                    <span className="rounded-full border border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--haven-ink)]">
+                      All core intake items verified
+                    </span>
+                  )}
+                </div>
+                <h3 className="text-h3 mt-1.5 text-[var(--haven-ink)]">
+                  What Haven captured from your intake, what is still missing, and active client warnings
+                </h3>
+                <p className="text-body-sm mt-1 max-w-[72ch] text-[var(--color-text-secondary)]">
+                  Every warning and missing item below is derived live from your onboarding setup, deadline answers, uploaded documents, and firm checklist so you can see exactly how client risk alerts and intake gaps are surfaced.
+                </p>
+              </div>
+
+              <div className="flex flex-col items-start sm:items-end gap-1.5 shrink-0">
+                <span className="rounded-full border border-[var(--color-border)] bg-[var(--haven-white)] px-3.5 py-1 text-[12px] font-semibold text-[var(--haven-ink)]">
+                  {intakeAudit.capturedCount} captured · {intakeAudit.missingCount} missing · {intakeAudit.completenessPercent}% complete
+                </span>
+                <div className="w-44 h-2 rounded-full bg-[var(--haven-sand)] overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-[var(--haven-ink)] transition-all duration-300"
+                    style={{ width: `${intakeAudit.completenessPercent}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 1. Active Client Legal & Timeline Warnings */}
+            {intakeAudit.clientWarnings.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--haven-blush-ink)]">
+                    Active Client Warnings ({intakeAudit.clientWarnings.length}) · How Haven warns clients on high-risk dates
+                  </p>
+                </div>
+                <div className="grid gap-3 lg:grid-cols-2">
+                  {intakeAudit.clientWarnings.map((warning) => {
+                    const isCritical = warning.severity === "critical";
+                    return (
+                      <div
+                        key={warning.id}
+                        className={cn(
+                          "flex flex-col justify-between rounded-[var(--radius-xl)] border p-4 shadow-2xs",
+                          isCritical
+                            ? "border-[var(--haven-blush)] bg-[var(--haven-white)] ring-1 ring-[var(--haven-blush)]/40"
+                            : "border-[var(--color-border)] bg-[var(--haven-white)]"
+                        )}
+                      >
+                        <div>
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span
+                              className={cn(
+                                "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+                                isCritical
+                                  ? "bg-[var(--haven-blush-ink)] text-[var(--haven-cream)]"
+                                  : "bg-[var(--haven-blush-light)] text-[var(--haven-blush-ink)] border border-[var(--haven-blush)]"
+                              )}
+                            >
+                              <CircleAlert className="h-3 w-3" />
+                              {warning.badge}
+                            </span>
+                            <span className="rounded-full bg-[var(--haven-sand)] px-2.5 py-0.5 text-[10px] font-semibold text-[var(--haven-ink-mid)]">
+                              {warning.ruleCitation}
+                            </span>
+                          </div>
+
+                          <h4 className="mt-2.5 text-body-sm font-bold text-[var(--haven-ink)] leading-snug">
+                            {warning.title}
+                          </h4>
+                          <p className="mt-1.5 text-[12px] leading-relaxed text-[var(--color-text-secondary)]">
+                            {warning.body}
+                          </p>
+                          <div className="mt-2.5 rounded-[var(--radius-lg)] bg-[var(--haven-cream)] p-2.5 text-[11px] leading-relaxed text-[var(--haven-ink)] border border-[var(--color-border)]">
+                            {warning.clientGuidance}
+                          </div>
+                        </div>
+
+                        <div className="mt-3 border-t border-[var(--color-border)] pt-2.5 flex items-center justify-between">
+                          <Link
+                            className="inline-flex items-center gap-1 text-[12px] font-semibold text-[var(--haven-ink)] underline underline-offset-4 hover:text-[var(--haven-ink-mid)]"
+                            href={warning.actionHref}
+                          >
+                            {warning.actionLabel} →
+                          </Link>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* 2. Missing Information, Unuploaded Documents & Intake Verification Gaps */}
+            {intakeAudit.missingItems.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--haven-ink-mid)]">
+                    Missing Information & Verification Gaps ({intakeAudit.missingItems.length}) · Labeled across your profile & vault
+                  </p>
+                  <span className="text-[11px] text-[var(--haven-ink-mid)]">
+                    Required Firm Documents: {intakeAudit.fulfilledRequiredDocumentCount} of {intakeAudit.requiredDocumentCount} uploaded
+                  </span>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  {intakeAudit.missingItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex flex-col justify-between rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-4 shadow-2xs"
+                    >
+                      <div>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span
+                            className={cn(
+                              "rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+                              TONE_BADGE_CLASS[item.tone]
+                            )}
+                          >
+                            {item.badge}
+                          </span>
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--haven-ink-light)]">
+                            {item.category === "document"
+                              ? "Document Vault"
+                              : item.category === "verification"
+                                ? "Attorney Verification"
+                                : "Intake Field"}
+                          </span>
+                        </div>
+
+                        <h4 className="mt-2 text-body-sm font-bold text-[var(--haven-ink)] leading-snug">
+                          {item.title}
+                        </h4>
+                        <p className="mt-1 text-[12px] leading-relaxed text-[var(--color-text-secondary)]">
+                          {item.detail}
+                        </p>
+                        <p className="mt-2 text-[11px] font-medium text-[var(--haven-blush-ink)]">
+                          Why it matters: {item.impact}
+                        </p>
+                      </div>
+
+                      <div className="mt-3 border-t border-[var(--color-border)] pt-2.5">
+                        <Link
+                          className="inline-flex items-center gap-1 text-[12px] font-semibold text-[var(--haven-ink)] underline underline-offset-4 hover:text-[var(--haven-ink-mid)]"
+                          href={item.actionHref}
+                        >
+                          {item.actionLabel} →
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 3. Captured Intake Data Mapping (Collapsible / Scannable) */}
+            <div className="border-t border-[var(--color-border)] pt-4">
+              <button
+                type="button"
+                onClick={() => setShowCapturedDataDrawer((prev) => !prev)}
+                className="flex w-full flex-wrap items-center justify-between gap-2 text-left cursor-pointer"
+              >
+                <div>
+                  <p className="text-body-sm font-bold text-[var(--haven-ink)]">
+                    Captured Intake & Resume Data Mapping ({intakeAudit.capturedFields.length} fields wired to dashboard)
+                  </p>
+                  <p className="text-[12px] text-[var(--haven-ink-mid)]">
+                    See how each answer from your intake, deadline setup, and uploaded resumes maps into your dashboard tracks and whether an official notice verifies it.
+                  </p>
+                </div>
+                <span className="rounded-full border border-[var(--color-border)] bg-[var(--haven-white)] px-3 py-1 text-[12px] font-semibold text-[var(--haven-ink)]">
+                  {showCapturedDataDrawer ? "Hide captured data ↑" : "Inspect captured data ↓"}
+                </span>
+              </button>
+
+              {showCapturedDataDrawer && (
+                <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
+                  {intakeAudit.capturedFields.map((field) => (
+                    <div
+                      key={field.id}
+                      className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--haven-white)] p-3 text-[12px]"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-1.5">
+                        <span className="font-semibold text-[var(--haven-ink-mid)]">{field.label}</span>
+                        <span
+                          className={cn(
+                            "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                            field.verifiedByDocument
+                              ? "bg-[var(--haven-sage-light)] text-[var(--haven-ink)] border border-[var(--haven-sage-mid)]"
+                              : "bg-[var(--haven-sand)] text-[var(--haven-ink-mid)] border border-[var(--color-border)]"
+                          )}
+                        >
+                          {field.verifiedByDocument ? "Verified in Vault" : "Self-reported · Unverified"}
+                        </span>
+                      </div>
+                      <p className="mt-1 font-bold text-[var(--haven-ink)]">{field.value}</p>
+                      <p className="mt-1 text-[11px] text-[var(--haven-ink-light)]">
+                        Source: {field.sourceLabel} → {field.mapsToTrack}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

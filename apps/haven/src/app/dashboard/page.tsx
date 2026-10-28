@@ -150,12 +150,38 @@ export default async function DashboardPage({
       }
     : null;
 
+  const deadlineMeta = (savedDeadlines ?? {}) as Record<string, unknown>;
+  const pendingEmailSubjects = profileUnavailable
+    ? []
+    : inboxData.emailInbox
+        .filter((e) => e.status === "pending_confirmation")
+        .map((e) => e.subject)
+        .filter(Boolean);
+
   const immigrationJourney = buildImmigrationJourney({
     profile,
     deadlines: savedDeadlines,
     signals: dashboard.signals,
     activeLayoffEvent: activeLayoffFromCrisis,
-    priorityDateIntelligence
+    priorityDateIntelligence,
+    documentContext: profileUnavailable
+      ? null
+      : {
+          uploadedDocumentKinds: manualDocuments.map((d) => d.documentKind),
+          uploadedDocumentLabels: manualDocuments.map((d) => d.originalName || d.displayLabel),
+          requiredDocumentKeys: requiredDocs.length > 0 ? requiredDocs : getDefaultRequiredDocuments(),
+          pendingEmailSubjects,
+          resumeContext: {
+            phone: typeof deadlineMeta.inferredPhone === "string" ? deadlineMeta.inferredPhone : null,
+            location: typeof deadlineMeta.inferredLocation === "string" ? deadlineMeta.inferredLocation : null,
+            priorEmployers: Array.isArray(deadlineMeta.priorEmployers)
+              ? (deadlineMeta.priorEmployers as string[])
+              : undefined,
+            concurrentRoles: Array.isArray(deadlineMeta.concurrentRoles)
+              ? (deadlineMeta.concurrentRoles as string[])
+              : undefined
+          }
+        }
   });
   const changeSections = {
     overview: JSON.stringify(
