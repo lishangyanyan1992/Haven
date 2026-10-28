@@ -2087,20 +2087,22 @@ export function buildImmigrationJourney(input: {
     }
 
     if (!hasI797Doc && isWorkVisa) {
+      const docLabels = docContext.uploadedDocumentLabels ?? [];
+      const docLabelsText = docLabels.length > 0 ? ` (${docLabels.join(", ")})` : "";
       missingItems.push({
         id: "missing-doc-i797",
         category: "document",
         badge: "Missing Required Document",
         tone: "blush",
         title: "H-1B Form I-797 approval notice & petition packet not uploaded",
-        detail: `Required by your sponsoring law firm checklist. Only ${uploadedDocumentCount} non-notice file${uploadedDocumentCount === 1 ? "" : "s"} (${(docContext.uploadedDocumentLabels ?? ["resumes"]).join(", ")}) are currently stored in your vault.`,
-        impact: "Needed to verify your H-1B validity dates with 1848 Ventures and prepare any transfer or change-of-status filing.",
+        detail: `Required by your sponsoring law firm checklist. Only ${uploadedDocumentCount} non-notice file${uploadedDocumentCount === 1 ? "" : "s"}${docLabelsText} currently stored in your vault.`,
+        impact: `Needed to verify your H-1B validity dates with ${employerName ?? "your sponsoring employer"} and prepare any transfer or change-of-status filing.`,
         actionLabel: "Upload I-797 & H-1B packet",
         actionHref: "/documents"
       });
     }
 
-    if (!hasI140Doc && (hasI140Approval || priorityDate)) {
+    if (!hasI140Doc && hasI140Approval) {
       missingItems.push({
         id: "missing-doc-i140",
         category: "document",
@@ -2112,6 +2114,18 @@ export function buildImmigrationJourney(input: {
           capDate && capDate.getTime() <= todayMs
             ? `Critical: Because your 6-year H-1B cap (${formatDateLabel(capDate)}) has already passed, a new employer cannot file an AC21 § 104(c) H-1B extension without your I-140 approval notice or receipt number.`
             : "Required to prove priority date retention under 8 CFR § 204.5(e) and unlock post-6th-year H-1B extensions.",
+        actionLabel: "Upload I-140 notice",
+        actionHref: "/documents"
+      });
+    } else if (!hasI140Doc && priorityDate) {
+      missingItems.push({
+        id: "missing-doc-i140",
+        category: "document",
+        badge: "Missing Required Document",
+        tone: "blush",
+        title: "Form I-140 receipt notice or petition record not uploaded",
+        detail: `Your profile records a ${profile.preferenceCategory} priority date of ${formatDateLabel(priorityDate)}, but the supporting Form I-797 notice is missing from your Document Vault.`,
+        impact: "Required to substantiate your priority date under 8 CFR § 204.5(e).",
         actionLabel: "Upload I-140 notice",
         actionHref: "/documents"
       });
@@ -2232,7 +2246,7 @@ export function buildImmigrationJourney(input: {
       badge: "Missing Profile Field",
       tone: "sky",
       title: "Employer industry & cap-exempt status not recorded on profile",
-      detail: `employer_industry is null on your profile record (resume indicates Insurance / Corporate Venture Studio at ${employerName ?? "your sponsor"}).`,
+      detail: `employer_industry is null on your profile record for ${employerName ?? "your sponsoring employer"}.`,
       impact: "Used to benchmark layoff readiness, prevailing wage tiers, and cap-exempt transfer eligibility.",
       actionLabel: "Complete in Settings",
       actionHref: "/settings"
@@ -2257,15 +2271,16 @@ export function buildImmigrationJourney(input: {
   const clientWarnings: ClientRiskWarning[] = [];
 
   if (isLaidOff && isGraceCappedByVisa && effectiveStayEndDate && effectiveStayDaysRemaining !== null) {
+    const graceEndLabel = formatDateLabel(graceEndDate);
     clientWarnings.push({
       id: "warn-i94-caps-grace",
       severity: "critical",
       badge: effectiveStayDaysRemaining >= 0 ? `Critical · ${effectiveStayDaysRemaining}d left` : `Critical · Expired ${Math.abs(effectiveStayDaysRemaining)}d ago`,
       title: `I-94 expiration (${effectiveStayEndLabel}) cuts short your 60-day grace period`,
       ruleCitation: "8 CFR § 214.1(l)(2)",
-      body: `Although 60 days from your ${formatDateLabel(lastWorkDayDate)} last day of work would run until ${formatDateLabel(graceEndDate)}, federal regulation limits the post-termination grace period to 60 days OR your existing I-94 validity end date (${effectiveStayEndLabel}), whichever is shorter.`,
+      body: `Although 60 days from your ${formatDateLabel(lastWorkDayDate)} last day of work would run until ${graceEndLabel}, federal regulation limits the post-termination grace period to 60 days OR your existing I-94 validity end date (${effectiveStayEndLabel}), whichever is shorter.`,
       clientGuidance:
-        "Potential client warning: You do not have until December 7. To avoid accruing unlawful presence or falling out of status after October 29, a non-frivolous H-1B change-of-employer petition (I-129), a bridge Change of Status application (Form I-539, such as B-2 or dependent status), or departure from the U.S. must occur on or before your I-94 expiration date.",
+        `Potential client warning: You do not have until ${graceEndLabel}. To avoid accruing unlawful presence or falling out of status after ${effectiveStayEndLabel}, a non-frivolous H-1B change-of-employer petition (I-129), a bridge Change of Status application (Form I-539, such as B-2 or dependent status), or departure from the U.S. must occur on or before ${effectiveStayEndLabel}.`,
       actionLabel: "Consult attorney immediately",
       actionHref: "/advisor"
     });
@@ -2289,6 +2304,18 @@ export function buildImmigrationJourney(input: {
     if (agencyParsed) {
       const agencyDays = Math.ceil((agencyParsed.getTime() - todayMs) / DAY_MS);
       const isAfterStayEnd = effectiveStayEndDate !== null && agencyParsed.getTime() > effectiveStayEndDate.getTime();
+      const diffDays = effectiveStayEndDate
+        ? Math.round((agencyParsed.getTime() - effectiveStayEndDate.getTime()) / DAY_MS)
+        : null;
+      const diffText =
+        diffDays !== null
+          ? diffDays > 0
+            ? `, which is ${diffDays} day${diffDays === 1 ? "" : "s"} after your ${effectiveStayEndLabel ?? "recorded"} status expiration date,`
+            : diffDays === 0
+              ? `, which coincides with your ${effectiveStayEndLabel ?? "recorded"} status expiration date,`
+              : `, which falls before your ${effectiveStayEndLabel ?? "recorded"} status expiration date,`
+          : "";
+
       clientWarnings.push({
         id: "warn-agency-deadline",
         severity: agencyDays <= 14 ? "critical" : "high",
@@ -2296,7 +2323,7 @@ export function buildImmigrationJourney(input: {
         title: `Scheduled agency ${deadlines.agencyDeadlineType} on ${formatDateLabel(agencyParsed)}${isAfterStayEnd ? ` falls after your ${effectiveStayEndLabel} status end date` : ""}`,
         ruleCitation: "USCIS Appointment & Status Verification",
         body: !profile.i485Filed && deadlines.agencyDeadlineType === "interview"
-          ? `Your intake shows an agency interview on ${formatDateLabel(agencyParsed)}, which is 1 day after your ${effectiveStayEndLabel ?? "recorded"} status expiration date, while Form I-485 is marked not filed.`
+          ? `Your intake shows an agency interview on ${formatDateLabel(agencyParsed)}${diffText} while Form I-485 is marked not filed.`
           : `You have a recorded ${deadlines.agencyDeadlineType} deadline on ${formatDateLabel(agencyParsed)}.`,
         clientGuidance:
           "Potential client warning: Never miss a scheduled USCIS or consular interview, and never attend without verifying your underlying status and receipt notice (Form I-797C) with legal counsel first.",
@@ -2330,17 +2357,26 @@ export function buildImmigrationJourney(input: {
   }
 
   if (profile.visaType === "H1B" && capDate && capDate.getTime() <= todayMs) {
+    const hasApproval = Boolean(hasI140Approval);
+
     clientWarnings.push({
       id: "warn-post-6yr-cap-ac21",
-      severity: hasI140Doc ? "medium" : "high",
+      severity: hasApproval && hasI140Doc ? "medium" : "high",
       badge: "AC21 Post-6th-Year Dependency",
-      title: `6-year H-1B statutory limit (${formatDateLabel(capDate)}) has passed — extensions require I-140 proof`,
+      title: hasApproval
+        ? `6-year H-1B statutory limit (${formatDateLabel(capDate)}) has passed — extensions require I-140 proof`
+        : `6-year H-1B statutory limit (${formatDateLabel(capDate)}) has passed without approved I-140`,
       ruleCitation: "AC21 § 104(c) & 8 CFR § 205.1(a)(3)(iii)(C)",
-      body: `With an initial H-1B start date of ${formatDateLabel(visaStartDate)}, your 6-year statutory clock maxed out on ${formatDateLabel(capDate)}. Your eligibility for new H-1B transfers and 3-year extensions depends entirely on your approved ${profile.preferenceCategory} Form I-140 (${formatDateLabel(priorityDate) ?? "PD"})${retainedSponsorName ? ` from ${retainedSponsorName}` : ""}.`,
-      clientGuidance:
-        "Potential client warning: Because your I-140 was approved more than 180 days ago, your prior employer cannot revoke your priority date or AC21 extension eligibility. However, any new employer's immigration counsel must include copy/receipt evidence of that approved I-140 with your H-1B transfer filing.",
-      actionLabel: "Upload I-140 approval notice",
-      actionHref: "/documents"
+      body: hasApproval
+        ? `With an initial H-1B start date of ${formatDateLabel(visaStartDate)}, your 6-year statutory clock maxed out on ${formatDateLabel(capDate)}. Your eligibility for new H-1B transfers and 3-year extensions depends entirely on your approved ${profile.preferenceCategory} Form I-140 (${formatDateLabel(priorityDate) ?? "PD"})${retainedSponsorName ? ` from ${retainedSponsorName}` : ""}.`
+        : `With an initial H-1B start date of ${formatDateLabel(visaStartDate)}, your 6-year statutory clock maxed out on ${formatDateLabel(capDate)}. Under AC21 § 104(c), extensions beyond 6 years require an approved Form I-140 subject to per-country visa backlogs.`,
+      clientGuidance: hasApproval
+        ? isRevocationProtected
+          ? "Potential client warning: Because your I-140 was approved more than 180 days ago, your prior employer cannot revoke your priority date or AC21 extension eligibility. However, any new employer's immigration counsel must include copy/receipt evidence of that approved I-140 with your H-1B transfer filing."
+          : "Potential client warning: Your approved I-140 supports post-6-year extensions, but has not yet reached the 180-day mark where it is protected from petitioner withdrawal under 8 CFR § 205.1(a)(3)(iii)(C). Ensure your new petition is filed promptly."
+        : "Potential client warning: Without an approved Form I-140 on file, you do not qualify for AC21 § 104(c) 3-year extensions beyond the 6-year limit unless you qualify under AC21 § 106(a) with a PERM or I-140 pending for 365+ days. Review with counsel immediately.",
+      actionLabel: hasApproval ? "Upload I-140 approval notice" : "Consult attorney in Ask",
+      actionHref: hasApproval ? "/documents" : "/advisor"
     });
   }
 

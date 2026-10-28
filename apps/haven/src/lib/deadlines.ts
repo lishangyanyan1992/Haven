@@ -104,11 +104,23 @@ export async function saveDeadlineAnswers(userId: string, form: FormData) {
     }
     if (draft.jobEnded === "yes") {
       updatePatch.employment_status = "laid_off";
+    } else if ("jobEnded" in draft && profile.employment_status === "laid_off") {
+      updatePatch.employment_status = "employed";
     }
     const { error } = await admin.from("user_profiles").update(updatePatch).eq("id", userId);
     if (error) throw new Error(`Could not save deadline answers: ${error.message}`);
     if (next.jobEnded === "yes" && next.lastWorkDay) {
       await openLayoffEvent(userId, next.lastWorkDay).catch(() => null);
+    } else if (draft.jobEnded && draft.jobEnded !== "yes") {
+      await admin
+        .from("layoff_events")
+        .update({
+          resolved_at: new Date().toISOString(),
+          resolution_type: "dismissed"
+        })
+        .eq("user_id", userId)
+        .is("resolved_at", null)
+        .catch(() => null);
     }
   }
   if (!(await recordFirmSharedAnswers(userId, draft, formLimitedTo(form, DEADLINE_KEYS)))) {

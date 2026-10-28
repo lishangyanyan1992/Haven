@@ -79,7 +79,7 @@ export default async function SettingsPage({
       id: "employer-industry",
       label: "Employer industry not classified",
       detail:
-        "Based on your uploaded resume (1848 Ventures / Westfield Insurance & Tenney 110 / American Family Insurance), your industry is InsurTech / Venture Studio & AI Product Management.",
+        "Add your employer's industry so Haven can benchmark layoff readiness, prevailing wage tiers, and cap-exempt transfer eligibility.",
       severity: "info"
     });
   }

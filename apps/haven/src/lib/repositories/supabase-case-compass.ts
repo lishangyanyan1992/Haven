@@ -427,17 +427,14 @@ async function buildSnapshotContext(): Promise<SnapshotContext> {
   ] = await Promise.all([
     supabase.from("user_profiles").select("*").eq("id", user.id).maybeSingle(),
     supabase.from("derived_signals").select("*").eq("user_id", user.id).maybeSingle(),
-    // The open layoff, if there is one. `resolved_at is null` is what "open"
-    // means here — the same condition getActiveCrisisEvent uses, so the Advisor
-    // and the War Room cannot disagree about whether somebody is in their 60
-    // days. Fetched with the profile rather than on demand because every surface
+    // The most recent layoff record, to determine if an active layoff event exists.
+    // Fetched with the profile rather than on demand because every surface
     // that shows a deadline needs it.
     supabase
       .from("layoff_events")
-      .select("layoff_date, employer_at_layoff, visa_type_at_layoff")
+      .select("layoff_date, employer_at_layoff, visa_type_at_layoff, resolved_at")
       .eq("user_id", user.id)
-      .is("resolved_at", null)
-      .order("layoff_date", { ascending: false })
+      .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle()
   ]);
@@ -463,12 +460,16 @@ async function buildSnapshotContext(): Promise<SnapshotContext> {
       ? deadlineMeta.lastWorkDay.trim()
       : null;
 
+  // If a layoff row exists, honor its resolution state: resolved rows must never
+  // appear active. Only fall back to deadline_answers if no layoff row exists at all.
   const activeLayoffEvent = layoffRow
-    ? {
-        layoffDate: layoffRow.layoff_date,
-        employerAtLayoff: layoffRow.employer_at_layoff,
-        visaTypeAtLayoff: layoffRow.visa_type_at_layoff
-      }
+    ? layoffRow.resolved_at === null
+      ? {
+          layoffDate: layoffRow.layoff_date,
+          employerAtLayoff: layoffRow.employer_at_layoff,
+          visaTypeAtLayoff: layoffRow.visa_type_at_layoff
+        }
+      : null
     : fallbackLayoffDate
       ? {
           layoffDate: fallbackLayoffDate,
