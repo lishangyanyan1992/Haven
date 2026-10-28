@@ -74,3 +74,35 @@ export async function saveFirmIntakeQuestions(
 
   return validation.items;
 }
+
+/**
+ * Unions intake question lists across multiple connected law firms.
+ * Deduplicates shared preset questions by key, and deduplicates custom questions
+ * when both key and normalized label match. If two firms define different custom
+ * questions whose slug keys collide, assigns a firm-scoped key to keep them distinct.
+ *
+ * @param firmLists - Array of firm IDs with their respective intake question lists
+ * @returns Deduplicated and collision-disambiguated list of intake questions
+ */
+export function unionIntakeQuestions(
+  firmLists: Array<{ firmId: string; questions: IntakeQuestionItem[] }>
+): IntakeQuestionItem[] {
+  const seenIdentities = new Set<string>();
+  const unioned: IntakeQuestionItem[] = [];
+
+  for (const { firmId, questions } of firmLists) {
+    for (const q of questions) {
+      const qIdentity = q.isCustom ? `${q.key}:${q.label.toLowerCase().trim()}` : q.key;
+      if (!seenIdentities.has(qIdentity)) {
+        seenIdentities.add(qIdentity);
+        let finalItem = q;
+        if (q.isCustom && unioned.some((existing) => existing.key === q.key && existing.label !== q.label)) {
+          finalItem = { ...q, key: `${q.key}_${firmId.slice(0, 8)}` };
+        }
+        unioned.push(finalItem);
+      }
+    }
+  }
+
+  return unioned;
+}

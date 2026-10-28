@@ -13,15 +13,28 @@ import { persistProfileDraft, ONBOARDING_OVERRIDE_COOKIE } from "@/lib/profile-s
 import { env } from "@/lib/env";
 import { noIndexMetadata } from "@/lib/seo";
 import { formLimitedTo, recordFirmSharedAnswers } from "@/lib/firms/answers";
-import { getDefaultIntakeQuestions, getFirmIntakeQuestions, isCustomQuestionKey } from "@/lib/firms/intake-questions";
-import { getFirmRequiredDocuments } from "@/lib/firms/required-documents";
+import {
+  getDefaultIntakeQuestions,
+  getFirmIntakeQuestions,
+  isCustomQuestionKey,
+  unionIntakeQuestions
+} from "@/lib/firms/intake-questions";
+import { getFirmRequiredDocuments, unionRequiredDocuments } from "@/lib/firms/required-documents";
 import { DEADLINE_KEYS, loadDeadlineAnswers, markDeadlinesPrompted, saveDeadlineAnswers } from "@/lib/deadlines";
-import { getClientFirm, markFirmClientCompleted } from "@/lib/firms/intake";
+import { getClientFirms, markFirmClientCompleted, type ClientFirmInfo } from "@/lib/firms/intake";
+import type { IntakeQuestionItem, RequiredDocumentItem } from "@/lib/firms/types";
 
 const EMAIL_INGEST_DOMAIN = env.EMAIL_INGEST_DOMAIN ?? "import.haven-h1b.com";
 
 export const metadata = noIndexMetadata;
 
+/**
+ * Builds an intake profile draft object from onboarding form data, capturing
+ * standard profile fields along with any firm-specific custom question answers.
+ *
+ * @param data - Submitted FormData from the onboarding step
+ * @returns Structured profile draft object
+ */
 function buildDraft(data: FormData) {
   const customAnswers: Record<string, string> = {};
   for (const [key, value] of data.entries()) {
@@ -49,6 +62,14 @@ function buildDraft(data: FormData) {
   };
 }
 
+/**
+ * Server action to persist onboarding draft answers per step, fan out shared
+ * answers to all joined legal firms, and record completion when the client
+ * finishes the final active step.
+ *
+ * @param _step - Current onboarding step index
+ * @param data - Submitted FormData from the active step
+ */
 async function saveStepAction(_step: number, data: FormData) {
   "use server";
 
@@ -84,7 +105,10 @@ async function saveStepAction(_step: number, data: FormData) {
     const formWithFullName = {
       has: (key: string) => key === "fullName" || formLimitedTo(data, DEADLINE_KEYS, "except").has(key)
     };
-    await recordFirmSharedAnswers(user.id, draftWithFullName, formWithFullName);
+    const firmSaved = await recordFirmSharedAnswers(user.id, draftWithFullName, formWithFullName);
+    if (!firmSaved) {
+      throw new Error("Could not update firm records");
+    }
     await saveDeadlineAnswers(user.id, data);
     await admin.from("email_aliases").upsert({
       user_id: user.id,
@@ -106,6 +130,12 @@ async function saveStepAction(_step: number, data: FormData) {
   }
 }
 
+/**
+ * Onboarding page component that renders the full client intake wizard, unioning
+ * required documents and intake questions across all law firms the client has joined.
+ *
+ * @param props - Next.js page props containing query parameters
+ */
 export default async function OnboardingPage({
   searchParams
 }: {
@@ -119,12 +149,68 @@ export default async function OnboardingPage({
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const requestedStep = Number(resolvedSearchParams?.step ?? "");
   const initialStep = Number.isFinite(requestedStep) && requestedStep >= 1 && requestedStep <= 6 ? requestedStep : 1;
-  const firm = await getClientFirm(user?.id);
-  const [savedDeadlines, intakeQuestions, requiredDocuments, uploadedDocsResult] = await Promise.all([
+
+  let clientFirms: ClientFirmInfo[] = [];
+  try {
+    clientFirms = await getClientFirms(user?.id);
+  } catch (err) {
+    console.error("[onboarding] failed to get client firms:", err);
+    return (
+      <div className="min-h-screen bg-slate-950 px-4 py-16 flex flex-col items-center justify-center text-center">
+        <h1 className="text-xl font-semibold text-rose-300">Unable to load intake requirements</h1>
+        <p className="mt-2 text-sm text-slate-400">
+          We encountered an issue loading your connected legal firms. Please reload to try again.
+        </p>
+      </div>
+    );
+  }
+
+  const firmNames = clientFirms.map((f) => f.firmName);
+
+  let requirementsFailed = false;
+  let unionedRequiredDocs: RequiredDocumentItem[] = [];
+  let unionedQuestions: IntakeQuestionItem[] = [];
+
+  if (clientFirms.length > 0) {
+    try {
+      const firmDataList = await Promise.all(
+        clientFirms.map(async (f) => {
+          const [questions, docs] = await Promise.all([
+            getFirmIntakeQuestions(f.firmId),
+            getFirmRequiredDocuments(f.firmId)
+          ]);
+          return { firmId: f.firmId, questions, docs };
+        })
+      );
+      unionedRequiredDocs = unionRequiredDocuments(
+        firmDataList.map(({ firmId, docs }) => ({ firmId, docs }))
+      );
+      unionedQuestions = unionIntakeQuestions(
+        firmDataList.map(({ firmId, questions }) => ({ firmId, questions }))
+      );
+    } catch (err) {
+      console.error("[onboarding] failed loading firm requirements:", err);
+      requirementsFailed = true;
+    }
+  }
+
+  if (requirementsFailed) {
+    return (
+      <div className="min-h-screen bg-slate-950 px-4 py-16 flex flex-col items-center justify-center text-center">
+        <h1 className="text-xl font-semibold text-rose-300">Unable to load intake requirements</h1>
+        <p className="mt-2 text-sm text-slate-400">
+          We encountered an issue loading requirements for your connected legal firms. Please reload to try again.
+        </p>
+      </div>
+    );
+  }
+
+  const effectiveQuestions = unionedQuestions.length > 0 ? unionedQuestions : getDefaultIntakeQuestions();
+  const effectiveDocs = unionedRequiredDocs;
+
+  const [savedDeadlines, uploadedDocsResult] = await Promise.all([
     user ? loadDeadlineAnswers(user.id) : Promise.resolve({}),
-    firm ? getFirmIntakeQuestions(firm.firmId) : Promise.resolve(getDefaultIntakeQuestions()),
-    firm ? getFirmRequiredDocuments(firm.firmId) : Promise.resolve([]),
-    user && firm
+    user && clientFirms.length > 0
       ? (createSupabaseAdminClient() as any)
           .from("user_documents")
           .select("id, original_name, display_label, document_kind")
@@ -151,18 +237,18 @@ export default async function OnboardingPage({
         </div>
       </header>
       {userId ? <MixpanelAuthTracker userId={userId} email={userEmail} /> : null}
-      {firm ? (
+      {firmNames.length > 0 ? (
         <div className="content-container-wide pt-5">
-          <FirmSharingNote firmName={firm.firmName} />
+          <FirmSharingNote firmNames={firmNames} />
         </div>
       ) : null}
       <OnboardingFlow
-        firmName={firm?.firmName}
+        firmName={firmNames.length > 0 ? firmNames.join(", ") : undefined}
         initialDeadlines={savedDeadlines}
         initialStep={initialStep}
         initialUploadedDocuments={initialUploadedDocuments}
-        intakeQuestions={intakeQuestions}
-        requiredDocuments={requiredDocuments}
+        intakeQuestions={effectiveQuestions}
+        requiredDocuments={effectiveDocs}
         saveStepAction={saveStepAction}
         userEmail={userEmail}
       />

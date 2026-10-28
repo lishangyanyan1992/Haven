@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -21,11 +24,32 @@ import { cn } from "@/lib/utils";
 const isExternalHref = (href: string) => /^https?:\/\//i.test(href);
 const isMailtoHref = (href: string) => /^mailto:/i.test(href);
 
+/**
+ * Client-facing dashboard component displaying active engagement timelines,
+ * milestone progress, lawyer notes, and consultation booking actions for all
+ * connected law firms.
+ *
+ * @param props - Component props accepting a single engagement or an array of engagements
+ */
 export function FirmEngagementDashboard({
-  engagement
+  engagement: initialEngagement,
+  engagements
 }: {
-  engagement: FirmEngagementOverview;
+  engagement?: FirmEngagementOverview;
+  engagements?: FirmEngagementOverview[];
 }) {
+  const allEngagements = engagements && engagements.length > 0
+    ? engagements
+    : initialEngagement
+      ? [initialEngagement]
+      : [];
+
+  const [selectedFirmIndex, setSelectedFirmIndex] = useState(0);
+  const activeIndex = Math.min(Math.max(0, selectedFirmIndex), Math.max(0, allEngagements.length - 1));
+  const engagement = allEngagements[activeIndex] ?? initialEngagement;
+
+  if (!engagement) return null;
+
   const {
     firmName,
     isConnectedToFirm,
@@ -45,6 +69,36 @@ export function FirmEngagementDashboard({
 
   return (
     <Card className="overflow-hidden">
+      {allEngagements.length > 1 ? (
+        <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-border)] bg-[var(--haven-sand-light)] px-6 py-2.5">
+          <span className="text-[12px] font-semibold uppercase tracking-wider text-[var(--haven-ink-mid)] mr-1">
+            Law Firms ({allEngagements.length}):
+          </span>
+          {allEngagements.map((eng, idx) => {
+            const isSelected = activeIndex === idx;
+            return (
+              <button
+                key={eng.firmName || idx}
+                type="button"
+                onClick={() => setSelectedFirmIndex(idx)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-body-sm font-semibold transition-colors",
+                  isSelected
+                    ? "bg-[var(--haven-ink)] text-[var(--haven-cream)] shadow-xs"
+                    : "bg-[var(--haven-white)] text-[var(--haven-ink)] hover:bg-[var(--haven-cream)] border border-[var(--color-border)]"
+                )}
+              >
+                <Building2 className="h-3 w-3" />
+                <span>{eng.firmName}</span>
+                <span className={cn("ml-1 text-[11px]", isSelected ? "text-[var(--haven-cream)]/80" : "text-[var(--haven-ink-mid)]")}>
+                  ({eng.completedCount}/{eng.totalSteps})
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
       <CardHeader className="border-b border-[var(--color-border)] bg-[var(--haven-cream)] pb-5">
         <div className="flex flex-wrap items-start justify-between gap-4 w-full">
           <div>

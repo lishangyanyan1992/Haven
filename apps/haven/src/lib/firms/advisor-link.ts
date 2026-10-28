@@ -30,6 +30,13 @@ export type AdvisorFirmLink =
   | { kind: "none" }
   | { kind: "unknown" };
 
+/**
+ * Looks up the primary connected firm link for a user to inform advisor handoff wording.
+ *
+ * @param userId - ID of the authenticated client
+ * @param dbOverride - Optional DB client for testing
+ * @returns AdvisorFirmLink describing the firm, none, or unknown
+ */
 export async function getAdvisorFirmLink(
   userId: string,
   // Tests pass a stub; production always uses the service-role client.
@@ -37,11 +44,19 @@ export async function getAdvisorFirmLink(
 ): Promise<AdvisorFirmLink> {
   const db = (dbOverride ?? createSupabaseAdminClient()) as any;
   try {
-    const { data: client, error } = await db
+    let clientQuery = db
       .from("firm_clients")
       .select("id, firm_id, pipeline_status")
-      .eq("user_id", userId)
-      .maybeSingle();
+      .eq("user_id", userId);
+    if (typeof clientQuery.order === "function") {
+      clientQuery = clientQuery
+        .order("joined_at", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false });
+    }
+    if (typeof clientQuery.limit === "function") {
+      clientQuery = clientQuery.limit(1);
+    }
+    const { data: client, error } = await clientQuery.maybeSingle();
     if (error) throw new Error(error.message);
     if (!client) return { kind: "none" };
 
