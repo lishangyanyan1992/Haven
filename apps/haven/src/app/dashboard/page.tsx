@@ -16,7 +16,11 @@ import { getDefaultRequiredDocuments } from "@/lib/document-vault";
 import { buildFirmEngagementOverview } from "@/lib/firms/engagement";
 import type { RequiredDocumentItem } from "@/lib/firms/types";
 import { getClientFirmEngagementRecords } from "@/lib/firms/intake";
-import { getFirmRequiredDocuments } from "@/lib/firms/required-documents";
+import {
+  documentKindMatchesRequirement,
+  getFirmRequiredDocuments,
+  unionRequiredDocuments
+} from "@/lib/firms/required-documents";
 import { getCrisisState } from "@/lib/get-crisis-state";
 import { mergeSnapshotProfile } from "@/lib/haven";
 import { buildImmigrationJourney } from "@/lib/immigration-journey";
@@ -129,38 +133,34 @@ export default async function DashboardPage({
     : inboxData.documents.filter((d) => d.sourceKind === "manual_upload");
   const uploadedDocKinds = new Set(manualDocuments.map((d) => d.documentKind));
 
-  const unionedRequiredDocKeys = new Set<string>();
-  const unionedRequiredDocs: RequiredDocumentItem[] = [];
-
-  const firmEngagements = await Promise.all(
+  const firmDocsList = await Promise.all(
     firmRecords.map(async (record) => {
-      const firmDocs = await getFirmRequiredDocuments(record.firmId).catch(() => getDefaultRequiredDocuments());
-      for (const d of firmDocs) {
-        if (!unionedRequiredDocKeys.has(d.key)) {
-          unionedRequiredDocKeys.add(d.key);
-          unionedRequiredDocs.push(d);
-        }
-      }
-      const firmSuffix = record.firmId ? `_${record.firmId.slice(0, 8)}` : "";
-      const fulfilledRequiredCount = firmDocs.filter(
-        (req) => uploadedDocKinds.has(req.key) || (firmSuffix && uploadedDocKinds.has(`${req.key}${firmSuffix}`))
-      ).length;
-      return buildFirmEngagementOverview({
-        firmName: record.firmName,
-        isConnectedToFirm: true,
-        joinedAt: record.joinedAt,
-        completedAt: record.completedAt,
-        reviewedAt: record.reviewedAt,
-        hasProfileSetup: !profileUnavailable && Boolean(profile.countryOfBirth?.trim()),
-        uploadedDocumentCount: manualDocuments.length,
-        requiredDocumentCount: firmDocs.length,
-        fulfilledRequiredCount,
-        bookingUrl: record.bookingUrl,
-        bookingEmail: record.bookingEmail,
-        engagementState: record.engagementState
-      });
+      const docs = await getFirmRequiredDocuments(record.firmId).catch(() => getDefaultRequiredDocuments());
+      return { firmId: record.firmId, docs, record };
     })
   );
+
+  const unionedRequiredDocs = unionRequiredDocuments(firmDocsList);
+
+  const firmEngagements = firmDocsList.map(({ firmId, docs, record }) => {
+    const fulfilledRequiredCount = docs.filter((req) =>
+      manualDocuments.some((d) => documentKindMatchesRequirement(d.documentKind, req.key, firmId))
+    ).length;
+    return buildFirmEngagementOverview({
+      firmName: record.firmName,
+      isConnectedToFirm: true,
+      joinedAt: record.joinedAt,
+      completedAt: record.completedAt,
+      reviewedAt: record.reviewedAt,
+      hasProfileSetup: !profileUnavailable && Boolean(profile.countryOfBirth?.trim()),
+      uploadedDocumentCount: manualDocuments.length,
+      requiredDocumentCount: docs.length,
+      fulfilledRequiredCount,
+      bookingUrl: record.bookingUrl,
+      bookingEmail: record.bookingEmail,
+      engagementState: record.engagementState
+    });
+  });
 
   const defaultDocs = getDefaultRequiredDocuments();
   const effectiveRequiredDocs = unionedRequiredDocs.length > 0 ? unionedRequiredDocs : defaultDocs;

@@ -11,7 +11,7 @@ import { documentContextAvailableFor } from "@/lib/document-context/store";
 import { FirmSharingNote } from "@/components/app/firm-sharing-note";
 import { getClientFirms, type ClientFirmInfo } from "@/lib/firms/intake";
 import type { RequiredDocumentItem } from "@/lib/firms/types";
-import { getFirmRequiredDocuments } from "@/lib/firms/required-documents";
+import { getFirmRequiredDocuments, unionRequiredDocuments } from "@/lib/firms/required-documents";
 import { getCrisisState } from "@/lib/get-crisis-state";
 import { getInboxPageData } from "@/lib/repositories/case-compass";
 import { noIndexMetadata } from "@/lib/seo";
@@ -51,25 +51,14 @@ export default async function DocumentsPage() {
 
   let requiredDocs: RequiredDocumentItem[] | null = null;
   if (clientFirms.length > 0) {
-    const unionedKeys = new Set<string>();
-    const unioned: RequiredDocumentItem[] = [];
     try {
-      for (const f of clientFirms) {
-        const docs = await getFirmRequiredDocuments(f.firmId);
-        for (const d of docs) {
-          // Preset documents deduplicate by key; custom documents preserve distinct
-          // requirements across firms if their slug keys collide.
-          const docIdentity = d.isCustom ? `${d.key}:${d.label.toLowerCase().trim()}` : d.key;
-          if (!unionedKeys.has(docIdentity)) {
-            unionedKeys.add(docIdentity);
-            let finalItem = d;
-            if (d.isCustom && unioned.some((existing) => existing.key === d.key && existing.label !== d.label)) {
-              finalItem = { ...d, key: `${d.key}_${f.firmId.slice(0, 8)}` };
-            }
-            unioned.push(finalItem);
-          }
-        }
-      }
+      const firmDocsList = await Promise.all(
+        clientFirms.map(async (f) => ({
+          firmId: f.firmId,
+          docs: await getFirmRequiredDocuments(f.firmId)
+        }))
+      );
+      const unioned = unionRequiredDocuments(firmDocsList);
       requiredDocs = unioned.length > 0 ? unioned : null;
     } catch (err) {
       console.error("[documents] failed to load firm required documents:", err);

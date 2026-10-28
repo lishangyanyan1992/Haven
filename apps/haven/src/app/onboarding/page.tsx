@@ -13,8 +13,13 @@ import { persistProfileDraft, ONBOARDING_OVERRIDE_COOKIE } from "@/lib/profile-s
 import { env } from "@/lib/env";
 import { noIndexMetadata } from "@/lib/seo";
 import { formLimitedTo, recordFirmSharedAnswers } from "@/lib/firms/answers";
-import { getDefaultIntakeQuestions, getFirmIntakeQuestions, isCustomQuestionKey } from "@/lib/firms/intake-questions";
-import { getFirmRequiredDocuments } from "@/lib/firms/required-documents";
+import {
+  getDefaultIntakeQuestions,
+  getFirmIntakeQuestions,
+  isCustomQuestionKey,
+  unionIntakeQuestions
+} from "@/lib/firms/intake-questions";
+import { getFirmRequiredDocuments, unionRequiredDocuments } from "@/lib/firms/required-documents";
 import { DEADLINE_KEYS, loadDeadlineAnswers, markDeadlinesPrompted, saveDeadlineAnswers } from "@/lib/deadlines";
 import { getClientFirms, markFirmClientCompleted, type ClientFirmInfo } from "@/lib/firms/intake";
 import type { IntakeQuestionItem, RequiredDocumentItem } from "@/lib/firms/types";
@@ -162,46 +167,27 @@ export default async function OnboardingPage({
 
   const firmNames = clientFirms.map((f) => f.firmName);
 
-  const unionedRequiredDocs: RequiredDocumentItem[] = [];
-  const unionedDocKeys = new Set<string>();
-  const unionedQuestions: IntakeQuestionItem[] = [];
-  const unionedQuestionKeys = new Set<string>();
   let requirementsFailed = false;
+  let unionedRequiredDocs: RequiredDocumentItem[] = [];
+  let unionedQuestions: IntakeQuestionItem[] = [];
 
-  for (const f of clientFirms) {
+  if (clientFirms.length > 0) {
     try {
-      const [q, d] = await Promise.all([
-        getFirmIntakeQuestions(f.firmId),
-        getFirmRequiredDocuments(f.firmId)
-      ]);
-      for (const item of d) {
-        // Preset documents deduplicate by standard key across all firms.
-        // Custom documents deduplicate if both key and label match, but preserve
-        // distinct requirements if different firms define custom documents whose slugified keys collide.
-        const docIdentity = item.isCustom ? `${item.key}:${item.label.toLowerCase().trim()}` : item.key;
-        if (!unionedDocKeys.has(docIdentity)) {
-          unionedDocKeys.add(docIdentity);
-          let finalItem = item;
-          if (item.isCustom && unionedRequiredDocs.some((existing) => existing.key === item.key && existing.label !== item.label)) {
-            finalItem = { ...item, key: `${item.key}_${f.firmId.slice(0, 8)}` };
-          }
-          unionedRequiredDocs.push(finalItem);
-        }
-      }
-      for (const item of q) {
-        // Preset questions deduplicate by standard key across all firms.
-        // Custom questions deduplicate if both key and label match, but preserve
-        // distinct prompts if different firms define custom questions with colliding slug keys.
-        const qIdentity = item.isCustom ? `${item.key}:${item.label.toLowerCase().trim()}` : item.key;
-        if (!unionedQuestionKeys.has(qIdentity)) {
-          unionedQuestionKeys.add(qIdentity);
-          let finalItem = item;
-          if (item.isCustom && unionedQuestions.some((existing) => existing.key === item.key && existing.label !== item.label)) {
-            finalItem = { ...item, key: `${item.key}_${f.firmId.slice(0, 8)}` };
-          }
-          unionedQuestions.push(finalItem);
-        }
-      }
+      const firmDataList = await Promise.all(
+        clientFirms.map(async (f) => {
+          const [questions, docs] = await Promise.all([
+            getFirmIntakeQuestions(f.firmId),
+            getFirmRequiredDocuments(f.firmId)
+          ]);
+          return { firmId: f.firmId, questions, docs };
+        })
+      );
+      unionedRequiredDocs = unionRequiredDocuments(
+        firmDataList.map(({ firmId, docs }) => ({ firmId, docs }))
+      );
+      unionedQuestions = unionIntakeQuestions(
+        firmDataList.map(({ firmId, questions }) => ({ firmId, questions }))
+      );
     } catch (err) {
       console.error("[onboarding] failed loading firm requirements:", err);
       requirementsFailed = true;
