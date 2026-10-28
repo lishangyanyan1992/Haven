@@ -133,12 +133,35 @@ export default async function DashboardPage({
     : inboxData.documents.filter((d) => d.sourceKind === "manual_upload");
   const uploadedDocKinds = new Set(manualDocuments.map((d) => d.documentKind));
 
-  const firmDocsList = await Promise.all(
-    firmRecords.map(async (record) => {
-      const docs = await getFirmRequiredDocuments(record.firmId).catch(() => getDefaultRequiredDocuments());
-      return { firmId: record.firmId, docs, record };
-    })
-  );
+  let firmDocsFailed = false;
+  let firmDocsList: Array<{
+    firmId: string;
+    docs: RequiredDocumentItem[];
+    record: (typeof firmRecords)[number];
+  }> = [];
+
+  try {
+    firmDocsList = await Promise.all(
+      firmRecords.map(async (record) => {
+        const docs = await getFirmRequiredDocuments(record.firmId);
+        return { firmId: record.firmId, docs, record };
+      })
+    );
+  } catch (err) {
+    console.error("[dashboard] failed to load firm required documents:", err);
+    firmDocsFailed = true;
+  }
+
+  if (firmDocsFailed) {
+    return (
+      <div className="min-h-screen bg-slate-950 px-4 py-16 flex flex-col items-center justify-center text-center">
+        <h1 className="text-xl font-semibold text-rose-300">Unable to load dashboard requirements</h1>
+        <p className="mt-2 text-sm text-slate-400">
+          We encountered an issue loading requirements for your connected legal firms. Please reload to try again.
+        </p>
+      </div>
+    );
+  }
 
   const unionedRequiredDocs = unionRequiredDocuments(firmDocsList);
 
