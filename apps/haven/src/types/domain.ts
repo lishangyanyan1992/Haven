@@ -78,6 +78,8 @@ export type ImmigrantPetitionStage =
   | "i485_approved"
   | "withdrawn";
 
+export type PetitionEndedReason = "layoff" | "job_change" | "withdrawn" | "denied" | "other";
+
 export interface ImmigrantPetition {
   id: string;
   sponsorName: string;
@@ -94,11 +96,20 @@ export interface ImmigrantPetition {
   isRevocationProtected?: boolean;
   isWithdrawn?: boolean;
   withdrawnDate?: string;
+  /** Set when this petition stopped moving (layoff, job change, withdrawal, denial). */
+  endedReason?: PetitionEndedReason;
+  endedDate?: string;
   notes?: string;
 }
 
+/** True when the petition no longer moves forward, for any reason. */
+export function isPetitionEnded(petition: ImmigrantPetition): boolean {
+  return Boolean(petition.endedReason) || Boolean(petition.isWithdrawn) || petition.stage === "withdrawn";
+}
+
+/** @deprecated Use isPetitionEnded. Kept so older callers keep compiling. */
 export function isPetitionWithdrawn(petition: ImmigrantPetition): boolean {
-  return Boolean(petition.isWithdrawn) || petition.stage === "withdrawn";
+  return isPetitionEnded(petition);
 }
 
 export interface ImmigrationProfile {

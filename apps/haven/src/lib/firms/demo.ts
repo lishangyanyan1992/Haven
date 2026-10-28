@@ -45,6 +45,9 @@ export const DEMO_LEAD_TEMPLATES: DemoLeadTemplate[] = [
       greenCardStage: "i140_approved",
       priorityDate: "2021-11-03",
       preferenceCategory: "EB-2",
+      greenCards: [
+        "Northwind Systems · EB-2 · I-140 approved Jul 12, 2023 · Priority date Nov 3, 2021"
+      ],
       spouseVisaStatus: "H4",
       topConcerns: ["layoffs", "visa_expiry", "gc_timeline"],
       jobEnded: "yes"

@@ -2,12 +2,14 @@ import Link from "next/link";
 import { AlertTriangle, CheckCircle2, FileWarning } from "lucide-react";
 
 import { AppShell } from "@/components/app/app-shell";
+import { GreenCardEditor } from "@/components/app/green-card-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { loadDeadlineAnswers } from "@/lib/deadlines";
+import { hasSupabaseEnv } from "@/lib/env";
 import { getCrisisState } from "@/lib/get-crisis-state";
 import { getAppShellSnapshot } from "@/lib/repositories/case-compass";
 import { noIndexMetadata } from "@/lib/seo";
@@ -35,7 +37,8 @@ export default async function SettingsPage({
     getCrisisState()
   ]);
   const { profile } = snapshot;
-  const savedDeadlines = profile.id ? await loadDeadlineAnswers(profile.id) : undefined;
+  // No database means a local test persona: there are no saved deadlines to load.
+  const savedDeadlines = profile.id && hasSupabaseEnv ? await loadDeadlineAnswers(profile.id) : undefined;
   const greenCardStage = inferGreenCardStage(profile);
 
   const profileGaps: Array<{
@@ -62,7 +65,9 @@ export default async function SettingsPage({
     Boolean(profile.i485Filed) ||
     Boolean(profile.priorityDate);
 
-  if (!profile.greenCardSponsor && !profile.retainedPriorityDateSponsor && hasStartedGreenCardStage) {
+  // Green card records name their own sponsors, so only ask when there are none.
+  const hasPetitionRecords = (profile.immigrantPetitions?.length ?? 0) > 0;
+  if (!profile.greenCardSponsor && !profile.retainedPriorityDateSponsor && !hasPetitionRecords && hasStartedGreenCardStage) {
     profileGaps.push({
       id: "gc-sponsor-attribution",
       label: "Green card sponsor not confirmed",
@@ -185,7 +190,7 @@ export default async function SettingsPage({
           )}
         </section>
 
-        <form action={saveProfileSettingsAction} className="space-y-6">
+        <form action={saveProfileSettingsAction} className="space-y-6" id="case-details">
           <div className="grid gap-6 xl:grid-cols-2">
             <Card>
               <CardHeader>
@@ -407,6 +412,8 @@ export default async function SettingsPage({
             </Button>
           </div>
         </form>
+
+        <GreenCardEditor initialPetitions={profile.immigrantPetitions ?? []} />
       </div>
     </AppShell>
   );

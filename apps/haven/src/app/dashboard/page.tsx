@@ -5,6 +5,7 @@ import { Timer } from "lucide-react";
 import { DashboardChangeHighlight, DashboardChangeProvider } from "@/components/app/dashboard-change-highlight";
 import { AppShell } from "@/components/app/app-shell";
 import { FirmEngagementDashboard } from "@/components/app/firm-engagement-dashboard";
+import { DashboardConflictNotes } from "@/components/app/dashboard-conflict-notes";
 import { ImmigrationJourneyDashboard } from "@/components/app/immigration-journey-dashboard";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import { buildFirmEngagementOverview } from "@/lib/firms/engagement";
 import { getClientFirmEngagementRecord } from "@/lib/firms/intake";
 import { getFirmRequiredDocuments } from "@/lib/firms/required-documents";
 import { getCrisisState } from "@/lib/get-crisis-state";
+import { resolveDashboardFacts } from "@/lib/dashboard-facts";
 import { mergeSnapshotProfile } from "@/lib/haven";
 import { buildImmigrationJourney } from "@/lib/immigration-journey";
 import { getImmigrationUpdates } from "@/lib/immigration-updates";
@@ -24,6 +26,7 @@ import { ONBOARDING_OVERRIDE_COOKIE, parseOverrideCookie, persistProfileDraft } 
 import { getDashboardPageData, getInboxPageData, isProfileUnavailable } from "@/lib/repositories/case-compass";
 import { havenSnapshot } from "@/lib/repositories/mock-data";
 import { noIndexMetadata } from "@/lib/seo";
+import { hasSupabaseEnv } from "@/lib/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { resolveCrisisModeFromForm } from "@/server/crisis-actions";
@@ -40,10 +43,11 @@ export default async function DashboardPage({
   const cookieStore = await cookies();
   const overrideValue = cookieStore.get(ONBOARDING_OVERRIDE_COOKIE)?.value;
   const overrideDraft = parseOverrideCookie(overrideValue);
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+  // Without a database (local test personas) there is no signed-in user; the
+  // data loaders below already fall back to the sample snapshot.
+  const user = hasSupabaseEnv
+    ? (await (await createSupabaseServerClient()).auth.getUser()).data.user
+    : null;
   let shouldUseOverrideFallback = Boolean(overrideDraft);
 
   if (user && overrideDraft) {
@@ -113,7 +117,20 @@ export default async function DashboardPage({
         .filter(Boolean)
         .join(" · ");
   const priorityDateIntelligence = initialSnapshot.priorityDateIntelligence;
-  const showPriorityDateSection = profile.i140Approved;
+  // Shown whenever any green card gives the user a priority date, not only
+  // when the single "I-140 approved" answer is on.
+  const dashboardFacts = resolveDashboardFacts({
+    profile,
+    deadlines: savedDeadlines as Record<string, unknown>,
+    layoffDate: crisisState ? crisisState.layoffDate.toISOString().slice(0, 10) : null,
+    bulletin: priorityDateIntelligence
+      ? {
+          visaBulletinPosition: priorityDateIntelligence.visaBulletinPosition,
+          estimatedGreenCardDateRange: priorityDateIntelligence.estimatedGreenCardDateRange
+        }
+      : null
+  });
+  const showPriorityDateSection = Boolean(dashboardFacts.priorityDate.iso && priorityDateIntelligence);
   const checklistItems = buildChecklist(profile);
   const checklistProgress = crisisState ? Math.round((crisisState.completedItemKeys.length / checklistItems.length) * 100) : 0;
   // Clamped at both ends now that dayNumber is a real count rather than a value
@@ -308,6 +325,8 @@ export default async function DashboardPage({
           </DashboardChangeHighlight>
 
           <FirmEngagementDashboard engagement={firmEngagement} />
+
+          {!profileUnavailable && <DashboardConflictNotes conflicts={dashboardFacts.conflicts} />}
 
           <ImmigrationJourneyDashboard
             initialStatusEndDate={savedDeadlines.statusEndDate}

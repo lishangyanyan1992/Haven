@@ -98,7 +98,8 @@ const GROUPS: { title: string; rows: [string, SharedAnswerKey][] }[] = [
       ["Sponsor / Petitioner", "greenCardSponsor"],
       ["Prior I-140 sponsor", "retainedPriorityDateSponsor"],
       ["Category", "preferenceCategory"],
-      ["Priority date", "priorityDate"]
+      ["Priority date", "priorityDate"],
+      ["Every green card filed", "greenCards"]
     ]
   },
   { title: "Situation", rows: [["Spouse's status", "spouseVisaStatus"], ["Main concerns", "topConcerns"]] },
@@ -117,8 +118,13 @@ const GROUPS: { title: string; rows: [string, SharedAnswerKey][] }[] = [
 ];
 
 /** "Not sure" counts as an answer to when status ends. */
-function deadlineAnswer(answers: SharedAnswers, key: SharedAnswerKey) {
+function deadlineAnswer(answers: SharedAnswers, key: SharedAnswerKey): string | string[] | null {
   if (key === "statusEndDate" && !answers.statusEndDate && answers.statusEndUnknown === "yes") return "Not sure";
+  // One line per green card, shown as a list rather than joined with commas.
+  if (key === "greenCards") {
+    const lines = Array.isArray(answers.greenCards) ? answers.greenCards.filter(Boolean) : [];
+    return lines.length ? lines : null;
+  }
   return answer(answers, key);
 }
 
@@ -183,7 +189,8 @@ function buildFirmClientAudit(
   }
 
   const hasGcActivity = (answers.greenCardStage && answers.greenCardStage !== "not_started") || Boolean(answers.priorityDate);
-  if (hasGcActivity && !answers.greenCardSponsor) {
+  const hasGreenCardList = Array.isArray(answers.greenCards) && answers.greenCards.length > 0;
+  if (hasGcActivity && !answers.greenCardSponsor && !hasGreenCardList) {
     missingItems.push("Confirm which company or sponsor this green card / I-140 is tied to — never assume it is tied to current employer.");
   }
 
@@ -378,7 +385,15 @@ export default async function FirmClientPage({ params }: { params: Promise<{ id:
                   <div className="flex flex-wrap justify-between gap-x-4 gap-y-0.5 border-t border-[var(--color-border)] pt-2 first:border-t-0 first:pt-0" key={row.label}>
                     <dt className="text-body-sm text-[var(--haven-ink-mid)]">{row.label}</dt>
                     <dd className={`text-body-sm ${row.value ? "text-[var(--haven-ink)]" : "text-[var(--haven-ink-mid)] italic"}`}>
-                      {row.value ?? "Not provided"}
+                      {Array.isArray(row.value) ? (
+                        <ul className="space-y-1 text-right">
+                          {row.value.map((line) => (
+                            <li key={line}>{line}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        row.value ?? "Not provided"
+                      )}
                     </dd>
                   </div>
                 ))}

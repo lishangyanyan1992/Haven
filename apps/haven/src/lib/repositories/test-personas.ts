@@ -403,6 +403,83 @@ export const FIRM_TEST_PERSONAS: TestPersona[] = dayFive
   : [];
 
 /**
+ * A person with two green cards (evals/dashboard): an approved EB-2 I-140 from
+ * an earlier employer, and a second employer's green card that was in its first
+ * step at the layoff and is still saved as in progress. Fictional names and
+ * dates. Used to see the per-green-card rows and the "Check this" notes.
+ */
+export const GREEN_CARD_TEST_PERSONAS: TestPersona[] = [
+  {
+    id: "two-green-cards",
+    situation: "Sam Rivera — laid off Oct 8, 2026 from Harbor Ventures; approved EB-2 I-140 kept from Northwind Mutual.",
+    tests: "That both green cards show as their own rows and the still-in-progress one is flagged after the layoff.",
+    snapshot: {
+      ...havenSnapshot,
+      activeLayoffEvent: { layoffDate: "2026-10-08", employerAtLayoff: "Harbor Ventures", visaTypeAtLayoff: "H1B" },
+      profile: {
+        ...havenSnapshot.profile,
+        id: "two-green-cards",
+        fullName: "Sam Rivera",
+        email: "sam@example.com",
+        visaType: "H1B",
+        countryOfBirth: "India",
+        currentVisaExpiryDate: "2026-12-15",
+        h1bStartDate: "2019-10-01",
+        permStage: "not_started",
+        permFilingDate: undefined,
+        i140Filed: false,
+        i140Approved: true,
+        i140ApprovalDate: "2026-01-20",
+        priorityDate: "2021-06-14",
+        preferenceCategory: "EB-2",
+        i485Filed: false,
+        employerName: "Harbor Ventures",
+        employmentStatus: "laid_off",
+        immigrantPetitions: [
+          {
+            id: "pet-northwind-eb2",
+            sponsorName: "Ridgeline Labs, Northwind Mutual Insurance",
+            petitionType: "employer_sponsored",
+            preferenceCategory: "EB-2",
+            stage: "i140_approved",
+            priorityDate: "2021-06-14",
+            i140ApprovalDate: "2026-01-20",
+            isRevocationProtected: true
+          },
+          {
+            id: "pet-harbor-eb2",
+            sponsorName: "Harbor Ventures (Lakeside Insurance)",
+            petitionType: "employer_sponsored",
+            preferenceCategory: "EB-2",
+            stage: "pwd_recruitment",
+            priorityDate: "2021-06-14"
+          }
+        ]
+      }
+    }
+  }
+];
+
+// The same person after marking the second green card ended at the layoff.
+const twoGreenCards = GREEN_CARD_TEST_PERSONAS[0];
+GREEN_CARD_TEST_PERSONAS.push({
+  ...twoGreenCards,
+  id: "two-green-cards-ended",
+  situation: `${twoGreenCards.situation} The Harbor Ventures green card is marked ended at the layoff.`,
+  tests: "That the ended green card shows faded with its reason, and the approved one is the main row.",
+  snapshot: {
+    ...twoGreenCards.snapshot,
+    profile: {
+      ...twoGreenCards.snapshot.profile,
+      id: "two-green-cards-ended",
+      immigrantPetitions: (twoGreenCards.snapshot.profile.immigrantPetitions ?? []).map((p) =>
+        p.id === "pet-harbor-eb2" ? { ...p, endedReason: "layoff" as const, endedDate: "2026-10-08" } : p
+      )
+    }
+  }
+});
+
+/**
  * Which persona this process is running as, if any.
  *
  * Deliberately returns null for an unrecognised value rather than throwing or
@@ -413,7 +490,7 @@ export const FIRM_TEST_PERSONAS: TestPersona[] = dayFive
 export function resolveTestPersona(value: string | undefined = process.env.ADVISOR_TEST_PERSONA): TestPersona | null {
   const wanted = value?.trim();
   if (!wanted) return null;
-  return [...TEST_PERSONAS, ...DOCUMENT_TEST_PERSONAS, ...FIRM_TEST_PERSONAS].find((candidate) => candidate.id === wanted) ?? null;
+  return [...TEST_PERSONAS, ...DOCUMENT_TEST_PERSONAS, ...FIRM_TEST_PERSONAS, ...GREEN_CARD_TEST_PERSONAS].find((candidate) => candidate.id === wanted) ?? null;
 }
 
 export function testPersonaIds(): string[] {
