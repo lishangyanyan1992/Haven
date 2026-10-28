@@ -296,7 +296,7 @@ export default async function SettingsPage({
                 </Field>
                 <Field label="Sponsoring employer or petitioner">
                   <Input
-                    defaultValue={profile.greenCardSponsor ?? (profile.retainedPriorityDate ? "" : profile.retainedPriorityDateSponsor) ?? ""}
+                    defaultValue={profile.greenCardSponsor ?? ""}
                     name="greenCardSponsor"
                     placeholder="e.g. Prior Employer Inc., Current Employer, or Self-Petition (NIW)"
                   />
