@@ -39,6 +39,7 @@ function buildDraft(data: FormData) {
     h1bStartDate: String(data.get("h1bStartDate") ?? ""),
     employerSize: String(data.get("employerSize") ?? ""),
     greenCardStage: String(data.get("greenCardStage") ?? ""),
+    retainedPriorityDateSponsor: String(data.get("retainedPriorityDateSponsor") ?? ""),
     priorityDate: String(data.get("priorityDate") ?? ""),
     preferenceCategory: String(data.get("preferenceCategory") ?? ""),
     i140Approved: String(data.get("i140Approved") ?? "false"),

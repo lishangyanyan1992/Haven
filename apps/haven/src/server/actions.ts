@@ -403,6 +403,7 @@ export async function completeOnboardingAction(formData: FormData) {
     h1bStartDate: String(formData.get("h1bStartDate") ?? ""),
     employerSize: String(formData.get("employerSize") ?? ""),
     greenCardStage: String(formData.get("greenCardStage") ?? ""),
+    retainedPriorityDateSponsor: String(formData.get("retainedPriorityDateSponsor") ?? ""),
     priorityDate: String(formData.get("priorityDate") ?? ""),
     preferenceCategory: String(formData.get("preferenceCategory") ?? ""),
     i140Approved: String(formData.get("i140Approved") ?? "false"),
@@ -564,6 +565,7 @@ export async function saveProfileSettingsAction(formData: FormData) {
     h1bStartDate: String(formData.get("h1bStartDate") ?? ""),
     employerSize: String(formData.get("employerSize") ?? ""),
     greenCardStage: String(formData.get("greenCardStage") ?? ""),
+    retainedPriorityDateSponsor: String(formData.get("retainedPriorityDateSponsor") ?? ""),
     priorityDate: String(formData.get("priorityDate") ?? ""),
     preferenceCategory: String(formData.get("preferenceCategory") ?? ""),
     i140Approved: String(formData.get("i140Approved") ?? "false"),
@@ -605,6 +607,7 @@ export async function saveCaseJourneyDatesAction(formData: FormData): Promise<{ 
     h1bStartDate: String(formData.get("h1bStartDate") ?? ""),
     currentVisaExpiryDate: statusEndDate,
     greenCardStage,
+    retainedPriorityDateSponsor: String(formData.get("retainedPriorityDateSponsor") ?? ""),
     priorityDate: String(formData.get("priorityDate") ?? ""),
     ...(preferenceCategory ? { preferenceCategory } : {}),
     i140Approved

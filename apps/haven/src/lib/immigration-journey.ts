@@ -2042,6 +2042,17 @@ export function buildImmigrationJourney(input: {
       verifiedByDocument: hasI140Doc
     });
   }
+  if (profile.retainedPriorityDateSponsor) {
+    capturedFields.push({
+      id: "cap-gc-sponsor",
+      category: "green_card",
+      label: "Green Card Sponsoring Entity",
+      value: profile.retainedPriorityDateSponsor,
+      sourceLabel: "Settings / Onboarding Step 3",
+      mapsToTrack: "Track 2 Sponsoring Petitioner & Priority Date Recapture",
+      verifiedByDocument: hasI140Doc
+    });
+  }
   if (deadlines.agencyDeadlineType && deadlines.agencyDeadlineDate) {
     const agencyParsed = parseIsoDate(deadlines.agencyDeadlineDate);
     capturedFields.push({
@@ -2193,6 +2204,25 @@ export function buildImmigrationJourney(input: {
         ? "Critical during a grace period: if your spouse holds an independent work/student visa or U.S. citizenship, filing a dependent change of status (Form I-539) or marriage-based adjustment could immediately protect your authorized stay."
         : "Prevents Haven and your attorney from evaluating dependent visa fallback or cross-chargeability options.",
       actionLabel: "Update spouse status",
+      actionHref: "/settings"
+    });
+  }
+
+  if (
+    (hasI140Approval || priorityDate) &&
+    !profile.retainedPriorityDateSponsor &&
+    (!profile.immigrantPetitions || profile.immigrantPetitions.length === 0)
+  ) {
+    missingItems.push({
+      id: "missing-gc-sponsor-attribution",
+      category: "intake_field",
+      badge: "Sponsorship Attribution",
+      tone: "sand",
+      title: "Green card sponsoring company not confirmed",
+      detail: `Your profile records a ${profile.preferenceCategory} green card case with priority date ${formatDateLabel(priorityDate) ?? "on file"}, but does not specify which company sponsored it. Never assume a green card is tied to your current employer (${profile.employerName ?? "Current"}).`,
+      impact:
+        "Knowing whether this I-140 was filed by a prior employer, your current employer, or self-petitioned (e.g. EB-2 NIW) determines your priority date retention rights, whether a new PERM is required, and post-6th-year H-1B extension eligibility.",
+      actionLabel: "Set sponsor in Settings",
       actionHref: "/settings"
     });
   }

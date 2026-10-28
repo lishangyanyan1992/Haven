@@ -55,6 +55,15 @@ export default async function SettingsPage({
     });
   }
 
+  if (!profile.retainedPriorityDateSponsor && (profile.i140Approved || profile.priorityDate)) {
+    profileGaps.push({
+      id: "gc-sponsor-attribution",
+      label: "Green card sponsor not confirmed",
+      detail: `Never assume your green card is tied to your current employer (${profile.employerName ?? "Current"}). Enter the sponsoring employer or self-petition entity below to clarify priority date retention and portability.`,
+      severity: "warning"
+    });
+  }
+
   if (profile.i140Approved && profile.permStage === "not_started") {
     profileGaps.push({
       id: "multi-employer-perm-gap",
@@ -277,6 +286,16 @@ export default async function SettingsPage({
                 </Field>
                 <Field label="Priority date">
                   <Input defaultValue={profile.priorityDate ?? ""} name="priorityDate" type="date" />
+                </Field>
+                <Field label="Sponsoring employer or petitioner">
+                  <Input
+                    defaultValue={profile.retainedPriorityDateSponsor ?? ""}
+                    name="retainedPriorityDateSponsor"
+                    placeholder="e.g. Prior Employer Inc., Current Employer, or Self-Petition (NIW)"
+                  />
+                  <p className="mt-1 text-[12px] text-[var(--color-text-tertiary)]">
+                    Never assumed to be your current employer. Naming the sponsoring company clarifies priority date retention and portability.
+                  </p>
                 </Field>
                 <Field label="I-140 status">
                   <Select defaultValue={profile.i140Approved ? "true" : "false"} name="i140Approved">
