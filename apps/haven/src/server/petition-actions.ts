@@ -35,7 +35,9 @@ async function writePetitions(userId: string, input: unknown): Promise<SavePetit
 
   await refreshDerivedSignals(userId);
   // The client chose to share green cards with their law firm, if they have one.
-  await recordFirmSharedGreenCards(userId, plan.petitions);
+  if (!(await recordFirmSharedGreenCards(userId, plan.petitions))) {
+    return { ok: false, error: "Your green cards were saved, but your law firm's copy didn't update. Save again to retry." };
+  }
   revalidatePath("/dashboard");
   revalidatePath("/settings");
   revalidatePath("/timeline");
@@ -63,7 +65,12 @@ export async function endPetitionAction(
   if (!REASONS.includes(reason) || !ISO_DATE.test(date)) return { ok: false, error: "That date or reason isn't valid." };
 
   const admin = createSupabaseAdminClient() as any;
-  const { data: row } = await admin.from("user_profiles").select("deadline_answers").eq("id", userId).maybeSingle();
+  const { data: row, error: readError } = await admin
+    .from("user_profiles")
+    .select("deadline_answers")
+    .eq("id", userId)
+    .maybeSingle();
+  if (readError || !row) return { ok: false, error: "We couldn't load your profile. Try again in a moment." };
   const current = normalizePetitions((row?.deadline_answers as Record<string, unknown> | null)?.immigrantPetitions);
   if (!current.some((p) => p.id === petitionId)) return { ok: false, error: "That green card wasn't found." };
 
@@ -76,5 +83,13 @@ export async function endPetitionAction(
         }
       : p
   );
-  return writePetitions(userId, next);
+  const result = await writePetitions(userId, next);
+  // Another green card failing its checks can't be fixed from the dashboard note.
+  if (!result.ok && result.fieldErrors && Object.keys(result.fieldErrors).length > 0) {
+    return {
+      ...result,
+      error: "Another green card has a date or step that needs fixing. Open Settings, then Green cards, to fix it."
+    };
+  }
+  return result;
 }

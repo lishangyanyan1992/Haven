@@ -139,7 +139,8 @@ async function main() {
   // 3.5 Saves write what the dashboard would compute
   const fs = await import("node:fs");
   const path = await import("node:path");
-  const root = path.resolve(new URL("../../", import.meta.url).pathname);
+  const { fileURLToPath } = await import("node:url");
+  const root = path.resolve(fileURLToPath(new URL("../../", import.meta.url)));
   const sync = fs.readFileSync(path.join(root, "src/lib/profile-sync.ts"), "utf8");
   const deadlinesSrc = fs.readFileSync(path.join(root, "src/lib/deadlines.ts"), "utf8");
   check(

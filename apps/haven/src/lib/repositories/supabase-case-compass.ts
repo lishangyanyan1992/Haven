@@ -94,12 +94,12 @@ export function mapDerivedSignals(
     h1bCapDate: live.h1bCapDate ?? row.h1b_cap_date ?? undefined,
     daysUntilVisaExpiry: live.daysUntilVisaExpiry ?? row.days_until_visa_expiry ?? undefined,
     visaBulletinPosition: live.visaBulletinPosition ?? row.visa_bulletin_position ?? undefined,
-    estimatedGreenCardDateRange:
-      priorityDateSignals?.estimatedGreenCardDateRange ??
-      // "Estimate pending" from the live side is weaker than a real stored estimate.
-      (live.estimatedGreenCardDateRange && live.estimatedGreenCardDateRange !== "Estimate pending bulletin sync"
+    estimatedGreenCardDateRange: priorityDateSignals
+      ? priorityDateSignals.estimatedGreenCardDateRange
+      : // "Estimate pending" from the live side is weaker than a real stored estimate.
+        live.estimatedGreenCardDateRange && live.estimatedGreenCardDateRange !== "Estimate pending bulletin sync"
         ? live.estimatedGreenCardDateRange
-        : row.estimated_gc_date_range ?? live.estimatedGreenCardDateRange),
+        : row.estimated_gc_date_range ?? live.estimatedGreenCardDateRange,
     ac21PortabilityStatus: live.ac21PortabilityStatus,
     layoffReadinessScore: live.layoffReadinessScore,
     layoffReadinessReasoning: live.layoffReadinessReasoning

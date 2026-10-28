@@ -221,22 +221,22 @@ export async function recordFirmSharedAnswers(userId: string, draft: Record<stri
  */
 export async function recordFirmSharedGreenCards(userId: string, rawPetitions: unknown): Promise<boolean> {
   const admin = createSupabaseAdminClient() as any;
-  const { data: row, error: readError } = await admin
+  const { data: rows, error: readError } = await admin
     .from("firm_clients")
     .select("id, shared_answers, joined_at")
-    .eq("user_id", userId)
-    .maybeSingle();
+    .eq("user_id", userId);
   if (readError) {
     console.error("[firms] could not read shared answers", readError.message);
     return false;
   }
-  if (!row?.joined_at) return true;
-
-  const next = withSharedGreenCards(row.shared_answers ?? {}, rawPetitions);
-  const { error } = await admin.from("firm_clients").update({ shared_answers: next }).eq("id", row.id);
-  if (error) {
-    console.error("[firms] could not save shared green cards", error.message);
-    return false;
+  // A client can belong to more than one firm; each joined firm gets the list.
+  for (const row of (rows ?? []).filter((r: any) => Boolean(r.joined_at))) {
+    const next = withSharedGreenCards(row.shared_answers ?? {}, rawPetitions);
+    const { error } = await admin.from("firm_clients").update({ shared_answers: next }).eq("id", row.id);
+    if (error) {
+      console.error("[firms] could not save shared green cards", error.message);
+      return false;
+    }
   }
   return true;
 }

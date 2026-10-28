@@ -258,7 +258,10 @@ export async function getPriorityDateIntelligence(
   // including one kept from an earlier employer's approved I-140.
   const effective = resolveEffectivePriorityDate(profile);
   const effectivePriorityDate = effective.effectiveDate ? effective.effectiveDate.toISOString().slice(0, 10) : null;
-  const category = mapPreferenceCategory(effective.retainedCategory ?? profile.preferenceCategory);
+  // A green card saved as "Not sure" falls back to the profile's category.
+  const category =
+    mapPreferenceCategory(effective.retainedCategory ?? profile.preferenceCategory) ??
+    mapPreferenceCategory(profile.preferenceCategory);
   if (!hasSupabaseEnv || !effectivePriorityDate || !category) {
     return null;
   }

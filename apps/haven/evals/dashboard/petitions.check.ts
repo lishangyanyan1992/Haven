@@ -198,6 +198,23 @@ async function main() {
     JSON.stringify(employedPlan)
   );
 
+  // A priority date copied from the old green card list doesn't come back after that card is removed.
+  const copiedRow = { ...savedRow, priority_date: "2021-06-14" };
+  const removedPlan = planPetitionSave(toSave.filter((p) => p.id === "pet-harbor-eb2"), copiedRow);
+  check(
+    "save: removing the approved green card drops its copied priority date",
+    removedPlan.ok && (removedPlan.update as Record<string, any>).priority_date === null,
+    JSON.stringify(removedPlan.ok ? (removedPlan.update as Record<string, any>).priority_date : removedPlan)
+  );
+  // A priority date the person typed themselves is kept.
+  const typedRow = { ...savedRow, priority_date: "2019-03-01", deadline_answers: { statusEndDate: "2026-12-15" } };
+  const typedPlan = planPetitionSave(toSave.filter((p) => p.id === "pet-harbor-eb2"), typedRow);
+  check(
+    "save: a typed priority date with no approved green card is kept",
+    typedPlan.ok && (typedPlan.update as Record<string, any>).priority_date === "2019-03-01",
+    JSON.stringify(typedPlan.ok ? (typedPlan.update as Record<string, any>).priority_date : typedPlan)
+  );
+
   console.log(`\n${pass}/${pass + failures.length} passed`);
   if (failures.length) process.exit(1);
 }

@@ -55,6 +55,8 @@ async function main() {
     greenCardLine({ ...approved, isPriorityDateRecaptured: true } as any).includes("(carried over)"),
     greenCardLine({ ...approved, isPriorityDateRecaptured: true } as any)
   );
+  const i485 = greenCardLine({ ...approved, stage: "i485_filed" } as any);
+  check("I-485 stage is undated, I-140 approval named separately", i485 === "Northwind Mutual · EB-2 · I-485 filed · I-140 approved Jan 20, 2026 · Priority date Jun 14, 2021", i485);
   check("no petitions gives no lines", greenCardLinesForFirm(undefined).length === 0, "");
   check("record without a sponsor is skipped", greenCardLinesForFirm([{ id: "x", sponsorName: " " }]).length === 0, "");
 

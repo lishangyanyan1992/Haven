@@ -90,6 +90,12 @@ export function GreenCardEditor({ initialPetitions }: { initialPetitions: Immigr
 
   const update = (id: string, patch: Partial<ImmigrantPetition>) => {
     setPetitions((list) => list.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+    // An edit replaces whatever the server said about this green card.
+    setServerErrors((prev) => {
+      if (!prev[id]) return prev;
+      const { [id]: _removed, ...rest } = prev;
+      return rest;
+    });
     setMessage(null);
   };
 
@@ -244,7 +250,11 @@ export function GreenCardEditor({ initialPetitions }: { initialPetitions: Immigr
                     onChange={(e) =>
                       update(p.id, {
                         endedReason: (e.target.value || undefined) as PetitionEndedReason | undefined,
-                        ...(e.target.value ? {} : { endedDate: undefined })
+                        // Clearing the status also clears an older "withdrawn" stage,
+                        // which would otherwise mark it ended again on save.
+                        ...(e.target.value
+                          ? {}
+                          : { endedDate: undefined, ...(p.stage === "withdrawn" ? { stage: "i140_approved" as const } : {}) })
                       })
                     }
                   >

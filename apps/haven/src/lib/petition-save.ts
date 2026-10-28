@@ -23,7 +23,23 @@ export function flatFieldsFrom(
   petitions: ImmigrantPetition[],
   row: Record<string, unknown>
 ): Record<string, unknown> {
-  const profile = mapProfileRow({ ...row, deadline_answers: { ...(row.deadline_answers as object), immigrantPetitions: petitions } });
+  const existingAnswers =
+    row.deadline_answers && typeof row.deadline_answers === "object" && !Array.isArray(row.deadline_answers)
+      ? (row.deadline_answers as Record<string, unknown>)
+      : {};
+  // The stored priority_date may be a copy written from the old green card
+  // list. If so, drop it, so deleting or changing that green card doesn't
+  // bring the old date back. A date the person typed themselves is kept.
+  const previousDerived = resolveEffectivePriorityDate(mapProfileRow({ ...row, priority_date: null })).effectiveDate;
+  const legacyIsCopy =
+    typeof row.priority_date === "string" &&
+    previousDerived instanceof Date &&
+    previousDerived.toISOString().slice(0, 10) === row.priority_date.slice(0, 10);
+  const profile = mapProfileRow({
+    ...row,
+    priority_date: legacyIsCopy ? null : row.priority_date,
+    deadline_answers: { ...existingAnswers, immigrantPetitions: petitions }
+  });
   const protecting = petitions.filter(providesI140Protection);
   const earliestApproval = protecting
     .map((p) => p.i140ApprovalDate)

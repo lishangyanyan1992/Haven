@@ -142,8 +142,13 @@ export function resolveDashboardFacts(input: DashboardFactsInput): DashboardFact
       statusLabel
     },
     readiness: { score, reasoning },
-    waitEstimate:
-      input.bulletin?.estimatedGreenCardDateRange ?? (pdIso ? "Estimate pending bulletin sync" : undefined),
+    // A bulletin with no estimate (for example, the date is current) stays empty;
+    // "pending" only means the bulletin itself is missing.
+    waitEstimate: input.bulletin
+      ? input.bulletin.estimatedGreenCardDateRange
+      : pdIso
+        ? "Estimate pending bulletin sync"
+        : undefined,
     visaBulletinPosition:
       input.bulletin?.visaBulletinPosition ??
       (pdIso && backlogCategory

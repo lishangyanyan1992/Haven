@@ -40,7 +40,7 @@ export function greenCardLine(p: ImmigrantPetition): string {
 
   const stage = STAGE_LABELS[p.stage] ?? p.stage;
   const stageDate =
-    p.stage === "i140_approved" || p.stage === "i485_filed" || p.stage === "i485_approved"
+    p.stage === "i140_approved"
       ? formatDate(p.i140ApprovalDate)
       : p.stage === "i140_filed"
         ? formatDate(p.i140FiledDate)
@@ -50,6 +50,11 @@ export function greenCardLine(p: ImmigrantPetition): string {
             ? formatDate(p.permFilingDate)
             : null;
   parts.push(stageDate ? `${stage} ${stageDate}` : stage);
+  // No I-485 dates are collected, so name the I-140 approval date separately.
+  if (p.stage === "i485_filed" || p.stage === "i485_approved") {
+    const approved = formatDate(p.i140ApprovalDate);
+    if (approved) parts.push(`I-140 approved ${approved}`);
+  }
 
   const pd = formatDate(p.priorityDate);
   if (pd) parts.push(`Priority date ${pd}${p.isPriorityDateRecaptured ? " (carried over)" : ""}`);

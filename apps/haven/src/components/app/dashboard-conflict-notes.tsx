@@ -47,10 +47,15 @@ export function DashboardConflictNotes({ conflicts }: { conflicts: DashboardConf
                     setPendingId(conflict.id);
                     setError(null);
                     startTransition(async () => {
-                      const result = await endPetitionAction(fix.petitionId, fix.reason, fix.date);
-                      setPendingId(null);
-                      if (result.ok) router.refresh();
-                      else setError(result.error);
+                      try {
+                        const result = await endPetitionAction(fix.petitionId, fix.reason, fix.date);
+                        if (result.ok) router.refresh();
+                        else setError(result.error);
+                      } catch {
+                        setError("We couldn't save that. Try again in a moment.");
+                      } finally {
+                        setPendingId(null);
+                      }
                     });
                   }}
                 >
