@@ -55,7 +55,14 @@ export default async function SettingsPage({
     });
   }
 
-  if (!profile.retainedPriorityDateSponsor && (profile.i140Approved || profile.priorityDate)) {
+  const hasStartedGreenCardStage =
+    (profile.permStage && profile.permStage !== "not_started") ||
+    Boolean(profile.i140Filed) ||
+    Boolean(profile.i140Approved) ||
+    Boolean(profile.i485Filed) ||
+    Boolean(profile.priorityDate);
+
+  if (!profile.greenCardSponsor && !profile.retainedPriorityDateSponsor && hasStartedGreenCardStage) {
     profileGaps.push({
       id: "gc-sponsor-attribution",
       label: "Green card sponsor not confirmed",
@@ -289,10 +296,11 @@ export default async function SettingsPage({
                 </Field>
                 <Field label="Sponsoring employer or petitioner">
                   <Input
-                    defaultValue={profile.retainedPriorityDateSponsor ?? ""}
-                    name="retainedPriorityDateSponsor"
+                    defaultValue={profile.greenCardSponsor ?? profile.retainedPriorityDateSponsor ?? ""}
+                    name="greenCardSponsor"
                     placeholder="e.g. Prior Employer Inc., Current Employer, or Self-Petition (NIW)"
                   />
+                  <input type="hidden" name="retainedPriorityDateSponsor" value={profile.retainedPriorityDateSponsor ?? ""} />
                   <p className="mt-1 text-[12px] text-[var(--color-text-tertiary)]">
                     Never assumed to be your current employer. Naming the sponsoring company clarifies priority date retention and portability.
                   </p>

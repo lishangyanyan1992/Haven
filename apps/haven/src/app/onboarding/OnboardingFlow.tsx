@@ -32,6 +32,7 @@ interface OnboardingData {
   h1bStartDate: string;
   employerSize: string;
   greenCardStage: string;
+  greenCardSponsor?: string;
   retainedPriorityDateSponsor?: string;
   priorityDate: string;
   preferenceCategory: string;
@@ -880,16 +881,19 @@ function Step3Form({
           <p className="field-helper">The date your PERM or I-140 was filed. Leave blank if not yet applicable.</p>
         </Field>
       )}
-      {data.greenCardStage && data.greenCardStage !== "not_started" && (
+      {((data.greenCardStage && data.greenCardStage !== "not_started") || Boolean(data.priorityDate)) && (
         <Field>
           <label className="field-label">
             Sponsoring employer or petitioner <span className="text-[var(--color-text-tertiary)] font-normal">(optional)</span>
           </label>
           <Input
-            onChange={(e) => onChange("retainedPriorityDateSponsor", e.target.value)}
+            onChange={(e) => {
+              onChange("greenCardSponsor", e.target.value);
+              onChange("retainedPriorityDateSponsor", e.target.value);
+            }}
             placeholder="e.g. Prior Employer, Current Employer, or Self-Petition (NIW)"
             type="text"
-            value={data.retainedPriorityDateSponsor ?? ""}
+            value={data.greenCardSponsor ?? data.retainedPriorityDateSponsor ?? ""}
           />
           <p className="field-helper">
             Never assumed to be your current employer. If this petition was filed by a previous employer or self-petitioned, naming the sponsor clarifies priority date retention and portability.

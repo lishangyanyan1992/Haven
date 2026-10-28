@@ -91,7 +91,15 @@ const GROUPS: { title: string; rows: [string, SharedAnswerKey][] }[] = [
     title: "Employment",
     rows: [["Employer", "employerName"], ["Job title", "jobTitle"], ["Employer size", "employerSize"], ["H-1B start date", "h1bStartDate"]]
   },
-  { title: "Green card", rows: [["Stage", "greenCardStage"], ["Category", "preferenceCategory"], ["Priority date", "priorityDate"]] },
+  {
+    title: "Green card",
+    rows: [
+      ["Stage", "greenCardStage"],
+      ["Sponsor / Petitioner", "greenCardSponsor"],
+      ["Category", "preferenceCategory"],
+      ["Priority date", "priorityDate"]
+    ]
+  },
   { title: "Situation", rows: [["Spouse's status", "spouseVisaStatus"], ["Main concerns", "topConcerns"]] },
   {
     title: "Deadlines",
@@ -173,7 +181,7 @@ function buildFirmClientAudit(
     missingItems.push("Spouse / partner visa status is 'Other' — confirm whether spouse is a U.S. Citizen, LPR, H-1B, or F-1.");
   }
 
-  if (answers.greenCardStage && answers.greenCardStage !== "not_started") {
+  if (answers.greenCardStage && answers.greenCardStage !== "not_started" && !answers.greenCardSponsor) {
     missingItems.push("Confirm which company or sponsor this green card / I-140 is tied to — never assume it is tied to current employer.");
   }
 

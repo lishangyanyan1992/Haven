@@ -476,10 +476,11 @@ export function resolveEffectivePriorityDate(profile: ImmigrationProfile): {
   if (profile.priorityDate) {
     const parsed = parseIsoDate(profile.priorityDate);
     if (parsed) {
+      const isRetained = Boolean(profile.retainedPriorityDate);
       return {
         effectiveDate: parsed,
-        isRetained: Boolean(profile.retainedPriorityDateSponsor),
-        retainedSponsorName: profile.retainedPriorityDateSponsor ?? null,
+        isRetained,
+        retainedSponsorName: isRetained ? (profile.retainedPriorityDateSponsor ?? null) : null,
         retainedCategory: profile.preferenceCategory,
         isRecaptured: false
       };
@@ -703,7 +704,7 @@ export function synthesizePetitions(
 
   const summaries: ImmigrantPetitionSummary[] = [];
 
-  if (profile.retainedPriorityDateSponsor || profile.retainedPriorityDate) {
+  if (profile.retainedPriorityDate) {
     summaries.push({
       id: "prior-retained-i140",
       sponsorName: profile.retainedPriorityDateSponsor ?? "Prior Sponsoring Employer",
@@ -711,7 +712,7 @@ export function synthesizePetitions(
       preferenceCategory: profile.retainedPriorityDateCategory ?? profile.preferenceCategory,
       stage: "i140_approved",
       stageLabel: "I-140 Approved (Retained)",
-      priorityDateLabel: formatDateLabel(profile.retainedPriorityDate ?? profile.priorityDate),
+      priorityDateLabel: formatDateLabel(profile.retainedPriorityDate),
       isApproved: true,
       isRevocationProtected: false,
       isRecaptured: true,
@@ -759,7 +760,7 @@ export function synthesizePetitions(
 
     summaries.push({
       id: "current-active-petition",
-      sponsorName: profile.employerName ?? "Current Sponsoring Employer",
+      sponsorName: profile.greenCardSponsor || profile.retainedPriorityDateSponsor || profile.employerName || "Current Sponsoring Employer",
       petitionType: "employer_sponsored",
       preferenceCategory: profile.preferenceCategory,
       stage: activeStage,
@@ -2042,15 +2043,16 @@ export function buildImmigrationJourney(input: {
       verifiedByDocument: hasI140Doc
     });
   }
-  if (profile.retainedPriorityDateSponsor) {
+  const gcSponsor = profile.greenCardSponsor || profile.retainedPriorityDateSponsor;
+  if (gcSponsor) {
     capturedFields.push({
       id: "cap-gc-sponsor",
       category: "green_card",
       label: "Green Card Sponsoring Entity",
-      value: profile.retainedPriorityDateSponsor,
+      value: gcSponsor,
       sourceLabel: "Settings / Onboarding Step 3",
       mapsToTrack: "Track 2 Sponsoring Petitioner & Priority Date Recapture",
-      verifiedByDocument: hasI140Doc
+      verifiedByDocument: false
     });
   }
   if (deadlines.agencyDeadlineType && deadlines.agencyDeadlineDate) {
@@ -2208,8 +2210,16 @@ export function buildImmigrationJourney(input: {
     });
   }
 
+  const hasStartedGreenCardStage =
+    hasI140Approval ||
+    Boolean(priorityDate) ||
+    Boolean(profile.i140Filed) ||
+    Boolean(profile.i485Filed) ||
+    (Boolean(profile.permStage) && profile.permStage !== "not_started");
+
   if (
-    (hasI140Approval || priorityDate) &&
+    hasStartedGreenCardStage &&
+    !profile.greenCardSponsor &&
     !profile.retainedPriorityDateSponsor &&
     (!profile.immigrantPetitions || profile.immigrantPetitions.length === 0)
   ) {
@@ -2219,9 +2229,9 @@ export function buildImmigrationJourney(input: {
       badge: "Sponsorship Attribution",
       tone: "sand",
       title: "Green card sponsoring company not confirmed",
-      detail: `Your profile records a ${profile.preferenceCategory} green card case with priority date ${formatDateLabel(priorityDate) ?? "on file"}, but does not specify which company sponsored it. Never assume a green card is tied to your current employer (${profile.employerName ?? "Current"}).`,
+      detail: `Your profile records a green card case${priorityDate ? ` with priority date ${formatDateLabel(priorityDate)}` : ""}, but does not specify which company sponsored it. Never assume a green card is tied to your current employer (${profile.employerName ?? "Current"}).`,
       impact:
-        "Knowing whether this I-140 was filed by a prior employer, your current employer, or self-petitioned (e.g. EB-2 NIW) determines your priority date retention rights, whether a new PERM is required, and post-6th-year H-1B extension eligibility.",
+        "Knowing whether this petition was filed by a prior employer, your current employer, or self-petitioned (e.g. EB-2 NIW) determines your priority date retention rights, whether a new PERM is required, and post-6th-year H-1B extension eligibility.",
       actionLabel: "Set sponsor in Settings",
       actionHref: "/settings"
     });

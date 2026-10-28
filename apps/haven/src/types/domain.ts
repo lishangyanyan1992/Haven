@@ -115,6 +115,7 @@ export interface ImmigrationProfile {
   i140Approved: boolean;
   i140ApprovalDate?: string;
   priorityDate?: string;
+  greenCardSponsor?: string;
   retainedPriorityDate?: string;
   retainedPriorityDateSponsor?: string;
   retainedPriorityDateCategory?: PreferenceCategory;
