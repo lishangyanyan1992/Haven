@@ -300,7 +300,21 @@ export default async function SettingsPage({
                     name="greenCardSponsor"
                     placeholder="e.g. Prior Employer Inc., Current Employer, or Self-Petition (NIW)"
                   />
-                  {profile.retainedPriorityDate ? (
+                  {profile.i140Approved && profile.permStage && profile.permStage !== "not_started" ? (
+                    <div className="mt-4">
+                      <label className="block text-[13px] font-medium text-[var(--color-text-secondary)] mb-1">
+                        Approved I-140 prior sponsor
+                      </label>
+                      <Input
+                        defaultValue={profile.retainedPriorityDateSponsor ?? ""}
+                        name="retainedPriorityDateSponsor"
+                        placeholder="e.g. Prior Employer Inc. (approved I-140)"
+                      />
+                      <p className="mt-1 text-[12px] text-[var(--color-text-tertiary)]">
+                        The employer or petitioner that sponsored your approved Form I-140.
+                      </p>
+                    </div>
+                  ) : profile.retainedPriorityDate ? (
                     <input type="hidden" name="retainedPriorityDateSponsor" value={profile.retainedPriorityDateSponsor ?? ""} />
                   ) : null}
                   <p className="mt-1 text-[12px] text-[var(--color-text-tertiary)]">

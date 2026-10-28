@@ -608,29 +608,41 @@ export function evaluateI140Protections(
   }
 
   if (profile.i140Approved) {
+    const isNewPermInProgress = Boolean(
+      profile.permStage &&
+      profile.permStage !== "not_started" &&
+      profile.permStage !== "certified" &&
+      !profile.i485Filed
+    );
+    const protectingSponsor = isNewPermInProgress
+      ? (profile.retainedPriorityDateSponsor ?? null)
+      : (profile.greenCardSponsor ?? profile.retainedPriorityDateSponsor ?? null);
+
     const approvalDate = parseIsoDate(profile.i140ApprovalDate ?? null);
     if (approvalDate) {
       const lockInDate = new Date(approvalDate.getTime() + 180 * DAY_MS);
       const isRevocationProtected = lockInDate.getTime() <= nowMs;
+      const sponsorSuffix = protectingSponsor ? ` with ${protectingSponsor}` : "";
       return {
         hasApprovedI140: true,
         isAc21PortabilityUnlocked: true,
         isRevocationProtected,
-        protectingSponsor: profile.greenCardSponsor ?? null,
+        protectingSponsor,
         i140ApprovalDate: approvalDate,
         portabilitySummary: isRevocationProtected
-          ? `I-140 approval reached the 180-day portability mark on ${formatDateLabel(lockInDate)}. Your priority date is permanently protected, and a new sponsor can file an H-1B transfer with AC21 3-year extensions.`
-          : `I-140 approval unlocks AC21 3-year extensions. Revocation protection under 8 CFR § 205.1 locks in on ${formatDateLabel(lockInDate)}.`
+          ? `I-140 approval${sponsorSuffix} reached the 180-day portability mark on ${formatDateLabel(lockInDate)}. Your priority date is permanently protected, and a new sponsor can file an H-1B transfer with AC21 3-year extensions.`
+          : `I-140 approval${sponsorSuffix} unlocks AC21 3-year extensions. Revocation protection under 8 CFR § 205.1 locks in on ${formatDateLabel(lockInDate)}.`
       };
     }
+    const sponsorSuffix = protectingSponsor ? ` with ${protectingSponsor}` : "";
     return {
       hasApprovedI140: true,
       isAc21PortabilityUnlocked: true,
       isRevocationProtected: false,
-      protectingSponsor: profile.greenCardSponsor ?? null,
+      protectingSponsor,
       i140ApprovalDate: null,
       portabilitySummary:
-        "Approved I-140 on file protects priority date retention and unlocks AC21 extensions beyond the 6-year limit."
+        `Approved I-140 on file${sponsorSuffix} protects priority date retention and unlocks AC21 extensions beyond the 6-year limit.`
     };
   }
 
