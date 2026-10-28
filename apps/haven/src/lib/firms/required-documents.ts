@@ -52,3 +52,54 @@ export async function saveFirmRequiredDocuments(
 
   return validation.items;
 }
+
+/**
+ * Unions required document lists across multiple connected law firms.
+ * Deduplicates shared preset documents by key, and deduplicates custom documents
+ * when both key and normalized label match. If two firms define different custom
+ * documents whose slug keys collide, assigns a firm-scoped key to keep them distinct.
+ *
+ * @param firmLists - Array of firm IDs with their respective required document lists
+ * @returns Deduplicated and collision-disambiguated list of required documents
+ */
+export function unionRequiredDocuments(
+  firmLists: Array<{ firmId: string; docs: RequiredDocumentItem[] }>
+): RequiredDocumentItem[] {
+  const seenIdentities = new Set<string>();
+  const unioned: RequiredDocumentItem[] = [];
+
+  for (const { firmId, docs } of firmLists) {
+    for (const d of docs) {
+      const docIdentity = d.isCustom ? `${d.key}:${d.label.toLowerCase().trim()}` : d.key;
+      if (!seenIdentities.has(docIdentity)) {
+        seenIdentities.add(docIdentity);
+        let finalItem = d;
+        if (d.isCustom && unioned.some((existing) => existing.key === d.key && existing.label !== d.label)) {
+          finalItem = { ...d, key: `${d.key}_${firmId.slice(0, 8)}` };
+        }
+        unioned.push(finalItem);
+      }
+    }
+  }
+
+  return unioned;
+}
+
+/**
+ * Checks whether an uploaded document kind matches a firm requirement key,
+ * resolving both direct keys and collision-suffixed keys.
+ *
+ * @param uploadedDocKind - The document_kind from user_documents
+ * @param requirementKey - The configured requirement key from the firm
+ * @param firmId - Optional firm ID to check collision suffix
+ * @returns True if the document fulfills the requirement
+ */
+export function documentKindMatchesRequirement(
+  uploadedDocKind: string,
+  requirementKey: string,
+  firmId?: string
+): boolean {
+  if (uploadedDocKind === requirementKey) return true;
+  if (firmId && uploadedDocKind === `${requirementKey}_${firmId.slice(0, 8)}`) return true;
+  return false;
+}

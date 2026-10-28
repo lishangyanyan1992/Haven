@@ -10,8 +10,9 @@ import GonePage from "@/app/gone/page";
 import { findPresetDocument, PRESET_REQUIRED_DOCUMENTS } from "@/lib/document-vault";
 import { documentContextAvailableFor } from "@/lib/document-context/store";
 import { FirmSharingNote } from "@/components/app/firm-sharing-note";
-import { getClientFirm } from "@/lib/firms/intake";
-import { getFirmRequiredDocuments } from "@/lib/firms/required-documents";
+import { getClientFirms, type ClientFirmInfo } from "@/lib/firms/intake";
+import type { RequiredDocumentItem } from "@/lib/firms/types";
+import { getFirmRequiredDocuments, unionRequiredDocuments } from "@/lib/firms/required-documents";
 import { getCrisisState } from "@/lib/get-crisis-state";
 import { getInboxPageData } from "@/lib/repositories/case-compass";
 import { noIndexMetadata } from "@/lib/seo";
@@ -22,6 +23,10 @@ import type { UserDocument } from "@/types/domain";
 export const metadata = noIndexMetadata;
 export const dynamic = "force-dynamic";
 
+/**
+ * Client document vault page that renders uploaded documents and unions required
+ * document checklists across all connected law firms while preserving firm attribution.
+ */
 export default async function DocumentsPage() {
   const supabase = await createSupabaseServerClient();
   const {
@@ -29,8 +34,45 @@ export default async function DocumentsPage() {
   } = await supabase.auth.getUser();
   if (!user || !(await documentContextAvailableFor(user.email))) return <GonePage />;
 
-  const firm = await getClientFirm(user.id);
-  const requiredDocs = firm ? await getFirmRequiredDocuments(firm.firmId) : null;
+  let clientFirms: ClientFirmInfo[] = [];
+  try {
+    clientFirms = await getClientFirms(user.id);
+  } catch (err) {
+    console.error("[documents] failed to get client firms:", err);
+    return (
+      <div className="min-h-screen bg-slate-950 px-4 py-16 flex flex-col items-center justify-center text-center">
+        <h1 className="text-xl font-semibold text-rose-300">Unable to load document requirements</h1>
+        <p className="mt-2 text-sm text-slate-400">
+          We encountered an issue loading requirements for your connected legal firms. Please reload to try again.
+        </p>
+      </div>
+    );
+  }
+  const firmNames = clientFirms.map((f) => f.firmName);
+
+  let requiredDocs: RequiredDocumentItem[] | null = null;
+  if (clientFirms.length > 0) {
+    try {
+      const firmDocsList = await Promise.all(
+        clientFirms.map(async (f) => ({
+          firmId: f.firmId,
+          docs: await getFirmRequiredDocuments(f.firmId)
+        }))
+      );
+      const unioned = unionRequiredDocuments(firmDocsList);
+      requiredDocs = unioned.length > 0 ? unioned : null;
+    } catch (err) {
+      console.error("[documents] failed to load firm required documents:", err);
+      return (
+        <div className="min-h-screen bg-slate-950 px-4 py-16 flex flex-col items-center justify-center text-center">
+          <h1 className="text-xl font-semibold text-rose-300">Unable to load document requirements</h1>
+          <p className="mt-2 text-sm text-slate-400">
+            We encountered an issue loading requirements for your connected legal firms. Please reload to try again.
+          </p>
+        </div>
+      );
+    }
+  }
 
   const [snapshot, crisisState] = await Promise.all([getInboxPageData(), getCrisisState()]);
   const documents = snapshot.documents.filter((d) => d.sourceKind === "manual_upload");
@@ -100,7 +142,7 @@ export default async function DocumentsPage() {
           </p>
         </section>
 
-        {firm ? <FirmSharingNote firmName={firm.firmName} /> : null}
+        {firmNames.length > 0 ? <FirmSharingNote firmNames={firmNames} /> : null}
 
         {unverifiedIntakeClaims.length > 0 && (
           <div className="rounded-[var(--radius-2xl)] border border-[var(--haven-blush)] bg-[var(--haven-blush-light)]/70 p-5 space-y-3">
@@ -158,7 +200,9 @@ export default async function DocumentsPage() {
             <section className="rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-5 sm:p-6">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--color-border)] pb-4">
                 <div>
-                  <h2 className="text-h3">Requested by {firm?.firmName}</h2>
+                  <h2 className="text-h3">
+                    Requested by {firmNames.length === 1 ? firmNames[0] : "your law firms"}
+                  </h2>
                   <p className="text-body-sm mt-0.5 text-[var(--haven-ink-mid)]">
                     Upload these required documents for your attorney to review.
                   </p>

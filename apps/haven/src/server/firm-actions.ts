@@ -14,7 +14,7 @@ import {
 } from "@/lib/firms/clients";
 import { resetDemoFirm } from "@/lib/firms/demo";
 import { validateConsultationBooking, validateEngagementUpdate } from "@/lib/firms/engagement";
-import { claimFirmInvite, requestFirmIntake, type IntakeResult } from "@/lib/firms/intake";
+import { claimFirmInvite, grantFirmAccessForUser, requestFirmIntake, type IntakeResult } from "@/lib/firms/intake";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { intakeUrl, replaceFirmLink, setFirmLinkActive } from "@/lib/firms/links";
 import { saveFirmIntakeQuestions, validateIntakeQuestionList } from "@/lib/firms/intake-questions";
@@ -139,6 +139,29 @@ export async function claimFirmInviteAction(claimToken: string): Promise<{ joine
   if (!user) return { joined: false };
   const result = await claimFirmInvite(user, String(claimToken ?? ""));
   return { joined: result === "joined" };
+}
+
+/** Signed-in client grants access to a firm directly on /i/[token]. */
+export async function grantFirmAccessAction(
+  token: string
+): Promise<{
+  ok: boolean;
+  status: "granted" | "already_connected" | "not_authenticated" | "is_lawyer" | "invalid_link" | "inactive_link" | "error";
+}> {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, status: "not_authenticated" };
+
+  const result = await grantFirmAccessForUser(user, String(token ?? ""));
+  if (result.status === "granted" || result.status === "already_connected") {
+    revalidatePath("/dashboard");
+    revalidatePath("/documents");
+    revalidatePath("/onboarding");
+    return { ok: true, status: result.status };
+  }
+  return { ok: false, status: result.status };
 }
 
 /** Public: the intake form on a firm's intake link. */

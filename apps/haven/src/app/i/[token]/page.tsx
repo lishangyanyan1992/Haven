@@ -2,9 +2,13 @@ import Link from "next/link";
 import { Building2, ShieldCheck } from "lucide-react";
 
 import { HavenBrand } from "@/components/app/haven-brand";
+import { normalizeEmail } from "@/lib/access";
 import { lookupIntakeToken } from "@/lib/firms/links";
 import { noIndexMetadata } from "@/lib/seo";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { FirmIntakeForm } from "./FirmIntakeForm";
+import { GrantFirmAccessCard } from "./GrantFirmAccessCard";
 
 export const metadata = noIndexMetadata;
 export const dynamic = "force-dynamic";
@@ -18,6 +22,36 @@ export default async function FirmIntakePage({ params }: { params: Promise<{ tok
   const { token } = await params;
   const link = await lookupIntakeToken(token);
 
+  let signedInClient: { id: string; email: string; alreadyConnected: boolean } | null = null;
+  if (link.state === "active") {
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user }
+    } = await supabase.auth.getUser();
+
+    if (user && user.email) {
+      const email = normalizeEmail(user.email);
+      const admin = createSupabaseAdminClient() as any;
+      const [lawyer, existing] = await Promise.all([
+        admin.from("firm_members").select("user_id").or(`user_id.eq.${user.id},email.eq.${email}`).maybeSingle(),
+        admin
+          .from("firm_clients")
+          .select("id, joined_at")
+          .eq("firm_id", link.firmId)
+          .or(`user_id.eq.${user.id},normalized_email.eq.${email}`)
+          .maybeSingle()
+      ]);
+
+      if (!lawyer.data) {
+        signedInClient = {
+          id: user.id,
+          email: user.email,
+          alreadyConnected: Boolean(existing.data?.joined_at)
+        };
+      }
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[var(--haven-cream)]">
       <header className="border-b border-[var(--color-border)] bg-[rgba(253,250,246,0.94)]">
@@ -26,10 +60,18 @@ export default async function FirmIntakePage({ params }: { params: Promise<{ tok
             <HavenBrand />
           </Link>
           <p className="text-body-sm">
-            Have an account?{" "}
-            <Link className="font-medium text-[var(--haven-ink)] underline-offset-4 hover:underline" href="/login">
-              Sign in
-            </Link>
+            {signedInClient ? (
+              <Link className="font-medium text-[var(--haven-ink)] underline-offset-4 hover:underline" href="/dashboard">
+                Dashboard
+              </Link>
+            ) : (
+              <>
+                Have an account?{" "}
+                <Link className="font-medium text-[var(--haven-ink)] underline-offset-4 hover:underline" href="/login">
+                  Sign in
+                </Link>
+              </>
+            )}
           </p>
         </div>
       </header>
@@ -42,19 +84,36 @@ export default async function FirmIntakePage({ params }: { params: Promise<{ tok
                 <Building2 className="h-4 w-4" />
                 Invited by {link.firmName}
               </p>
-              <h1 className="text-h1 mt-3">Set up your Haven account</h1>
+              <h1 className="text-h1 mt-3">
+                {signedInClient
+                  ? signedInClient.alreadyConnected
+                    ? `Connected to ${link.firmName}`
+                    : `Connect with ${link.firmName}`
+                  : "Set up your Haven account"}
+              </h1>
               <p className="text-body mt-3">
                 {link.firmName} uses Haven to collect your details and documents, and to answer your questions between
                 appointments.
               </p>
-              <div className="mt-5 flex items-start gap-2.5 rounded-[var(--radius-lg)] bg-[var(--haven-sky-light)] px-4 py-3 text-body-sm text-[var(--haven-ink)]">
-                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>
-                  Your setup answers and the documents you upload will be shared with <strong>{link.firmName}</strong>.
-                  Your chats with Haven stay private.
-                </span>
-              </div>
-              <FirmIntakeForm token={token} />
+              {!signedInClient ? (
+                <>
+                  <div className="mt-5 flex items-start gap-2.5 rounded-[var(--radius-lg)] bg-[var(--haven-sky-light)] px-4 py-3 text-body-sm text-[var(--haven-ink)]">
+                    <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>
+                      Your setup answers and the documents you upload will be shared with <strong>{link.firmName}</strong>.
+                      Your chats with Haven stay private.
+                    </span>
+                  </div>
+                  <FirmIntakeForm token={token} />
+                </>
+              ) : (
+                <GrantFirmAccessCard
+                  alreadyConnected={signedInClient.alreadyConnected}
+                  firmName={link.firmName}
+                  token={token}
+                  userEmail={signedInClient.email}
+                />
+              )}
               <p className="text-caption mt-5">
                 By continuing, you agree to Haven&apos;s{" "}
                 <Link className="underline underline-offset-2" href="/terms">

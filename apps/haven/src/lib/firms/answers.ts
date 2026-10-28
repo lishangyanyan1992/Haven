@@ -159,27 +159,57 @@ export function formLimitedTo(form: Pick<FormData, "has">, keys: readonly string
   return { has: (key: string) => (mode === "only" ? keys.includes(key) : !keys.includes(key)) && form.has(key) };
 }
 
-/** True when the firm's copy is up to date (or there's no firm to update). */
+/** True when all joined firms' copies are up to date (or there's no firm to update). */
 export async function recordFirmSharedAnswers(userId: string, draft: Record<string, unknown>, form: Pick<FormData, "has">): Promise<boolean> {
   if (!mergeSharedAnswers({}, draft, form).changed) return true;
 
   const admin = createSupabaseAdminClient() as any;
-  const { data: row, error: readError } = await admin
+  const { data: rows, error: readError } = await admin
     .from("firm_clients")
-    .select("id, shared_answers, joined_at")
-    .eq("user_id", userId)
-    .maybeSingle();
+    .select("id, firm_id, shared_answers, joined_at, firms(intake_questions)")
+    .eq("user_id", userId);
   if (readError) {
     console.error("[firms] could not read shared answers", readError.message);
     return false;
   }
-  if (!row?.joined_at) return true;
+  const joinedRows = (rows ?? []).filter((r: any) => Boolean(r.joined_at));
+  if (joinedRows.length === 0) return true;
 
-  const { next } = mergeSharedAnswers(row.shared_answers ?? {}, draft, form);
-  const { error } = await admin.from("firm_clients").update({ shared_answers: next }).eq("id", row.id);
-  if (error) {
-    console.error("[firms] could not save shared answers", error.message);
-    return false;
+  for (const row of joinedRows) {
+    const { next } = mergeSharedAnswers(row.shared_answers ?? {}, draft, form);
+
+    // Keep all standard shared keys, but only retain custom questions configured for this firm
+    // (including any firm-scoped suffixed keys generated during multi-firm onboarding collision resolution)
+    const firmSuffix = row.firm_id ? `_${row.firm_id.slice(0, 8)}` : "";
+    const allowedCustomKeys = new Set<string>();
+    const suffixedKeyToOriginal = new Map<string, string>();
+    if (Array.isArray(row.firms?.intake_questions)) {
+      for (const q of row.firms.intake_questions) {
+        if (isCustomQuestionKey(q.key)) {
+          allowedCustomKeys.add(q.key);
+          if (firmSuffix) {
+            allowedCustomKeys.add(`${q.key}${firmSuffix}`);
+            suffixedKeyToOriginal.set(`${q.key}${firmSuffix}`, q.key);
+          }
+        }
+      }
+    }
+
+    const scopedAnswers: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(next)) {
+      if (!isCustomQuestionKey(key)) {
+        scopedAnswers[key] = value;
+      } else if (allowedCustomKeys.has(key)) {
+        const targetKey = suffixedKeyToOriginal.get(key) ?? key;
+        scopedAnswers[targetKey] = value;
+      }
+    }
+
+    const { error } = await admin.from("firm_clients").update({ shared_answers: scopedAnswers }).eq("id", row.id);
+    if (error) {
+      console.error("[firms] could not save shared answers", error.message);
+      return false;
+    }
   }
   return true;
 }

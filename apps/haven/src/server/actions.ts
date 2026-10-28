@@ -414,9 +414,12 @@ export async function completeOnboardingAction(formData: FormData) {
     statusUpdateEmailNotifications: String(formData.get("statusUpdateEmailNotifications") ?? "false")
   };
   await persistProfileDraft(user.id, setupDraft);
-  await recordFirmSharedAnswers(user.id, setupDraft, {
+  const firmSaved = await recordFirmSharedAnswers(user.id, setupDraft, {
     has: (key: string) => key === "fullName" || formData.has(key)
   });
+  if (!firmSaved) {
+    throw new Error("Could not update firm records");
+  }
 
   await admin.from("email_aliases").upsert({
     user_id: user.id,

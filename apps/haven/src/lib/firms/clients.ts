@@ -249,9 +249,12 @@ export async function getFirmClient(firmId: string, firmClientId: string): Promi
   const requiredKeys = new Set<string>();
 
   if (requiredDocs && requiredDocs.length > 0) {
+    const firmSuffix = `_${firmId.slice(0, 8)}`;
     for (const req of requiredDocs) {
       requiredKeys.add(req.key);
-      const matchingDocs = documents.filter((d) => d.documentKind === req.key);
+      const matchingDocs = documents.filter(
+        (d) => d.documentKind === req.key || d.documentKind === `${req.key}${firmSuffix}`
+      );
       requiredDocuments.push({
         key: req.key,
         label: req.label,
