@@ -1,4 +1,5 @@
 import { formLimitedTo, recordFirmSharedAnswers } from "@/lib/firms/answers";
+import { openLayoffEvent } from "@/lib/layoff-events";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -89,12 +90,26 @@ export async function saveDeadlineAnswers(userId: string, form: FormData) {
   const draft = deadlineDraftFromForm(form);
   if (Object.keys(draft).length === 0) return;
   const admin = createSupabaseAdminClient() as any;
-  const { data: profile, error: readError } = await admin.from("user_profiles").select("deadline_answers").eq("id", userId).maybeSingle();
+  const { data: profile, error: readError } = await admin
+    .from("user_profiles")
+    .select("deadline_answers, current_visa_expiry_date, employment_status")
+    .eq("id", userId)
+    .maybeSingle();
   if (readError) throw new Error(`Could not read deadline answers: ${readError.message}`);
   if (profile) {
     const next = mergeDeadlineAnswers(profile.deadline_answers ?? {}, draft);
-    const { error } = await admin.from("user_profiles").update({ deadline_answers: next }).eq("id", userId);
+    const updatePatch: Record<string, unknown> = { deadline_answers: next };
+    if ("statusEndDate" in draft || "statusEndUnknown" in draft) {
+      updatePatch.current_visa_expiry_date = next.statusEndDate || null;
+    }
+    if (draft.jobEnded === "yes") {
+      updatePatch.employment_status = "laid_off";
+    }
+    const { error } = await admin.from("user_profiles").update(updatePatch).eq("id", userId);
     if (error) throw new Error(`Could not save deadline answers: ${error.message}`);
+    if (next.jobEnded === "yes" && next.lastWorkDay) {
+      await openLayoffEvent(userId, next.lastWorkDay).catch(() => null);
+    }
   }
   if (!(await recordFirmSharedAnswers(userId, draft, formLimitedTo(form, DEADLINE_KEYS)))) {
     throw new Error("Could not share deadline answers with the firm.");

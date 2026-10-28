@@ -61,14 +61,40 @@ function isMissingCommunityPostCommentsTable(error: { code?: string; message?: s
   );
 }
 
+function extractDeadlineMetadata(raw: unknown): Record<string, unknown> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  return raw as Record<string, unknown>;
+}
+
 function mapProfileRow(row: ProfileRow): ImmigrationProfile {
+  const deadlineMeta = extractDeadlineMetadata(row.deadline_answers);
+  const fallbackVisaExpiry =
+    typeof deadlineMeta.statusEndDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(deadlineMeta.statusEndDate.trim())
+      ? deadlineMeta.statusEndDate.trim()
+      : undefined;
+  const retainedPriorityDate =
+    typeof deadlineMeta.retainedPriorityDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(deadlineMeta.retainedPriorityDate.trim())
+      ? deadlineMeta.retainedPriorityDate.trim()
+      : undefined;
+  const retainedPriorityDateSponsor =
+    typeof deadlineMeta.retainedPriorityDateSponsor === "string" && deadlineMeta.retainedPriorityDateSponsor.trim()
+      ? deadlineMeta.retainedPriorityDateSponsor.trim()
+      : undefined;
+  const retainedPriorityDateCategory =
+    typeof deadlineMeta.retainedPriorityDateCategory === "string" && deadlineMeta.retainedPriorityDateCategory.trim()
+      ? (deadlineMeta.retainedPriorityDateCategory.trim() as ImmigrationProfile["preferenceCategory"])
+      : undefined;
+  const immigrantPetitions = Array.isArray(deadlineMeta.immigrantPetitions)
+    ? (deadlineMeta.immigrantPetitions as ImmigrationProfile["immigrantPetitions"])
+    : undefined;
+
   return {
     id: row.id,
     fullName: row.full_name,
     email: row.email,
     visaType: row.visa_type as ImmigrationProfile["visaType"],
     countryOfBirth: row.country_of_birth,
-    currentVisaExpiryDate: row.current_visa_expiry_date ?? undefined,
+    currentVisaExpiryDate: row.current_visa_expiry_date ?? fallbackVisaExpiry,
     h1bStartDate: row.h1b_start_date ?? undefined,
     permStage: row.perm_stage as ImmigrationProfile["permStage"],
     permFilingDate: row.perm_filing_date ?? undefined,
@@ -76,6 +102,10 @@ function mapProfileRow(row: ProfileRow): ImmigrationProfile {
     i140Approved: row.i140_approved,
     i140ApprovalDate: row.i140_approval_date ?? undefined,
     priorityDate: row.priority_date ?? undefined,
+    retainedPriorityDate,
+    retainedPriorityDateSponsor,
+    retainedPriorityDateCategory,
+    immigrantPetitions,
     preferenceCategory: row.preference_category as ImmigrationProfile["preferenceCategory"],
     i485Filed: row.i485_filed,
     employerName: row.employer_name ?? undefined,
@@ -100,7 +130,7 @@ function mapDerivedSignals(
 
   return {
     h1bCapDate: row.h1b_cap_date ?? fallback.h1bCapDate,
-    daysUntilVisaExpiry: row.days_until_visa_expiry ?? fallback.daysUntilVisaExpiry,
+    daysUntilVisaExpiry: fallback.daysUntilVisaExpiry ?? row.days_until_visa_expiry ?? undefined,
     visaBulletinPosition: priorityDateSignals?.visaBulletinPosition ?? row.visa_bulletin_position ?? fallback.visaBulletinPosition,
     estimatedGreenCardDateRange:
       priorityDateSignals?.estimatedGreenCardDateRange ?? row.estimated_gc_date_range ?? fallback.estimatedGreenCardDateRange,
@@ -425,13 +455,27 @@ async function buildSnapshotContext(): Promise<SnapshotContext> {
     throw new Error(`Unable to load layoff record: ${layoffError.message}`);
   }
 
+  const deadlineMeta = profileRow ? extractDeadlineMetadata(profileRow.deadline_answers) : {};
+  const fallbackLayoffDate =
+    deadlineMeta.jobEnded === "yes" &&
+    typeof deadlineMeta.lastWorkDay === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(deadlineMeta.lastWorkDay.trim())
+      ? deadlineMeta.lastWorkDay.trim()
+      : null;
+
   const activeLayoffEvent = layoffRow
     ? {
         layoffDate: layoffRow.layoff_date,
         employerAtLayoff: layoffRow.employer_at_layoff,
         visaTypeAtLayoff: layoffRow.visa_type_at_layoff
       }
-    : null;
+    : fallbackLayoffDate
+      ? {
+          layoffDate: fallbackLayoffDate,
+          employerAtLayoff: profileRow?.employer_name ?? null,
+          visaTypeAtLayoff: profileRow?.visa_type ?? null
+        }
+      : null;
 
   if (!profileRow) {
     return {

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { AlertTriangle, ArrowLeft, FileWarning } from "lucide-react";
 
 import { requireFirmMember } from "@/lib/firms/access";
 import type { SharedAnswerKey, SharedAnswers } from "@/lib/firms/answers";
@@ -119,6 +119,72 @@ const PRESET_KEY_FOR_ROW: Partial<Record<SharedAnswerKey, string>> = {
   travelDate: "travelPlanned"
 };
 
+function buildFirmClientAudit(
+  answers: SharedAnswers,
+  requiredDocuments: Array<{ key: string; label: string; isUploaded: boolean }>
+) {
+  const warnings: Array<{
+    id: string;
+    severity: "critical" | "high" | "medium";
+    title: string;
+    rule: string;
+    detail: string;
+  }> = [];
+  const missingItems: string[] = [];
+
+  if (answers.jobEnded === "yes" && answers.lastWorkDay && answers.statusEndDate) {
+    const lastWorkMs = new Date(`${answers.lastWorkDay}T00:00:00Z`).getTime();
+    const statusEndMs = new Date(`${answers.statusEndDate}T00:00:00Z`).getTime();
+    const sixtyDayMs = lastWorkMs + 60 * 86_400_000;
+    if (!Number.isNaN(lastWorkMs) && !Number.isNaN(statusEndMs) && statusEndMs < sixtyDayMs) {
+      warnings.push({
+        id: "i94-caps-grace",
+        severity: "critical",
+        title: `I-94 expiration (${formatDate(answers.statusEndDate)}) shortens the 60-day grace window`,
+        rule: "8 CFR § 214.1(l)(2)",
+        detail: `Last day of work is ${formatDate(answers.lastWorkDay)}, which would otherwise grant a 60-day grace window, but the reported status end date (${formatDate(answers.statusEndDate)}) caps the grace window earlier. File a change-of-status or H-1B transfer before ${formatDate(answers.statusEndDate)}.`
+      });
+    }
+  }
+
+  if (answers.agencyDeadlineType === "interview" && answers.greenCardStage !== "i485_filed") {
+    const gcStageLabel = answer(answers, "greenCardStage") ?? "Not started";
+    warnings.push({
+      id: "interview-stage-conflict",
+      severity: "high",
+      title: `Agency 'Interview' (${formatDate(answers.agencyDeadlineDate) ?? "date pending"}) reported while Green Card stage is '${gcStageLabel}'`,
+      rule: "INA § 245 / Consular Processing",
+      detail: `Confirm whether the ${formatDate(answers.agencyDeadlineDate) ?? "upcoming"} interview is a U.S. consular visa stamping appointment, a marriage-based I-485 adjustment interview, or an employment-based I-485 interview.`
+    });
+  }
+
+  if (answers.travelPlanned === "yes" && answers.travelDate) {
+    warnings.push({
+      id: "travel-abandonment",
+      severity: "high",
+      title: `International travel planned (${formatDate(answers.travelDate)})`,
+      rule: "8 CFR § 248.1(b)",
+      detail:
+        "Departing the United States while a change-of-status (I-539) is pending abandons the change-of-status request, and re-entry after a layoff requires an approved new petition and valid visa stamp."
+    });
+  }
+
+  if (answers.spouseVisaStatus === "other") {
+    missingItems.push("Spouse / partner visa status is 'Other' — confirm whether spouse is a U.S. Citizen, LPR, H-1B, or F-1.");
+  }
+
+  if (!answers.statusEndDate && answers.statusEndUnknown !== "yes") {
+    missingItems.push("Status / I-94 end date not provided in intake.");
+  }
+
+  const missingReqDocs = requiredDocuments.filter((doc) => !doc.isUploaded);
+  for (const reqDoc of missingReqDocs) {
+    missingItems.push(`Required document missing: ${reqDoc.label}`);
+  }
+
+  return { warnings, missingItems };
+}
+
 export default async function FirmClientPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const membership = await requireFirmMember(`/firm/clients/${id}`);
@@ -145,6 +211,7 @@ export default async function FirmClientPage({ params }: { params: Promise<{ id:
   const fullName = client.fullName || (typeof client.answers.fullName === "string" ? client.answers.fullName.trim() : "");
   const name = fullName || client.email;
   const urgency = rankUrgency(client.answers);
+  const clientAudit = buildFirmClientAudit(client.answers, client.requiredDocuments);
   const enabledKeys = new Set(intakeQuestions.map((q) => q.key));
   const customQuestions = intakeQuestions.filter((q) => q.isCustom);
 
@@ -230,6 +297,63 @@ export default async function FirmClientPage({ params }: { params: Promise<{ id:
           reviewedAt={client.reviewedAt}
           uploadedDocumentCount={client.documents.length}
         />
+
+        {(clientAudit.warnings.length > 0 || clientAudit.missingItems.length > 0) && (
+          <section className="rounded-[var(--radius-2xl)] border border-[#E5C9A8] bg-[#FDF8F1] p-5 sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <FileWarning className="h-5 w-5 text-[var(--color-warning)]" />
+                <h2 className="text-h3">Client Risk Warnings & Missing Intake Information</h2>
+              </div>
+              <span className="rounded-full bg-white px-2.5 py-1 text-[12px] font-semibold text-[#8F4E10]">
+                {clientAudit.warnings.length} warning{clientAudit.warnings.length === 1 ? "" : "s"} · {clientAudit.missingItems.length} missing item{clientAudit.missingItems.length === 1 ? "" : "s"}
+              </span>
+            </div>
+
+            {clientAudit.warnings.length > 0 && (
+              <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                {clientAudit.warnings.map((w) => (
+                  <div
+                    className="rounded-[var(--radius-xl)] border border-[#E5C9A8] bg-white p-4"
+                    key={w.id}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${
+                          w.severity === "critical"
+                            ? "bg-[var(--haven-blush-light)] text-[var(--haven-blush-ink)]"
+                            : "bg-[#FAF1E4] text-[#8F4E10]"
+                        }`}
+                      >
+                        <AlertTriangle className="h-3 w-3" />
+                        {w.severity} risk
+                      </span>
+                      <span className="text-[11px] font-medium text-[var(--haven-ink-mid)]">{w.rule}</span>
+                    </div>
+                    <p className="mt-2 text-body-sm font-semibold text-[var(--haven-ink)]">{w.title}</p>
+                    <p className="mt-1 text-[12.5px] leading-relaxed text-[var(--haven-ink-mid)]">{w.detail}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {clientAudit.missingItems.length > 0 && (
+              <div className="mt-4 rounded-[var(--radius-xl)] border border-[#E5C9A8] bg-white p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-[#8F4E10]">
+                  Still Needed from Client ({clientAudit.missingItems.length})
+                </p>
+                <ul className="mt-2 space-y-1.5">
+                  {clientAudit.missingItems.map((item) => (
+                    <li className="flex items-start gap-2 text-[13px] text-[var(--haven-ink)]" key={item}>
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-warning)]" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </section>
+        )}
 
         <div className="grid gap-4 lg:grid-cols-2">
           {groups.map((group) => (

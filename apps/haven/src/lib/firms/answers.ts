@@ -83,6 +83,10 @@ export function sharedAnswersFromProfile(p: Record<string, any> | null): SharedA
           : p.perm_stage === "in_progress"
             ? "perm_in_progress"
             : "not_started";
+  const deadlineRecord =
+    p.deadline_answers && typeof p.deadline_answers === "object" && !Array.isArray(p.deadline_answers)
+      ? (p.deadline_answers as Record<string, unknown>)
+      : {};
   return pickSharedAnswers({
     fullName: p.full_name ?? "",
     visaType: p.visa_type,
@@ -96,7 +100,15 @@ export function sharedAnswersFromProfile(p: Record<string, any> | null): SharedA
     priorityDate: p.priority_date ?? "",
     preferenceCategory: p.preference_category,
     spouseVisaStatus: p.spouse_visa_status,
-    topConcerns: p.top_concerns ?? []
+    topConcerns: p.top_concerns ?? [],
+    statusEndDate: deadlineRecord.statusEndDate ?? p.current_visa_expiry_date ?? "",
+    statusEndUnknown: deadlineRecord.statusEndUnknown,
+    jobEnded: deadlineRecord.jobEnded,
+    lastWorkDay: deadlineRecord.lastWorkDay,
+    agencyDeadlineType: deadlineRecord.agencyDeadlineType,
+    agencyDeadlineDate: deadlineRecord.agencyDeadlineDate,
+    travelPlanned: deadlineRecord.travelPlanned,
+    travelDate: deadlineRecord.travelDate
   });
 }
 

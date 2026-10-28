@@ -1,8 +1,13 @@
+import Link from "next/link";
+import { AlertTriangle, CheckCircle2, FileWarning } from "lucide-react";
+
 import { AppShell } from "@/components/app/app-shell";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { loadDeadlineAnswers } from "@/lib/deadlines";
 import { getCrisisState } from "@/lib/get-crisis-state";
 import { getAppShellSnapshot } from "@/lib/repositories/case-compass";
 import { noIndexMetadata } from "@/lib/seo";
@@ -25,9 +30,59 @@ export default async function SettingsPage({
   searchParams?: Promise<{ saved?: string }>;
 }) {
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
-  const [snapshot, crisisState] = await Promise.all([getAppShellSnapshot(), getCrisisState()]);
+  const [snapshot, crisisState] = await Promise.all([
+    getAppShellSnapshot(),
+    getCrisisState()
+  ]);
   const { profile } = snapshot;
+  const savedDeadlines = profile.id ? await loadDeadlineAnswers(profile.id) : undefined;
   const greenCardStage = inferGreenCardStage(profile);
+
+  const profileGaps: Array<{
+    id: string;
+    label: string;
+    detail: string;
+    severity: "critical" | "warning" | "info";
+  }> = [];
+
+  if (profile.spouseVisaStatus === "other") {
+    profileGaps.push({
+      id: "spouse-other",
+      label: "Spouse / partner visa status is set to 'Other'",
+      detail:
+        "Update to US citizen, Green card holder, H-1B, H-4, or No spouse so Track 3 can evaluate immediate-relative I-130/I-485 adjustment vs. H-4 dependent backup status.",
+      severity: "warning"
+    });
+  }
+
+  if (profile.i140Approved && profile.permStage === "not_started") {
+    profileGaps.push({
+      id: "multi-employer-perm-gap",
+      label: "Approved I-140 from prior sponsor vs. new employer PERM not started",
+      detail: `Your profile shows an approved ${profile.preferenceCategory} I-140 (PD ${profile.priorityDate ?? "on file"}), while PERM at ${profile.employerName ?? "your latest sponsor"} was not completed. Your next sponsor must start a fresh PERM/I-140 to recapture your priority date.`,
+      severity: "warning"
+    });
+  }
+
+  if (savedDeadlines?.agencyDeadlineType === "interview" && !profile.i485Filed) {
+    profileGaps.push({
+      id: "interview-without-i485",
+      label: `Agency 'Interview' (${savedDeadlines.agencyDeadlineDate ?? "unscheduled"}) conflicts with I-485 not filed`,
+      detail:
+        "If this interview is a consular visa stamping appointment or a marriage-based I-485 interview, clarify in Urgent Deadlines (/onboarding?step=5) or update your Green Card stage.",
+      severity: "critical"
+    });
+  }
+
+  if (!profile.employerIndustry) {
+    profileGaps.push({
+      id: "employer-industry",
+      label: "Employer industry not classified",
+      detail:
+        "Based on your uploaded resume (1848 Ventures / Westfield Insurance & Tenney 110 / American Family Insurance), your industry is InsurTech / Venture Studio & AI Product Management.",
+      severity: "info"
+    });
+  }
 
   return (
     <AppShell activePath="/settings" crisisState={crisisState} snapshot={snapshot}>
@@ -45,6 +100,74 @@ export default async function SettingsPage({
             Profile and email settings updated. Haven is now using the information below across the app.
           </div>
         )}
+
+        <section className="rounded-[var(--radius-xl)] border border-[#E5C9A8] bg-[#FDF8F1] p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <FileWarning className="mt-0.5 h-5 w-5 shrink-0 text-[var(--color-warning)]" />
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#8F4E10]">
+                    Intake & Profile Completeness Audit
+                  </p>
+                  <Badge variant={profileGaps.length > 0 ? "pending" : "active"}>
+                    {profileGaps.length} item{profileGaps.length === 1 ? "" : "s"} flagged
+                  </Badge>
+                </div>
+                <h2 className="mt-1 text-[16px] font-semibold text-[var(--haven-ink)]">
+                  How your intake answers and urgent deadlines wire into the product
+                </h2>
+                <p className="mt-1 text-[13px] leading-relaxed text-[var(--color-text-secondary)]">
+                  Status end date:{" "}
+                  <strong className="text-[var(--haven-ink)]">
+                    {profile.currentVisaExpiryDate ?? savedDeadlines?.statusEndDate ?? "Not set"}
+                  </strong>{" "}
+                  · Last day of work:{" "}
+                  <strong className="text-[var(--haven-ink)]">
+                    {savedDeadlines?.lastWorkDay ?? "Not set"}
+                  </strong>{" "}
+                  · Agency deadline:{" "}
+                  <strong className="text-[var(--haven-ink)]">
+                    {savedDeadlines?.agencyDeadlineType
+                      ? `${savedDeadlines.agencyDeadlineType.toUpperCase()} (${savedDeadlines.agencyDeadlineDate ?? "TBD"})`
+                      : "None"}
+                  </strong>{" "}
+                  · Travel planned:{" "}
+                  <strong className="text-[var(--haven-ink)]">
+                    {savedDeadlines?.travelPlanned === "yes" ? savedDeadlines.travelDate ?? "Yes" : "No"}
+                  </strong>
+                </p>
+              </div>
+            </div>
+            <Link
+              className="inline-flex items-center rounded-full border border-[#D9B890] bg-white px-3.5 py-1.5 text-[12px] font-semibold text-[#8F4E10] hover:bg-[#FAF1E4]"
+              href="/onboarding?step=5"
+            >
+              Edit urgent deadlines →
+            </Link>
+          </div>
+
+          {profileGaps.length > 0 && (
+            <div className="mt-4 grid gap-2.5 md:grid-cols-2">
+              {profileGaps.map((gap) => (
+                <div
+                  className="rounded-[var(--radius-lg)] border border-[#E5C9A8] bg-white px-3.5 py-3"
+                  key={gap.id}
+                >
+                  <div className="flex items-center gap-2">
+                    {gap.severity === "critical" ? (
+                      <AlertTriangle className="h-3.5 w-3.5 text-[var(--color-danger)]" />
+                    ) : (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-[var(--color-warning)]" />
+                    )}
+                    <p className="text-[12.5px] font-semibold text-[var(--haven-ink)]">{gap.label}</p>
+                  </div>
+                  <p className="mt-1 text-[12px] leading-relaxed text-[var(--color-text-secondary)]">{gap.detail}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
 
         <form action={saveProfileSettingsAction} className="space-y-6">
           <div className="grid gap-6 xl:grid-cols-2">

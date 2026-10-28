@@ -189,6 +189,69 @@ export type JourneyProtectionStatus = {
   portabilitySummary: string | null;
 };
 
+export type IntakeCapturedField = {
+  id: string;
+  category: "identity" | "visa" | "employment" | "green_card" | "deadlines";
+  label: string;
+  value: string;
+  sourceLabel: string;
+  mapsToTrack: string;
+  verifiedByDocument: boolean;
+};
+
+export type IntakeMissingItem = {
+  id: string;
+  category: "document" | "intake_field" | "verification";
+  badge: string;
+  tone: "blush" | "sand" | "sky";
+  title: string;
+  detail: string;
+  impact: string;
+  actionLabel: string;
+  actionHref: string;
+};
+
+export type ClientRiskWarning = {
+  id: string;
+  severity: "critical" | "high" | "medium";
+  badge: string;
+  title: string;
+  ruleCitation: string;
+  body: string;
+  clientGuidance: string;
+  actionLabel: string;
+  actionHref: string;
+};
+
+export type IntakeAuditSummary = {
+  completenessPercent: number;
+  capturedCount: number;
+  missingCount: number;
+  warningCount: number;
+  criticalWarningCount: number;
+  uploadedDocumentCount: number;
+  requiredDocumentCount: number;
+  fulfilledRequiredDocumentCount: number;
+  pendingEmailIngestCount: number;
+  capturedFields: IntakeCapturedField[];
+  missingItems: IntakeMissingItem[];
+  clientWarnings: ClientRiskWarning[];
+};
+
+export type JourneyDocumentContext = {
+  uploadedDocumentKinds?: string[];
+  uploadedDocumentLabels?: string[];
+  requiredDocumentKeys?: { key: string; label: string }[];
+  pendingEmailSubjects?: string[];
+  hasBaseVisaExpiryOnProfile?: boolean;
+  resumeContext?: {
+    phone?: string | null;
+    location?: string | null;
+    priorEmployers?: string[];
+    concurrentRoles?: string[];
+  };
+};
+
 export type ImmigrationJourneyView = {
   axis: {
     startIso: string;
@@ -212,6 +275,7 @@ export type ImmigrationJourneyView = {
   greenCardTrack: GreenCardJourneyTrack;
   overlayInsights: OverlayInsight[];
   missingFields: string[];
+  intakeAudit: IntakeAuditSummary;
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -753,6 +817,7 @@ export function buildImmigrationJourney(input: {
   signals: DerivedProfileSignals;
   activeLayoffEvent?: ActiveLayoffEvent | null;
   priorityDateIntelligence?: PriorityDateIntelligence | null;
+  documentContext?: JourneyDocumentContext | null;
   now?: Date;
 }): ImmigrationJourneyView {
   const today = input.now ?? new Date();
@@ -1322,10 +1387,38 @@ export function buildImmigrationJourney(input: {
         percent: toPercent(agencyDate.getTime()),
         tone: "blush",
         status: "urgent",
-        detail: "Upcoming agency deadline from your case record.",
+        detail:
+          deadlines.agencyDeadlineType === "interview" && !profile.i485Filed
+            ? "Scheduled interview on record, though Form I-485 is marked not filed. Confirm interview notice type with counsel."
+            : "Upcoming agency deadline from your case record.",
         daysDiff: Math.round((agencyDate.getTime() - todayMs) / DAY_MS)
       });
     }
+  }
+
+  const travelPlannedDate =
+    deadlines.travelPlanned === "yes" && deadlines.travelDate
+      ? parseIsoDate(deadlines.travelDate)
+      : null;
+
+  if (travelPlannedDate) {
+    const isTravelRisky =
+      isLaidOff ||
+      (effectiveStayEndDate !== null && travelPlannedDate.getTime() >= effectiveStayEndDate.getTime()) ||
+      (visaExpiryDate !== null && travelPlannedDate.getTime() >= visaExpiryDate.getTime());
+    jobPins.push({
+      id: "job-travel-planned",
+      label: isTravelRisky ? "Planned travel (abandonment / re-entry risk)" : "Planned international travel",
+      dateLabel: formatDateLabel(travelPlannedDate)!,
+      isoDate: toIsoDate(travelPlannedDate),
+      percent: toPercent(travelPlannedDate.getTime()),
+      tone: isTravelRisky ? "blush" : "sand",
+      status: isTravelRisky ? "urgent" : travelPlannedDate.getTime() < todayMs ? "past" : "upcoming",
+      detail: isTravelRisky
+        ? "Departing during a grace period or after I-94 expiry ends grace status, abandons pending change-of-status filings (8 CFR § 248.1(b)), and requires a new approved petition and visa stamp to re-enter."
+        : "Planned international departure date from your intake.",
+      daysDiff: Math.round((travelPlannedDate.getTime() - todayMs) / DAY_MS)
+    });
   }
 
   // =========================================================================
@@ -1847,6 +1940,431 @@ export function buildImmigrationJourney(input: {
   if (!employerName && isWorkVisa) missingFields.push("Employer name");
   if (!priorityDate && stageRank >= 1) missingFields.push("Priority date");
 
+  // =========================================================================
+  // INTAKE COMPLETENESS, MISSING INFORMATION & CLIENT RISK WARNINGS AUDIT
+  // =========================================================================
+  const docContext = input.documentContext ?? null;
+  const uploadedKinds = new Set(docContext?.uploadedDocumentKinds ?? []);
+  const requiredDocs = docContext?.requiredDocumentKeys ?? [
+    { key: "passport_biographic_page", label: "Passport biographic page" },
+    { key: "i94_record", label: "Most recent I-94" },
+    { key: "uscis_notice", label: "I-797 approval / receipt notice" },
+    { key: "h1b_petition", label: "H-1B petition packet" }
+  ];
+  const fulfilledRequiredCount = requiredDocs.filter((r) => uploadedKinds.has(r.key)).length;
+  const uploadedDocumentCount = docContext?.uploadedDocumentKinds?.length ?? 0;
+  const pendingEmailSubjects = docContext?.pendingEmailSubjects ?? [];
+
+  const hasI94Doc = uploadedKinds.has("i94_record");
+  const hasI797Doc = uploadedKinds.has("uscis_notice") || uploadedKinds.has("h1b_petition");
+  const hasI140Doc = uploadedKinds.has("i140_notice");
+  const hasPermDoc = uploadedKinds.has("perm_certification");
+  const hasPassportDoc = uploadedKinds.has("passport_biographic_page") || uploadedKinds.has("visa_stamp");
+  const hasPaystubDoc = uploadedKinds.has("paystub");
+
+  const capturedFields: IntakeCapturedField[] = [];
+  if (profile.fullName) {
+    capturedFields.push({
+      id: "cap-name",
+      category: "identity",
+      label: "Full Name & Country of Birth",
+      value: `${profile.fullName}${profile.countryOfBirth ? ` · Born in ${profile.countryOfBirth}` : ""}`,
+      sourceLabel: "Onboarding Step 1 & Auth Profile",
+      mapsToTrack: "Case Header & Chargeability Queue",
+      verifiedByDocument: hasPassportDoc
+    });
+  }
+  if (docContext?.resumeContext?.phone || docContext?.resumeContext?.location) {
+    capturedFields.push({
+      id: "cap-contact-resume",
+      category: "identity",
+      label: "Contact & Location (Extracted from Resume)",
+      value: [docContext.resumeContext.phone, docContext.resumeContext.location].filter(Boolean).join(" · "),
+      sourceLabel: "Document Vault Resume Extraction",
+      mapsToTrack: "Law Firm Client Record & Contact Quick-Actions",
+      verifiedByDocument: true
+    });
+  }
+  if (profile.visaType) {
+    capturedFields.push({
+      id: "cap-visa",
+      category: "visa",
+      label: "Visa Classification & Initial Start Date",
+      value: `${profile.visaType}${visaStartDate ? ` · Started ${formatDateLabel(visaStartDate)}` : ""}${capDate ? ` (6-yr cap ${formatDateLabel(capDate)})` : ""}`,
+      sourceLabel: "Onboarding Step 1 & Step 2",
+      mapsToTrack: "Track 1 · Visa Validity & 6-Year Statutory Cap",
+      verifiedByDocument: hasI797Doc
+    });
+  }
+  if (visaExpiryDate) {
+    capturedFields.push({
+      id: "cap-expiry",
+      category: "visa",
+      label: "Current I-94 / Status Expiration Date",
+      value: `${formatDateLabel(visaExpiryDate)} (${daysUntilExpiry !== null ? (daysUntilExpiry >= 0 ? `${daysUntilExpiry}d left` : `${Math.abs(daysUntilExpiry)}d ago`) : "tracked"})`,
+      sourceLabel: deadlines.statusEndDate ? "Setup Step 5 · Your Deadlines (statusEndDate)" : "Profile Visa Expiry",
+      mapsToTrack: "Track 1 & Urgent Stay Window (8 CFR § 214.1(l)(2))",
+      verifiedByDocument: hasI94Doc
+    });
+  }
+  if (employerName || jobTitle) {
+    capturedFields.push({
+      id: "cap-employer",
+      category: "employment",
+      label: "Most Recent Sponsoring Employer & Role",
+      value: `${[jobTitle, employerName].filter(Boolean).join(" @ ")}${profile.employerSize ? ` (${profile.employerSize})` : ""}`,
+      sourceLabel: "Onboarding Step 2 & Resume Context",
+      mapsToTrack: "Track 1 · Sponsoring Employment Swimlane",
+      verifiedByDocument: hasI797Doc || hasPaystubDoc
+    });
+  }
+  if (isLaidOff) {
+    capturedFields.push({
+      id: "cap-layoff",
+      category: "employment",
+      label: "Employment Termination & Grace Window",
+      value: lastWorkDayDate
+        ? `Job ended ${formatDateLabel(lastWorkDayDate)} · 60d ceiling ${formatDateLabel(graceEndDate)}${isGraceCappedByVisa ? ` (Capped by I-94 at ${effectiveStayEndLabel})` : ""}`
+        : "Marked laid off (last day of work missing)",
+      sourceLabel: "Setup Step 5 (jobEnded / lastWorkDay) & Crisis Mode",
+      mapsToTrack: "Track 1 Grace Window, Top Crisis Banner & War Room",
+      verifiedByDocument: hasPaystubDoc
+    });
+  }
+  if (profile.preferenceCategory || priorityDate || hasI140Approval) {
+    capturedFields.push({
+      id: "cap-gc",
+      category: "green_card",
+      label: "Green Card Category, Priority Date & I-140",
+      value: `${categoryLabel}${priorityDate ? ` · PD ${formatDateLabel(priorityDate)}` : ""}${hasI140Approval ? ` · I-140 Approved${effectiveI140ApprovalDate ? ` (${formatDateLabel(effectiveI140ApprovalDate)})` : ""}` : ""}`,
+      sourceLabel: "Onboarding Step 3 & Multi-Employer Petition Record",
+      mapsToTrack: "Track 2 · Green Card Swimlane, 5-Stage Nodes & AC21 Lock",
+      verifiedByDocument: hasI140Doc
+    });
+  }
+  if (deadlines.agencyDeadlineType && deadlines.agencyDeadlineDate) {
+    const agencyParsed = parseIsoDate(deadlines.agencyDeadlineDate);
+    capturedFields.push({
+      id: "cap-agency",
+      category: "deadlines",
+      label: "Upcoming USCIS / Consular Deadline",
+      value: `${deadlines.agencyDeadlineType.toUpperCase()} on ${formatDateLabel(agencyParsed) ?? deadlines.agencyDeadlineDate}`,
+      sourceLabel: "Setup Step 5 · Your Deadlines",
+      mapsToTrack: "Track 1 Pin & 90-Day Tactical Ruler",
+      verifiedByDocument: false
+    });
+  }
+  if (deadlines.travelPlanned === "yes" && deadlines.travelDate) {
+    capturedFields.push({
+      id: "cap-travel",
+      category: "deadlines",
+      label: "Planned International Travel",
+      value: `Departure planned ${formatDateLabel(travelPlannedDate) ?? deadlines.travelDate}`,
+      sourceLabel: "Setup Step 5 · Your Deadlines",
+      mapsToTrack: "Track 1 Travel Pin & Client Travel Risk Warning",
+      verifiedByDocument: hasPassportDoc
+    });
+  }
+
+  const missingItems: IntakeMissingItem[] = [];
+
+  // 1. Missing required / verification documents
+  if (docContext !== null) {
+    if (!hasI94Doc && profile.visaType !== "GC" && profile.visaType !== "Citizen") {
+      missingItems.push({
+        id: "missing-doc-i94",
+        category: "document",
+        badge: "Missing Required Document",
+        tone: "blush",
+        title: "Most recent Form I-94 arrival/departure record not uploaded",
+        detail: visaExpiryDate
+          ? `Your intake lists ${formatDateLabel(visaExpiryDate)} as your status end date, which caps your post-layoff grace period. However, no Form I-94 record is in your Document Vault to verify whether ${formatDateLabel(visaExpiryDate)} is your CBP admit-until date or petition end date.`
+          : "No Form I-94 is uploaded in your Document Vault to verify your lawful admission and authorized stay expiration.",
+        impact: "Blocks attorney verification of your exact 8 CFR § 214.1(l)(2) authorized stay deadline.",
+        actionLabel: "Upload I-94 in Vault",
+        actionHref: "/documents"
+      });
+    }
+
+    if (!hasI797Doc && isWorkVisa) {
+      missingItems.push({
+        id: "missing-doc-i797",
+        category: "document",
+        badge: "Missing Required Document",
+        tone: "blush",
+        title: "H-1B Form I-797 approval notice & petition packet not uploaded",
+        detail: `Required by your sponsoring law firm checklist. Only ${uploadedDocumentCount} non-notice file${uploadedDocumentCount === 1 ? "" : "s"} (${(docContext.uploadedDocumentLabels ?? ["resumes"]).join(", ")}) are currently stored in your vault.`,
+        impact: "Needed to verify your H-1B validity dates with 1848 Ventures and prepare any transfer or change-of-status filing.",
+        actionLabel: "Upload I-797 & H-1B packet",
+        actionHref: "/documents"
+      });
+    }
+
+    if (!hasI140Doc && (hasI140Approval || priorityDate)) {
+      missingItems.push({
+        id: "missing-doc-i140",
+        category: "document",
+        badge: "Missing Crisis-Critical Document",
+        tone: "blush",
+        title: "Form I-140 Immigrant Petition Approval Notice not uploaded",
+        detail: `Your profile records an approved ${profile.preferenceCategory} I-140${effectiveI140ApprovalDate ? ` (${formatDateLabel(effectiveI140ApprovalDate)})` : ""} with a ${formatDateLabel(priorityDate) ?? "locked"} priority date${retainedSponsorName ? ` from ${retainedSponsorName}` : ""}, but the I-140 approval notice is missing from your Document Vault.`,
+        impact:
+          capDate && capDate.getTime() <= todayMs
+            ? `Critical: Because your 6-year H-1B cap (${formatDateLabel(capDate)}) has already passed, a new employer cannot file an AC21 § 104(c) H-1B extension without your I-140 approval notice or receipt number.`
+            : "Required to prove priority date retention under 8 CFR § 204.5(e) and unlock post-6th-year H-1B extensions.",
+        actionLabel: "Upload I-140 notice",
+        actionHref: "/documents"
+      });
+    }
+
+    if (!hasPassportDoc) {
+      missingItems.push({
+        id: "missing-doc-passport",
+        category: "document",
+        badge: "Missing Required Document",
+        tone: "sand",
+        title: "Passport biographic page & visa foil stamp not uploaded",
+        detail: "Part of the standard 4-document law firm intake checklist and required to check passport validity and visa stamp expiration.",
+        impact: travelPlannedDate
+          ? `Essential before your planned ${formatDateLabel(travelPlannedDate)} international travel to verify whether consular visa stamping is required for re-entry.`
+          : "Required by your law firm before completing the Document Upload milestone.",
+        actionLabel: "Upload Passport page",
+        actionHref: "/documents"
+      });
+    }
+
+    if (isLaidOff && !hasPaystubDoc) {
+      missingItems.push({
+        id: "missing-doc-paystubs",
+        category: "document",
+        badge: "Missing Proof of Status",
+        tone: "sand",
+        title: "Recent pay stubs & termination confirmation not uploaded",
+        detail: lastWorkDayDate
+          ? `Employment with ${employerName ?? "your sponsor"} ended on ${formatDateLabel(lastWorkDayDate)}. USCIS requires recent pay stubs up to ${formatDateLabel(lastWorkDayDate)} to prove maintenance of H-1B status prior to the grace period.`
+          : "Recent pay stubs are needed to prove maintenance of status for any H-1B transfer or change of status.",
+        impact: "Without pay stubs through your last day of work, USCIS may issue an RFE questioning maintenance of status.",
+        actionLabel: "Upload pay stubs",
+        actionHref: "/documents"
+      });
+    }
+  }
+
+  // 2. Missing or ambiguous intake / profile fields
+  if (hasI140Approval && profile.permStage === "not_started") {
+    missingItems.push({
+      id: "missing-multi-employer-perm",
+      category: "intake_field",
+      badge: "Multi-Employer Intake Gap",
+      tone: "blush",
+      title: `Prior-sponsor I-140 (${formatDateLabel(priorityDate) ?? "PD"}) vs. ${employerName ?? "recent employer"} PERM status`,
+      detail: retainedSponsorName
+        ? `Your ${formatDateLabel(priorityDate) ?? "EB-2"} priority date originated during your tenure at ${retainedSponsorName}, whereas PERM at ${employerName ?? "your most recent sponsor"} is marked "not_started" and perm_filing_date is blank.`
+        : `Your profile marks I-140 as Approved (${formatDateLabel(priorityDate) ?? "PD on file"}), but PERM stage is still set to "not_started" and perm_filing_date is empty.`,
+      impact: "Clarify whether your approved I-140 is held by a prior employer (requiring a new PERM + I-140 with priority date recapture at your next sponsor) or your most recent employer.",
+      actionLabel: "Verify Green Card stage",
+      actionHref: "/settings"
+    });
+  }
+
+  if (profile.spouseVisaStatus === "other") {
+    missingItems.push({
+      id: "missing-spouse-status-detail",
+      category: "intake_field",
+      badge: "Incomplete Intake Field",
+      tone: "blush",
+      title: "Spouse or partner visa status is set to 'Other' without specific classification",
+      detail: "Your intake records spouseVisaStatus as 'other' rather than specifying their exact status (e.g., U.S. Citizen, F-1, O-1, L-1, J-1, TN, or foreign national abroad).",
+      impact: isLaidOff
+        ? "Critical during a grace period: if your spouse holds an independent work/student visa or U.S. citizenship, filing a dependent change of status (Form I-539) or marriage-based adjustment could immediately protect your authorized stay."
+        : "Prevents Haven and your attorney from evaluating dependent visa fallback or cross-chargeability options.",
+      actionLabel: "Update spouse status",
+      actionHref: "/settings"
+    });
+  }
+
+  if (deadlines.agencyDeadlineType === "interview" && deadlines.agencyDeadlineDate && !profile.i485Filed) {
+    missingItems.push({
+      id: "missing-interview-context",
+      category: "verification",
+      badge: "Contradictory Intake Data",
+      tone: "blush",
+      title: `Agency interview recorded for ${formatDateLabel(parseIsoDate(deadlines.agencyDeadlineDate)) ?? deadlines.agencyDeadlineDate}, but Form I-485 is marked 'Not Filed'`,
+      detail: `Your deadline intake lists an upcoming agency 'Interview' on ${formatDateLabel(parseIsoDate(deadlines.agencyDeadlineDate)) ?? deadlines.agencyDeadlineDate}, while i485_filed is false and ${categoryLabel} (${formatDateLabel(priorityDate) ?? "PD"}) is not current in the Visa Bulletin.`,
+      impact: "An attorney needs to know immediately whether this is a consular visa interview, a marriage/spillover I-485 interview, a B-2/other appointment, or a test entry.",
+      actionLabel: "Review deadline details",
+      actionHref: "/onboarding?step=5"
+    });
+  }
+
+  if (docContext?.resumeContext?.concurrentRoles && docContext.resumeContext.concurrentRoles.length > 0) {
+    missingItems.push({
+      id: "missing-concurrent-role-auth",
+      category: "verification",
+      badge: "Resume vs. Intake Check",
+      tone: "sand",
+      title: `Concurrent founder/leadership role on resume (${docContext.resumeContext.concurrentRoles.join(", ")}) not captured in intake`,
+      detail: `Your uploaded resume lists ${docContext.resumeContext.concurrentRoles.join(" and ")} overlapping with your H-1B employment timeline, which the standard 1-employer intake form does not capture.`,
+      impact: "On H-1B status, active work for a startup or second entity requires a concurrent H-1B or O-1 petition (passive equity ownership is permitted, active unauthorized work is not). Flagged so counsel can review before I-485 filing.",
+      actionLabel: "Ask Advisor / Counsel",
+      actionHref: "/advisor"
+    });
+  }
+
+  if (pendingEmailSubjects.length > 0) {
+    missingItems.push({
+      id: "missing-email-ingest-confirm",
+      category: "verification",
+      badge: "Pending Email Ingest",
+      tone: "sky",
+      title: `${pendingEmailSubjects.length} forwarded email${pendingEmailSubjects.length === 1 ? "" : "s"} awaiting confirmation (${pendingEmailSubjects.join(", ")})`,
+      detail: `You forwarded "${pendingEmailSubjects[0]}" to your Haven ingest address, but its extracted fields have not been confirmed into your profile yet.`,
+      impact: "Confirming or uploading the underlying PERM / USCIS notice keeps your PERM filing date and case timeline synchronized.",
+      actionLabel: "Review in Inbox",
+      actionHref: "/inbox"
+    });
+  }
+
+  if (!profile.employerIndustry && isWorkVisa) {
+    missingItems.push({
+      id: "missing-employer-industry",
+      category: "intake_field",
+      badge: "Missing Profile Field",
+      tone: "sky",
+      title: "Employer industry & cap-exempt status not recorded on profile",
+      detail: `employer_industry is null on your profile record (resume indicates Insurance / Corporate Venture Studio at ${employerName ?? "your sponsor"}).`,
+      impact: "Used to benchmark layoff readiness, prevailing wage tiers, and cap-exempt transfer eligibility.",
+      actionLabel: "Complete in Settings",
+      actionHref: "/settings"
+    });
+  }
+
+  for (const field of missingFields) {
+    missingItems.push({
+      id: `missing-core-${field.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+      category: "intake_field",
+      badge: "Missing Core Date",
+      tone: "blush",
+      title: `${field} is missing`,
+      detail: `Add your ${field.toLowerCase()} so Haven can plot your exact timeline bars and statutory deadlines.`,
+      impact: "Required for accurate timeline projection.",
+      actionLabel: "Add date",
+      actionHref: "/dashboard"
+    });
+  }
+
+  // 3. Client Risk Warnings (How warnings are given to potential clients)
+  const clientWarnings: ClientRiskWarning[] = [];
+
+  if (isLaidOff && isGraceCappedByVisa && effectiveStayEndDate && effectiveStayDaysRemaining !== null) {
+    clientWarnings.push({
+      id: "warn-i94-caps-grace",
+      severity: "critical",
+      badge: effectiveStayDaysRemaining >= 0 ? `Critical · ${effectiveStayDaysRemaining}d left` : `Critical · Expired ${Math.abs(effectiveStayDaysRemaining)}d ago`,
+      title: `I-94 expiration (${effectiveStayEndLabel}) cuts short your 60-day grace period`,
+      ruleCitation: "8 CFR § 214.1(l)(2)",
+      body: `Although 60 days from your ${formatDateLabel(lastWorkDayDate)} last day of work would run until ${formatDateLabel(graceEndDate)}, federal regulation limits the post-termination grace period to 60 days OR your existing I-94 validity end date (${effectiveStayEndLabel}), whichever is shorter.`,
+      clientGuidance:
+        "Potential client warning: You do not have until December 7. To avoid accruing unlawful presence or falling out of status after October 29, a non-frivolous H-1B change-of-employer petition (I-129), a bridge Change of Status application (Form I-539, such as B-2 or dependent status), or departure from the U.S. must occur on or before your I-94 expiration date.",
+      actionLabel: "Consult attorney immediately",
+      actionHref: "/advisor"
+    });
+  } else if (isLaidOff && graceDaysRemaining !== null && graceDaysRemaining <= 60) {
+    clientWarnings.push({
+      id: "warn-grace-countdown",
+      severity: graceDaysRemaining <= 15 ? "critical" : "high",
+      badge: graceDaysRemaining >= 0 ? `Urgent · ${graceDaysRemaining}d left` : "Expired",
+      title: `60-day post-termination grace period ends ${formatDateLabel(graceEndDate)}`,
+      ruleCitation: "8 CFR § 214.1(l)(2)",
+      body: `Employment with ${employerName ?? "your sponsor"} ended on ${formatDateLabel(lastWorkDayDate)}. USCIS must receive a new H-1B transfer petition or Change of Status filing before ${formatDateLabel(graceEndDate)}.`,
+      clientGuidance:
+        "Potential client warning: Because LCA certification with the Department of Labor takes 7 calendar days before an H-1B transfer can be filed, a new employer must initiate LCA filing at least 10–14 days before your grace period expires.",
+      actionLabel: "Open Layoff War Room",
+      actionHref: "/planner"
+    });
+  }
+
+  if (deadlines.agencyDeadlineType && deadlines.agencyDeadlineDate) {
+    const agencyParsed = parseIsoDate(deadlines.agencyDeadlineDate);
+    if (agencyParsed) {
+      const agencyDays = Math.ceil((agencyParsed.getTime() - todayMs) / DAY_MS);
+      const isAfterStayEnd = effectiveStayEndDate !== null && agencyParsed.getTime() > effectiveStayEndDate.getTime();
+      clientWarnings.push({
+        id: "warn-agency-deadline",
+        severity: agencyDays <= 14 ? "critical" : "high",
+        badge: agencyDays >= 0 ? `Critical · In ${agencyDays}d (${formatDateLabel(agencyParsed)})` : `Passed ${Math.abs(agencyDays)}d ago`,
+        title: `Scheduled agency ${deadlines.agencyDeadlineType} on ${formatDateLabel(agencyParsed)}${isAfterStayEnd ? ` falls after your ${effectiveStayEndLabel} status end date` : ""}`,
+        ruleCitation: "USCIS Appointment & Status Verification",
+        body: !profile.i485Filed && deadlines.agencyDeadlineType === "interview"
+          ? `Your intake shows an agency interview on ${formatDateLabel(agencyParsed)}, which is 1 day after your ${effectiveStayEndLabel ?? "recorded"} status expiration date, while Form I-485 is marked not filed.`
+          : `You have a recorded ${deadlines.agencyDeadlineType} deadline on ${formatDateLabel(agencyParsed)}.`,
+        clientGuidance:
+          "Potential client warning: Never miss a scheduled USCIS or consular interview, and never attend without verifying your underlying status and receipt notice (Form I-797C) with legal counsel first.",
+        actionLabel: "Upload notice for counsel",
+        actionHref: "/documents"
+      });
+    }
+  }
+
+  if (travelPlannedDate) {
+    const travelDays = Math.ceil((travelPlannedDate.getTime() - todayMs) / DAY_MS);
+    const isTravelDuringRiskWindow =
+      isLaidOff ||
+      (effectiveStayEndDate !== null && travelPlannedDate.getTime() >= effectiveStayEndDate.getTime()) ||
+      (visaExpiryDate !== null && travelPlannedDate.getTime() >= visaExpiryDate.getTime());
+
+    if (isTravelDuringRiskWindow) {
+      clientWarnings.push({
+        id: "warn-travel-abandonment",
+        severity: "high",
+        badge: `High Risk · Travel ${formatDateLabel(travelPlannedDate)} (${travelDays}d)`,
+        title: `Planned international travel (${formatDateLabel(travelPlannedDate)}) risks status abandonment & inability to re-enter`,
+        ruleCitation: "8 CFR § 248.1(b) & 8 CFR § 214.1(l)(2)",
+        body: `You indicated planned international travel on ${formatDateLabel(travelPlannedDate)} while in a post-layoff window with an I-94 expiring ${formatDateLabel(visaExpiryDate) ?? "soon"}.`,
+        clientGuidance:
+          "Potential client warning: (1) Departing the U.S. immediately terminates any remaining 60-day grace period; (2) Departing while a Form I-539 Change of Status (e.g., to B-2 or H-4) is pending automatically abandons that application; (3) Re-entering in H-1B status requires a new approved Form I-797 from a new employer and an unexpired H-1B visa stamp.",
+        actionLabel: "Review travel gate in Ask",
+        actionHref: "/advisor"
+      });
+    }
+  }
+
+  if (profile.visaType === "H1B" && capDate && capDate.getTime() <= todayMs) {
+    clientWarnings.push({
+      id: "warn-post-6yr-cap-ac21",
+      severity: hasI140Doc ? "medium" : "high",
+      badge: "AC21 Post-6th-Year Dependency",
+      title: `6-year H-1B statutory limit (${formatDateLabel(capDate)}) has passed — extensions require I-140 proof`,
+      ruleCitation: "AC21 § 104(c) & 8 CFR § 205.1(a)(3)(iii)(C)",
+      body: `With an initial H-1B start date of ${formatDateLabel(visaStartDate)}, your 6-year statutory clock maxed out on ${formatDateLabel(capDate)}. Your eligibility for new H-1B transfers and 3-year extensions depends entirely on your approved ${profile.preferenceCategory} Form I-140 (${formatDateLabel(priorityDate) ?? "PD"})${retainedSponsorName ? ` from ${retainedSponsorName}` : ""}.`,
+      clientGuidance:
+        "Potential client warning: Because your I-140 was approved more than 180 days ago, your prior employer cannot revoke your priority date or AC21 extension eligibility. However, any new employer's immigration counsel must include copy/receipt evidence of that approved I-140 with your H-1B transfer filing.",
+      actionLabel: "Upload I-140 approval notice",
+      actionHref: "/documents"
+    });
+  }
+
+  const totalAuditCheckpoints = capturedFields.length + missingItems.length;
+  const completenessPercent =
+    totalAuditCheckpoints > 0
+      ? Math.max(15, Math.min(100, Math.round((capturedFields.length / totalAuditCheckpoints) * 100)))
+      : 100;
+
+  const intakeAudit: IntakeAuditSummary = {
+    completenessPercent,
+    capturedCount: capturedFields.length,
+    missingCount: missingItems.length,
+    warningCount: clientWarnings.length,
+    criticalWarningCount: clientWarnings.filter((w) => w.severity === "critical").length,
+    uploadedDocumentCount,
+    requiredDocumentCount: requiredDocs.length,
+    fulfilledRequiredDocumentCount: fulfilledRequiredCount,
+    pendingEmailIngestCount: pendingEmailSubjects.length,
+    capturedFields,
+    missingItems,
+    clientWarnings
+  };
+
   return {
     axis: {
       startIso: toIsoDate(new Date(minStartMs)),
@@ -1929,6 +2447,7 @@ export function buildImmigrationJourney(input: {
       pins: gcPins
     },
     overlayInsights,
-    missingFields
+    missingFields,
+    intakeAudit
   };
 }
