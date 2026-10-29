@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { deleteThread, getThreadMessages } from "@/lib/advisor/threads";
+import { deleteThread, getThreadCreatedAt, getThreadMessages } from "@/lib/advisor/threads";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isInvitedEmail } from "@/lib/access";
 
@@ -31,7 +31,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   }
 
   try {
-    const messages = await getThreadMessages(user.id, id);
+    const [messages, createdAt] = await Promise.all([getThreadMessages(user.id, id), getThreadCreatedAt(user.id, id)]);
 
     // Scoped by user_id in the query, so a thread belonging to somebody else reads
     // as empty rather than forbidden. 404 here says the same thing without
@@ -40,7 +40,8 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       return NextResponse.json({ error: "That conversation is no longer available." }, { status: 404 });
     }
 
-    return NextResponse.json({ messages });
+    // createdAt tells the screen which firms can see this chat.
+    return NextResponse.json({ messages, createdAt });
   } catch (error) {
     console.error("[advisor/threads/:id] read failed:", error);
     return NextResponse.json({ error: "Unable to open that conversation." }, { status: 500 });

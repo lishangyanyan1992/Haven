@@ -147,7 +147,7 @@ export function mergeSharedAnswers(current: SharedAnswers, draft: Record<string,
     ...SHARED_ANSWER_KEYS.filter(
       (key) =>
         form.has(key) ||
-        (key === "topConcerns" && form.has("spouseVisaStatus")) ||
+        // "Main concerns" is no longer asked; earlier answers stay until a form sends them.
         (key === "helpNeeded" && form.has(HELP_NEEDED_SENT_MARKER))
     ),
     ...customKeys.filter((key) => form.has(key))

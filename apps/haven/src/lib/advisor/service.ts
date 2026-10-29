@@ -1970,14 +1970,19 @@ function createAssistantMessage(threadId: string, payload: AdvisorAnswerPayload,
   };
 }
 
+/**
+ * The conversation this question belongs to, created if needed. Returns its id
+ * and when it started (the database's clock), which the chat screen uses to say
+ * which firms can see it.
+ */
 async function reserveAdvisorConversation(
   userId: string,
   content: string,
   conversationId?: string,
   options: { email?: string | null } = {}
-) {
+): Promise<{ id: string; createdAt: string | null }> {
   if (!hasSupabaseEnv) {
-    return conversationId ?? "session";
+    return { id: conversationId ?? "session", createdAt: null };
   }
 
   const admin = createSupabaseAdminClient() as any;
@@ -1985,7 +1990,7 @@ async function reserveAdvisorConversation(
   if (conversationId) {
     const { data: existingThread, error } = await admin
       .from("advisor_threads")
-      .select("id")
+      .select("id, created_at")
       .eq("id", conversationId)
       .eq("user_id", userId)
       .maybeSingle();
@@ -1995,7 +2000,7 @@ async function reserveAdvisorConversation(
     }
 
     if (existingThread?.id) {
-      return existingThread.id as string;
+      return { id: existingThread.id as string, createdAt: (existingThread.created_at as string | null) ?? null };
     }
   }
 
@@ -2023,14 +2028,14 @@ async function reserveAdvisorConversation(
       user_id: userId,
       title
     })
-    .select("id")
+    .select("id, created_at")
     .single();
 
   if (insertError || !newThread?.id) {
     throw new Error(`Unable to create advisor conversation: ${insertError?.message ?? "Missing thread id."}`);
   }
 
-  return newThread.id as string;
+  return { id: newThread.id as string, createdAt: (newThread.created_at as string | null) ?? null };
 }
 
 function buildContextBlock(label: string, lines: string[]) {
@@ -3931,7 +3936,9 @@ export function isAdvisorRateLimitError(error: unknown) {
 }
 
 export type AdvisorStreamEvent =
-  | { type: "start"; conversationId: string | null }
+  // createdAt: when a newly reserved chat started, by the database clock. The
+  // chat screen uses it to say which firms can see the chat.
+  | { type: "start"; conversationId: string | null; createdAt?: string | null }
   | { type: "delta"; text: string }
   // The whole answer so far, replacing what was streamed. Sent only when a
   // reviewed or cleaned-up answer differs from text already shown.
@@ -4518,18 +4525,19 @@ export async function* streamAdvisorResponse(
   // Same rule on the mock path: a sentinel that isn't a UUID would fail schema
   // validation on the next request, so emit null and let the client open a fresh
   // thread instead of sending an id the server will reject.
-  const threadId = identity.isMock
-    ? conversationId ?? null
+  const reserved = identity.isMock
+    ? { id: conversationId ?? null, createdAt: null }
     : await reserveAdvisorConversation(identity.id, content, conversationId, {
           email: identity.email
       });
+  const threadId = reserved.id;
 
   // The thread row is created here, before generation, and it counts against the
   // user's daily allowance from this moment. Announcing the id now rather than at
   // `done` means a stopped, errored, or abandoned answer still leaves the client
   // holding the conversation it already paid for — otherwise the next question
   // opened a second thread and silently burned another of the five.
-  yield { type: "start", conversationId: threadId };
+  yield { type: "start", conversationId: threadId, createdAt: reserved.createdAt };
 
   // Display-only id on in-memory message objects; the wire value stays null so
   // the client never stores a non-UUID conversation id.

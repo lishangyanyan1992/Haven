@@ -41,7 +41,7 @@ export default async function AdvisorPage({ searchParams }: { searchParams?: Pro
         chatVisibility =
           visibility.firms.length > 0
             ? {
-                firms: visibility.firms.map((f) => ({ firmName: f.firmName, acknowledgedAt: f.acknowledgedAt })),
+                firms: visibility.firms.map((f) => ({ firmId: f.firmId, firmName: f.firmName, acknowledgedAt: f.acknowledgedAt })),
                 needsNotice: visibility.needsNotice
               }
             : null;

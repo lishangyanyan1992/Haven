@@ -26,7 +26,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy Policy" lastUpdated="10 August 2026">
+    <LegalPage title="Privacy Policy" lastUpdated="29 October 2026">
       <p>
         Haven helps people on employment-based visas keep track of their immigration situation. That means we hold
         information that matters a great deal to you, and some of it is sensitive. This page explains what we collect,

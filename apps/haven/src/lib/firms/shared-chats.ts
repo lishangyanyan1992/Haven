@@ -1,5 +1,5 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { isThreadVisibleToFirm } from "@/lib/advisor/firm-visibility";
+import { isAcknowledgementCurrent, isThreadVisibleToFirm } from "@/lib/advisor/firm-visibility";
 
 /**
  * The client's AI chats, as their firm sees them
@@ -7,7 +7,8 @@ import { isThreadVisibleToFirm } from "@/lib/advisor/firm-visibility";
  *
  * A firm sees a chat only when all three hold:
  *   - the client is linked to this firm in firm_clients now;
- *   - the client acknowledged that this firm can see their chats;
+ *   - the client acknowledged that this firm can see their chats, during
+ *     their current link to it (a rejoin needs a new acknowledgement);
  *   - the chat was started at or after that acknowledgement.
  *
  * Every read of the client's chats in this file goes through sharedChatScope(),
@@ -63,7 +64,8 @@ async function sharedChatScope(
     .eq("user_id", link.user_id)
     .maybeSingle();
   if (ackError) throw new Error(`Could not load chat sharing: ${ackError.message}`);
-  if (!ack?.acknowledged_at) return null;
+  // An agreement from an earlier link to this firm doesn't count.
+  if (!ack?.acknowledged_at || !isAcknowledgementCurrent(ack.acknowledged_at, link.joined_at)) return null;
 
   return { userId: String(link.user_id), visibleFrom: String(ack.acknowledged_at) };
 }

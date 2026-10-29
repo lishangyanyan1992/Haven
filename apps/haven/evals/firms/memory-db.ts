@@ -50,6 +50,11 @@ export function memoryDb(tables: Record<string, Row[]>, clock: () => string = ()
             const clash = UNIQUE[table] && rows().find((r) => UNIQUE[table](r, row));
             if (clash) {
               if (mode === "upsert" && upsertOptions.ignoreDuplicates) continue;
+              if (mode === "upsert") {
+                Object.assign(clash, item);
+                inserted.push(clash);
+                continue;
+              }
               return { data: null, error: { code: "23505", message: "duplicate key value violates unique constraint" } };
             }
             if (table === "firm_messages" && !(String(row.body ?? "").trim().length >= 1 && String(row.body).trim().length <= 5000)) {

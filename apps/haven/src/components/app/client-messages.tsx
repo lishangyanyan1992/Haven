@@ -71,21 +71,24 @@ export function ClientMessages({ conversations }: { conversations: ClientConvers
         />
       </div>
 
-      <div className="mt-4">
-        <MessageComposer
-          label={`Message to ${active.firmName}`}
-          onSend={async (body) => {
-            const result = await sendClientMessageAction({ firmId: active.firmId, body });
-            if (result.status === "sent") {
-              router.refresh();
-              return null;
-            }
-            if (result.status === "invalid") return result.error;
-            return "That didn't send. Try again in a moment.";
-          }}
-          placeholder={`Write to ${active.firmName}`}
-        />
-      </div>
+      {/* One box per firm, so each keeps its own draft and none can be sent to the wrong firm. */}
+      {conversations.map((c) => (
+        <div className={c.firmId === active.firmId ? "mt-4" : "hidden"} key={c.firmId}>
+          <MessageComposer
+            label={`Message to ${c.firmName}`}
+            onSend={async (body) => {
+              const result = await sendClientMessageAction({ firmId: c.firmId, body });
+              if (result.status === "sent") {
+                router.refresh();
+                return null;
+              }
+              if (result.status === "invalid") return result.error;
+              return "That didn't send. Try again in a moment.";
+            }}
+            placeholder={`Write to ${c.firmName}`}
+          />
+        </div>
+      ))}
     </section>
   );
 }

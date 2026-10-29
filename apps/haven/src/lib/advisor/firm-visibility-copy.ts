@@ -13,6 +13,19 @@ export function isThreadVisibleToFirm(threadCreatedAt: string | null | undefined
   return created >= acked;
 }
 
+/**
+ * An acknowledgement counts only if it was given during the current link to
+ * the firm. When a client leaves and rejoins (or grants access again), the
+ * join time moves and they must be told again.
+ */
+export function isAcknowledgementCurrent(acknowledgedAt: string | null | undefined, joinedAt: string | null | undefined): boolean {
+  if (!acknowledgedAt || !joinedAt) return false;
+  const acked = new Date(acknowledgedAt).getTime();
+  const joined = new Date(joinedAt).getTime();
+  if (Number.isNaN(acked) || Number.isNaN(joined)) return false;
+  return acked >= joined;
+}
+
 /** Shown under every AI answer. Fixed text, rendered by the page, never written by the model. */
 export const AI_ANSWER_LABEL_FIRM = "AI can make mistakes. Your lawyer may reach out to confirm this.";
 export const AI_ANSWER_LABEL_NO_FIRM = "AI can make mistakes. Check important decisions with an immigration lawyer.";
