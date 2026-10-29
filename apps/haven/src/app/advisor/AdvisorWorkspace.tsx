@@ -257,11 +257,11 @@ export function AdvisorWorkspace({
 
   // Which firms see the open chat. A new chat is shared with every firm the
   // client has agreed to; an older one only with firms they agreed to before it began.
-  // An opened chat uses its start time; a chat started here (not yet listed) is new.
+  // An open chat uses its start time. When that time is unknown, claim no firm sees it.
   const activeCreatedAt = !conversationId
     ? null
     : threads.find((t) => t.id === conversationId)?.createdAt ??
-      (openedThreadCreatedAt?.id === conversationId ? openedThreadCreatedAt.createdAt ?? "" : null);
+      (openedThreadCreatedAt?.id === conversationId ? openedThreadCreatedAt.createdAt ?? "" : "");
   const seeingFirms = !hasFirm
     ? []
     : activeCreatedAt === null
@@ -422,6 +422,11 @@ export function AdvisorWorkspace({
             // this answer or it errors, the next question continues this conversation
             // instead of opening a second one against their daily limit.
             setConversationId(event.conversationId);
+            // A chat reserved just now: note when, so the sharing line stays right even
+            // if this first answer is stopped and the chat never reaches the list.
+            if (event.conversationId && !conversationId) {
+              setOpenedThreadCreatedAt({ id: event.conversationId, createdAt: new Date().toISOString() });
+            }
           } else if (event.type === "delta" || event.type === "replace") {
             // `replace` carries the whole reviewed answer, sent when a safety
             // correction or cleanup changed text already on screen.

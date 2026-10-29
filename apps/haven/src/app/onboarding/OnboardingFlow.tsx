@@ -330,13 +330,20 @@ export function OnboardingFlow({
     try {
       const raw = window.localStorage.getItem(ONBOARDING_STORAGE_KEY);
       if (!raw) return;
-      const parsed = JSON.parse(raw) as { currentStep?: number; formData?: Partial<OnboardingData>; userEmail?: string };
+      const parsed = JSON.parse(raw) as {
+        currentStep?: number;
+        formData?: Partial<OnboardingData>;
+        userEmail?: string;
+        helpTouched?: boolean;
+      };
       // Clear stale data if it belongs to a different account
       if (parsed.userEmail && userEmail && parsed.userEmail !== userEmail) {
         window.localStorage.removeItem(ONBOARDING_STORAGE_KEY);
         return;
       }
       if (parsed.formData) setFormData((prev) => ({ ...prev, ...parsed.formData }));
+      // A cleared selection saved before a reload still means "clear my choices".
+      if (parsed.helpTouched) helpTouchedRef.current = true;
       if (typeof parsed.currentStep === "number" && activeStepsRef.current.some((s) => s.id === parsed.currentStep)) {
         setCurrentStep(parsed.currentStep);
       }
@@ -360,10 +367,15 @@ export function OnboardingFlow({
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof document === "undefined") return;
-    window.localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify({ currentStep, formData, userEmail }));
+    window.localStorage.setItem(
+      ONBOARDING_STORAGE_KEY,
+      JSON.stringify({ currentStep, formData, userEmail, helpTouched: helpTouchedRef.current })
+    );
     // The message to the lawyer is private and can be long, so it stays out of the cookie.
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { lawyerMessage: _message, ...cookieData } = formData;
+    const { lawyerMessage: _message, helpNeeded, ...rest } = formData;
+    // Help choices go in only when this form holds them, or the dashboard would clear saved ones.
+    const cookieData = holdsHelpChoices(formData) ? { ...rest, helpNeeded } : rest;
     document.cookie = `${ONBOARDING_OVERRIDE_COOKIE}=${encodeURIComponent(JSON.stringify(cookieData))}; path=/; max-age=86400; samesite=lax`;
   }, [currentStep, formData]);
 
