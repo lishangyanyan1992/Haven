@@ -1771,7 +1771,10 @@ export function buildImmigrationJourney(input: {
         : "Adjustment of status: biometrics, interview if scheduled, and the green card decision."
     }
   ];
-  const gcNodes = isI140Path(gcPathType, gcStage) ? employmentGcNodes : nonI140GcNodes;
+  // Asylum adjustment and the lottery have no first petition; they start at I-485 or consular processing.
+  const gcNodes = isI140Path(gcPathType, gcStage)
+    ? employmentGcNodes
+    : nonI140GcNodes.filter((n) => n.key !== "petition" || !gcPathType || firstPetitionForm(gcPathType) !== null);
 
   const gcSegments: JourneyBarSegment[] = [];
   const gcPins: JourneyPlotPin[] = [];

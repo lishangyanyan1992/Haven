@@ -136,6 +136,13 @@ async function main() {
     !nodeKeys.includes("perm") && !nodeKeys.includes("i140") && journey.greenCardTrack.nodes[0].badgeText === "Filed / Pending",
     JSON.stringify(journey.greenCardTrack.nodes.map((n) => [n.key, n.status, n.badgeText]))
   );
+  const asylumProfile = twoEmployerProfile({ immigrantPetitions: [{ id: "asy", sponsorName: "Asylum adjustment", petitionType: "humanitarian_asylum", preferenceCategory: "Asylum Adjustment", stage: "i485_filed" }] as never, i140Approved: false, permStage: "not_started" });
+  const asylumJourney = buildImmigrationJourney({ profile: asylumProfile, signals: { layoffReadinessScore: "medium", layoffReadinessReasoning: [] } as never, now: new Date("2026-10-28T12:00:00Z") } as never);
+  check(
+    "asylum timeline: no first-petition step",
+    !asylumJourney.greenCardTrack.nodes.some((n) => n.key === "petition" || n.key === "perm" || n.key === "i140"),
+    JSON.stringify(asylumJourney.greenCardTrack.nodes.map((n) => n.key))
+  );
   const saved = twoEmployerProfile({ immigrantPetitions: undefined, i140Approved: false, permStage: "not_started", greenCardStage: "i130_filed" });
   check("saved step with no green card record: shown", inferProfileGreenCardStage(saved) === "i130_filed");
 
