@@ -380,6 +380,14 @@ export function AdvisorWorkspace({
       try {
         const response = await fetch(`/api/advisor/threads/${thread.id}`, { method: "DELETE" });
         if (!response.ok) throw new Error("delete failed");
+        setSharedMessages((current) => current.filter((m) => m.threadId !== thread.id));
+        if (backgroundStore.conversationId === thread.id) {
+          backgroundStore.conversationId = null;
+          backgroundStore.messages = [];
+          backgroundStore.isPending = false;
+          backgroundStore.streamingId = null;
+          notifyStoreListeners();
+        }
         if (conversationId === thread.id) {
           setMessages([]);
           setConversationId(null);
@@ -738,6 +746,7 @@ export function AdvisorWorkspace({
       const decoder = new TextDecoder();
       let sseBuffer = "";
       let streamText = "";
+      let streamFinished = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -782,6 +791,7 @@ export function AdvisorWorkspace({
             notifyStoreListeners();
             setMessages(updatedMessages);
           } else if (event.type === "done") {
+            streamFinished = true;
             const finalMessages = [...nextMessages, event.assistantMessage];
             backgroundStore.isPending = false;
             backgroundStore.streamingId = null;
@@ -806,6 +816,12 @@ export function AdvisorWorkspace({
             throw new Error(event.message);
           }
         }
+      }
+
+      if (!streamFinished) {
+        setStreamingId(null);
+        backgroundStore.streamingId = null;
+        notifyStoreListeners();
       }
     } catch (caughtError) {
       // A user-initiated stop is not an error: keep whatever streamed, mark it

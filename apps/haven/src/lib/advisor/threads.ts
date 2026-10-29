@@ -175,10 +175,10 @@ export async function getRecentAdvisorMessages(
   // Only select threads whose creation was at or after an active firm acknowledgement
   const { data: visibleThreads, error: threadsError } = await admin
     .from("advisor_threads")
-    .select("id, created_at")
+    .select("id, created_at, updated_at")
     .eq("user_id", userId)
     .gte("created_at", earliestAck)
-    .order("created_at", { ascending: false })
+    .order("updated_at", { ascending: false })
     .limit(30);
 
   if (threadsError || !visibleThreads || visibleThreads.length === 0) {
