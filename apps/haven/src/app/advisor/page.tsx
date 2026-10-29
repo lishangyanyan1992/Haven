@@ -5,10 +5,12 @@ import { AppShell } from "@/components/app/app-shell";
 import { documentContextAvailableFor } from "@/lib/document-context/store";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getAdvisorUsage, getAdvisorWorkspaceSeed } from "@/lib/advisor/service";
+import { getRecentAdvisorMessages } from "@/lib/advisor/threads";
 import { getCrisisState } from "@/lib/get-crisis-state";
 import { listClientConversations, type ClientConversation } from "@/lib/firms/client-messages";
 import { getAppShellSnapshot } from "@/lib/repositories/case-compass";
 import { noIndexMetadata } from "@/lib/seo";
+import type { AdvisorMessage } from "@/types/domain";
 
 import { getChatVisibility } from "@/lib/advisor/firm-visibility";
 import { AdvisorWorkspace, type AdvisorChatVisibility } from "./AdvisorWorkspace";
@@ -70,6 +72,25 @@ export default async function AdvisorPage({
     }
   }
 
+  let sharedAdvisorMessages: AdvisorMessage[] = [];
+  if (hasSupabaseEnv && chatVisibility?.firms.some((f) => f.acknowledgedAt)) {
+    const acks = chatVisibility.firms.map((f) => f.acknowledgedAt).filter(Boolean) as string[];
+    if (acks.length > 0) {
+      const earliestAck = acks.reduce((min, cur) => (cur < min ? cur : min), acks[0]);
+      try {
+        const supabase = await createSupabaseServerClient();
+        const {
+          data: { user }
+        } = await supabase.auth.getUser();
+        if (user) {
+          sharedAdvisorMessages = await getRecentAdvisorMessages(user.id, earliestAck);
+        }
+      } catch (err) {
+        console.error("[advisor] could not load shared advisor messages", err);
+      }
+    }
+  }
+
   return (
     <AppShell activePath="/advisor" crisisState={crisisState} snapshot={snapshot}>
       {showDocumentsLink ? (
@@ -85,6 +106,7 @@ export default async function AdvisorPage({
         chatVisibility={chatVisibility}
         initialConversations={firmConversations}
         initialFirmId={initialFirmId}
+        initialSharedMessages={sharedAdvisorMessages}
         initialThreadId={initialThreadId}
         initialThreads={seed.threads}
         suggestedPrompts={seed.suggestedPrompts}

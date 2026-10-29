@@ -38,24 +38,33 @@ export async function POST(request: Request) {
 
   const stream = new ReadableStream({
     async start(controller) {
+      let clientDisconnected = false;
       const send = (event: AdvisorStreamEvent) => {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+        if (clientDisconnected) return;
+        try {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+        } catch {
+          clientDisconnected = true;
+        }
       };
 
       try {
         for await (const event of streamAdvisorResponse(body)) {
-          // The client's Stop button aborts the fetch, which fires this signal.
-          // Without checking it the generator ran to completion regardless: tokens
-          // kept being billed for an answer nobody would see, and Langfuse recorded
-          // it as delivered — quietly polluting the quality data we use to judge
-          // prompt changes. Breaking here lets the generator's finally block run,
-          // so the trace still flushes and is marked for what it was.
-          if (request.signal.aborted) break;
+          // If the client navigates away or disconnects, mark clientDisconnected so
+          // we stop trying to enqueue to a closed stream, but DO NOT break out of the
+          // generator. Continuing to consume it lets persistExchange() and
+          // rememberFactsFrom() run to completion, saving the answer to the database
+          // in the background.
+          if (!clientDisconnected && request.signal.aborted) {
+            clientDisconnected = true;
+          }
           send(event);
         }
       } catch (error) {
-        if (request.signal.aborted) {
-          controller.close();
+        if (clientDisconnected) {
+          try {
+            controller.close();
+          } catch {}
           return;
         }
 
@@ -67,7 +76,11 @@ export async function POST(request: Request) {
         });
       }
 
-      controller.close();
+      if (!clientDisconnected) {
+        try {
+          controller.close();
+        } catch {}
+      }
     },
   });
 

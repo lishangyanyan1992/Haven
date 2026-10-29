@@ -63,6 +63,8 @@ type AdvisorWorkspaceProps = {
   initialConversations?: ClientConversation[];
   /** Selected firm id from ?firm=... query param. */
   initialFirmId?: string | null;
+  /** Shared AI messages across the client's visible threads, for hydrating the unified timeline. */
+  initialSharedMessages?: AdvisorMessage[];
   /** Open this chat on arrival, from a lawyer's reply that quotes it. */
   initialThreadId?: string | null;
 };
@@ -108,6 +110,36 @@ function relativeTime(iso: string) {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(iso));
 }
 
+interface InFlightAdvisorState {
+  isPending: boolean;
+  streamingId: string | null;
+  conversationId: string | null;
+  messages: AdvisorMessage[];
+  stoppedIds: string[];
+  error: string | null;
+  abortController: AbortController | null;
+}
+
+const backgroundStore: InFlightAdvisorState = {
+  isPending: false,
+  streamingId: null,
+  conversationId: null,
+  messages: [],
+  stoppedIds: [],
+  error: null,
+  abortController: null,
+};
+
+const storeListeners = new Set<(state: InFlightAdvisorState) => void>();
+
+function notifyStoreListeners() {
+  for (const listener of storeListeners) {
+    try {
+      listener(backgroundStore);
+    } catch {}
+  }
+}
+
 export function AdvisorWorkspace({
   advisorUsage,
   initialThreads,
@@ -116,8 +148,10 @@ export function AdvisorWorkspace({
   chatVisibility = null,
   initialConversations = [],
   initialFirmId = null,
+  initialSharedMessages = [],
   initialThreadId = null
 }: AdvisorWorkspaceProps) {
+  const [sharedMessages, setSharedMessages] = useState<AdvisorMessage[]>(initialSharedMessages);
   const [visibility, setVisibility] = useState<AdvisorChatVisibility | null>(chatVisibility);
   const [acknowledging, setAcknowledging] = useState(false);
   const [firmConversations, setFirmConversations] = useState<ClientConversation[]>(initialConversations);
@@ -135,21 +169,60 @@ export function AdvisorWorkspace({
       ? visibility.firms.map((f) => f.firmName)
       : firmConversations.map((c) => c.firmName);
   const answerLabel = aiAnswerLabel(hasFirm);
-  const [aiPreference, setAiPreference] = useState<"unasked" | "yes" | "no">("unasked");
-  const [messages, setMessages] = useState<AdvisorMessage[]>([]);
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [aiPreference, setAiPreferenceState] = useState<"unasked" | "yes" | "no">("unasked");
+  const [messages, setMessages] = useState<AdvisorMessage[]>(() => {
+    return backgroundStore.isPending && backgroundStore.messages.length > 0
+      ? backgroundStore.messages
+      : [];
+  });
+  const [conversationId, setConversationId] = useState<string | null>(() => {
+    return backgroundStore.isPending ? backgroundStore.conversationId : null;
+  });
   const [draft, setDraft] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, setIsPending] = useState(false);
-  const [streamingId, setStreamingId] = useState<string | null>(null);
-  const [stoppedIds, setStoppedIds] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(() => backgroundStore.error);
+  const [isPending, setIsPending] = useState(() => backgroundStore.isPending);
+  const [streamingId, setStreamingId] = useState<string | null>(() => backgroundStore.streamingId);
+  const [stoppedIds, setStoppedIds] = useState<string[]>(() => backgroundStore.stoppedIds);
   const [threads, setThreads] = useState<AdvisorThreadSummary[]>(initialThreads);
   const [facts, setFacts] = useState<RememberedFact[]>([]);
   const [openingThreadId, setOpeningThreadId] = useState<string | null>(null);
   // Start time of a chat opened from a link but missing from the list (it only shows the latest 30).
   const [openedThreadCreatedAt, setOpenedThreadCreatedAt] = useState<{ id: string; createdAt: string | null } | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
+  const abortRef = useRef<AbortController | null>(backgroundStore.abortController);
+
+  // Subscribe to in-flight background stream updates across route changes
+  useEffect(() => {
+    const listener = (state: InFlightAdvisorState) => {
+      setIsPending(state.isPending);
+      setStreamingId(state.streamingId);
+      if (state.conversationId) setConversationId(state.conversationId);
+      if (state.messages.length > 0) setMessages(state.messages);
+      setStoppedIds(state.stoppedIds);
+      if (state.error) setError(state.error);
+    };
+    storeListeners.add(listener);
+    if (backgroundStore.isPending || backgroundStore.messages.length > 0) {
+      listener(backgroundStore);
+    }
+    return () => {
+      storeListeners.delete(listener);
+    };
+  }, []);
+
+  // Restore persisted AI preference from localStorage or active firm ack
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem("haven_ai_preference");
+      if (stored === "yes" || stored === "no") {
+        setAiPreferenceState(stored);
+        return;
+      }
+    } catch {}
+    if (chatVisibility?.firms.some((f) => f.acknowledgedAt)) {
+      setAiPreferenceState("yes");
+    }
+  }, [chatVisibility]);
 
   // Viewing the active lawyer conversation clears its unread marker.
   useEffect(() => {
@@ -252,6 +325,12 @@ export function AdvisorWorkspace({
   }, []);
 
   const startNewConversation = useCallback(() => {
+    backgroundStore.isPending = false;
+    backgroundStore.streamingId = null;
+    backgroundStore.conversationId = null;
+    backgroundStore.messages = [];
+    backgroundStore.error = null;
+    notifyStoreListeners();
     setMessages([]);
     setConversationId(null);
     setError(null);
@@ -328,7 +407,10 @@ export function AdvisorWorkspace({
 
   const chooseAiPreference = useCallback(
     async (choice: "yes" | "no") => {
-      setAiPreference(choice);
+      setAiPreferenceState(choice);
+      try {
+        window.localStorage.setItem("haven_ai_preference", choice);
+      } catch {}
       setError(null);
       if (choice === "yes" && needsNotice) {
         await acknowledgeNotice();
@@ -350,6 +432,8 @@ export function AdvisorWorkspace({
   const needsAiChoice = Boolean(hasFirm && !viewingPrivateThread && aiPreference === "unasked");
 
   function stopAnswer() {
+    backgroundStore.abortController?.abort();
+    backgroundStore.abortController = null;
     abortRef.current?.abort();
     abortRef.current = null;
   }
@@ -361,9 +445,9 @@ export function AdvisorWorkspace({
       return messages.map((m) => ({ kind: "advisor" as const, createdAt: m.createdAt, message: m }));
     }
     const lawyerMessages = activeFirmConversation?.messages ?? [];
-    const userAdvisorTimes = messages
-      .filter((m) => m.role === "user")
-      .map((m) => ({ body: m.content.trim(), time: new Date(m.createdAt).getTime() }));
+    const clientFirmTimes = lawyerMessages
+      .filter((m) => m.senderRole === "client")
+      .map((m) => ({ body: m.body.trim(), time: new Date(m.createdAt).getTime() }));
 
     const items: (
       | { kind: "advisor"; createdAt: string; message: AdvisorMessage }
@@ -371,20 +455,29 @@ export function AdvisorWorkspace({
     )[] = [];
 
     for (const fm of lawyerMessages) {
-      if (fm.senderRole === "client") {
-        const fmTime = new Date(fm.createdAt).getTime();
-        const isDuplicateOfAdvisorUserTurn = userAdvisorTimes.some(
-          (u) => u.body === fm.body.trim() && Math.abs(u.time - fmTime) < 60_000
-        );
-        if (isDuplicateOfAdvisorUserTurn) continue;
-      }
       items.push({ kind: "firm", createdAt: fm.createdAt, message: fm });
     }
-    for (const am of messages) {
+
+    const combinedAdvisorMessages = [...sharedMessages];
+    for (const m of messages) {
+      if (!combinedAdvisorMessages.some((existing) => existing.id === m.id)) {
+        combinedAdvisorMessages.push(m);
+      }
+    }
+
+    for (const am of combinedAdvisorMessages) {
+      if (am.role === "user") {
+        const amTime = new Date(am.createdAt).getTime();
+        const isDuplicateOfFirmMessage = clientFirmTimes.some(
+          (u) => u.body === am.content.trim() && Math.abs(u.time - amTime) < 60_000
+        );
+        if (isDuplicateOfFirmMessage) continue;
+      }
       items.push({ kind: "advisor", createdAt: am.createdAt, message: am });
     }
+
     return items.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-  }, [activeFirmConversation?.messages, hasFirm, messages, viewingPrivateThread]);
+  }, [activeFirmConversation?.messages, hasFirm, messages, sharedMessages, viewingPrivateThread]);
 
   useEffect(() => {
     const element = scrollerRef.current;
@@ -539,23 +632,32 @@ export function AdvisorWorkspace({
     };
 
     const sid = `streaming-${Date.now()}`;
-    setStreamingId(sid);
     const nextMessages = [...messages, optimisticUserMessage];
-    // Show user message immediately, then append the streaming bubble in the next tick
-    // so React commits the user message before the empty assistant card.
-    setMessages(nextMessages);
-    setTimeout(() => {
-      setMessages([...nextMessages, {
-        id: sid,
-        threadId: "session",
-        role: "assistant",
-        content: "",
-        createdAt: new Date().toISOString(),
-      }]);
-    }, 0);
-
     const controller = new AbortController();
     abortRef.current = controller;
+
+    backgroundStore.isPending = true;
+    backgroundStore.streamingId = sid;
+    backgroundStore.conversationId = conversationId;
+    backgroundStore.messages = nextMessages;
+    backgroundStore.error = null;
+    backgroundStore.abortController = controller;
+    notifyStoreListeners();
+
+    setStreamingId(sid);
+    setMessages(nextMessages);
+    setTimeout(() => {
+      const messagesWithEmptyAssistant = [...nextMessages, {
+        id: sid,
+        threadId: "session",
+        role: "assistant" as const,
+        content: "",
+        createdAt: new Date().toISOString(),
+      }];
+      backgroundStore.messages = messagesWithEmptyAssistant;
+      notifyStoreListeners();
+      setMessages(messagesWithEmptyAssistant);
+    }, 0);
 
     try {
       const response = await fetch("/api/advisor/respond", {
@@ -591,6 +693,10 @@ export function AdvisorWorkspace({
           // Joined a firm since this page loaded: show the notice for exactly
           // the firms the server listed, so "Got it" covers only those.
           setVisibility({ firms: errorBody.firms ?? [], needsNotice: true });
+          backgroundStore.isPending = false;
+          backgroundStore.streamingId = null;
+          backgroundStore.messages = messages;
+          notifyStoreListeners();
           setDraft(content);
           setMessages(messages);
           setStreamingId(null);
@@ -626,6 +732,8 @@ export function AdvisorWorkspace({
             // this answer or it errors, the next question continues this conversation
             // instead of opening a second one against their daily limit.
             setConversationId(event.conversationId);
+            backgroundStore.conversationId = event.conversationId;
+            notifyStoreListeners();
             // A chat reserved just now: keep the server's start time, so the sharing line
             // stays right even if this first answer is stopped and never reaches the list.
             // Unknown time means the line claims no firm sees it.
@@ -636,16 +744,27 @@ export function AdvisorWorkspace({
             // `replace` carries the whole reviewed answer, sent when a safety
             // correction or cleanup changed text already on screen.
             streamText = event.type === "replace" ? event.text : streamText + event.text;
-            setMessages([...nextMessages, {
+            const updatedMessages = [...nextMessages, {
               id: sid,
               threadId: "session",
-              role: "assistant",
+              role: "assistant" as const,
               content: streamText,
               createdAt: new Date().toISOString(),
-            }]);
+            }];
+            backgroundStore.messages = updatedMessages;
+            notifyStoreListeners();
+            setMessages(updatedMessages);
           } else if (event.type === "done") {
+            const finalMessages = [...nextMessages, event.assistantMessage];
+            backgroundStore.isPending = false;
+            backgroundStore.streamingId = null;
+            backgroundStore.conversationId = event.conversationId ?? null;
+            backgroundStore.messages = finalMessages;
+            notifyStoreListeners();
+
             setConversationId(event.conversationId ?? null);
-            setMessages([...nextMessages, event.assistantMessage]);
+            setMessages(finalMessages);
+            setSharedMessages((current) => [...current, optimisticUserMessage, event.assistantMessage]);
             setStreamingId(null);
             setIsPending(false);
             trackEvent("Search", { search_query: content, user_id: null, results_count: 1 });
@@ -665,22 +784,34 @@ export function AdvisorWorkspace({
       // A user-initiated stop is not an error: keep whatever streamed, mark it
       // incomplete, and leave the disclaimer in place (CD-1.15).
       if (caughtError instanceof DOMException && caughtError.name === "AbortError") {
-        setStoppedIds((previous) => [...previous, sid]);
+        const nextStopped = [...stoppedIds, sid];
+        backgroundStore.stoppedIds = nextStopped;
+        backgroundStore.isPending = false;
+        backgroundStore.streamingId = null;
+        notifyStoreListeners();
+        setStoppedIds(nextStopped);
         setStreamingId(null);
       } else {
         const raw = caughtError instanceof Error ? caughtError.message : "";
-        setError(
-          lawyerMessageDelivered
-            ? "Haven couldn't reach the advisor for an instant AI answer just now. Your message was still sent to your lawyer, and they will respond once they see it."
-            : raw && !/^Unable to send message\.?$/i.test(raw)
-              ? raw
-              : "Haven couldn't reach the advisor just now. Your question wasn't sent — try again in a moment, and if it keeps happening, reload the page."
-        );
+        const errorMsg = lawyerMessageDelivered
+          ? "Haven couldn't reach the advisor for an instant AI answer just now. Your message was still sent to your lawyer, and they will respond once they see it."
+          : raw && !/^Unable to send message\.?$/i.test(raw)
+            ? raw
+            : "Haven couldn't reach the advisor just now. Your question wasn't sent — try again in a moment, and if it keeps happening, reload the page.";
+        backgroundStore.error = errorMsg;
+        backgroundStore.messages = nextMessages;
+        backgroundStore.isPending = false;
+        backgroundStore.streamingId = null;
+        notifyStoreListeners();
+        setError(errorMsg);
         setMessages(nextMessages);
         setStreamingId(null);
       }
     } finally {
       abortRef.current = null;
+      backgroundStore.abortController = null;
+      backgroundStore.isPending = false;
+      notifyStoreListeners();
       setIsPending(false);
     }
   }

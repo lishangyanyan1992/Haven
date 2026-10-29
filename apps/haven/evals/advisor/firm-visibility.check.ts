@@ -263,6 +263,20 @@ async function main() {
   check("the send endpoint checks the notice before answering", gate > 0 && stream > gate && /needs_notice/.test(route.slice(gate, stream)));
   check("the send endpoint fails closed when it can't check", /status: 503/.test(route.slice(gate, stream)));
   check("the notice agrees only to the firms it named", /acknowledgeChatVisibilityAction\(visibility\?\.firms\.map\(\(f\) => f\.firmId\)/.test(workspace));
+  check(
+    "the send endpoint runs streamAdvisorResponse to completion on client disconnect",
+    route.includes("clientDisconnected") && !/if\s*\(\s*request\.signal\.aborted\s*\)\s*break;/.test(route)
+  );
+  check(
+    "Ask workspace uses background store for in-flight streams across route navigation",
+    workspace.includes("backgroundStore") && workspace.includes("storeListeners")
+  );
+  check(
+    "Ask workspace hydrates shared AI messages and persists AI preference",
+    workspace.includes("initialSharedMessages") &&
+      workspace.includes("haven_ai_preference") &&
+      read("src/app/advisor/page.tsx").includes("getRecentAdvisorMessages")
+  );
 
   console.log(`\n${pass}/${pass + failures.length} passed`);
   if (failures.length) process.exit(1);

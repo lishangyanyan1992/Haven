@@ -159,6 +159,38 @@ export async function getThreadMessages(userId: string, threadId: string): Promi
   }));
 }
 
+/** Read recent messages for this user, optionally since an ISO date (e.g. earliest firm visibility). */
+export async function getRecentAdvisorMessages(userId: string, sinceIso?: string | null): Promise<AdvisorMessage[]> {
+  const admin = createSupabaseAdminClient() as any;
+
+  let query = admin
+    .from("advisor_messages")
+    .select("id, thread_id, role, content, answer_payload, retrieval_metadata, created_at")
+    .eq("user_id", userId)
+    .in("role", ["user", "assistant"])
+    .order("created_at", { ascending: true })
+    .limit(MAX_MESSAGES_PER_THREAD);
+
+  if (sinceIso) {
+    query = query.gte("created_at", sinceIso);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    throw new Error(`Unable to load recent messages: ${error.message}`);
+  }
+
+  return (data ?? []).map((row: any) => ({
+    id: row.id as string,
+    threadId: row.thread_id as string,
+    role: row.role as AdvisorMessage["role"],
+    content: (row.role === "assistant" ? row.answer_payload?.answer_markdown ?? row.content : row.content) as string,
+    createdAt: row.created_at as string,
+    traceId: row.retrieval_metadata?.traceId ?? undefined,
+    answerPayload: (row.answer_payload as AdvisorAnswerPayload | null) ?? undefined
+  }));
+}
+
 /**
  * Delete a conversation and everything under it.
  *

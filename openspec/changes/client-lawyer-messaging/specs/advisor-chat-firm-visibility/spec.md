@@ -17,6 +17,10 @@ When a firm client opens Ask (`/advisor`) to message their lawyer, Haven SHALL a
 - **WHEN** a firm client chooses "No" to AI answers in Ask and sends a message
 - **THEN** the message is sent directly to their lawyer and no AI answer is generated
 
+#### Scenario: Client leaves Ask while AI is answering
+- **WHEN** a client sends a question in Ask with AI answers enabled and navigates away from `/advisor` before the AI finishes
+- **THEN** the AI continues generating in the background, saves the completed answer to the conversation, and when the client returns to `/advisor` their AI preference and the streaming or completed AI answer appear in the conversation
+
 #### Scenario: Client not connected to any firm
 - **WHEN** a person with no firm uses the AI chat
 - **THEN** no lawyer prompt is shown and nothing is shared
