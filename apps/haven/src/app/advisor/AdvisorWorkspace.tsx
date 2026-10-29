@@ -410,6 +410,13 @@ export function AdvisorWorkspace({
 
     const nowIso = new Date().toISOString();
 
+    if (hasFirm && !viewingPrivateThread && !activeFirmConversation) {
+      setError("Your lawyer conversation could not be loaded. Try reloading the page.");
+      setIsPending(false);
+      setDraft(content);
+      return;
+    }
+
     // When messaging the lawyer with AI answers OFF, send directly to the lawyer conversation.
     if (hasFirm && !viewingPrivateThread && aiPreference === "no" && activeFirmConversation) {
       const targetFirmId = activeFirmConversation.firmId;
@@ -456,9 +463,11 @@ export function AdvisorWorkspace({
       return;
     }
 
+    let lawyerMessageDelivered = false;
+
     // When AI answers are ON for a firm client, ensure visibility is acknowledged and
-    // also record the message in the lawyer's conversation so the lawyer gets alerted.
-    if (hasFirm && !viewingPrivateThread) {
+    // record the message in the lawyer's conversation so the lawyer gets alerted.
+    if (hasFirm && !viewingPrivateThread && activeFirmConversation) {
       if (needsNotice) {
         try {
           const next = await acknowledgeChatVisibilityAction(visibility?.firms.map((f) => f.firmId) ?? []);
@@ -473,23 +482,51 @@ export function AdvisorWorkspace({
           return;
         }
       }
-      if (activeFirmConversation) {
-        const targetFirmId = activeFirmConversation.firmId;
-        const optimisticFirmMessage: ConversationMessage = {
-          id: `tmp-firm-${Date.now()}`,
-          senderRole: "client",
-          senderName: "You",
-          body: content,
-          source: "dashboard",
-          createdAt: nowIso,
-          aiAnswerQuote: null
-        };
+
+      const targetFirmId = activeFirmConversation.firmId;
+      const optimisticFirmMessage: ConversationMessage = {
+        id: `tmp-firm-${Date.now()}`,
+        senderRole: "client",
+        senderName: "You",
+        body: content,
+        source: "dashboard",
+        createdAt: nowIso,
+        aiAnswerQuote: null
+      };
+      setFirmConversations((current) =>
+        current.map((c) =>
+          c.firmId === targetFirmId ? { ...c, messages: [...c.messages, optimisticFirmMessage] } : c
+        )
+      );
+
+      try {
+        const result = await sendClientMessageAction({ firmId: targetFirmId, body: content });
+        if (result.status !== "sent" && result.status !== "already_sent") {
+          setFirmConversations((current) =>
+            current.map((c) =>
+              c.firmId === targetFirmId
+                ? { ...c, messages: c.messages.filter((m) => m.id !== optimisticFirmMessage.id) }
+                : c
+            )
+          );
+          setDraft(content);
+          setIsPending(false);
+          setError(result.status === "invalid" ? result.error : "That didn't send to your lawyer. Try again in a moment.");
+          return;
+        }
+        lawyerMessageDelivered = true;
+      } catch {
         setFirmConversations((current) =>
           current.map((c) =>
-            c.firmId === targetFirmId ? { ...c, messages: [...c.messages, optimisticFirmMessage] } : c
+            c.firmId === targetFirmId
+              ? { ...c, messages: c.messages.filter((m) => m.id !== optimisticFirmMessage.id) }
+              : c
           )
         );
-        void sendClientMessageAction({ firmId: targetFirmId, body: content });
+        setDraft(content);
+        setIsPending(false);
+        setError("That didn't send to your lawyer. Try again in a moment.");
+        return;
       }
     }
 
@@ -633,9 +670,11 @@ export function AdvisorWorkspace({
       } else {
         const raw = caughtError instanceof Error ? caughtError.message : "";
         setError(
-          raw && !/^Unable to send message\.?$/i.test(raw)
-            ? raw
-            : "Haven couldn't reach the advisor just now. Your question wasn't sent — try again in a moment, and if it keeps happening, reload the page."
+          lawyerMessageDelivered
+            ? "Haven couldn't reach the advisor for an instant AI answer just now. Your message was still sent to your lawyer, and they will respond once they see it."
+            : raw && !/^Unable to send message\.?$/i.test(raw)
+              ? raw
+              : "Haven couldn't reach the advisor just now. Your question wasn't sent — try again in a moment, and if it keeps happening, reload the page."
         );
         setMessages(nextMessages);
         setStreamingId(null);
