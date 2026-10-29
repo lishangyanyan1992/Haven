@@ -2,12 +2,13 @@ import Link from "next/link";
 import { HELP_NEEDED_OPTIONS, HELP_NEEDED_SENT_MARKER } from "@/lib/firms/help-needed";
 import { AlertTriangle, CheckCircle2, FileWarning } from "lucide-react";
 
-import { ALL_PREFERENCE_CATEGORIES, chosenGreenCardStage } from "@/lib/visas";
+import { ALL_GREEN_CARD_STAGE_OPTIONS, ALL_PREFERENCE_CATEGORIES, chosenGreenCardStage } from "@/lib/visas";
 import { AppShell } from "@/components/app/app-shell";
 import { GreenCardEditor } from "@/components/app/green-card-editor";
 import { FieldSourceLabel } from "@/components/app/field-source-label";
 import { VisaStatusField } from "@/components/app/visa-status-field";
 import { formatSourceValue } from "@/lib/field-sources/format";
+import { inferProfileGreenCardStage } from "@/lib/immigration-journey";
 import { loadFieldSources } from "@/lib/field-sources/db";
 import type { FieldSource } from "@/lib/field-sources/plan";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +49,8 @@ export default async function SettingsPage({
   const savedDeadlines = profile.id && hasSupabaseEnv ? await loadDeadlineAnswers(profile.id) : undefined;
   // The step chosen here is kept as chosen, so family and other steps show up again.
   const greenCardStage = chosenGreenCardStage(profile.greenCardStage, inferGreenCardStage(profile));
+  // With green cards entered, the step shown is the one they give (same as the dashboard).
+  const petitionStage = inferProfileGreenCardStage(profile);
   // Where each value came from (a document, or the person). None for a local test persona.
   const sources: Record<string, FieldSource> =
     profile.id && hasSupabaseEnv ? Object.fromEntries(await loadFieldSources(profile.id)) : {};
@@ -307,6 +310,15 @@ export default async function SettingsPage({
               </CardHeader>
               <CardContent className="space-y-4">
                 <Field label="Green card stage">
+                  {hasPetitionRecords ? (
+                    // One place for the step: the green cards below set it.
+                    <p className="text-body-sm text-[var(--haven-ink)]">
+                      {ALL_GREEN_CARD_STAGE_OPTIONS.find((o) => o.id === petitionStage)?.label ?? petitionStage}{" "}
+                      <a className="text-[12px] underline underline-offset-2" href="#green-cards">
+                        Set by your green cards below
+                      </a>
+                    </p>
+                  ) : (
                   <Select defaultValue={greenCardStage} name="greenCardStage">
                     <option value="not_started">Not started yet</option>
                     <option value="pwd_recruitment">Prevailing Wage / Recruitment</option>
@@ -321,7 +333,9 @@ export default async function SettingsPage({
                     <option value="conditional_resident">2-year conditional resident</option>
                     <option value="i485_approved">Permanent Resident approved</option>
                   </Select>
+                  )}
                 </Field>
+
                 <Field label="Preference category">
                   <Select defaultValue={profile.preferenceCategory} name="preferenceCategory">
                     {(() => {

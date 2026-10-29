@@ -1725,12 +1725,21 @@ export function buildImmigrationJourney(input: {
     },
     {
       key: "i485",
-      label: "I-485 Adjustment of Status",
-      shortLabel: "I-485 / Green Card",
-      status: isGcComplete ? "completed" : stageRank >= 5 ? "current" : "upcoming",
-      badgeText: isGcComplete ? "Approved" : stageRank >= 5 ? "Filed & Pending" : "Upcoming",
+      label: gcStage === "consular_processing" ? "Consular processing / Green card" : "I-485 Adjustment of Status",
+      shortLabel: gcStage === "consular_processing" ? "Consular processing" : "I-485 / Green Card",
+      status: isGcComplete ? "completed" : gcStage === "consular_processing" || stageRank >= 5 ? "current" : "upcoming",
+      badgeText: isGcComplete
+        ? "Approved"
+        : gcStage === "consular_processing"
+          ? "Pending"
+          : stageRank >= 5
+            ? "Filed & Pending"
+            : "Upcoming",
       dateOrMeta: estimatedRangeLabel ?? "Final step to permanent residency",
-      detail: "Biometrics, EAD/AP combo card, and final green card adjudication."
+      detail:
+        gcStage === "consular_processing"
+          ? "National Visa Center, the consular interview abroad, then entry as a permanent resident."
+          : "Biometrics, EAD/AP combo card, and final green card adjudication."
     }
   ];
 

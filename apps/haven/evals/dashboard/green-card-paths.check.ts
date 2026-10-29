@@ -164,6 +164,16 @@ async function main() {
       onboardingStepThreeSchema.safeParse({ greenCardStage: "i130_filed", preferenceCategory: "F-2A", i140Approved: false }).success
   );
 
+  // 8. Round 4 fixes.
+  const { providesI140Protection } = await import("@/lib/petitions");
+  const { flatFieldsFrom } = await import("@/lib/petition-save");
+  const familyAtI485 = { ...marriage, stage: "i485_filed", priorityDate: "2025-01-10" };
+  check("family green card at I-485: no I-140 protection", !providesI140Protection(familyAtI485 as never));
+  const flags = flatFieldsFrom([{ ...familyAtI485, stage: "i130_filed" }] as never, {});
+  check("family green card: I-140 filed/approved flags stay off", flags.i140_filed === false && flags.i140_approved === false, JSON.stringify(flags));
+  const consularNode = consularJourney.greenCardTrack.nodes.find((n) => n.key === "i485");
+  check("employer consular: last step says consular processing", consularNode?.shortLabel === "Consular processing" && consularNode.status === "current");
+
   console.log(`\n${pass}/${pass + failures.length} checks passed.`);
   if (failures.length > 0) process.exit(1);
 }

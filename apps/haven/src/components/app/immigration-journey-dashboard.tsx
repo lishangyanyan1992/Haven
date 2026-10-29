@@ -593,6 +593,15 @@ export function ImmigrationJourneyDashboard({
                 <label className="field-label" htmlFor="journey-greenCardStage">
                   Green card stage
                 </label>
+                {(profile.immigrantPetitions?.length ?? 0) > 0 ? (
+                  // With green cards entered, they set the step; change it in Settings → Green cards.
+                  <p className="text-body-sm text-[var(--haven-ink)]">
+                    {ALL_GREEN_CARD_STAGE_OPTIONS.find((o) => o.id === greenCardTrack.stage)?.label ?? greenCardTrack.stage}{" "}
+                    <Link className="text-[12px] underline underline-offset-2" href="/settings#green-cards">
+                      Change in Green cards
+                    </Link>
+                  </p>
+                ) : (
                 <Select
                   defaultValue={chosenGreenCardStage(profile.greenCardStage, greenCardTrack.stage)}
                   id="journey-greenCardStage"
@@ -604,6 +613,7 @@ export function ImmigrationJourneyDashboard({
                     </option>
                   ))}
                 </Select>
+                )}
               </div>
 
               <div>

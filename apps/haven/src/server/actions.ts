@@ -573,12 +573,12 @@ export async function saveProfileSettingsAction(formData: FormData) {
     jobTitle: String(formData.get("jobTitle") ?? ""),
     h1bStartDate: String(formData.get("h1bStartDate") ?? ""),
     employerSize: String(formData.get("employerSize") ?? ""),
-    greenCardStage: String(formData.get("greenCardStage") ?? ""),
+    ...(formData.has("greenCardStage") ? { greenCardStage: String(formData.get("greenCardStage") ?? "") } : {}),
     ...(formData.has("greenCardSponsor") ? { greenCardSponsor: String(formData.get("greenCardSponsor") ?? "").trim() } : {}),
     ...(formData.has("retainedPriorityDateSponsor") ? { retainedPriorityDateSponsor: String(formData.get("retainedPriorityDateSponsor") ?? "").trim() } : {}),
     priorityDate: String(formData.get("priorityDate") ?? ""),
     preferenceCategory: String(formData.get("preferenceCategory") ?? ""),
-    i140Approved: String(formData.get("i140Approved") ?? "false"),
+    ...(formData.has("greenCardStage") ? { i140Approved: String(formData.get("i140Approved") ?? "false") } : {}),
     spouseVisaStatus: String(formData.get("spouseVisaStatus") ?? ""),
     // "What help do you need from your lawyer?" (the old concern areas are derived from it)
     ...(formData.has(HELP_NEEDED_SENT_MARKER) ? { helpNeeded: formData.getAll("helpNeeded").map(String) } : {})
@@ -608,6 +608,8 @@ export async function saveCaseJourneyDatesAction(formData: FormData): Promise<{ 
   const { user } = await requireUser();
   const cookieStore = await cookies();
 
+  // With green cards entered, the step comes from them and the form doesn't send it.
+  const sentStage = formData.has("greenCardStage");
   const greenCardStage = String(formData.get("greenCardStage") ?? "").trim();
   const i140Approved =
     greenCardStage === "i140_approved" ||
@@ -627,12 +629,12 @@ export async function saveCaseJourneyDatesAction(formData: FormData): Promise<{ 
     jobTitle: String(formData.get("jobTitle") ?? ""),
     h1bStartDate: String(formData.get("h1bStartDate") ?? ""),
     currentVisaExpiryDate: statusEndDate,
-    greenCardStage,
+    ...(sentStage ? { greenCardStage } : {}),
     ...(formData.has("greenCardSponsor") ? { greenCardSponsor: String(formData.get("greenCardSponsor") ?? "").trim() } : {}),
     ...(formData.has("retainedPriorityDateSponsor") ? { retainedPriorityDateSponsor: String(formData.get("retainedPriorityDateSponsor") ?? "").trim() } : {}),
     priorityDate: String(formData.get("priorityDate") ?? ""),
     ...(preferenceCategory ? { preferenceCategory } : {}),
-    i140Approved
+    ...(sentStage ? { i140Approved } : {})
   };
 
   const before = await loadProfileValues(user.id);
