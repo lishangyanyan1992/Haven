@@ -44,9 +44,15 @@ function buildDraft(data: FormData) {
       customAnswers[key] = value;
     }
   }
+  const rawVisaType = String(data.get("visaType") ?? "").trim();
+  const customVisaDetail = String(data.get("customVisaDetail") ?? "").trim();
+  const effectiveVisa = rawVisaType === "other" && customVisaDetail ? customVisaDetail : rawVisaType;
+
   return {
     ...customAnswers,
-    visaType: String(data.get("visaType") ?? ""),
+    visaType: effectiveVisa,
+    ...(customVisaDetail ? { customVisaDetail } : {}),
+    ...(data.has("isEmployedInUs") ? { isEmployedInUs: String(data.get("isEmployedInUs") ?? "") } : {}),
     countryOfBirth: String(data.get("countryOfBirth") ?? ""),
     primaryGoal: String(data.get("primaryGoal") ?? ""),
     employerName: String(data.get("employerName") ?? ""),
@@ -54,6 +60,7 @@ function buildDraft(data: FormData) {
     h1bStartDate: String(data.get("h1bStartDate") ?? ""),
     employerSize: String(data.get("employerSize") ?? ""),
     greenCardStage: String(data.get("greenCardStage") ?? ""),
+    ...(data.has("greenCardPathway") ? { greenCardPathway: String(data.get("greenCardPathway") ?? "").trim() } : {}),
     ...(data.has("greenCardSponsor") ? { greenCardSponsor: String(data.get("greenCardSponsor") ?? "").trim() } : {}),
     ...(data.has("retainedPriorityDateSponsor") ? { retainedPriorityDateSponsor: String(data.get("retainedPriorityDateSponsor") ?? "").trim() } : {}),
     priorityDate: String(data.get("priorityDate") ?? ""),

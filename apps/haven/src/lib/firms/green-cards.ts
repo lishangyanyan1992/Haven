@@ -8,21 +8,32 @@ import type { ImmigrantPetition, ImmigrantPetitionStage, ImmigrantPetitionType }
  * "greenCards", so the firm still never reads user_profiles.
  */
 
-const STAGE_LABELS: Record<ImmigrantPetitionStage, string> = {
+const STAGE_LABELS: Record<string, string> = {
   pwd_recruitment: "Prevailing wage / recruitment",
   perm_in_progress: "PERM filed",
   perm_certified: "PERM approved",
   i140_filed: "I-140 filed",
   i140_approved: "I-140 approved",
+  i130_filed: "I-130 filed",
+  i130_approved: "I-130 approved",
+  consular_processing: "Consular / NVC processing",
+  conditional_resident: "2-year conditional resident",
   i485_filed: "I-485 filed",
   i485_approved: "Green card approved",
   withdrawn: "Withdrawn"
 };
 
-const TYPE_LABELS: Partial<Record<ImmigrantPetitionType, string>> = {
+const TYPE_LABELS: Partial<Record<string, string>> = {
   self_petition_niw: "NIW self-petition",
   self_petition_eb1a: "EB-1A self-petition",
-  concurrent_employer: "second employer"
+  concurrent_employer: "second employer",
+  family_marriage_usc: "Marriage to US citizen",
+  family_marriage_lpr: "Marriage to permanent resident",
+  family_preference: "Family preference",
+  investment_eb5: "EB-5 investment",
+  humanitarian_asylum: "Asylum adjustment",
+  humanitarian_other: "Humanitarian",
+  diversity_lottery: "Diversity Visa"
 };
 
 function formatDate(iso: string | undefined): string | null {

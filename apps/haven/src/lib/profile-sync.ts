@@ -8,6 +8,8 @@ export const ONBOARDING_OVERRIDE_COOKIE = "haven_onboarding_override";
 
 type ProfileDraft = Partial<{
   visaType: string;
+  customVisaDetail: string;
+  greenCardPathway: string;
   // Added so a correction stated in chat lands in the same record the dashboard
   // writes. It was readable but not writable, which meant "I was laid off" could
   // never reach the profile from anywhere except the form.
@@ -76,7 +78,10 @@ function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unk
     concerns.includes(item as Concern)
   );
   const shouldUpdateDeadlineAnswers =
-    rawDraft.retainedPriorityDateSponsor !== undefined || rawDraft.greenCardSponsor !== undefined;
+    rawDraft.retainedPriorityDateSponsor !== undefined ||
+    rawDraft.greenCardSponsor !== undefined ||
+    rawDraft.greenCardPathway !== undefined ||
+    rawDraft.customVisaDetail !== undefined;
   let nextDeadlineAnswers: Record<string, unknown> | undefined = undefined;
   if (shouldUpdateDeadlineAnswers) {
     const existingDeadlineAnswers =
@@ -90,6 +95,12 @@ function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unk
         : {}),
       ...(rawDraft.retainedPriorityDateSponsor !== undefined
         ? { retainedPriorityDateSponsor: asOptionalString(rawDraft.retainedPriorityDateSponsor) }
+        : {}),
+      ...(rawDraft.greenCardPathway !== undefined
+        ? { greenCardPathway: asOptionalString(rawDraft.greenCardPathway) }
+        : {}),
+      ...(rawDraft.customVisaDetail !== undefined
+        ? { customVisaDetail: asOptionalString(rawDraft.customVisaDetail) }
         : {})
     };
   }
@@ -123,7 +134,12 @@ function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unk
         : "not_started";
 
   return {
-    visa_type: asEnumValue(rawDraft.visaType ?? existingRow?.visa_type, visaTypes, "H1B"),
+    visa_type:
+      typeof rawDraft.visaType === "string" && rawDraft.visaType.trim().length > 0
+        ? rawDraft.visaType.trim()
+        : typeof existingRow?.visa_type === "string" && existingRow.visa_type.trim().length > 0
+          ? existingRow.visa_type.trim()
+          : "H1B",
     country_of_birth:
       typeof rawDraft.countryOfBirth === "string" && rawDraft.countryOfBirth.trim().length > 0
         ? rawDraft.countryOfBirth.trim()
@@ -161,7 +177,12 @@ function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unk
       rawDraft.priorityDate !== undefined
         ? asOptionalString(rawDraft.priorityDate)
         : (existingRow?.priority_date as string | null) ?? null,
-    preference_category: asEnumValue(rawDraft.preferenceCategory ?? existingRow?.preference_category, preferenceCategories, "Not sure"),
+    preference_category:
+      typeof rawDraft.preferenceCategory === "string" && rawDraft.preferenceCategory.trim().length > 0
+        ? rawDraft.preferenceCategory.trim()
+        : typeof existingRow?.preference_category === "string" && existingRow.preference_category.trim().length > 0
+          ? existingRow.preference_category.trim()
+          : "Not sure",
     i140_approved: i140Approved,
     i140_filed: greenCardStage === "i140_filed",
     i140_approval_date:

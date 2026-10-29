@@ -13,7 +13,7 @@ export const PRESET_INTAKE_QUESTIONS: PresetIntakeQuestion[] = [
   {
     key: "visaType",
     label: "Current visa status",
-    detail: "OPT, STEM OPT, H-1B, H-4, O-1, Green card, or Citizen.",
+    detail: "Visitor (B-1/B-2), Student (F-1/J-1/OPT), Work (H-1B, L-1, O-1, TN, E-2), Family, Humanitarian, or custom status.",
     group: "Profile"
   },
   {
@@ -55,19 +55,19 @@ export const PRESET_INTAKE_QUESTIONS: PresetIntakeQuestion[] = [
   {
     key: "greenCardStage",
     label: "Green card stage",
-    detail: "Not started, PERM in progress/certified, I-140, or I-485 filed.",
+    detail: "Not started, family/marriage (I-130), PERM, I-140, or I-485 filed.",
     group: "Green card"
   },
   {
     key: "preferenceCategory",
     label: "Preference category",
-    detail: "EB-1, EB-2, EB-3, EB-2 NIW, or Not sure.",
+    detail: "Family (Spouse/F-2A/F1-F4), Employment (EB-1, EB-2, EB-3, NIW), EB-5, or Lottery.",
     group: "Green card"
   },
   {
     key: "priorityDate",
     label: "Priority date",
-    detail: "Date the client's PERM or I-140 was filed.",
+    detail: "Date the client's initial petition (PERM, Form I-130, or Form I-140) was filed.",
     group: "Green card"
   },
   {

@@ -15,6 +15,13 @@ import { findPresetDocument } from "@/lib/document-vault";
 import { getDefaultIntakeQuestions } from "@/lib/firms/intake-question-catalog";
 import { HELP_NEEDED_OPTIONS, HELP_NEEDED_SENT_MARKER } from "@/lib/firms/help-needed";
 import { MESSAGE_MAX_LENGTH } from "@/lib/firms/message-limits";
+import { VisaSelector } from "./VisaSelector";
+import {
+  isWorkAuthorizedVisa,
+  GREEN_CARD_PATHWAYS,
+  getStagesForPathway,
+  SPONSOR_ATTRIBUTION_OPTIONS
+} from "@/lib/visas";
 import type { IntakeQuestionItem, RequiredDocumentItem } from "@/lib/firms/types";
 
 export type UploadedIntakeDocument = {
@@ -27,14 +34,21 @@ export type UploadedIntakeDocument = {
 interface OnboardingData {
   [key: string]: string | string[] | undefined;
   visaType: string;
+  customVisaDetail?: string;
+  isEmployedInUs?: string;
   countryOfBirth: string;
   primaryGoal: string;
   employerName: string;
   jobTitle: string;
   h1bStartDate: string;
   employerSize: string;
+  greenCardPursued?: string;
+  greenCardPathway?: string;
+  customGreenCardPathway?: string;
   greenCardStage: string;
   greenCardSponsor?: string;
+  sponsorAttributionType?: string;
+  retainedPriorityDate?: string;
   retainedPriorityDateSponsor?: string;
   priorityDate: string;
   preferenceCategory: string;
@@ -407,22 +421,42 @@ export function OnboardingFlow({
   }, [formData, hasInteracted]);
 
   const missingFields = useMemo(() => {
-    const requiredByStep: Record<number, { key: string; label: string }[]> = {
-      1: [
-        { key: "visaType", label: "Current visa status" },
-        { key: "countryOfBirth", label: "Country of birth" },
-        { key: "primaryGoal", label: "Primary goal" }
-      ],
-      2: [
+    const effectiveVisa = formData.visaType === "other" ? formData.customVisaDetail : formData.visaType;
+    const isWorkAuth = isWorkAuthorizedVisa(effectiveVisa);
+    const isEmployed = formData.isEmployedInUs === "yes" || (isWorkAuth && formData.isEmployedInUs !== "no");
+
+    const step1Required: { key: string; label: string }[] = [
+      { key: "countryOfBirth", label: "Country of birth" },
+      { key: "primaryGoal", label: "Primary goal" }
+    ];
+    if (!formData.visaType || (formData.visaType === "other" && !formData.customVisaDetail?.trim())) {
+      step1Required.push({ key: "visaType", label: "Current visa status" });
+    }
+
+    const step2Required: { key: string; label: string }[] = [];
+    if (isEmployed) {
+      step2Required.push(
         { key: "employerName", label: "Employer name" },
         { key: "jobTitle", label: "Job title" },
-        { key: "h1bStartDate", label: "H-1B start date" },
         { key: "employerSize", label: "Employer size" }
-      ],
-      3: [
-        { key: "greenCardStage", label: "Green card stage" },
-        { key: "preferenceCategory", label: "Preference category" }
-      ],
+      );
+      if (formData.visaType === "H1B" || formData.visaType === "H-1B") {
+        step2Required.push({ key: "h1bStartDate", label: "H-1B start date" });
+      }
+    }
+
+    const step3Required: { key: string; label: string }[] = [];
+    if (formData.greenCardPursued !== "no") {
+      step3Required.push({ key: "greenCardStage", label: "Green card stage" });
+      if (formData.greenCardStage && formData.greenCardStage !== "not_started") {
+        step3Required.push({ key: "preferenceCategory", label: "Preference category" });
+      }
+    }
+
+    const requiredByStep: Record<number, { key: string; label: string }[]> = {
+      1: step1Required,
+      2: step2Required,
+      3: step3Required,
       4: [{ key: "spouseVisaStatus", label: "Spouse or partner status" }]
     };
     return (requiredByStep[currentStep] ?? []).filter(({ key }) => {
@@ -772,13 +806,16 @@ function Step1Form({
     <>
       {enabledKeys.has("visaType") && (
         <Field error={errors.has("visaType")}>
-          <label className="field-label">Current visa status <Required /></label>
-          <Select onChange={(e) => onChange("visaType", e.target.value)} value={data.visaType ?? ""}>
-            <option value="" disabled>Please select</option>
-            {["OPT", "STEM OPT", "H1B", "H4", "O-1", "GC", "Citizen"].map((v) => (
-              <option key={v} value={v}>{v}</option>
-            ))}
-          </Select>
+          <label className="field-label">Current visa or immigration status <Required /></label>
+          <VisaSelector
+            value={data.visaType}
+            customValue={data.customVisaDetail}
+            hasError={errors.has("visaType")}
+            onChange={(val, custom) => {
+              onChange("visaType", val);
+              onChange("customVisaDetail", custom ?? "");
+            }}
+          />
         </Field>
       )}
       {enabledKeys.has("countryOfBirth") && (
@@ -798,8 +835,9 @@ function Step1Form({
           <label className="field-label">Primary goal <Required /></label>
           <Select onChange={(e) => onChange("primaryGoal", e.target.value)} value={data.primaryGoal ?? ""}>
             <option value="" disabled>Please select</option>
-            <option value="get_gc">Get my green card</option>
+            <option value="get_gc">Get my green card / residency</option>
             <option value="job_stability">Stay stable at my current employer</option>
+            <option value="family_unity">Family or marriage immigration</option>
             <option value="explore_options">Explore all my options</option>
             <option value="stay_flexible">Maximize flexibility</option>
             <option value="not_sure">Not sure yet</option>
@@ -821,37 +859,86 @@ function Step2Form({
   errors: Set<string>;
   onChange: (key: string, value: string) => void;
 }) {
+  const effectiveVisa = data.visaType === "other" ? data.customVisaDetail : data.visaType;
+  const isWorkAuth = isWorkAuthorizedVisa(effectiveVisa);
+  const isEmployed = data.isEmployedInUs === "yes" || (isWorkAuth && data.isEmployedInUs !== "no");
+  const isH1B = data.visaType === "H1B" || data.visaType === "H-1B";
+
   return (
     <>
-      {enabledKeys.has("employerName") && (
-        <Field error={errors.has("employerName")}>
-          <label className="field-label">Employer name <Required /></label>
-          <Input onChange={(e) => onChange("employerName", e.target.value)} placeholder="e.g. Nimbus AI" value={data.employerName ?? ""} />
-        </Field>
+      {!isWorkAuth && (
+        <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--haven-sand)] p-4 mb-4">
+          <p className="text-h4 font-medium text-[var(--haven-ink)]">Are you currently employed in the US?</p>
+          <p className="text-body-sm text-[var(--color-text-secondary)] mt-1">
+            Based on your selected status ({data.customVisaDetail || data.visaType || "Visitor / Student"}), US employment details are not required.
+          </p>
+          <div className="mt-3 flex items-center gap-6">
+            <label className="flex items-center gap-2 cursor-pointer text-sm font-medium">
+              <input
+                type="radio"
+                name="isEmployedInUs"
+                value="no"
+                checked={data.isEmployedInUs === "no" || data.isEmployedInUs === undefined}
+                onChange={() => onChange("isEmployedInUs", "no")}
+                className="text-[var(--haven-sage)]"
+              />
+              <span>No, not currently employed</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer text-sm font-medium">
+              <input
+                type="radio"
+                name="isEmployedInUs"
+                value="yes"
+                checked={data.isEmployedInUs === "yes"}
+                onChange={() => onChange("isEmployedInUs", "yes")}
+                className="text-[var(--haven-sage)]"
+              />
+              <span>Yes, I am working in the US</span>
+            </label>
+          </div>
+        </div>
       )}
-      {enabledKeys.has("jobTitle") && (
-        <Field error={errors.has("jobTitle")}>
-          <label className="field-label">Job title <Required /></label>
-          <Input onChange={(e) => onChange("jobTitle", e.target.value)} placeholder="e.g. Senior Software Engineer" value={data.jobTitle ?? ""} />
-        </Field>
-      )}
-      {enabledKeys.has("h1bStartDate") && (
-        <Field error={errors.has("h1bStartDate")}>
-          <label className="field-label">H-1B start date <Required /></label>
-          <Input onChange={(e) => onChange("h1bStartDate", e.target.value)} type="date" value={data.h1bStartDate ?? ""} />
-          <p className="field-helper">Used to compute your six-year cap date and renewal window.</p>
-        </Field>
-      )}
-      {enabledKeys.has("employerSize") && (
-        <Field error={errors.has("employerSize")}>
-          <label className="field-label">Employer size <Required /></label>
-          <Select onChange={(e) => onChange("employerSize", e.target.value)} value={data.employerSize ?? ""}>
-            <option value="" disabled>Please select</option>
-            <option value="startup">Startup (under 200)</option>
-            <option value="mid-size">Mid-size (200–2,000)</option>
-            <option value="enterprise">Enterprise (2,000+)</option>
-          </Select>
-        </Field>
+
+      {isEmployed ? (
+        <>
+          {enabledKeys.has("employerName") && (
+            <Field error={errors.has("employerName")}>
+              <label className="field-label">Employer name <Required /></label>
+              <Input onChange={(e) => onChange("employerName", e.target.value)} placeholder="e.g. Nimbus AI" value={data.employerName ?? ""} />
+            </Field>
+          )}
+          {enabledKeys.has("jobTitle") && (
+            <Field error={errors.has("jobTitle")}>
+              <label className="field-label">Job title <Required /></label>
+              <Input onChange={(e) => onChange("jobTitle", e.target.value)} placeholder="e.g. Senior Software Engineer" value={data.jobTitle ?? ""} />
+            </Field>
+          )}
+          {enabledKeys.has("h1bStartDate") && isH1B && (
+            <Field error={errors.has("h1bStartDate")}>
+              <label className="field-label">H-1B start date <Required /></label>
+              <Input onChange={(e) => onChange("h1bStartDate", e.target.value)} type="date" value={data.h1bStartDate ?? ""} />
+              <p className="field-helper">Used to compute your six-year cap date and renewal window.</p>
+            </Field>
+          )}
+          {enabledKeys.has("employerSize") && (
+            <Field error={errors.has("employerSize")}>
+              <label className="field-label">Employer size <Required /></label>
+              <Select onChange={(e) => onChange("employerSize", e.target.value)} value={data.employerSize ?? ""}>
+                <option value="" disabled>Please select</option>
+                <option value="startup">Startup (under 200)</option>
+                <option value="mid-size">Mid-size (200–2,000)</option>
+                <option value="enterprise">Enterprise (2,000+)</option>
+              </Select>
+            </Field>
+          )}
+        </>
+      ) : (
+        <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--haven-white)] p-5 text-center">
+          <p className="text-h4 text-[var(--haven-ink)]">No employment details needed</p>
+          <p className="text-body-sm text-[var(--color-text-secondary)] mt-1.5 max-w-[50ch] mx-auto">
+            You indicated you are not employed in the US. You can proceed directly to your green card and deadline questions.
+          </p>
+        </div>
       )}
     </>
   );
@@ -868,72 +955,196 @@ function Step3Form({
   errors: Set<string>;
   onChange: (key: string, value: string) => void;
 }) {
+  const isPursuingGc = data.greenCardPursued !== "no";
+  const selectedPathway = GREEN_CARD_PATHWAYS.find((p) => p.id === data.greenCardPathway) ?? GREEN_CARD_PATHWAYS[3];
+  const stageOptions = getStagesForPathway(data.greenCardPathway ?? "employer_sponsored");
+
+  const handlePathwayChange = (pathwayId: string) => {
+    onChange("greenCardPathway", pathwayId);
+    const pathway = GREEN_CARD_PATHWAYS.find((p) => p.id === pathwayId);
+    if (pathway) {
+      onChange("preferenceCategory", pathway.defaultPreferenceCategory);
+    }
+  };
+
   return (
     <>
-      {enabledKeys.has("greenCardStage") && (
-        <Field error={errors.has("greenCardStage")}>
-          <label className="field-label">Green card stage <Required /></label>
-          <Select onChange={(e) => onChange("greenCardStage", e.target.value)} value={data.greenCardStage ?? ""}>
-            <option value="" disabled>Please select</option>
-            <option value="not_started">Not started yet</option>
-            <option value="perm_in_progress">PERM in progress</option>
-            <option value="perm_certified">PERM certified</option>
-            <option value="i140_filed">I-140 filed</option>
-            <option value="i140_approved">I-140 approved</option>
-            <option value="i485_filed">I-485 filed</option>
-          </Select>
-          <p className="field-helper">I-140 approval status is inferred from your stage.</p>
-        </Field>
-      )}
-      {enabledKeys.has("preferenceCategory") && (
-        <Field error={errors.has("preferenceCategory")}>
-          <label className="field-label">Preference category <Required /></label>
-          <Select onChange={(e) => onChange("preferenceCategory", e.target.value)} value={data.preferenceCategory ?? ""}>
-            <option value="" disabled>Please select</option>
-            {["EB-1", "EB-2", "EB-3", "EB-2 NIW", "Not sure"].map((v) => (
-              <option key={v} value={v}>{v}</option>
-            ))}
-          </Select>
-        </Field>
-      )}
-      {enabledKeys.has("priorityDate") && (
-        <Field>
-          <label className="field-label">Priority date <span className="text-[var(--color-text-tertiary)] font-normal">(optional)</span></label>
-          <Input onChange={(e) => onChange("priorityDate", e.target.value)} type="date" value={data.priorityDate ?? ""} />
-          <p className="field-helper">The date your PERM or I-140 was filed. Leave blank if not yet applicable.</p>
-        </Field>
-      )}
-      {((data.greenCardStage && data.greenCardStage !== "not_started") || Boolean(data.priorityDate)) && (
-        <Field>
-          <label className="field-label" htmlFor="onboarding-gc-sponsor">
-            Sponsoring employer or petitioner <span className="text-[var(--color-text-tertiary)] font-normal">(optional)</span>
-          </label>
-          <Input
-            id="onboarding-gc-sponsor"
-            onChange={(e) => onChange("greenCardSponsor", e.target.value)}
-            placeholder="e.g. Prior Employer, Current Employer, or Self-Petition (NIW)"
-            type="text"
-            value={data.greenCardSponsor ?? ""}
-          />
-          <p className="field-helper">
-            Never assumed to be your current employer. If this petition was filed by a previous employer or self-petitioned, naming the sponsor clarifies priority date retention and portability.
-          </p>
-          <div className="mt-4">
-            <label className="field-label" htmlFor="onboarding-prior-i140-sponsor">
-              Prior I-140 sponsor <span className="text-[var(--color-text-tertiary)] font-normal">(optional)</span>
-            </label>
-            <Input
-              id="onboarding-prior-i140-sponsor"
-              onChange={(e) => onChange("retainedPriorityDateSponsor", e.target.value)}
-              placeholder="e.g. Prior Employer Inc."
-              type="text"
-              value={data.retainedPriorityDateSponsor ?? ""}
+      <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--haven-sand)] p-4 mb-5">
+        <p className="text-h4 font-medium text-[var(--haven-ink)]">Are you pursuing or holding a Green Card?</p>
+        <p className="text-body-sm text-[var(--color-text-secondary)] mt-1">
+          Covers marriage, family, self-petitions (NIW/EB-1A), employer-sponsored, investment, and lottery.
+        </p>
+        <div className="mt-3 flex items-center gap-6">
+          <label className="flex items-center gap-2 cursor-pointer text-sm font-medium">
+            <input
+              type="radio"
+              name="greenCardPursued"
+              value="yes"
+              checked={isPursuingGc}
+              onChange={() => onChange("greenCardPursued", "yes")}
+              className="text-[var(--haven-sage)]"
             />
-            <p className="field-helper">
-              If you have an earlier approved Form I-140 from another employer, name that sponsor here to evaluate priority date retention.
-            </p>
+            <span>Yes, I have an application or petition</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer text-sm font-medium">
+            <input
+              type="radio"
+              name="greenCardPursued"
+              value="no"
+              checked={!isPursuingGc}
+              onChange={() => {
+                onChange("greenCardPursued", "no");
+                onChange("greenCardStage", "not_started");
+              }}
+              className="text-[var(--haven-sage)]"
+            />
+            <span>Not currently / Exploring</span>
+          </label>
+        </div>
+      </div>
+
+      {isPursuingGc ? (
+        <>
+          <Field>
+            <label className="field-label">Green Card Pathway <Required /></label>
+            <Select
+              onChange={(e) => handlePathwayChange(e.target.value)}
+              value={data.greenCardPathway ?? "employer_sponsored"}
+            >
+              {GREEN_CARD_PATHWAYS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </Select>
+            <p className="field-helper">{selectedPathway.description}</p>
+          </Field>
+
+          {data.greenCardPathway === "other" && (
+            <Field>
+              <label className="field-label">Custom Pathway Description <Required /></label>
+              <Input
+                value={data.customGreenCardPathway ?? ""}
+                onChange={(e) => onChange("customGreenCardPathway", e.target.value)}
+                placeholder="e.g. Special Immigrant Juvenile (SIJS), VAWA, U/T adjustment"
+              />
+            </Field>
+          )}
+
+          {enabledKeys.has("greenCardStage") && (
+            <Field error={errors.has("greenCardStage")}>
+              <label className="field-label">Current filing stage <Required /></label>
+              <Select onChange={(e) => onChange("greenCardStage", e.target.value)} value={data.greenCardStage ?? ""}>
+                <option value="" disabled>Please select</option>
+                {stageOptions.map((opt) => (
+                  <option key={opt.id} value={opt.id}>
+                    {opt.label} — {opt.detail}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
+
+          {enabledKeys.has("preferenceCategory") && (
+            <Field error={errors.has("preferenceCategory")}>
+              <label className="field-label">Preference category or classification <Required /></label>
+              <Select onChange={(e) => onChange("preferenceCategory", e.target.value)} value={data.preferenceCategory ?? selectedPathway.defaultPreferenceCategory}>
+                <option value="" disabled>Please select</option>
+                {data.greenCardPathway?.startsWith("family_") ? (
+                  <>
+                    <option value="Immediate Relative (Spouse)">Immediate Relative (Spouse of US Citizen)</option>
+                    <option value="F-2A">F-2A (Spouse of Permanent Resident)</option>
+                    <option value="Immediate Relative (Parent/Child)">Immediate Relative (Parent/Child)</option>
+                    <option value="F-1">F-1 (Unmarried Son/Daughter of USC)</option>
+                    <option value="F-2B">F-2B (Unmarried Son/Daughter of LPR)</option>
+                    <option value="F-3">F-3 (Married Son/Daughter of USC)</option>
+                    <option value="F-4">F-4 (Brother/Sister of Adult USC)</option>
+                    <option value="Not sure">Not sure</option>
+                  </>
+                ) : (
+                  <>
+                    {["EB-1", "EB-2", "EB-3", "EB-2 NIW", "EB-1A", "EB-1B", "EB-1C", "EB-4", "EB-5", "Diversity Visa", "Asylum Adjustment", "Not sure"].map((v) => (
+                      <option key={v} value={v}>{v}</option>
+                    ))}
+                  </>
+                )}
+              </Select>
+            </Field>
+          )}
+
+          {enabledKeys.has("priorityDate") && (
+            <Field>
+              <label className="field-label">Priority date <span className="text-[var(--color-text-tertiary)] font-normal">(optional)</span></label>
+              <Input onChange={(e) => onChange("priorityDate", e.target.value)} type="date" value={data.priorityDate ?? ""} />
+              <p className="field-helper">The date your initial petition (PERM, Form I-130, or Form I-140) was filed.</p>
+            </Field>
+          )}
+
+          <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] p-4 space-y-4 bg-[var(--haven-cream)]/30">
+            <Field>
+              <label className="field-label" htmlFor="onboarding-sponsor-attribution-type">
+                Who is petitioning or sponsoring this Green Card? <Required />
+              </label>
+              <Select
+                id="onboarding-sponsor-attribution-type"
+                onChange={(e) => {
+                  onChange("sponsorAttributionType", e.target.value);
+                  if (e.target.value === "self_petition") {
+                    onChange("greenCardSponsor", "Self-Petition");
+                  } else if (e.target.value === "spouse") {
+                    onChange("greenCardSponsor", "Spouse");
+                  }
+                }}
+                value={data.sponsorAttributionType ?? (data.greenCardPathway?.startsWith("self_") ? "self_petition" : data.greenCardPathway?.startsWith("family_") ? "spouse" : "current_employer")}
+              >
+                {SPONSOR_ATTRIBUTION_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label} — {opt.helper}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+
+            <Field>
+              <label className="field-label" htmlFor="onboarding-gc-sponsor">
+                Sponsor or petitioner name <span className="text-[var(--color-text-tertiary)] font-normal">(optional)</span>
+              </label>
+              <Input
+                id="onboarding-gc-sponsor"
+                onChange={(e) => onChange("greenCardSponsor", e.target.value)}
+                placeholder="e.g. Current Employer, Prior Employer Inc., Spouse, or Self-Petition"
+                type="text"
+                value={data.greenCardSponsor ?? ""}
+              />
+              <p className="field-helper">
+                Never assumed to be your current employer. Accurately attributing the sponsor clarifies priority date retention and portability.
+              </p>
+            </Field>
+
+            <div className="border-t border-[var(--color-border)] pt-4">
+              <label className="field-label" htmlFor="onboarding-prior-i140-sponsor">
+                Prior approved I-140 sponsor (for Priority Date retention) <span className="text-[var(--color-text-tertiary)] font-normal">(optional)</span>
+              </label>
+              <Input
+                id="onboarding-prior-i140-sponsor"
+                onChange={(e) => onChange("retainedPriorityDateSponsor", e.target.value)}
+                placeholder="e.g. Previous Employer Inc."
+                type="text"
+                value={data.retainedPriorityDateSponsor ?? ""}
+              />
+              <p className="field-helper">
+                If you have an approved Form I-140 from an earlier employer, name that sponsor here to lock in your priority date.
+              </p>
+            </div>
           </div>
-        </Field>
+        </>
+      ) : (
+        <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--haven-white)] p-5 text-center">
+          <p className="text-h4 text-[var(--haven-ink)]">Green card journey skipped</p>
+          <p className="text-body-sm text-[var(--color-text-secondary)] mt-1.5 max-w-[50ch] mx-auto">
+            You indicated you are not pursuing a green card at this time. You can always explore pathways later in your dashboard or settings.
+          </p>
+        </div>
       )}
     </>
   );
