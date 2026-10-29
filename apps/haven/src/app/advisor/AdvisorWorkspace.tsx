@@ -510,13 +510,16 @@ export function AdvisorWorkspace({
     const visibleSharedMessages = sharedMessages.filter((am) => {
       if (!selectedFirmAck) return false;
       const threadCreatedAt =
-        threads.find((t) => t.id === am.threadId)?.createdAt ?? am.createdAt;
+        threads.find((t) => t.id === am.threadId)?.createdAt ??
+        (openedThreadCreatedAt?.id === am.threadId ? openedThreadCreatedAt.createdAt : undefined) ??
+        (am.threadId === "session" ? am.createdAt : undefined);
+      if (!threadCreatedAt) return false;
       return isThreadVisibleToFirm(threadCreatedAt, selectedFirmAck);
     });
 
     const combinedAdvisorMessages = [...visibleSharedMessages];
     for (const m of messages) {
-      const isDuplicate = combinedAdvisorMessages.some((existing) => {
+      const isDuplicate = visibleSharedMessages.some((existing) => {
         if (existing.id === m.id) return true;
         if (existing.traceId && m.traceId && existing.traceId === m.traceId) return true;
         if (
@@ -847,20 +850,22 @@ export function AdvisorWorkspace({
               ...optimisticUserMessage,
               threadId: event.conversationId ?? conversationId ?? "session",
             };
-            setSharedMessages((current) => {
-              const withoutDupes = current.filter((existing) => {
-                if (existing.id === userMsgForShared.id || existing.id === event.assistantMessage.id) return false;
-                if (
-                  event.assistantMessage.traceId &&
-                  existing.traceId &&
-                  existing.traceId === event.assistantMessage.traceId
-                ) {
-                  return false;
-                }
-                return true;
+            if (!viewingPrivateThread) {
+              setSharedMessages((current) => {
+                const withoutDupes = current.filter((existing) => {
+                  if (existing.id === userMsgForShared.id || existing.id === event.assistantMessage.id) return false;
+                  if (
+                    event.assistantMessage.traceId &&
+                    existing.traceId &&
+                    existing.traceId === event.assistantMessage.traceId
+                  ) {
+                    return false;
+                  }
+                  return true;
+                });
+                return [...withoutDupes, userMsgForShared, event.assistantMessage];
               });
-              return [...withoutDupes, userMsgForShared, event.assistantMessage];
-            });
+            }
             setStreamingId(null);
             setIsPending(false);
             trackEvent("Search", { search_query: content, user_id: null, results_count: 1 });
