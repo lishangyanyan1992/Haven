@@ -514,7 +514,11 @@ export function ImmigrationJourneyDashboard({
                   Current visa status
                 </label>
                 <div id="journey-visaType">
-                  <VisaStatusField defaultCustom={profile.customVisaDetail} defaultValue={profile.visaType ?? ""} />
+                  <VisaStatusField
+                    key={`${profile.visaType ?? ""}|${profile.customVisaDetail ?? ""}`}
+                    defaultCustom={profile.customVisaDetail}
+                    defaultValue={profile.visaType ?? ""}
+                  />
                 </div>
               </div>
 

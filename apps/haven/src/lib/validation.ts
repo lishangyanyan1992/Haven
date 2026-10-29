@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+import { ALL_GREEN_CARD_STAGE_OPTIONS, ALL_PREFERENCE_CATEGORIES } from "@/lib/visas";
+
+const ALL_GREEN_CARD_STAGE_IDS = ALL_GREEN_CARD_STAGE_OPTIONS.map((o) => o.id) as [string, ...string[]];
+const ALL_PREFERENCE_CATEGORY_VALUES = ALL_PREFERENCE_CATEGORIES as [string, ...string[]];
+
 export const onboardingStepOneSchema = z.object({
   // Any visa or status, including a typed-in one (standard list: lib/visas.ts).
   visaType: z.string().trim().min(1).max(80),
@@ -15,9 +20,9 @@ export const onboardingStepTwoSchema = z.object({
 });
 
 export const onboardingStepThreeSchema = z.object({
-  greenCardStage: z.string().trim().min(1).max(40),
+  greenCardStage: z.enum(ALL_GREEN_CARD_STAGE_IDS),
   priorityDate: z.string().optional(),
-  preferenceCategory: z.string().trim().min(1).max(80),
+  preferenceCategory: z.enum(ALL_PREFERENCE_CATEGORY_VALUES),
   i140Approved: z.boolean()
 });
 

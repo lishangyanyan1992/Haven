@@ -36,7 +36,7 @@ export type DateFieldKey =
   | "priorityDate";
 
 /** The form that starts each non-I-140 path, for date labels. */
-function firstPetitionForm(type: string): string | null {
+export function firstPetitionForm(type: string): string | null {
   if (type.startsWith("family_")) return "I-130";
   if (type === "investment_eb5") return "I-526";
   if (type === "humanitarian_other") return "Petition (I-360, I-918, I-914…)";

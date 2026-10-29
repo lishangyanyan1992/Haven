@@ -196,13 +196,15 @@ export const STAGES_BY_PATHWAY: Record<string, StageOptionItem[]> = {
     { id: "perm_certified", label: "PERM certified", detail: "Labor certification approved; ready for Form I-140" },
     { id: "i140_filed", label: "Form I-140 filed", detail: "Immigrant petition pending with USCIS" },
     { id: "i140_approved", label: "Form I-140 approved", detail: "Approved I-140 locks in your Priority Date!" },
-    { id: "i485_filed", label: "Form I-485 filed (Adjustment of Status)", detail: "Adjustment application pending with USCIS" }
+    { id: "i485_filed", label: "Form I-485 filed (Adjustment of Status)", detail: "Adjustment application pending with USCIS" },
+    { id: "i485_approved", label: "Permanent Resident", detail: "Green card granted" }
   ],
   self_petition: [
     { id: "not_started", label: "Not started yet", detail: "Gathering evidence and drafting petition letters" },
     { id: "i140_filed", label: "Form I-140 filed", detail: "Self-petition submitted to USCIS (no PERM needed)" },
     { id: "i140_approved", label: "Form I-140 approved", detail: "Petition approved; priority date locked" },
-    { id: "i485_filed", label: "Form I-485 filed (Adjustment of Status)", detail: "Adjustment application pending with USCIS" }
+    { id: "i485_filed", label: "Form I-485 filed (Adjustment of Status)", detail: "Adjustment application pending with USCIS" },
+    { id: "i485_approved", label: "Permanent Resident", detail: "Green card granted" }
   ],
   universal: [
     { id: "not_started", label: "Not started yet", detail: "Gathering materials or awaiting eligibility" },
@@ -219,7 +221,7 @@ export function getStagesForPathway(pathwayId: string | undefined): StageOptionI
   if (!pathwayId) return STAGES_BY_PATHWAY.universal;
   if (pathwayId.startsWith("family_")) return STAGES_BY_PATHWAY.family;
   if (pathwayId.startsWith("self_petition_")) return STAGES_BY_PATHWAY.self_petition;
-  if (pathwayId === "employer_sponsored") return STAGES_BY_PATHWAY.employer;
+  if (pathwayId === "employer_sponsored" || pathwayId === "concurrent_employer") return STAGES_BY_PATHWAY.employer;
   return STAGES_BY_PATHWAY.universal;
 }
 

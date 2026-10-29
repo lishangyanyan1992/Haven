@@ -109,6 +109,47 @@ async function main() {
     JSON.stringify(docs.entries)
   );
 
+  // 7. Review fixes: steps, timeline, lawyer summary, onboarding checks.
+  const { getStagesForPathway } = await import("@/lib/visas");
+  const { buildPetitionTracks, inferProfileGreenCardStage, buildImmigrationJourney } = await import("@/lib/immigration-journey");
+  const { greenCardLine } = await import("@/lib/firms/green-cards");
+  const { onboardingStepThreeSchema } = await import("@/lib/validation");
+  const { twoEmployerProfile } = await import("./fixtures");
+  const ids = (t: string) => getStagesForPathway(t).map((s) => s.id);
+  check("second employer: PERM steps offered", ids("concurrent_employer").includes("perm_in_progress"));
+  check(
+    "employer and self-petition: permanent resident offered",
+    ids("employer_sponsored").includes("i485_approved") && ids("self_petition_niw").includes("i485_approved")
+  );
+
+  const spouseProfile = twoEmployerProfile({ immigrantPetitions: [{ ...read, stage: "i130_filed" }] as never, i140Approved: false, permStage: "not_started", retainedPriorityDate: undefined, priorityDate: undefined });
+  const [spouseTrack] = buildPetitionTracks(spouseProfile, new Date("2026-10-28T12:00:00Z"));
+  check(
+    "marriage row: I-130, wait in line, green card — no PERM or I-140",
+    spouseTrack.stages.map((st) => st.key).join() === "petition,bulletin_queue,i485" && spouseTrack.stages[0].label === "I-130" && spouseTrack.stages[0].status === "current",
+    JSON.stringify(spouseTrack.stages)
+  );
+  const journey = buildImmigrationJourney({ profile: spouseProfile, signals: { layoffReadinessScore: "medium", layoffReadinessReasoning: [] } as never, now: new Date("2026-10-28T12:00:00Z") } as never);
+  const nodeKeys = journey.greenCardTrack.nodes.map((n) => n.key);
+  check(
+    "marriage timeline: no PERM or I-140 milestones, I-130 shown as filed",
+    !nodeKeys.includes("perm") && !nodeKeys.includes("i140") && journey.greenCardTrack.nodes[0].badgeText === "Filed / Pending",
+    JSON.stringify(journey.greenCardTrack.nodes.map((n) => [n.key, n.status, n.badgeText]))
+  );
+  const saved = twoEmployerProfile({ immigrantPetitions: undefined, i140Approved: false, permStage: "not_started", greenCardStage: "i130_filed" });
+  check("saved step with no green card record: shown", inferProfileGreenCardStage(saved) === "i130_filed");
+
+  check(
+    "lawyer summary: EB-5 names its own form",
+    greenCardLine({ id: "x", sponsorName: "Golden Gate RC", petitionType: "investment_eb5", preferenceCategory: "EB-5", stage: "i130_filed", petitionFiledDate: "2025-03-01" }).includes("I-526 filed Mar 1, 2025"),
+    greenCardLine({ id: "x", sponsorName: "Golden Gate RC", petitionType: "investment_eb5", preferenceCategory: "EB-5", stage: "i130_filed", petitionFiledDate: "2025-03-01" })
+  );
+  check(
+    "onboarding checks: typo in a step or category is refused",
+    !onboardingStepThreeSchema.safeParse({ greenCardStage: "i485_flied", preferenceCategory: "EB-2", i140Approved: false }).success &&
+      onboardingStepThreeSchema.safeParse({ greenCardStage: "i130_filed", preferenceCategory: "F-2A", i140Approved: false }).success
+  );
+
   console.log(`\n${pass}/${pass + failures.length} checks passed.`);
   if (failures.length > 0) process.exit(1);
 }

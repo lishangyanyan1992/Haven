@@ -1,4 +1,5 @@
 import { ENDED_REASON_LABELS, normalizePetitions } from "@/lib/petitions";
+import { firstPetitionForm } from "@/lib/green-card-forms";
 import type { SponsorRef } from "@/lib/sponsor-documents";
 import type { ImmigrantPetition, ImmigrantPetitionStage, ImmigrantPetitionType } from "@/types/domain";
 
@@ -50,7 +51,11 @@ export function greenCardLine(p: ImmigrantPetition): string {
   const type = TYPE_LABELS[p.petitionType];
   if (category || type) parts.push([category, type].filter(Boolean).join(", "));
 
-  const stage = STAGE_LABELS[p.stage] ?? p.stage;
+  // "I-130 filed" belongs to family green cards; EB-5 and others name their own form.
+  const firstForm = p.stage === "i130_filed" || p.stage === "i130_approved" ? firstPetitionForm(p.petitionType) : null;
+  const stage = firstForm && firstForm !== "I-130"
+    ? `${firstForm} ${p.stage === "i130_filed" ? "filed" : "approved"}`
+    : STAGE_LABELS[p.stage] ?? p.stage;
   const stageDate =
     p.stage === "i140_approved"
       ? formatDate(p.i140ApprovalDate)

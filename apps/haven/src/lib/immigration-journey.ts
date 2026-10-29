@@ -11,7 +11,8 @@ import type {
   PriorityDateIntelligence
 } from "@/types/domain";
 import { isPetitionEnded } from "@/types/domain";
-import { activePetitions, ENDED_REASON_LABELS, isApprovedStage, providesI140Protection, sponsorMatches, STAGE_ORDER } from "@/lib/petitions";
+import { activePetitions, ENDED_REASON_LABELS, isApprovedStage, providesI140Protection, sponsorMatches, STAGE_ORDER, usesI140, usesPerm } from "@/lib/petitions";
+import { firstPetitionForm } from "@/lib/green-card-forms";
 
 export type JourneyTrackTone = "sage" | "sky" | "sand" | "blush" | "ink";
 
@@ -97,7 +98,7 @@ export type JobJourneyTrack = {
 };
 
 export type GreenCardStageNode = {
-  key: "perm" | "priority_date" | "i140" | "bulletin_queue" | "i485";
+  key: "perm" | "priority_date" | "i140" | "bulletin_queue" | "i485" | "petition";
   label: string;
   shortLabel: string;
   status: "completed" | "current" | "upcoming";
@@ -122,7 +123,8 @@ export type ImmigrantPetitionSummary = {
 };
 
 export type PetitionTrackStage = {
-  key: "perm" | "priority_date" | "i140" | "bulletin_queue" | "i485";
+  /** "petition" is the first petition of a non-I-140 green card (I-130, I-526…). */
+  key: "perm" | "priority_date" | "i140" | "bulletin_queue" | "i485" | "petition";
   label: string;
   status: "completed" | "current" | "upcoming" | "stopped";
 };
@@ -438,7 +440,21 @@ export function inferProfileGreenCardStage(profile: ImmigrationProfile): GreenCa
   if (profile.i140Filed) return "i140_filed";
   if (profile.permStage === "certified") return "perm_certified";
   if (profile.permStage === "in_progress") return "perm_in_progress";
+  // A step saved in Settings with no green card record (I-130 filed, consular processing…).
+  if (profile.greenCardStage && NON_I140_STAGES.has(profile.greenCardStage)) return profile.greenCardStage;
   return "not_started";
+}
+
+/** Steps that belong to family, investor, humanitarian and lottery green cards, not PERM or I-140. */
+const NON_I140_STAGES = new Set(["i130_filed", "i130_approved", "consular_processing", "conditional_resident"]);
+
+/**
+ * Whether a green card goes through I-140 (employer or self-petition). Family,
+ * investor, humanitarian and lottery green cards get their own milestones.
+ */
+function isI140Path(petitionType: string | undefined, stage: string): boolean {
+  if (NON_I140_STAGES.has(stage)) return false;
+  return usesI140(petitionType);
 }
 
 export function resolveEffectivePriorityDate(profile: ImmigrationProfile): {
@@ -710,7 +726,7 @@ export function buildPetitionTracks(profile: ImmigrationProfile, nowUtc: Date = 
     const protects = providesI140Protection(p);
     const order = STAGE_ORDER[p.stage];
     const hasOwnPd = Boolean(p.permFilingDate) || order >= STAGE_ORDER.perm_certified;
-    const done: Record<PetitionTrackStage["key"], boolean> = {
+    const done: Record<string, boolean> = {
       perm: order >= STAGE_ORDER.perm_certified,
       priority_date: hasOwnPd || Boolean(p.isPriorityDateRecaptured && p.priorityDate),
       i140: order >= STAGE_ORDER.i140_approved || (p.stage === "withdrawn" && Boolean(p.i140ApprovalDate)),
@@ -718,7 +734,22 @@ export function buildPetitionTracks(profile: ImmigrationProfile, nowUtc: Date = 
       i485: p.stage === "i485_approved"
     };
     let currentAssigned = false;
-    const stages = PETITION_TRACK_STAGES.map(({ key, label }): PetitionTrackStage => {
+    if (!isI140Path(p.petitionType, p.stage)) {
+      // First petition (I-130, I-526…), then the visa queue, then the green card.
+      done.petition = order >= STAGE_ORDER.i130_approved;
+      done.bulletin_queue = order >= STAGE_ORDER.i485_filed || p.stage === "consular_processing";
+      done.i485 = p.stage === "i485_approved" || p.stage === "conditional_resident";
+    }
+    const trackStages = isI140Path(p.petitionType, p.stage)
+      ? usesPerm(p.petitionType)
+        ? PETITION_TRACK_STAGES
+        : PETITION_TRACK_STAGES.filter((st) => st.key !== "perm")
+      : [
+          ...(firstPetitionForm(p.petitionType) ? [{ key: "petition" as const, label: firstPetitionForm(p.petitionType)! }] : []),
+          { key: "bulletin_queue" as const, label: "Wait in line" },
+          { key: "i485" as const, label: "Green card" }
+        ];
+    const stages = trackStages.map(({ key, label }): PetitionTrackStage => {
       if (done[key]) return { key, label, status: "completed" };
       if (ended) return { key, label, status: "stopped" };
       if (!currentAssigned) {
@@ -1587,7 +1618,7 @@ export function buildImmigrationJourney(input: {
     ? `${priorityDateIntelligence.latestBulletinLabel}: ${priorityDateIntelligence.latestCutoffLabel}`
     : null;
 
-  const gcNodes: GreenCardStageNode[] = [
+  const employmentGcNodes: GreenCardStageNode[] = [
     {
       key: "perm",
       label: "PERM Labor Certification",
@@ -1695,6 +1726,52 @@ export function buildImmigrationJourney(input: {
       detail: "Biometrics, EAD/AP combo card, and final green card adjudication."
     }
   ];
+
+  // Family, investor, humanitarian and lottery green cards have no PERM or I-140.
+  const gcPathType = findActivePetition(profile)?.petitionType ?? profile.greenCardPathway;
+  const firstForm = firstPetitionForm(gcPathType ?? "") ?? "Petition";
+  const petitionRank = gcStage === "i130_filed" ? 1 : ["i130_approved", "consular_processing", "i485_filed", "conditional_resident", "i485_approved"].includes(gcStage) ? 2 : 0;
+  const isConsular = gcStage === "consular_processing";
+  const nonI140GcNodes: GreenCardStageNode[] = [
+    {
+      key: "petition",
+      label: firstForm === "Petition" ? "First petition" : `${firstForm} petition`,
+      shortLabel: firstForm,
+      status: isGcComplete || petitionRank === 2 ? "completed" : petitionRank === 1 ? "current" : "upcoming",
+      badgeText: isGcComplete || petitionRank === 2 ? "Approved" : petitionRank === 1 ? "Filed / Pending" : "Not filed",
+      dateOrMeta: gcSponsorName ? `Petitioner: ${gcSponsorName}` : "Step 1",
+      detail: "The petition that starts this green card, filed with USCIS."
+    },
+    employmentGcNodes.find((n) => n.key === "priority_date")!,
+    {
+      ...employmentGcNodes.find((n) => n.key === "bulletin_queue")!,
+      status:
+        isGcComplete || ["i485_filed", "conditional_resident", "i485_approved"].includes(gcStage) || isConsular || priorityDateIntelligence?.isCurrent
+          ? "completed"
+          : petitionRank === 2 || Boolean(priorityDate)
+            ? "current"
+            : "upcoming"
+    },
+    {
+      key: "i485",
+      label: isConsular ? "Consular processing / Green card" : "I-485 / Green card",
+      shortLabel: "Green card",
+      status: isGcComplete || gcStage === "i485_approved" ? "completed" : ["i485_filed", "conditional_resident"].includes(gcStage) || isConsular ? "current" : "upcoming",
+      badgeText:
+        isGcComplete || gcStage === "i485_approved"
+          ? "Approved"
+          : gcStage === "conditional_resident"
+            ? "Conditional (2-year)"
+            : gcStage === "i485_filed" || isConsular
+              ? "Pending"
+              : "Upcoming",
+      dateOrMeta: estimatedRangeLabel ?? "Final step to permanent residency",
+      detail: isConsular
+        ? "National Visa Center, the consular interview abroad, then entry as a permanent resident."
+        : "Adjustment of status: biometrics, interview if scheduled, and the green card decision."
+    }
+  ];
+  const gcNodes = isI140Path(gcPathType, gcStage) ? employmentGcNodes : nonI140GcNodes;
 
   const gcSegments: JourneyBarSegment[] = [];
   const gcPins: JourneyPlotPin[] = [];

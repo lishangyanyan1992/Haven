@@ -216,7 +216,12 @@ export default async function SettingsPage({
               </CardHeader>
               <CardContent className="space-y-4">
                 <Field label="Current visa status">
-                  <VisaStatusField defaultCustom={profile.customVisaDetail} defaultValue={profile.visaType} />
+                  <VisaStatusField
+                    // Remount when the saved value changes (e.g. "Use the document's value"), so a later save can't undo it.
+                    key={`${profile.visaType}|${profile.customVisaDetail ?? ""}`}
+                    defaultCustom={profile.customVisaDetail}
+                    defaultValue={profile.visaType}
+                  />
                   <FieldSourceLabel fieldKey="visaType" hasValue={Boolean(profile.visaType)} source={sources.visaType} />
                 </Field>
                 <Field label="Country of birth">
