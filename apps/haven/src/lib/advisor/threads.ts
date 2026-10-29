@@ -29,6 +29,8 @@ export interface AdvisorThreadSummary {
   id: string;
   title: string;
   updatedAt: string;
+  /** When the chat started. A firm sees it only if this is after the client agreed to share. */
+  createdAt?: string;
   messageCount: number;
 }
 
@@ -94,7 +96,7 @@ export async function listThreads(userId: string): Promise<AdvisorThreadSummary[
 
   const { data, error } = await admin
     .from("advisor_threads")
-    .select("id, title, updated_at, advisor_messages(count)")
+    .select("id, title, created_at, updated_at, advisor_messages(count)")
     .eq("user_id", userId)
     .order("updated_at", { ascending: false })
     .limit(MAX_THREADS_LISTED);
@@ -108,6 +110,7 @@ export async function listThreads(userId: string): Promise<AdvisorThreadSummary[
       id: row.id as string,
       title: (row.title as string) ?? "New conversation",
       updatedAt: row.updated_at as string,
+      createdAt: row.created_at as string,
       messageCount: row.advisor_messages?.[0]?.count ?? 0
     }))
     // A thread row is reserved before generation, so an abandoned or errored first

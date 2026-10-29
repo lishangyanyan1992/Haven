@@ -13,6 +13,8 @@ import { DeadlineFields } from "@/components/app/deadline-fields";
 import { DocumentContextUploader } from "@/components/app/document-context-uploader";
 import { findPresetDocument } from "@/lib/document-vault";
 import { getDefaultIntakeQuestions } from "@/lib/firms/intake-question-catalog";
+import { HELP_NEEDED_OPTIONS, HELP_NEEDED_SENT_MARKER } from "@/lib/firms/help-needed";
+import { MESSAGE_MAX_LENGTH } from "@/lib/firms/message-limits";
 import type { IntakeQuestionItem, RequiredDocumentItem } from "@/lib/firms/types";
 
 export type UploadedIntakeDocument = {
@@ -38,7 +40,9 @@ interface OnboardingData {
   preferenceCategory: string;
   i140Approved: string; // derived from greenCardStage, not shown as a field
   spouseVisaStatus: string;
-  topConcerns: string[];
+  helpNeeded: string[];
+  // Optional first message to the lawyer, sent once when setup is finished.
+  lawyerMessage: string;
   // Step 5, "Your deadlines" (all optional)
   statusEndDate: string;
   statusEndUnknown: string;
@@ -119,7 +123,7 @@ const valueInsights: Record<number, string[]> = {
   ],
   4: [
     "Spouse status may create additional paths in a hard moment.",
-    "Your concerns help rank what Haven surfaces first.",
+    "Your lawyer sees the help you pick, so your first conversation starts in the right place.",
     "Community matching works better when it knows what you are navigating."
   ],
   5: [
@@ -258,6 +262,7 @@ export function OnboardingFlow({
     [intakeQuestions]
   );
   const enabledKeys = useMemo(() => new Set(resolvedQuestions.map((q) => q.key)), [resolvedQuestions]);
+  const hasFirm = Boolean(firmName);
   const customQuestions = useMemo(() => resolvedQuestions.filter((q) => q.isCustom), [resolvedQuestions]);
 
   const activeSteps = useMemo(() => {
@@ -265,13 +270,13 @@ export function OnboardingFlow({
       if (s.id === 1) return ["visaType", "countryOfBirth", "primaryGoal"].some((k) => enabledKeys.has(k));
       if (s.id === 2) return ["employerName", "jobTitle", "h1bStartDate", "employerSize"].some((k) => enabledKeys.has(k));
       if (s.id === 3) return ["greenCardStage", "preferenceCategory", "priorityDate"].some((k) => enabledKeys.has(k));
-      if (s.id === 4) return ["spouseVisaStatus", "topConcerns"].some((k) => enabledKeys.has(k)) || customQuestions.length > 0;
+      if (s.id === 4) return ["spouseVisaStatus", "helpNeeded"].some((k) => enabledKeys.has(k)) || customQuestions.length > 0 || hasFirm;
       if (s.id === 5) return ["statusEndDate", "jobEnded", "agencyDeadlineType", "travelPlanned"].some((k) => enabledKeys.has(k));
       if (s.id === 6) return requiredDocuments.length > 0;
       return true;
     });
     return filtered.length > 0 ? filtered : [steps[0]];
-  }, [enabledKeys, customQuestions.length, requiredDocuments.length]);
+  }, [enabledKeys, customQuestions.length, requiredDocuments.length, hasFirm]);
 
   const [currentStep, setCurrentStep] = useState<number>(() => {
     const match = activeSteps.find((s) => s.id === initialStep);
@@ -280,7 +285,7 @@ export function OnboardingFlow({
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedIntakeDocument[]>(initialUploadedDocuments);
   const [isSaving, startSavingTransition] = useTransition();
   const [saveFeedback, setSaveFeedback] = useState<string | null>(null);
-  const [formData, setFormData] = useState<Partial<OnboardingData>>({ topConcerns: [], ...initialDeadlines });
+  const [formData, setFormData] = useState<Partial<OnboardingData>>({ helpNeeded: [], ...initialDeadlines });
   const [hasInteracted, setHasInteracted] = useState(false);
   const [showFieldErrors, setShowFieldErrors] = useState(false);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -288,6 +293,8 @@ export function OnboardingFlow({
   const currentStepRef = useRef(currentStep);
   const formDataRef = useRef(formData);
   const activeStepsRef = useRef(activeSteps);
+  const helpQuestionShownRef = useRef(enabledKeys.has("helpNeeded"));
+  useEffect(() => { helpQuestionShownRef.current = enabledKeys.has("helpNeeded"); }, [enabledKeys]);
 
   useEffect(() => {
     setUploadedDocuments(initialUploadedDocuments);
@@ -358,12 +365,12 @@ export function OnboardingFlow({
     });
   };
 
-  const toggleConcern = (concern: string) => {
+  const toggleHelpNeeded = (choice: string) => {
     setHasInteracted(true);
     setFormData((prev) => {
-      const current = prev.topConcerns ?? [];
-      const next = current.includes(concern) ? current.filter((c) => c !== concern) : [...current, concern];
-      return { ...prev, topConcerns: next };
+      const current = prev.helpNeeded ?? [];
+      const next = current.includes(choice) ? current.filter((c) => c !== choice) : [...current, choice];
+      return { ...prev, helpNeeded: next };
     });
   };
 
@@ -377,6 +384,7 @@ export function OnboardingFlow({
         if (Array.isArray(value)) (value as string[]).forEach((v) => data.append(key, v));
         else if (value !== undefined) data.append(key, value as string);
       });
+      if (helpQuestionShownRef.current) data.append(HELP_NEEDED_SENT_MARKER, "1");
       try {
         await saveStepActionRef.current(currentStepRef.current, data);
       } catch {
@@ -423,6 +431,8 @@ export function OnboardingFlow({
       }
       if (value !== undefined) data.append(key, value);
     });
+    // An empty selection sends no field; the marker lets it clear saved choices.
+    if (enabledKeys.has("helpNeeded")) data.append(HELP_NEEDED_SENT_MARKER, "1");
     return data;
   };
 
@@ -475,7 +485,8 @@ export function OnboardingFlow({
       try {
         await saveStepAction(currentStep, data);
         trackEvent("Onboarding Completed", {
-          concern_count: formData.topConcerns?.length ?? 0
+          help_needed_count: formData.helpNeeded?.length ?? 0,
+          left_lawyer_message: Boolean(formData.lawyerMessage?.trim())
         });
         if (typeof window !== "undefined") {
           window.sessionStorage.removeItem(`${ONBOARDING_STARTED_PREFIX}:${userEmail || "anonymous"}`);
@@ -556,8 +567,9 @@ export function OnboardingFlow({
                 data={formData}
                 enabledKeys={enabledKeys}
                 errors={errorFields}
+                firmName={firmName}
                 onChange={updateField}
-                onToggleConcern={toggleConcern}
+                onToggleHelpNeeded={toggleHelpNeeded}
               />
             )}
             {step.id === 5 && (
@@ -922,23 +934,20 @@ function Step4Form({
   enabledKeys,
   customQuestions,
   errors,
+  firmName,
   onChange,
-  onToggleConcern
+  onToggleHelpNeeded
 }: {
   data: Partial<OnboardingData>;
   enabledKeys: Set<string>;
   customQuestions: IntakeQuestionItem[];
   errors: Set<string>;
+  firmName?: string;
   onChange: (key: string, value: string) => void;
-  onToggleConcern: (concern: string) => void;
+  onToggleHelpNeeded: (choice: string) => void;
 }) {
-  const concerns = data.topConcerns ?? [];
-  const concernOptions = [
-    { value: "layoffs", label: "Layoff risk", description: "I want a plan if my job changes suddenly." },
-    { value: "visa_expiry", label: "Visa expiry", description: "I need help keeping dates and renewal timing straight." },
-    { value: "gc_timeline", label: "Green card timeline", description: "I want clarity on queues, ranges, and bulletin movement." },
-    { value: "job_change", label: "Job change", description: "I'm weighing portability, transfers, or other moves." }
-  ];
+  const helpNeeded = data.helpNeeded ?? [];
+  const lawyerMessage = data.lawyerMessage ?? "";
 
   return (
     <>
@@ -957,22 +966,23 @@ function Step4Form({
           </Select>
         </Field>
       )}
-      {enabledKeys.has("topConcerns") && (
+      {enabledKeys.has("helpNeeded") && (
         <div>
-          <label className="field-label">What feels most important right now? <span className="text-[var(--color-text-tertiary)] font-normal">(optional)</span></label>
-          <div className="grid gap-3">
-            {concernOptions.map((option) => {
-              const selected = concerns.includes(option.value);
+          <label className="field-label">What help do you need from your lawyer? <span className="text-[var(--color-text-tertiary)] font-normal">(optional, pick any)</span></label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {HELP_NEEDED_OPTIONS.map((option) => {
+              const selected = helpNeeded.includes(option.value);
               return (
                 <button
                   key={option.value}
+                  aria-pressed={selected}
                   className={cn(
                     "rounded-[var(--radius-lg)] border p-4 text-left transition-colors",
                     selected
                       ? "border-[var(--haven-sage)] bg-[var(--haven-sage-light)]"
                       : "border-[var(--color-border)] bg-[var(--haven-white)] hover:bg-[var(--haven-cream)]"
                   )}
-                  onClick={() => onToggleConcern(option.value)}
+                  onClick={() => onToggleHelpNeeded(option.value)}
                   type="button"
                 >
                   <p className="text-h3">{option.label}</p>
@@ -982,6 +992,24 @@ function Step4Form({
             })}
           </div>
         </div>
+      )}
+      {firmName && (
+        <Field>
+          <label className="field-label" htmlFor="lawyerMessage">
+            What would you like your lawyer to know or answer? <span className="text-[var(--color-text-tertiary)] font-normal">(optional)</span>
+          </label>
+          <textarea
+            className="min-h-32 w-full rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--haven-white)] px-4 py-3 text-base text-[var(--haven-ink)] placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--haven-sage)] focus:outline-none"
+            id="lawyerMessage"
+            maxLength={MESSAGE_MAX_LENGTH}
+            onChange={(e) => onChange("lawyerMessage", e.target.value)}
+            placeholder="For example: Can I start a new job before my H-1B transfer is approved?"
+            value={lawyerMessage}
+          />
+          <p className="text-body-sm mt-2 text-[var(--color-text-tertiary)]">
+            Sent to {firmName} when you finish setup. They can reply in Haven, and you&apos;ll get an email when they do.
+          </p>
+        </Field>
       )}
       {customQuestions.map((q) => (
         <Field key={q.key}>

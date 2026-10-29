@@ -141,6 +141,8 @@ export interface ImmigrationProfile {
   spouseVisaStatus: SpouseVisaStatus;
   primaryGoal: PrimaryGoal;
   topConcerns: Concern[];
+  /** "What help do you need from your lawyer?" choices; see lib/firms/help-needed. */
+  helpNeeded?: string[];
   communityReplyEmailNotifications?: boolean;
   statusUpdateEmailNotifications?: boolean;
 }

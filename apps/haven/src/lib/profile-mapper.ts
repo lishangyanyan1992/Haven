@@ -60,6 +60,7 @@ export function mapProfileRow(row: Record<string, unknown>): ImmigrationProfile 
     spouseVisaStatus: row.spouse_visa_status as ImmigrationProfile["spouseVisaStatus"],
     primaryGoal: row.primary_goal as ImmigrationProfile["primaryGoal"],
     topConcerns: ((row.top_concerns as string[] | null) ?? []) as ImmigrationProfile["topConcerns"],
+    helpNeeded: Array.isArray(row.help_needed) ? (row.help_needed as string[]) : [],
     communityReplyEmailNotifications: Boolean(row.community_reply_email_notifications),
     statusUpdateEmailNotifications: Boolean(row.status_update_email_notifications)
   };

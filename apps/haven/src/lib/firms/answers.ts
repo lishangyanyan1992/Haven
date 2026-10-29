@@ -1,4 +1,5 @@
 import { greenCardLinesForFirm, greenCardSponsorsForFirm } from "@/lib/firms/green-cards";
+import { HELP_NEEDED_SENT_MARKER, normalizeHelpNeeded } from "@/lib/firms/help-needed";
 import { isCustomQuestionKey } from "@/lib/firms/intake-question-catalog";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -8,8 +9,8 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
  * Kept as a separate copy on firm_clients.shared_answers rather than read
  * live from user_profiles, because the chat also updates user_profiles
  * (for example, "I was laid off" changes work status). Only the setup and
- * settings screens write this copy, so nothing said in a chat reaches the
- * lawyer.
+ * settings screens write this copy. A firm sees chats only through
+ * lib/firms/shared-chats.ts, after the client agrees.
  */
 
 export const SHARED_ANSWER_KEYS = [
@@ -33,7 +34,10 @@ export const SHARED_ANSWER_KEYS = [
   // document checklist can ask for sponsor documents per sponsor.
   "greenCardSponsors",
   "spouseVisaStatus",
+  // Kept for clients who answered "Main concerns" before it was replaced.
   "topConcerns",
+  // "What help do you need from your lawyer?"
+  "helpNeeded",
   // "Your deadlines" (setup step 5 and the one-time prompt)
   "statusEndDate",
   "statusEndUnknown",
@@ -114,6 +118,7 @@ export function sharedAnswersFromProfile(p: Record<string, any> | null): SharedA
     greenCardSponsors: greenCardSponsorsForFirm(deadlineRecord.immigrantPetitions),
     spouseVisaStatus: p.spouse_visa_status,
     topConcerns: p.top_concerns ?? [],
+    helpNeeded: normalizeHelpNeeded(p.help_needed),
     statusEndDate: deadlineRecord.statusEndDate ?? p.current_visa_expiry_date ?? "",
     statusEndUnknown: deadlineRecord.statusEndUnknown,
     jobEnded: deadlineRecord.jobEnded,
@@ -140,7 +145,10 @@ export function mergeSharedAnswers(current: SharedAnswers, draft: Record<string,
   );
   const submitted: string[] = [
     ...SHARED_ANSWER_KEYS.filter(
-      (key) => form.has(key) || (key === "topConcerns" && form.has("spouseVisaStatus"))
+      (key) =>
+        form.has(key) ||
+        (key === "topConcerns" && form.has("spouseVisaStatus")) ||
+        (key === "helpNeeded" && form.has(HELP_NEEDED_SENT_MARKER))
     ),
     ...customKeys.filter((key) => form.has(key))
   ];

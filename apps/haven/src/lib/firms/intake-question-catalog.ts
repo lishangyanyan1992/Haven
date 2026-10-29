@@ -77,9 +77,9 @@ export const PRESET_INTAKE_QUESTIONS: PresetIntakeQuestion[] = [
     group: "Situation"
   },
   {
-    key: "topConcerns",
-    label: "Main concerns",
-    detail: "Layoff risk, visa expiry, green card timeline, or job change.",
+    key: "helpNeeded",
+    label: "Help needed from your lawyer",
+    detail: "First consultation, case review, job-loss plan, other paths to stay, and more. Plus a message to you.",
     group: "Situation"
   },
   {
@@ -109,6 +109,23 @@ export const PRESET_INTAKE_QUESTIONS: PresetIntakeQuestion[] = [
 ];
 
 export const DEFAULT_INTAKE_QUESTION_KEYS = PRESET_INTAKE_QUESTIONS.map((q) => q.key);
+
+/**
+ * Preset keys that were renamed. "Main concerns" (topConcerns) became "Help
+ * needed from your lawyer" (helpNeeded); migration 0050 rewrote stored lists,
+ * and this keeps any list saved under the old key working.
+ */
+const RENAMED_PRESET_KEYS: Record<string, string> = { topConcerns: "helpNeeded" };
+
+/** A firm's stored list with renamed preset keys (and their labels) brought up to date. */
+export function normalizeIntakeQuestionKeys(items: IntakeQuestionItem[]): IntakeQuestionItem[] {
+  return items.map((item) => {
+    const renamed = item && typeof item.key === "string" ? RENAMED_PRESET_KEYS[item.key] : undefined;
+    if (!renamed) return item;
+    const preset = PRESET_INTAKE_QUESTIONS.find((q) => q.key === renamed);
+    return { key: renamed, label: preset?.label ?? item.label, isCustom: false };
+  });
+}
 
 export function getDefaultIntakeQuestions(): IntakeQuestionItem[] {
   return PRESET_INTAKE_QUESTIONS.map((preset) => ({
@@ -152,7 +169,11 @@ export function validateIntakeQuestionList(
   const seenKeys = new Set<string>();
   const validated: IntakeQuestionItem[] = [];
 
-  for (const raw of items) {
+  for (const original of items) {
+    const raw =
+      typeof original === "object" && original && typeof (original as any).key === "string"
+        ? normalizeIntakeQuestionKeys([original as IntakeQuestionItem])[0]
+        : original;
     if (typeof raw !== "object" || !raw) continue;
     const label = typeof (raw as any).label === "string" ? (raw as any).label.trim() : "";
     if (!label || label.length > 120) {

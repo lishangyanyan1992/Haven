@@ -101,7 +101,7 @@ export default async function FirmIntakePage({ params }: { params: Promise<{ tok
                     <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
                     <span>
                       Your setup answers and the documents you upload will be shared with <strong>{link.firmName}</strong>.
-                      Your chats with Haven stay private.
+                      Questions you ask Haven&apos;s AI go to your lawyer too, after you agree in the chat.
                     </span>
                   </div>
                   <FirmIntakeForm token={token} />

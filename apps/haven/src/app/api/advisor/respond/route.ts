@@ -2,6 +2,7 @@ import type { AdvisorStreamEvent } from "@/lib/advisor/service";
 import { isAdvisorRateLimitError, streamAdvisorResponse } from "@/lib/advisor/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isInvitedEmail } from "@/lib/access";
+import { getChatVisibility } from "@/lib/advisor/firm-visibility";
 
 export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient();
@@ -12,6 +13,21 @@ export async function POST(request: Request) {
   }
   if (!(await isInvitedEmail(user.email))) {
     return Response.json({ error: "Haven is invitation only." }, { status: 403 });
+  }
+
+  // A firm's client must be told their lawyer sees these chats before asking
+  // (specs/advisor-chat-firm-visibility). Checked here, not only on screen.
+  try {
+    const visibility = await getChatVisibility(user.id);
+    if (visibility.needsNotice) {
+      return Response.json(
+        { error: "needs_notice", firmNames: visibility.firms.map((f) => f.firmName) },
+        { status: 409 }
+      );
+    }
+  } catch (error) {
+    console.error("[advisor/respond] could not check chat sharing:", error);
+    return Response.json({ error: "Haven couldn't check who can see this chat. Try again in a moment." }, { status: 503 });
   }
 
   const body = await request.json();

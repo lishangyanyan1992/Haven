@@ -113,3 +113,8 @@ The model can still slip, so this is verified rather than assumed. A determinist
 
 - Should firms get an email when a request arrives? This adds a notification path; it doesn't change the request or the marker.
 - Should the handoff show firm contact details (phone, booking link) when the firm has set them? This needs new firm settings; it is additive to the handoff block.
+
+## Later change: chats shared with the firm
+
+The rule here that no conversation content reaches the firm was reversed on purpose by `client-lawyer-messaging` (October 2026). Contact requests still carry no conversation text, but a client who agrees in the chat now shares chats started after that point with every firm they are connected to. See `openspec/changes/client-lawyer-messaging/specs/advisor-chat-firm-visibility/spec.md`.
+

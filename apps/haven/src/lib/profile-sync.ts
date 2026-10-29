@@ -1,6 +1,7 @@
 import { computeDerivedSignals } from "@/lib/haven";
 import { mapProfileRow } from "@/lib/profile-mapper";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { concernsForHelpNeeded, normalizeHelpNeeded } from "@/lib/firms/help-needed";
 import type { Concern, EmploymentStatus, ImmigrationProfile, PrimaryGoal, PreferenceCategory, SpouseVisaStatus, VisaType } from "@/types/domain";
 
 export const ONBOARDING_OVERRIDE_COOKIE = "haven_onboarding_override";
@@ -28,6 +29,7 @@ type ProfileDraft = Partial<{
   i140Approved: string | boolean;
   spouseVisaStatus: string;
   topConcerns: string[];
+  helpNeeded: string[];
   communityReplyEmailNotifications: string | boolean;
   statusUpdateEmailNotifications: string | boolean;
 }>;
@@ -51,6 +53,22 @@ function asConcerns(value: unknown) {
   if (!Array.isArray(value)) return undefined;
   const next = value.filter((item): item is Concern => typeof item === "string" && concerns.includes(item as Concern));
   return next.length > 0 ? next : ["layoffs"];
+}
+
+/**
+ * "What help do you need?" replaced "Main concerns". When a form sends help
+ * choices, they are saved and the old concern areas are derived from them
+ * (keeping the saved ones when the choices imply none). Forms that still send
+ * concerns directly keep working as before.
+ */
+function helpNeededPatch(rawDraft: ProfileDraft, existingConcerns: Concern[]) {
+  const fallback: Concern[] = existingConcerns.length > 0 ? existingConcerns : ["layoffs"];
+  if (rawDraft.helpNeeded !== undefined) {
+    const helpNeeded = normalizeHelpNeeded(rawDraft.helpNeeded);
+    const derived = concernsForHelpNeeded(helpNeeded);
+    return { help_needed: helpNeeded, top_concerns: derived.length > 0 ? derived : fallback };
+  }
+  return { top_concerns: asConcerns(rawDraft.topConcerns) ?? fallback };
 }
 
 function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unknown> | null) {
@@ -152,7 +170,7 @@ function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unk
         : null,
     i485_filed: greenCardStage === "i485_filed",
     spouse_visa_status: asEnumValue(rawDraft.spouseVisaStatus ?? existingRow?.spouse_visa_status, spouseVisaStatuses, "none"),
-    top_concerns: asConcerns(rawDraft.topConcerns) ?? (existingConcerns.length > 0 ? existingConcerns : ["layoffs"]),
+    ...helpNeededPatch(rawDraft, existingConcerns),
     community_reply_email_notifications:
       rawDraft.communityReplyEmailNotifications !== undefined
         ? rawDraft.communityReplyEmailNotifications === true || rawDraft.communityReplyEmailNotifications === "true"

@@ -13,6 +13,8 @@ import { persistProfileDraft, ONBOARDING_OVERRIDE_COOKIE } from "@/lib/profile-s
 import { env } from "@/lib/env";
 import { noIndexMetadata } from "@/lib/seo";
 import { formLimitedTo, recordFirmSharedAnswers } from "@/lib/firms/answers";
+import { HELP_NEEDED_SENT_MARKER } from "@/lib/firms/help-needed";
+import { sendOnboardingMessages } from "@/lib/firms/client-messages";
 import {
   getDefaultIntakeQuestions,
   getFirmIntakeQuestions,
@@ -58,7 +60,8 @@ function buildDraft(data: FormData) {
     preferenceCategory: String(data.get("preferenceCategory") ?? ""),
     i140Approved: String(data.get("i140Approved") ?? "false"),
     spouseVisaStatus: String(data.get("spouseVisaStatus") ?? ""),
-    topConcerns: data.getAll("topConcerns").map(String)
+    // Only when the help question was on screen, so a step without it can't clear saved choices.
+    ...(data.has(HELP_NEEDED_SENT_MARKER) ? { helpNeeded: data.getAll("helpNeeded").map(String) } : {})
   };
 }
 
@@ -115,6 +118,13 @@ async function saveStepAction(_step: number, data: FormData) {
       alias: `${(user.email ?? "user").split("@")[0]}-${user.id.slice(0, 6)}@${EMAIL_INGEST_DOMAIN}`
     });
     await markFirmClientCompleted(user.id);
+    // "What would you like your lawyer to know or answer?" starts the conversation
+    // with each firm, once. A failure here must not undo a finished setup.
+    try {
+      await sendOnboardingMessages(user.id, data.get("lawyerMessage"));
+    } catch (err) {
+      console.error("[onboarding] could not send the message to the lawyer:", err);
+    }
     await markDeadlinesPrompted(user.id);
     const cookieStore = await cookies();
     cookieStore.delete(ONBOARDING_OVERRIDE_COOKIE);

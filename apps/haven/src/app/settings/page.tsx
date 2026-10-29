@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HELP_NEEDED_OPTIONS, HELP_NEEDED_SENT_MARKER } from "@/lib/firms/help-needed";
 import { AlertTriangle, CheckCircle2, FileWarning } from "lucide-react";
 
 import { AppShell } from "@/components/app/app-shell";
@@ -365,34 +366,30 @@ export default async function SettingsPage({
             <Card>
               <CardHeader>
                 <div>
-                  <p className="text-label">Top concerns</p>
-                  <CardTitle className="mt-2">What Haven should prioritize first</CardTitle>
+                  <p className="text-label">Help needed</p>
+                  <CardTitle className="mt-2">What help do you need from your lawyer?</CardTitle>
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
                 <p className="text-body-sm">
-                  These selections influence your dashboard guidance, planner emphasis, and community matching.
+                  Pick any that apply. Your lawyer sees these, and they also shape your dashboard guidance and community matching.
                 </p>
-                {[
-                  ["layoffs", "Layoff risk", "Worried about job loss scenarios"],
-                  ["visa_expiry", "Visa expiry", "Tracking current status expiration"],
-                  ["gc_timeline", "Green card timeline", "Long waits and bulletin uncertainty"],
-                  ["job_change", "Job change", "Transferring H1B or changing employers"]
-                ].map(([value, label, description]) => (
+                <input name={HELP_NEEDED_SENT_MARKER} type="hidden" value="1" />
+                {HELP_NEEDED_OPTIONS.map((option) => (
                   <label
-                    key={value}
+                    key={option.value}
                     className="flex items-start gap-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--haven-cream)] p-4"
                   >
                     <input
                       className="mt-1 h-4 w-4 accent-[var(--haven-sage)]"
-                      defaultChecked={profile.topConcerns.includes(value as typeof profile.topConcerns[number])}
-                      name="topConcerns"
+                      defaultChecked={(profile.helpNeeded ?? []).includes(option.value)}
+                      name="helpNeeded"
                       type="checkbox"
-                      value={value}
+                      value={option.value}
                     />
                     <div>
-                      <p className="text-h3">{label}</p>
-                      <p className="text-body-sm mt-2">{description}</p>
+                      <p className="text-h3">{option.label}</p>
+                      <p className="text-body-sm mt-2">{option.description}</p>
                     </div>
                   </label>
                 ))}
