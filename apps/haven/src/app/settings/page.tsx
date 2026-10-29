@@ -8,7 +8,7 @@ import { GreenCardEditor } from "@/components/app/green-card-editor";
 import { FieldSourceLabel } from "@/components/app/field-source-label";
 import { VisaStatusField } from "@/components/app/visa-status-field";
 import { formatSourceValue } from "@/lib/field-sources/format";
-import { inferProfileGreenCardStage } from "@/lib/immigration-journey";
+import { displayedPetitionStage } from "@/lib/immigration-journey";
 import { loadFieldSources } from "@/lib/field-sources/db";
 import type { FieldSource } from "@/lib/field-sources/plan";
 import { Badge } from "@/components/ui/badge";
@@ -50,7 +50,7 @@ export default async function SettingsPage({
   // The step chosen here is kept as chosen, so family and other steps show up again.
   const greenCardStage = chosenGreenCardStage(profile.greenCardStage, inferGreenCardStage(profile));
   // With green cards entered, the step shown is the one they give (same as the dashboard).
-  const petitionStage = inferProfileGreenCardStage(profile);
+  const petitionStage = displayedPetitionStage(profile);
   // Where each value came from (a document, or the person). None for a local test persona.
   const sources: Record<string, FieldSource> =
     profile.id && hasSupabaseEnv ? Object.fromEntries(await loadFieldSources(profile.id)) : {};
@@ -383,10 +383,19 @@ export default async function SettingsPage({
                   </p>
                 </Field>
                 <Field label="I-140 status">
-                  <Select defaultValue={profile.i140Approved ? "true" : "false"} name="i140Approved">
-                    <option value="false">Not approved yet</option>
-                    <option value="true">I-140 approved</option>
-                  </Select>
+                  {hasPetitionRecords ? (
+                    <p className="text-body-sm text-[var(--haven-ink)]">
+                      {profile.i140Approved ? "I-140 approved" : "Not approved yet"}{" "}
+                      <a className="text-[12px] underline underline-offset-2" href="#green-cards">
+                        Set by your green cards below
+                      </a>
+                    </p>
+                  ) : (
+                    <Select defaultValue={profile.i140Approved ? "true" : "false"} name="i140Approved">
+                      <option value="false">Not approved yet</option>
+                      <option value="true">I-140 approved</option>
+                    </Select>
+                  )}
                 </Field>
               </CardContent>
             </Card>

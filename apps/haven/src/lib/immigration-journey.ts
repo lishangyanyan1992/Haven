@@ -445,6 +445,18 @@ export function inferProfileGreenCardStage(profile: ImmigrationProfile): GreenCa
   return "not_started";
 }
 
+/**
+ * The step to show in single-step fields: the main green card's own step (so an
+ * approved green card reads "Permanent resident", not "I-485 filed"), else the
+ * timeline step.
+ */
+export function displayedPetitionStage(profile: ImmigrationProfile): string {
+  const active = findActivePetition(profile);
+  if (active && active.stage !== "withdrawn") return active.stage;
+  const approved = (profile.immigrantPetitions ?? []).find((p) => p.stage === "i485_approved");
+  return approved ? "i485_approved" : inferProfileGreenCardStage(profile);
+}
+
 /** Steps that belong to family, investor, humanitarian and lottery green cards, not PERM or I-140. */
 const NON_I140_STAGES = new Set(["i130_filed", "i130_approved", "consular_processing", "conditional_resident"]);
 

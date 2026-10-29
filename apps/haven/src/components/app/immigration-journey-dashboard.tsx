@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { VisaStatusField } from "@/components/app/visa-status-field";
 import { ALL_GREEN_CARD_STAGE_OPTIONS, ALL_PREFERENCE_CATEGORIES, chosenGreenCardStage } from "@/lib/visas";
+import { displayedPetitionStage } from "@/lib/immigration-journey";
 import { useRouter } from "next/navigation";
 import {
   Briefcase,
@@ -596,7 +597,7 @@ export function ImmigrationJourneyDashboard({
                 {(profile.immigrantPetitions?.length ?? 0) > 0 ? (
                   // With green cards entered, they set the step; change it in Settings → Green cards.
                   <p className="text-body-sm text-[var(--haven-ink)]">
-                    {ALL_GREEN_CARD_STAGE_OPTIONS.find((o) => o.id === greenCardTrack.stage)?.label ?? greenCardTrack.stage}{" "}
+                    {ALL_GREEN_CARD_STAGE_OPTIONS.find((o) => o.id === displayedPetitionStage(profile))?.label ?? displayedPetitionStage(profile)}{" "}
                     <Link className="text-[12px] underline underline-offset-2" href="/settings#green-cards">
                       Change in Green cards
                     </Link>

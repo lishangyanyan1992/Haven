@@ -174,6 +174,21 @@ async function main() {
   const consularNode = consularJourney.greenCardTrack.nodes.find((n) => n.key === "i485");
   check("employer consular: last step says consular processing", consularNode?.shortLabel === "Consular processing" && consularNode.status === "current");
 
+  // 9. Final-round fixes.
+  const { displayedPetitionStage } = await import("@/lib/immigration-journey");
+  check(
+    "approved I-140 in consular processing keeps its protection",
+    providesI140Protection({ id: "c", sponsorName: "Acme", petitionType: "employer_sponsored", preferenceCategory: "EB-2", stage: "consular_processing", i140ApprovalDate: "2025-01-01" } as never)
+  );
+  const doneProfile = twoEmployerProfile({ immigrantPetitions: [{ ...marriage, stage: "i485_approved" }] as never });
+  check("approved green card shows as permanent resident", displayedPetitionStage(doneProfile) === "i485_approved", displayedPetitionStage(doneProfile));
+  const { readFileSync } = await import("node:fs");
+  const sync = readFileSync(new URL("../../src/lib/profile-sync.ts", import.meta.url), "utf8");
+  check(
+    "save step: stage flags only rewritten when a stage or I-140 answer was sent",
+    /\.\.\.\(stageSent \? \{ perm_stage: permStage \}/.test(sync) && /\.\.\.\(stageSent \? \{ i140_filed:/.test(sync)
+  );
+
   console.log(`\n${pass}/${pass + failures.length} checks passed.`);
   if (failures.length > 0) process.exit(1);
 }

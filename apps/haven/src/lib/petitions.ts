@@ -198,7 +198,10 @@ export function providesI140Protection(p: ImmigrantPetition): boolean {
   // Only an I-140 gives I-140 protection; a family green card at I-485 doesn't.
   if (!usesI140(p.petitionType)) return false;
   // A record marked "withdrawn" as its stage only counts if we know it was approved first.
-  const wasApproved = isApprovedStage(p.stage) || (p.stage === "withdrawn" && Boolean(p.i140ApprovalDate));
+  // Consular processing comes after an approved I-140 on the employer path.
+  const wasApproved =
+    isApprovedStage(p.stage) ||
+    ((p.stage === "withdrawn" || p.stage === "consular_processing") && Boolean(p.i140ApprovalDate));
   if (!wasApproved) return false;
   if (p.endedReason === "denied") return false;
   if (p.endedReason === "withdrawn") {

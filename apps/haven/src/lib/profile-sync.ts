@@ -115,6 +115,7 @@ function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unk
       ? rawDraft.i140Approved === true || rawDraft.i140Approved === "true"
       : Boolean(existingRow?.i140_approved);
 
+  const stageSent = typeof rawDraft.greenCardStage === "string" && rawDraft.greenCardStage.trim().length > 0;
   const greenCardStage =
     typeof rawDraft.greenCardStage === "string"
       ? rawDraft.greenCardStage
@@ -178,7 +179,9 @@ function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unk
       employmentStatuses,
       (existingRow?.employment_status as EmploymentStatus | undefined) ?? "employed"
     ),
-    perm_stage: permStage,
+    // The stage flags are only rewritten when the form sent a stage or an I-140 answer.
+    // With green cards entered, the forms send neither and the green cards keep these in line.
+    ...(stageSent ? { perm_stage: permStage } : {}),
     priority_date:
       rawDraft.priorityDate !== undefined
         ? asOptionalString(rawDraft.priorityDate)
@@ -189,13 +192,15 @@ function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unk
         : typeof existingRow?.preference_category === "string" && existingRow.preference_category.trim().length > 0
           ? existingRow.preference_category.trim()
           : "Not sure",
-    i140_approved: i140Approved,
-    i140_filed: greenCardStage === "i140_filed",
-    i140_approval_date:
-      i140Approved
-        ? ((existingRow?.i140_approval_date as string | null) ?? new Date().toISOString().slice(0, 10))
-        : null,
-    i485_filed: greenCardStage === "i485_filed",
+    ...(stageSent || rawDraft.i140Approved !== undefined
+      ? {
+          i140_approved: i140Approved,
+          i140_approval_date: i140Approved
+            ? ((existingRow?.i140_approval_date as string | null) ?? new Date().toISOString().slice(0, 10))
+            : null
+        }
+      : {}),
+    ...(stageSent ? { i140_filed: greenCardStage === "i140_filed", i485_filed: greenCardStage === "i485_filed" } : {}),
     spouse_visa_status: asEnumValue(rawDraft.spouseVisaStatus ?? existingRow?.spouse_visa_status, spouseVisaStatuses, "none"),
     ...helpNeededPatch(rawDraft, existingConcerns),
     community_reply_email_notifications:
