@@ -32,12 +32,16 @@ Onboarding SHALL show an optional box, "What would you like your lawyer to know 
 - **WHEN** the client edits the box and then finishes onboarding
 - **THEN** only the final text is sent, once
 
-### Requirement: Client sends and reads messages from their dashboard
-The client dashboard SHALL show a Messages area for each connected firm, listing messages oldest first with sender and time, and SHALL let the client send a new message.
+### Requirement: Client dashboard shows a Messages call to action directing to Ask
+The client dashboard SHALL show a "Messages with your lawyer" call-to-action card for connected firms, displaying unread indicators or the latest message preview and a call-to-action button that directs the client to Ask (`/advisor`) to read and send messages.
 
-#### Scenario: Client sends a follow-up
-- **WHEN** the client sends "I uploaded my I-797 now"
-- **THEN** the message appears at the end of the conversation with the client as sender
+#### Scenario: Client clicks dashboard CTA
+- **WHEN** a firm client clicks the "Messages with your lawyer" call to action on their dashboard
+- **THEN** they are directed to `/advisor` where their ongoing conversation with their lawyer is shown
+
+#### Scenario: Client sends a follow-up in Ask
+- **WHEN** the client sends "I uploaded my I-797 now" in `/advisor`
+- **THEN** the message appears at the end of the lawyer conversation with the client as sender
 
 ### Requirement: Lawyer reads and replies from the client's page
 The client's page on the firm dashboard SHALL show the conversation and let any member of the firm reply. Each lawyer message SHALL show the sending lawyer's name.

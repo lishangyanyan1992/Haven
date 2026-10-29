@@ -30,7 +30,10 @@ const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 export async function sendClientMessageAction(input: { firmId: string; body: string }): Promise<ClientSendResult> {
   if (!uuidPattern.test(String(input.firmId ?? ""))) return { status: "not_found" };
   const result = await sendClientMessage(await requireUserId(), { firmId: input.firmId, body: input.body });
-  if (result.status === "sent") revalidatePath("/dashboard");
+  if (result.status === "sent") {
+    revalidatePath("/dashboard");
+    revalidatePath("/advisor");
+  }
   return result;
 }
 

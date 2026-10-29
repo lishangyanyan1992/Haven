@@ -2,7 +2,6 @@ import Link from "next/link";
 import { getFirmConversation } from "@/lib/firms/firm-messages";
 import { listSharedChatsForFirm } from "@/lib/firms/shared-chats";
 import { ClientMessagesPanel } from "./ClientMessagesPanel";
-import { SharedChatsPanel } from "./SharedChatsPanel";
 import { HELP_NEEDED_OPTIONS } from "@/lib/firms/help-needed";
 import { AlertTriangle, ArrowLeft, FileWarning } from "lucide-react";
 
@@ -343,15 +342,13 @@ export default async function FirmClientPage({ params }: { params: Promise<{ id:
 
         {client.openContactRequest ? <ContactRequestPanel firmClientId={client.id} request={client.openContactRequest} /> : null}
 
-        <div className="grid gap-4 xl:grid-cols-2">
-          <ClientMessagesPanel
-            clientName={name}
-            firmClientId={client.id}
-            hasUnread={conversation?.hasUnread ?? false}
-            messages={conversation?.messages ?? []}
-          />
-          <SharedChatsPanel chats={sharedChats} clientName={name} firmClientId={client.id} />
-        </div>
+        <ClientMessagesPanel
+          chats={sharedChats}
+          clientName={name}
+          firmClientId={client.id}
+          hasUnread={conversation?.hasUnread ?? false}
+          messages={conversation?.messages ?? []}
+        />
 
         {/* High-visibility contact information & quick actions */}
         <ContactQuickActions

@@ -43,10 +43,12 @@
 - [x] 6.1 Find and update any privacy or help text that says AI chats stay private from the firm (including the advisor-firm-handoff contact request copy); verify by searching the app for "conversation" and "private" near firm wording
 - [x] 6.2 Add a short note to `openspec/changes/advisor-firm-handoff/design.md` pointing to this change for the reversed "no conversation content" rule; verify the note is present
 
-## 7. Integration
+## 7. Unified Messages + Ask Experience
 
-- [ ] 7.1 End-to-end on the demo firm: invite a client, onboard with two help choices and a message, lawyer replies, client gets an email with no message text, client asks the AI a question after the notice, lawyer sees it with the label and replies to the answer; record results in the PR
-- [x] 7.2 Run `npm run typecheck` and all `apps/haven/evals/firms` and `apps/haven/evals/advisor` checks; verify all pass
+- [x] 7.1 Convert `ClientMessages` on `/dashboard` (`src/components/app/client-messages.tsx`) into a "Messages with your lawyer" call-to-action card (showing firm name, unread status/latest message preview, and "You'll get an email when your lawyer replies.") that directs the client to `/advisor`
+- [x] 7.2 Unify the lawyer thread in `/advisor` (`src/app/advisor/page.tsx` and `src/app/advisor/AdvisorWorkspace.tsx`): show the ongoing lawyer conversation (client messages, AI answers, and lawyer replies) alongside the "Your conversations" list for older private chats, ask the client if they want AI answers (`Yes` / `No`, with toggle), show the accuracy + lawyer response notice when `Yes`, and send messages either with AI answering first (`Yes`) or directly to the lawyer (`No`)
+- [x] 7.3 Unify the lawyer's view on `/firm/clients/[id]` (`src/app/firm/clients/[id]/ClientMessagesPanel.tsx`, `SharedChatsPanel.tsx`, `page.tsx`) so client messages, shared AI answers (with "Reply to this answer"), and lawyer replies appear in a single chronological Messages panel
+- [x] 7.4 Run `npm run typecheck` and all `apps/haven/evals/firms` and `apps/haven/evals/advisor` checks; verify all pass
 
 ## Workflow follow-up
 

@@ -241,6 +241,18 @@ async function main() {
     `${cards.length} cards`
   );
   check("the answer card renders the label whenever the answer is finished", /\{!isPending && \(\s*<p[^>]*data-testid="ai-answer-label"[^>]*>\s*\{aiLabel\}/.test(workspace));
+  check(
+    "ask screen asks if the client wants AI answers and shows the accuracy + lawyer response notice when yes",
+    workspace.includes("Do you want AI answers?") &&
+      workspace.includes("The AI will answer first, but it may not be 100% accurate, and your lawyer will respond once they see your message.")
+  );
+  const dashboardMessages = read("src/components/app/client-messages.tsx");
+  check(
+    "dashboard messages is a call-to-action card directing to /advisor",
+    dashboardMessages.includes("/advisor") && !dashboardMessages.includes("MessageComposer")
+  );
+  const lawyerPanel = read("src/app/firm/clients/[id]/ClientMessagesPanel.tsx");
+  check("the lawyer's unified panel renders shared AI answers", lawyerPanel.includes("SharedAiAnswer"));
   check("the lawyer's view shows the label", read("src/app/firm/clients/[id]/SharedChatsPanel.tsx").includes("{AI_ANSWER_LABEL_FIRM}"));
   const advisorSources = ["src/lib/advisor/service.ts", "src/lib/advisor/guardrail-registry.ts"].map(read).join("\n");
   check("the label is not in the model's instructions", !/AI can make mistakes/.test(advisorSources));
