@@ -119,6 +119,19 @@ export async function listThreads(userId: string): Promise<AdvisorThreadSummary[
     .filter((thread: AdvisorThreadSummary) => thread.messageCount > 0);
 }
 
+/** When one of this user's conversations started, or null. Decides which firms can see it. */
+export async function getThreadCreatedAt(userId: string, threadId: string): Promise<string | null> {
+  const admin = createSupabaseAdminClient() as any;
+  const { data, error } = await admin
+    .from("advisor_threads")
+    .select("created_at")
+    .eq("user_id", userId)
+    .eq("id", threadId)
+    .maybeSingle();
+  if (error) throw new Error(`Unable to load this conversation: ${error.message}`);
+  return data?.created_at ?? null;
+}
+
 /** Read one conversation back, oldest message first. */
 export async function getThreadMessages(userId: string, threadId: string): Promise<AdvisorMessage[]> {
   const admin = createSupabaseAdminClient() as any;

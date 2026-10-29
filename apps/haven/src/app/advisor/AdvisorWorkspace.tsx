@@ -122,6 +122,8 @@ export function AdvisorWorkspace({
   const [threads, setThreads] = useState<AdvisorThreadSummary[]>(initialThreads);
   const [facts, setFacts] = useState<RememberedFact[]>([]);
   const [openingThreadId, setOpeningThreadId] = useState<string | null>(null);
+  // Start time of a chat opened from a link but missing from the list (it only shows the latest 30).
+  const [openedThreadCreatedAt, setOpenedThreadCreatedAt] = useState<{ id: string; createdAt: string | null } | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -199,8 +201,9 @@ export function AdvisorWorkspace({
         const body = (await response.json().catch(() => ({}))) as { error?: string };
         throw new Error(body.error ?? "Unable to open that conversation.");
       }
-      const body = (await response.json()) as { messages: AdvisorMessage[] };
+      const body = (await response.json()) as { messages: AdvisorMessage[]; createdAt?: string | null };
       setMessages(body.messages);
+      setOpenedThreadCreatedAt({ id: threadId, createdAt: body.createdAt ?? null });
       setConversationId(threadId);
       setStoppedIds([]);
     } catch (caughtError) {
@@ -254,14 +257,17 @@ export function AdvisorWorkspace({
 
   // Which firms see the open chat. A new chat is shared with every firm the
   // client has agreed to; an older one only with firms they agreed to before it began.
-  // A chat missing from the list was just started here, so it is new.
-  const activeThread = conversationId ? threads.find((t) => t.id === conversationId) ?? null : null;
+  // An opened chat uses its start time; a chat started here (not yet listed) is new.
+  const activeCreatedAt = !conversationId
+    ? null
+    : threads.find((t) => t.id === conversationId)?.createdAt ??
+      (openedThreadCreatedAt?.id === conversationId ? openedThreadCreatedAt.createdAt ?? "" : null);
   const seeingFirms = !hasFirm
     ? []
-    : !activeThread
+    : activeCreatedAt === null
       ? visibility!.firms.filter((f) => f.acknowledgedAt).map((f) => f.firmName)
       : visibility!.firms
-          .filter((f) => isThreadVisibleToFirm(activeThread.createdAt, f.acknowledgedAt))
+          .filter((f) => isThreadVisibleToFirm(activeCreatedAt, f.acknowledgedAt))
           .map((f) => f.firmName);
 
   const acknowledgeNotice = useCallback(async () => {
@@ -307,7 +313,7 @@ export function AdvisorWorkspace({
   async function sendMessage(rawMessage?: string) {
     const content = (rawMessage ?? draft).trim();
     if (!content || isPending) return;
-    if (needsNotice) return;
+    if (needsNotice || openingThreadId) return;
 
     if (content.length > MESSAGE_CHAR_LIMIT) {
       setError(
@@ -559,7 +565,7 @@ export function AdvisorWorkspace({
                     key={message.id}
                     isPending={message.id === streamingId}
                     message={message}
-                    onFollowUp={(question) => void sendMessage(question)}
+                    onFollowUp={needsNotice || openingThreadId ? undefined : (question) => void sendMessage(question)}
                     stopped={stoppedIds.includes(message.id)}
                     traceId={message.traceId ?? null}
                   />
@@ -584,7 +590,7 @@ export function AdvisorWorkspace({
                   <button
                     key={prompt}
                     className="rounded-full border border-[var(--color-border)] bg-[var(--haven-white)] px-3 py-1.5 text-left text-caption transition-colors hover:border-[var(--haven-sage-mid)] hover:bg-[var(--haven-sage-light)] disabled:opacity-50"
-                    disabled={isPending || needsNotice}
+                    disabled={isPending || needsNotice || openingThreadId !== null}
                     onClick={() => void sendMessage(prompt)}
                     type="button"
                   >
@@ -623,7 +629,7 @@ export function AdvisorWorkspace({
             <Textarea
               aria-label={hasFirm ? "Ask your lawyer a question" : "Ask Haven a question"}
               className="min-h-[120px] bg-[var(--haven-white)]"
-              disabled={needsNotice}
+              disabled={needsNotice || openingThreadId !== null}
               onChange={(event) => setDraft(event.target.value)}
               placeholder={
                 hasFirm
@@ -661,7 +667,11 @@ export function AdvisorWorkspace({
                   Stop
                 </Button>
               ) : (
-                <Button disabled={needsNotice || overLimit || draftLength === 0} onClick={() => void sendMessage()} size="sm">
+                <Button
+                  disabled={needsNotice || openingThreadId !== null || overLimit || draftLength === 0}
+                  onClick={() => void sendMessage()}
+                  size="sm"
+                >
                   <SendHorizonal className="h-4 w-4" />
                   {hasFirm ? "Ask" : "Ask Haven"}
                 </Button>
