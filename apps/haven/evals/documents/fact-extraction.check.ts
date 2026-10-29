@@ -138,7 +138,18 @@ async function main() {
     { documentKind: "i94_record", pages: [{ page: 1, text: "Class of Admission: F1\nAdmit Until Date: D/S" }] },
     stub([{ key: "i94.class_of_admission", raw_text: "F1" }]).client
   );
-  check("I-94: a class the profile can't hold is kept as read", byKey(f1.facts, "i94.class_of_admission")?.value === "F1");
+  check("I-94: student class read as the standard F-1", byKey(f1.facts, "i94.class_of_admission")?.value === "F-1");
+  const g4 = await extractDocumentFacts(
+    { documentKind: "i94_record", pages: [{ page: 1, text: "Class of Admission: G4" }] },
+    stub([{ key: "i94.class_of_admission", raw_text: "G4" }]).client
+  );
+  check("I-94: a class not in the list is kept as read", byKey(g4.facts, "i94.class_of_admission")?.value === "G4");
+  const { normalizeVisaClass } = await import("@/lib/document-facts/extract");
+  check(
+    "visa classes: printed forms map to the standard list",
+    normalizeVisaClass("B2") === "B-2" && normalizeVisaClass("L1A") === "L-1A" && normalizeVisaClass("H-1B") === "H1B" && normalizeVisaClass("K1") === "K-1" && normalizeVisaClass("TN") === "TN",
+    ["B2", "L1A", "H-1B", "K1", "TN"].map(normalizeVisaClass).join()
+  );
 
   const passport = await extractDocumentFacts(
     { documentKind: "passport_biographic_page", pages: [{ page: 1, text: fixture("passport.txt") }] },

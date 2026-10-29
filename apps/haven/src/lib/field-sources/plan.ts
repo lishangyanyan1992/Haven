@@ -10,6 +10,7 @@
  */
 
 import type { FactSet, FactTarget } from "@/lib/document-facts/catalog";
+import { ALL_PREFERENCE_CATEGORIES, ALL_VISA_OPTIONS } from "@/lib/visas";
 import { STAGE_ORDER, sponsorMatches } from "@/lib/petitions";
 import type { ImmigrantPetition, ImmigrantPetitionStage, PreferenceCategory } from "@/types/domain";
 
@@ -62,8 +63,9 @@ export function parseFieldKey(
   return null;
 }
 
-const VISA_TYPES = new Set(["OPT", "STEM OPT", "H1B", "H4", "O-1", "GC", "Citizen"]);
-const CATEGORIES = new Set(["EB-1", "EB-2", "EB-3", "EB-2 NIW"]);
+// Every standard visa and category (lib/visas.ts). A typed-in status isn't filled from a document.
+const VISA_TYPES = new Set(ALL_VISA_OPTIONS.map((o) => o.value).filter((v) => v !== "other"));
+const CATEGORIES = new Set(ALL_PREFERENCE_CATEGORIES.filter((c) => c !== "Not sure"));
 
 /** Same value, ignoring case and spacing for names; exact for dates and codes. */
 export function sameValue(a: string | null | undefined, b: string | null | undefined) {

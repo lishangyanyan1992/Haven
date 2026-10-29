@@ -132,8 +132,10 @@ async function main() {
   check("I-94 replaces a status end date the H-1B approval filled", i94.profilePatch.statusEndDate === "2027-09-30");
 
   // 6b. Visa class the profile can't hold is shown only.
-  const f1 = planFactApplication({ ...base, set: FACT_SETS.i94, facts: [{ id: "i2", key: "i94.class_of_admission", value: "F1", confident: true, page: 1 }], petitions: [] });
-  check("visa class F1: shown only", f1.outcomes[0].state === "no_target" && !f1.profilePatch.visaType);
+  const f1 = planFactApplication({ ...base, set: FACT_SETS.i94, facts: [{ id: "i2", key: "i94.class_of_admission", value: "F-1", confident: true, page: 1 }], petitions: [] });
+  check("visa class F-1: filled like any other visa", f1.outcomes[0].state === "filled" && f1.profilePatch.visaType === "F-1");
+  const g4 = planFactApplication({ ...base, set: FACT_SETS.i94, facts: [{ id: "i3", key: "i94.class_of_admission", value: "G4", confident: true, page: 1 }], petitions: [] });
+  check("visa class not in the list: shown only", g4.outcomes[0].state === "no_target" && !g4.profilePatch.visaType);
 
   // 6c. A value typed before sources existed counts as typed.
   const onboard = planFactApplication({ ...base, set: FACT_SETS.passport, facts: [{ id: "c1", key: "passport.country_of_birth", value: "India", confident: true, page: 1 }], petitions: [], profile: { countryOfBirth: "Nepal" } });

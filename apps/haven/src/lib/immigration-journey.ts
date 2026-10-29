@@ -428,6 +428,10 @@ export function inferProfileGreenCardStage(profile: ImmigrationProfile): GreenCa
     if (activePetition.stage === "i140_filed") return "i140_filed";
     if (activePetition.stage === "perm_certified") return "perm_certified";
     if (activePetition.stage === "perm_in_progress" || activePetition.stage === "pwd_recruitment") return "perm_in_progress";
+    // Family, investor and other paths keep their own steps (I-130, consular processing…).
+    if (["i130_filed", "i130_approved", "consular_processing", "conditional_resident"].includes(activePetition.stage)) {
+      return activePetition.stage;
+    }
   }
 
   if (profile.i140Approved) return "i140_approved";

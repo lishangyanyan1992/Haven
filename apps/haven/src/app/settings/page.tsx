@@ -2,10 +2,11 @@ import Link from "next/link";
 import { HELP_NEEDED_OPTIONS, HELP_NEEDED_SENT_MARKER } from "@/lib/firms/help-needed";
 import { AlertTriangle, CheckCircle2, FileWarning } from "lucide-react";
 
-import { ALL_VISA_OPTIONS } from "@/lib/visas";
+import { ALL_PREFERENCE_CATEGORIES, chosenGreenCardStage } from "@/lib/visas";
 import { AppShell } from "@/components/app/app-shell";
 import { GreenCardEditor } from "@/components/app/green-card-editor";
 import { FieldSourceLabel } from "@/components/app/field-source-label";
+import { VisaStatusField } from "@/components/app/visa-status-field";
 import { formatSourceValue } from "@/lib/field-sources/format";
 import { loadFieldSources } from "@/lib/field-sources/db";
 import type { FieldSource } from "@/lib/field-sources/plan";
@@ -45,7 +46,8 @@ export default async function SettingsPage({
   const { profile } = snapshot;
   // No database means a local test persona: there are no saved deadlines to load.
   const savedDeadlines = profile.id && hasSupabaseEnv ? await loadDeadlineAnswers(profile.id) : undefined;
-  const greenCardStage = inferGreenCardStage(profile);
+  // The step chosen here is kept as chosen, so family and other steps show up again.
+  const greenCardStage = chosenGreenCardStage(profile.greenCardStage, inferGreenCardStage(profile));
   // Where each value came from (a document, or the person). None for a local test persona.
   const sources: Record<string, FieldSource> =
     profile.id && hasSupabaseEnv ? Object.fromEntries(await loadFieldSources(profile.id)) : {};
@@ -214,19 +216,7 @@ export default async function SettingsPage({
               </CardHeader>
               <CardContent className="space-y-4">
                 <Field label="Current visa status">
-                  <Select defaultValue={profile.visaType} name="visaType">
-                    {(() => {
-                      const standardValues = ALL_VISA_OPTIONS.map((opt) => opt.value);
-                      const allOptions = standardValues.includes(profile.visaType)
-                        ? ALL_VISA_OPTIONS
-                        : [{ value: profile.visaType, label: profile.visaType, group: "Other" }, ...ALL_VISA_OPTIONS];
-                      return allOptions.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ));
-                    })()}
-                  </Select>
+                  <VisaStatusField defaultCustom={profile.customVisaDetail} defaultValue={profile.visaType} />
                   <FieldSourceLabel fieldKey="visaType" hasValue={Boolean(profile.visaType)} source={sources.visaType} />
                 </Field>
                 <Field label="Country of birth">
@@ -330,12 +320,7 @@ export default async function SettingsPage({
                 <Field label="Preference category">
                   <Select defaultValue={profile.preferenceCategory} name="preferenceCategory">
                     {(() => {
-                      const standardCategories = [
-                        "EB-1", "EB-1A", "EB-1B", "EB-1C", "EB-2", "EB-2 NIW", "EB-3", "EB-4", "EB-5",
-                        "Immediate Relative (Spouse)", "Immediate Relative (Parent/Child)",
-                        "F-1", "F-2A", "F-2B", "F-3", "F-4",
-                        "Diversity Visa", "Asylum Adjustment", "Not sure"
-                      ];
+                      const standardCategories = ALL_PREFERENCE_CATEGORIES;
                       const allCats = standardCategories.includes(profile.preferenceCategory)
                         ? standardCategories
                         : [profile.preferenceCategory, ...standardCategories];

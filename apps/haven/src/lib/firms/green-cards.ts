@@ -56,7 +56,11 @@ export function greenCardLine(p: ImmigrantPetition): string {
       ? formatDate(p.i140ApprovalDate)
       : p.stage === "i140_filed"
         ? formatDate(p.i140FiledDate)
-        : p.stage === "perm_certified"
+        : p.stage === "i130_filed"
+          ? formatDate(p.petitionFiledDate)
+          : p.stage === "i130_approved"
+            ? formatDate(p.petitionApprovalDate)
+            : p.stage === "perm_certified"
           ? formatDate(p.permCertifiedDate)
           : p.stage === "perm_in_progress"
             ? formatDate(p.permFilingDate)
@@ -91,6 +95,7 @@ export function greenCardSponsorsForFirm(raw: unknown): string[] {
         id: p.id,
         sponsorName: p.sponsorName.trim(),
         stage: p.stage,
+        petitionType: p.petitionType,
         ...(p.endedReason ? { endedReason: p.endedReason } : {}),
         ...(p.permCertifiedDate ? { permCertifiedDate: p.permCertifiedDate } : {}),
         ...(p.i140FiledDate ? { i140FiledDate: p.i140FiledDate } : {}),

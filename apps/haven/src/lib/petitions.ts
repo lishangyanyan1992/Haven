@@ -141,6 +141,8 @@ export function normalizePetitions(raw: unknown): ImmigrantPetition[] {
       i140ReceiptNumber: text(r.i140ReceiptNumber),
       i140FiledDate: isoDate(r.i140FiledDate),
       i140ApprovalDate: isoDate(r.i140ApprovalDate),
+      petitionFiledDate: isoDate(r.petitionFiledDate),
+      petitionApprovalDate: isoDate(r.petitionApprovalDate),
       isRevocationProtected: r.isRevocationProtected === true ? true : undefined,
       endedReason,
       endedDate,
@@ -214,9 +216,22 @@ function before(a?: string, b?: string): boolean {
 }
 
 /** Problems a user must fix before a petition can be saved. */
+/** Paths that file an I-140: employer-sponsored and self-petitions. */
+export function usesI140(type: string | undefined): boolean {
+  return ["employer_sponsored", "concurrent_employer", "self_petition_niw", "self_petition_eb1a"].includes(type ?? "employer_sponsored");
+}
+
+/** Paths that go through PERM labor certification. */
+export function usesPerm(type: string | undefined): boolean {
+  return ["employer_sponsored", "concurrent_employer"].includes(type ?? "employer_sponsored");
+}
+
 export function validatePetition(p: ImmigrantPetition): PetitionFieldError[] {
   const errors: PetitionFieldError[] = [];
   if (!p.sponsorName?.trim()) errors.push({ field: "sponsorName", message: "Add the employer or petitioner name." });
+  if (before(p.petitionApprovalDate, p.petitionFiledDate)) {
+    errors.push({ field: "petitionApprovalDate", message: "The approval can't be before the petition was filed." });
+  }
   if (before(p.i140ApprovalDate, p.i140FiledDate)) {
     errors.push({ field: "i140ApprovalDate", message: "I-140 approval can't be before the I-140 was filed." });
   }
@@ -226,12 +241,16 @@ export function validatePetition(p: ImmigrantPetition): PetitionFieldError[] {
   if (before(p.i140ApprovalDate, p.permFilingDate)) {
     errors.push({ field: "i140ApprovalDate", message: "I-140 approval can't be before PERM was filed." });
   }
-  if (isApprovedStage(p.stage) && !p.i140ApprovalDate) {
+  // Family, investor, humanitarian and lottery paths have no I-140 or PERM.
+  if (usesI140(p.petitionType) && isApprovedStage(p.stage) && !p.i140ApprovalDate) {
     errors.push({ field: "i140ApprovalDate", message: "Add the date the I-140 was approved." });
   }
   // Only checked while the green card is still moving; an ended one is kept as entered.
   const beforePermFiled =
-    !p.endedReason && (p.stage === "pwd_recruitment" || p.stage === "perm_in_progress") && !p.permFilingDate;
+    usesPerm(p.petitionType) &&
+    !p.endedReason &&
+    (p.stage === "pwd_recruitment" || p.stage === "perm_in_progress") &&
+    !p.permFilingDate;
   if (beforePermFiled && p.priorityDate && !p.isPriorityDateRecaptured) {
     errors.push({
       field: "priorityDate",

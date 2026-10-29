@@ -237,3 +237,44 @@ export const SPONSOR_ATTRIBUTION_OPTIONS: SponsorAttributionOption[] = [
   { value: "family_member", label: "Family Member", helper: "Sponsored by a parent, child, or sibling" },
   { value: "other", label: "Other / Third Party", helper: "Prospective employer or other sponsoring entity" }
 ];
+
+/** Every preference category, in the order people look for them. */
+export const ALL_PREFERENCE_CATEGORIES: string[] = [
+  "EB-1", "EB-1A", "EB-1B", "EB-1C", "EB-2", "EB-2 NIW", "EB-3", "EB-4", "EB-5",
+  "Immediate Relative (Spouse)", "Immediate Relative (Parent/Child)",
+  "F-1", "F-2A", "F-2B", "F-3", "F-4",
+  "Diversity Visa", "Asylum Adjustment", "Not sure"
+];
+
+/** Every green card step across all paths, for single-step fields (Settings, dashboard quick edit). */
+export const ALL_GREEN_CARD_STAGE_OPTIONS: Array<{ id: string; label: string }> = [
+  { id: "not_started", label: "Not started yet" },
+  { id: "pwd_recruitment", label: "Prevailing wage / recruitment" },
+  { id: "perm_in_progress", label: "PERM in progress" },
+  { id: "perm_certified", label: "PERM certified" },
+  { id: "i140_filed", label: "I-140 filed" },
+  { id: "i140_approved", label: "I-140 approved" },
+  { id: "i130_filed", label: "I-130 or first petition filed (family, EB-5, other)" },
+  { id: "i130_approved", label: "I-130 or first petition approved" },
+  { id: "consular_processing", label: "Consular / NVC processing" },
+  { id: "i485_filed", label: "I-485 filed (adjustment of status)" },
+  { id: "conditional_resident", label: "2-year conditional resident" },
+  { id: "i485_approved", label: "Permanent resident" }
+];
+
+/** Steps the profile's yes/no flags can't hold, so the saved step is shown instead. */
+const FLAG_STAGES = new Set(["not_started", "perm_in_progress", "perm_certified", "i140_filed", "i140_approved", "i485_filed"]);
+
+/** The step to show: the one saved, unless the PERM/I-140/I-485 flags describe it. */
+export function chosenGreenCardStage(savedStage: string | undefined, flagStage: string): string {
+  return savedStage && !FLAG_STAGES.has(savedStage) ? savedStage : flagStage;
+}
+
+/** Turn a visa class as printed (F1, L1A, B-2) into the standard value, or null if it isn't one. */
+export function standardVisaValue(raw: string): string | null {
+  const squash = (v: string) => v.toUpperCase().replace(/[\s/-]/g, "");
+  const target = squash(raw);
+  if (!target) return null;
+  const match = ALL_VISA_OPTIONS.find((o) => o.value !== "other" && squash(o.value) === target);
+  return match?.value ?? null;
+}

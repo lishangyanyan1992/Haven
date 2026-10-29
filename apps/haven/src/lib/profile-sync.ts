@@ -81,7 +81,8 @@ function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unk
     rawDraft.retainedPriorityDateSponsor !== undefined ||
     rawDraft.greenCardSponsor !== undefined ||
     rawDraft.greenCardPathway !== undefined ||
-    rawDraft.customVisaDetail !== undefined;
+    rawDraft.customVisaDetail !== undefined ||
+    (typeof rawDraft.greenCardStage === "string" && rawDraft.greenCardStage.trim().length > 0);
   let nextDeadlineAnswers: Record<string, unknown> | undefined = undefined;
   if (shouldUpdateDeadlineAnswers) {
     const existingDeadlineAnswers =
@@ -101,6 +102,11 @@ function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unk
         : {}),
       ...(rawDraft.customVisaDetail !== undefined
         ? { customVisaDetail: asOptionalString(rawDraft.customVisaDetail) }
+        : {}),
+      // The flags below only describe PERM, I-140 and I-485; the step itself is kept so
+      // I-130, consular processing and other paths survive a save.
+      ...(typeof rawDraft.greenCardStage === "string" && rawDraft.greenCardStage.trim()
+        ? { greenCardStage: rawDraft.greenCardStage.trim().slice(0, 40) }
         : {})
     };
   }

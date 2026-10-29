@@ -565,6 +565,8 @@ export async function saveProfileSettingsAction(formData: FormData) {
 
   const setupDraft = {
     visaType: String(formData.get("visaType") ?? ""),
+    // A typed-in status (any visa not in the list), kept alongside.
+    ...(formData.has("customVisaDetail") ? { customVisaDetail: String(formData.get("customVisaDetail") ?? "") } : {}),
     countryOfBirth: String(formData.get("countryOfBirth") ?? ""),
     primaryGoal: String(formData.get("primaryGoal") ?? ""),
     employerName: String(formData.get("employerName") ?? ""),
@@ -619,6 +621,7 @@ export async function saveCaseJourneyDatesAction(formData: FormData): Promise<{ 
 
   const setupDraft = {
     ...(visaType ? { visaType } : {}),
+    ...(formData.has("customVisaDetail") ? { customVisaDetail: String(formData.get("customVisaDetail") ?? "") } : {}),
     ...(countryOfBirth ? { countryOfBirth } : {}),
     employerName: String(formData.get("employerName") ?? ""),
     jobTitle: String(formData.get("jobTitle") ?? ""),
