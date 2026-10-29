@@ -207,6 +207,7 @@ export function AdvisorWorkspace({
   const [threads, setThreads] = useState<AdvisorThreadSummary[]>(initialThreads);
   const [facts, setFacts] = useState<RememberedFact[]>([]);
   const [openingThreadId, setOpeningThreadId] = useState<string | null>(null);
+  const [isDeletingThread, setIsDeletingThread] = useState(false);
   // Start time of a chat opened from a link but missing from the list (it only shows the latest 30).
   const [openedThreadCreatedAt, setOpenedThreadCreatedAt] = useState<{ id: string; createdAt: string | null } | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
@@ -372,6 +373,13 @@ export function AdvisorWorkspace({
       );
       if (!confirmed) return;
 
+      setIsDeletingThread(true);
+      if (conversationId === thread.id || backgroundStore.conversationId === thread.id) {
+        if (backgroundStore.isPending) {
+          abortRef.current?.abort();
+        }
+      }
+
       // Optimistic: the row disappears immediately and comes back if the delete
       // fails, rather than the user clicking again because nothing happened.
       const previous = threads;
@@ -396,6 +404,8 @@ export function AdvisorWorkspace({
       } catch {
         setThreads(previous);
         setError("Haven couldn't delete that conversation. Try again in a moment.");
+      } finally {
+        setIsDeletingThread(false);
       }
     },
     [conversationId, threads]
@@ -521,8 +531,7 @@ export function AdvisorWorkspace({
 
   async function sendMessage(rawMessage?: string) {
     const content = (rawMessage ?? draft).trim();
-    if (!content || isPending) return;
-    if (!content || isPending || needsAiChoice || openingThreadId !== null) return;
+    if (!content || isPending || isDeletingThread || needsAiChoice || openingThreadId !== null) return;
 
     if (content.length > MESSAGE_CHAR_LIMIT) {
       setError(
@@ -659,7 +668,7 @@ export function AdvisorWorkspace({
 
     const optimisticUserMessage: AdvisorMessage = {
       id: `tmp-user-${Date.now()}`,
-      threadId: "session",
+      threadId: conversationId ?? "session",
       role: "user",
       content,
       createdAt: nowIso,
@@ -801,7 +810,11 @@ export function AdvisorWorkspace({
 
             setConversationId(event.conversationId ?? null);
             setMessages(finalMessages);
-            setSharedMessages((current) => [...current, optimisticUserMessage, event.assistantMessage]);
+            const userMsgForShared: AdvisorMessage = {
+              ...optimisticUserMessage,
+              threadId: event.conversationId ?? conversationId ?? "session",
+            };
+            setSharedMessages((current) => [...current, userMsgForShared, event.assistantMessage]);
             setStreamingId(null);
             setIsPending(false);
             trackEvent("Search", { search_query: content, user_id: null, results_count: 1 });
@@ -819,6 +832,14 @@ export function AdvisorWorkspace({
       }
 
       if (!streamFinished) {
+        if (streamText) {
+          const nextStopped = [...stoppedIds, sid];
+          backgroundStore.stoppedIds = nextStopped;
+          setStoppedIds(nextStopped);
+          const retryMsg = "The connection closed before the answer finished. Try asking again to get the full response.";
+          setError(retryMsg);
+          backgroundStore.error = retryMsg;
+        }
         setStreamingId(null);
         backgroundStore.streamingId = null;
         notifyStoreListeners();
@@ -876,7 +897,7 @@ export function AdvisorWorkspace({
                           ? "bg-[var(--haven-sage-light)]"
                           : "hover:bg-[var(--haven-sand)] disabled:opacity-50"
                       }`}
-                      disabled={isPending || openingThreadId !== null}
+                      disabled={isPending || openingThreadId !== null || isDeletingThread}
                       onClick={() => void openThread(thread.id)}
                       type="button"
                     >
@@ -889,7 +910,7 @@ export function AdvisorWorkspace({
                     <button
                       aria-label={`Delete conversation: ${thread.title}`}
                       className="shrink-0 rounded-full p-2 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--haven-blush-light)] hover:text-[var(--haven-blush-ink)] disabled:opacity-50"
-                      disabled={isPending || openingThreadId !== null}
+                      disabled={isPending || openingThreadId !== null || isDeletingThread}
                       onClick={() => void removeThread(thread)}
                       type="button"
                     >
@@ -1097,7 +1118,7 @@ export function AdvisorWorkspace({
                   <button
                     key={prompt}
                     className="rounded-full border border-[var(--color-border)] bg-[var(--haven-white)] px-3 py-1.5 text-left text-caption transition-colors hover:border-[var(--haven-sage-mid)] hover:bg-[var(--haven-sage-light)] disabled:opacity-50"
-                    disabled={isPending || needsAiChoice || openingThreadId !== null}
+                    disabled={isPending || needsAiChoice || openingThreadId !== null || isDeletingThread}
                     onClick={() => void sendMessage(prompt)}
                     type="button"
                   >
@@ -1123,7 +1144,7 @@ export function AdvisorWorkspace({
                   : "Ask Haven a question"
               }
               className="min-h-[120px] bg-[var(--haven-white)]"
-              disabled={needsAiChoice || openingThreadId !== null}
+              disabled={needsAiChoice || openingThreadId !== null || isDeletingThread}
               onChange={(event) => setDraft(event.target.value)}
               placeholder={
                 hasFirm && !viewingPrivateThread
@@ -1168,7 +1189,7 @@ export function AdvisorWorkspace({
                 </Button>
               ) : (
                 <Button
-                  disabled={needsAiChoice || openingThreadId !== null || overLimit || draftLength === 0}
+                  disabled={needsAiChoice || openingThreadId !== null || overLimit || draftLength === 0 || isDeletingThread}
                   onClick={() => void sendMessage()}
                   size="sm"
                 >
