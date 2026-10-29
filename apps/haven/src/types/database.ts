@@ -1430,6 +1430,137 @@ export type Database = {
           },
         ]
       }
+      advisor_firm_visibility_acks: {
+        Row: {
+          acknowledged_at: string
+          firm_id: string
+          user_id: string
+        }
+        Insert: {
+          acknowledged_at?: string
+          firm_id: string
+          user_id: string
+        }
+        Update: {
+          acknowledged_at?: string
+          firm_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "advisor_firm_visibility_acks_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      firm_conversations: {
+        Row: {
+          client_last_alerted_at: string | null
+          client_last_read_at: string | null
+          created_at: string
+          firm_client_id: string
+          firm_id: string
+          firm_last_alerted_at: string | null
+          firm_last_read_at: string | null
+          id: string
+          last_client_message_at: string | null
+          last_message_at: string | null
+        }
+        Insert: {
+          client_last_alerted_at?: string | null
+          client_last_read_at?: string | null
+          created_at?: string
+          firm_client_id: string
+          firm_id: string
+          firm_last_alerted_at?: string | null
+          firm_last_read_at?: string | null
+          id?: string
+          last_client_message_at?: string | null
+          last_message_at?: string | null
+        }
+        Update: {
+          client_last_alerted_at?: string | null
+          client_last_read_at?: string | null
+          created_at?: string
+          firm_client_id?: string
+          firm_id?: string
+          firm_last_alerted_at?: string | null
+          firm_last_read_at?: string | null
+          id?: string
+          last_client_message_at?: string | null
+          last_message_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "firm_conversations_firm_client_id_fkey"
+            columns: ["firm_client_id"]
+            isOneToOne: false
+            referencedRelation: "firm_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "firm_conversations_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      firm_messages: {
+        Row: {
+          advisor_message_id: string | null
+          body: string
+          conversation_id: string
+          created_at: string
+          id: string
+          sender_name: string
+          sender_role: string
+          sender_user_id: string | null
+          source: string
+        }
+        Insert: {
+          advisor_message_id?: string | null
+          body: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          sender_name?: string
+          sender_role: string
+          sender_user_id?: string | null
+          source?: string
+        }
+        Update: {
+          advisor_message_id?: string | null
+          body?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          sender_name?: string
+          sender_role?: string
+          sender_user_id?: string | null
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "firm_messages_advisor_message_id_fkey"
+            columns: ["advisor_message_id"]
+            isOneToOne: false
+            referencedRelation: "advisor_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "firm_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "firm_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       firm_contact_requests: {
         Row: {
           created_at: string
@@ -2195,6 +2326,7 @@ export type Database = {
           priority_date: string | null
           spouse_visa_status: Database["public"]["Enums"]["spouse_visa_status"]
           status_update_email_notifications: boolean
+          help_needed: string[]
           top_concerns: Database["public"]["Enums"]["concern"][]
           updated_at: string
           visa_type: Database["public"]["Enums"]["visa_type"]
@@ -2227,6 +2359,7 @@ export type Database = {
           priority_date?: string | null
           spouse_visa_status?: Database["public"]["Enums"]["spouse_visa_status"]
           status_update_email_notifications?: boolean
+          help_needed?: string[]
           top_concerns?: Database["public"]["Enums"]["concern"][]
           updated_at?: string
           visa_type: Database["public"]["Enums"]["visa_type"]
@@ -2259,6 +2392,7 @@ export type Database = {
           priority_date?: string | null
           spouse_visa_status?: Database["public"]["Enums"]["spouse_visa_status"]
           status_update_email_notifications?: boolean
+          help_needed?: string[]
           top_concerns?: Database["public"]["Enums"]["concern"][]
           updated_at?: string
           visa_type?: Database["public"]["Enums"]["visa_type"]

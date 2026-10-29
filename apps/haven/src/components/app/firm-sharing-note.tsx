@@ -29,7 +29,8 @@ export function FirmSharingNote({
     >
       <Building2 className="mt-0.5 h-4 w-4 shrink-0" />
       <span>
-        Your answers and documents are shared with <strong>{displayFirms}</strong>. Your chats with Haven stay private.
+        Your answers and documents are shared with <strong>{displayFirms}</strong>. Questions you ask Haven&apos;s AI go to
+        your lawyer too, after you agree in the chat. Chats from before that stay private.
       </span>
     </p>
   );

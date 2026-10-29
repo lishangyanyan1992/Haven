@@ -15,8 +15,9 @@ function formatSent(iso: string) {
 
 /**
  * What the client sent from the advisor's lawyer handoff, and nothing more:
- * the area, their dates and the questions they were shown. Their conversation
- * never reaches the firm. Marking it handled clears the marker and lets them
+ * the area, their dates and the questions they were shown. The request itself
+ * carries no conversation text (shared chats are shown separately, only after
+ * the client agrees). Marking it handled clears the marker and lets them
  * ask again; it does not change their stage.
  */
 export function ContactRequestPanel({ firmClientId, request }: { firmClientId: string; request: FirmContactRequest }) {

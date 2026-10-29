@@ -13,6 +13,7 @@ import {
   updateFirmClientPipelineStatus
 } from "@/lib/firms/clients";
 import { resetDemoFirm } from "@/lib/firms/demo";
+import { markFirmConversationRead, sendFirmMessage, type FirmSendResult } from "@/lib/firms/firm-messages";
 import { validateConsultationBooking, validateEngagementUpdate } from "@/lib/firms/engagement";
 import { claimFirmInvite, grantFirmAccessForUser, requestFirmIntake, type IntakeResult } from "@/lib/firms/intake";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -230,4 +231,50 @@ export async function exportFirmClientDossierAction(firmClientId: string): Promi
   const dossier = await getFirmClientDossier(membership.firmId, firmClientId);
   if (!dossier) return { ok: false, error: "Client not found" };
   return { ok: true, dossier };
+}
+
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * A lawyer's message to a client, or a reply to one of the client's AI
+ * answers. The firm comes from requireFirmMember(); the client and the answer
+ * are checked against that firm before anything is saved.
+ */
+export async function sendFirmMessageAction(input: {
+  firmClientId: string;
+  body: string;
+  aiAnswerId?: string | null;
+}): Promise<FirmSendResult> {
+  const membership = await requireFirmMember();
+  if (!uuidPattern.test(String(input.firmClientId ?? ""))) return { status: "not_found" };
+  if (input.aiAnswerId && !uuidPattern.test(String(input.aiAnswerId))) return { status: "not_found" };
+
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+  const metaName = typeof user?.user_metadata?.full_name === "string" ? user.user_metadata.full_name.trim() : "";
+
+  const result = await sendFirmMessage(membership.firmId, {
+    firmClientId: input.firmClientId,
+    lawyerUserId: membership.userId,
+    lawyerName: metaName || membership.email,
+    firmName: membership.firmName,
+    body: input.body,
+    aiAnswerId: input.aiAnswerId ?? null
+  });
+  if (result.status === "sent") {
+    revalidatePath(`/firm/clients/${input.firmClientId}`);
+    revalidatePath("/firm");
+  }
+  return result;
+}
+
+/** Opening a client's messages clears the unread marker for the whole firm. */
+export async function markFirmConversationReadAction(firmClientId: string): Promise<{ ok: boolean }> {
+  const membership = await requireFirmMember();
+  if (!uuidPattern.test(String(firmClientId ?? ""))) return { ok: false };
+  const ok = await markFirmConversationRead(membership.firmId, firmClientId);
+  if (ok) revalidatePath("/firm");
+  return { ok };
 }

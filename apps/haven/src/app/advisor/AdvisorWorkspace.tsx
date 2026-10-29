@@ -31,6 +31,19 @@ import { trackEvent } from "@/lib/mixpanel";
 import type { AdvisorAnswerPayload, AdvisorFirmContactOffer, AdvisorMessage } from "@/types/domain";
 import { PENDING_QUESTION_KEY } from "@/lib/pending-question";
 import { getFirmContactRequestStatusAction, sendFirmContactRequestAction } from "@/server/firm-contact-actions";
+import { acknowledgeChatVisibilityAction } from "@/server/message-actions";
+import {
+  aiAnswerLabel,
+  isThreadVisibleToFirm,
+  visibilityLineText,
+  visibilityNoticeText
+} from "@/lib/advisor/firm-visibility-copy";
+
+/** Which firms see this person's chats, and when each started seeing them. */
+export type AdvisorChatVisibility = {
+  firms: { firmName: string; acknowledgedAt: string | null }[];
+  needsNotice: boolean;
+};
 
 type AdvisorWorkspaceProps = {
   advisorUsage: AdvisorUsage;
@@ -38,6 +51,10 @@ type AdvisorWorkspaceProps = {
   initialThreads: AdvisorThreadSummary[];
   suggestedPrompts: string[];
   welcomeMessage: AdvisorAnswerPayload;
+  /** Set for a firm's client: their lawyer sees chats started after they agree. */
+  chatVisibility?: AdvisorChatVisibility | null;
+  /** Open this chat on arrival, from a lawyer's reply that quotes it. */
+  initialThreadId?: string | null;
 };
 
 // Server-side limits, mirrored so the user learns about them before pressing send
@@ -51,6 +68,7 @@ type AdvisorThreadSummary = {
   id: string;
   title: string;
   updatedAt: string;
+  createdAt?: string;
   messageCount: number;
 };
 
@@ -84,8 +102,16 @@ export function AdvisorWorkspace({
   advisorUsage,
   initialThreads,
   suggestedPrompts,
-  welcomeMessage
+  welcomeMessage,
+  chatVisibility = null,
+  initialThreadId = null
 }: AdvisorWorkspaceProps) {
+  const [visibility, setVisibility] = useState<AdvisorChatVisibility | null>(chatVisibility);
+  const [acknowledging, setAcknowledging] = useState(false);
+  const hasFirm = Boolean(visibility && visibility.firms.length > 0);
+  const needsNotice = Boolean(hasFirm && visibility?.needsNotice);
+  const firmNames = visibility?.firms.map((f) => f.firmName) ?? [];
+  const answerLabel = aiAnswerLabel(hasFirm);
   const [messages, setMessages] = useState<AdvisorMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -226,6 +252,40 @@ export function AdvisorWorkspace({
     [conversationId, threads]
   );
 
+  // Which firms see the open chat. A new chat is shared with every firm the
+  // client has agreed to; an older one only with firms they agreed to before it began.
+  // A chat missing from the list was just started here, so it is new.
+  const activeThread = conversationId ? threads.find((t) => t.id === conversationId) ?? null : null;
+  const seeingFirms = !hasFirm
+    ? []
+    : !activeThread
+      ? visibility!.firms.filter((f) => f.acknowledgedAt).map((f) => f.firmName)
+      : visibility!.firms
+          .filter((f) => isThreadVisibleToFirm(activeThread.createdAt, f.acknowledgedAt))
+          .map((f) => f.firmName);
+
+  const acknowledgeNotice = useCallback(async () => {
+    setAcknowledging(true);
+    setError(null);
+    try {
+      const next = await acknowledgeChatVisibilityAction();
+      setVisibility({
+        firms: next.firms.map((f) => ({ firmName: f.firmName, acknowledgedAt: f.acknowledgedAt })),
+        needsNotice: next.needsNotice
+      });
+    } catch {
+      setError("Haven couldn't save that just now. Try again in a moment.");
+    } finally {
+      setAcknowledging(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (initialThreadId) void openThread(initialThreadId);
+    // Only on arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const draftLength = draft.trim().length;
   const overLimit = draftLength > MESSAGE_CHAR_LIMIT;
   const nearLimit = draftLength > MESSAGE_CHAR_LIMIT * 0.8;
@@ -245,6 +305,7 @@ export function AdvisorWorkspace({
   async function sendMessage(rawMessage?: string) {
     const content = (rawMessage ?? draft).trim();
     if (!content || isPending) return;
+    if (needsNotice) return;
 
     if (content.length > MESSAGE_CHAR_LIMIT) {
       setError(
@@ -310,8 +371,19 @@ export function AdvisorWorkspace({
       });
 
       if (!response.ok) {
-        const errorBody = await response.json().catch(() => ({ error: "Unable to send message." }));
-        throw new Error((errorBody as { error?: string }).error ?? "Unable to send message.");
+        const errorBody = (await response.json().catch(() => ({ error: "Unable to send message." }))) as {
+          error?: string;
+          firmNames?: string[];
+        };
+        if (errorBody.error === "needs_notice") {
+          // Joined another firm since this page loaded: show the notice again.
+          setVisibility((current) => ({ firms: current?.firms ?? [], needsNotice: true }));
+          setDraft(content);
+          setMessages(messages);
+          setStreamingId(null);
+          return;
+        }
+        throw new Error(errorBody.error ?? "Unable to send message.");
       }
 
       if (!response.body) throw new Error("No response stream.");
@@ -454,9 +526,17 @@ export function AdvisorWorkspace({
           </Button>
         </CardHeader>
         <CardContent className="space-y-4">
+          {hasFirm && !needsNotice && (
+            <p className="rounded-[var(--radius-lg)] bg-[var(--haven-sage-light)] px-4 py-2.5 text-body-sm text-[var(--haven-ink)]">
+              {seeingFirms.length > 0
+                ? visibilityLineText(seeingFirms)
+                : "This older chat is private to you. It started before you chose to share chats with your lawyer."}
+            </p>
+          )}
           <div ref={scrollerRef} className="max-h-[620px] space-y-4 overflow-y-auto pr-1">
             {messages.length === 0 ? (
               <AdvisorAnswerCard
+                aiLabel={answerLabel}
                 isPending={false}
                 traceId={null}
                 message={{
@@ -472,6 +552,7 @@ export function AdvisorWorkspace({
               messages.map((message) =>
                 message.role === "assistant" ? (
                   <AdvisorAnswerCard
+                    aiLabel={answerLabel}
                     key={message.id}
                     isPending={message.id === streamingId}
                     message={message}
@@ -500,7 +581,7 @@ export function AdvisorWorkspace({
                   <button
                     key={prompt}
                     className="rounded-full border border-[var(--color-border)] bg-[var(--haven-white)] px-3 py-1.5 text-left text-caption transition-colors hover:border-[var(--haven-sage-mid)] hover:bg-[var(--haven-sage-light)] disabled:opacity-50"
-                    disabled={isPending}
+                    disabled={isPending || needsNotice}
                     onClick={() => void sendMessage(prompt)}
                     type="button"
                   >
@@ -518,11 +599,34 @@ export function AdvisorWorkspace({
             </p>
           )}
 
+          {needsNotice && (
+            <div
+              className="rounded-[var(--radius-xl)] border border-[var(--haven-sage)] bg-[var(--haven-sage-light)] p-4"
+              role="region"
+              aria-label="Who sees your questions"
+            >
+              <p className="text-h3">Your questions go to your lawyer</p>
+              <p className="text-body-sm mt-2 text-[var(--haven-ink)]">{visibilityNoticeText(firmNames)}</p>
+              <p className="text-caption mt-2 text-[var(--color-text-secondary)]">
+                Chats you started before now stay private to you.
+              </p>
+              <Button className="mt-3" disabled={acknowledging} onClick={() => void acknowledgeNotice()} size="sm">
+                {acknowledging ? "Saving…" : "Got it"}
+              </Button>
+            </div>
+          )}
+
           <div className="rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-sand)] p-4">
             <Textarea
+              aria-label={hasFirm ? "Ask your lawyer a question" : "Ask Haven a question"}
               className="min-h-[120px] bg-[var(--haven-white)]"
+              disabled={needsNotice}
               onChange={(event) => setDraft(event.target.value)}
-              placeholder="Ask about H-1B, PERM, I-140, I-485, the visa bulletin, or how your Haven timeline fits those rules."
+              placeholder={
+                hasFirm
+                  ? "Ask your lawyer a question"
+                  : "Ask about H-1B, PERM, I-140, I-485, the visa bulletin, or how your Haven timeline fits those rules."
+              }
               value={draft}
             />
             <div className="mt-2 flex items-center justify-end">
@@ -554,9 +658,9 @@ export function AdvisorWorkspace({
                   Stop
                 </Button>
               ) : (
-                <Button disabled={overLimit || draftLength === 0} onClick={() => void sendMessage()} size="sm">
+                <Button disabled={needsNotice || overLimit || draftLength === 0} onClick={() => void sendMessage()} size="sm">
                   <SendHorizonal className="h-4 w-4" />
-                  Ask Haven
+                  {hasFirm ? "Ask" : "Ask Haven"}
                 </Button>
               )}
             </div>
@@ -760,12 +864,15 @@ function AdvisorAnswerCard({
   traceId,
   stopped = false,
   onFollowUp,
+  aiLabel,
 }: {
   message: AdvisorMessage;
   isPending: boolean;
   traceId: string | null;
   stopped?: boolean;
   onFollowUp?: (question: string) => void;
+  /** Fixed "AI can make mistakes" line under every answer; never from the model. */
+  aiLabel: string;
 }) {
   const [feedback, setFeedback] = useState<"up" | "down" | null>(null);
   const [feedbackSent, setFeedbackSent] = useState(false);
@@ -982,6 +1089,14 @@ function AdvisorAnswerCard({
             <span className="ml-0.5 inline-block h-[1em] w-0.5 animate-pulse bg-current align-middle" />
           )}
         </div>
+
+        {/* Fixed text from the page, not the model, so no answer can drop it
+            (specs/advisor-chat-firm-visibility). */}
+        {!isPending && (
+          <p className="mt-3 text-caption font-medium text-[var(--haven-ink-mid)]" data-testid="ai-answer-label">
+            {aiLabel}
+          </p>
+        )}
 
         {/* An interrupted answer must never read as a finished one, and the legal
             disclaimer has to survive the interruption (CD-1.12, CD-1.15). */}

@@ -15,7 +15,15 @@ const PETITION_TYPES: ImmigrantPetitionType[] = [
   "employer_sponsored",
   "self_petition_niw",
   "self_petition_eb1a",
-  "concurrent_employer"
+  "concurrent_employer",
+  "family_marriage_usc",
+  "family_marriage_lpr",
+  "family_preference",
+  "investment_eb5",
+  "humanitarian_asylum",
+  "humanitarian_other",
+  "diversity_lottery",
+  "other"
 ];
 const STAGES: ImmigrantPetitionStage[] = [
   "pwd_recruitment",
@@ -23,24 +31,52 @@ const STAGES: ImmigrantPetitionStage[] = [
   "perm_certified",
   "i140_filed",
   "i140_approved",
+  "i130_filed",
+  "i130_approved",
+  "consular_processing",
+  "conditional_resident",
   "i485_filed",
   "i485_approved",
   "withdrawn"
 ];
-const CATEGORIES: PreferenceCategory[] = ["EB-1", "EB-2", "EB-3", "EB-2 NIW", "Not sure"];
+const CATEGORIES: PreferenceCategory[] = [
+  "EB-1",
+  "EB-2",
+  "EB-3",
+  "EB-2 NIW",
+  "EB-1A",
+  "EB-1B",
+  "EB-1C",
+  "EB-4",
+  "EB-5",
+  "Immediate Relative (Spouse)",
+  "Immediate Relative (Parent/Child)",
+  "F-1",
+  "F-2A",
+  "F-2B",
+  "F-3",
+  "F-4",
+  "Diversity Visa",
+  "Asylum Adjustment",
+  "Not sure"
+];
 const ENDED_REASONS: PetitionEndedReason[] = ["layoff", "job_change", "withdrawn", "denied", "other"];
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Stage order from first step to green card. Withdrawn sorts first: it says nothing about progress. */
-export const STAGE_ORDER: Record<ImmigrantPetitionStage, number> = {
+export const STAGE_ORDER: Record<string, number> = {
   withdrawn: -1,
   pwd_recruitment: 0,
   perm_in_progress: 1,
   perm_certified: 2,
   i140_filed: 3,
   i140_approved: 4,
+  i130_filed: 3,
+  i130_approved: 4,
+  consular_processing: 4,
   i485_filed: 5,
+  conditional_resident: 5,
   i485_approved: 6
 };
 
@@ -93,9 +129,9 @@ export function normalizePetitions(raw: unknown): ImmigrantPetition[] {
     const petition: ImmigrantPetition = {
       id,
       sponsorName,
-      petitionType: pick(PETITION_TYPES, r.petitionType, r.petitionKind, r.type) ?? "employer_sponsored",
-      preferenceCategory: pick(CATEGORIES, r.preferenceCategory, r.category) ?? "Not sure",
-      stage
+      petitionType: pick(PETITION_TYPES, r.petitionType, r.petitionKind, r.type) ?? (text(r.petitionType) as ImmigrantPetitionType) ?? "employer_sponsored",
+      preferenceCategory: pick(CATEGORIES, r.preferenceCategory, r.category) ?? (text(r.preferenceCategory) as PreferenceCategory) ?? "Not sure",
+      stage: pick(STAGES, r.stage) ?? (text(r.stage) as ImmigrantPetitionStage) ?? "pwd_recruitment"
     };
     const optional: Partial<ImmigrantPetition> = {
       priorityDate: isoDate(r.priorityDate),

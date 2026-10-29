@@ -34,6 +34,7 @@ export function mapProfileRow(row: Record<string, unknown>): ImmigrationProfile 
     fullName: String(row.full_name ?? ""),
     email: String(row.email ?? ""),
     visaType: row.visa_type as ImmigrationProfile["visaType"],
+    customVisaDetail: text(row.custom_visa_detail) ?? text(deadlineMeta.customVisaDetail),
     countryOfBirth: String(row.country_of_birth ?? ""),
     currentVisaExpiryDate: optionalText(row.current_visa_expiry_date) ?? isoDate(deadlineMeta.statusEndDate),
     h1bStartDate: optionalText(row.h1b_start_date),
@@ -43,6 +44,7 @@ export function mapProfileRow(row: Record<string, unknown>): ImmigrationProfile 
     i140Approved: Boolean(row.i140_approved),
     i140ApprovalDate: optionalText(row.i140_approval_date),
     priorityDate: optionalText(row.priority_date),
+    greenCardPathway: text(row.green_card_pathway) ?? text(deadlineMeta.greenCardPathway),
     greenCardSponsor: text(deadlineMeta.greenCardSponsor),
     retainedPriorityDate: isoDate(deadlineMeta.retainedPriorityDate),
     retainedPriorityDateSponsor: text(deadlineMeta.retainedPriorityDateSponsor),
@@ -60,6 +62,7 @@ export function mapProfileRow(row: Record<string, unknown>): ImmigrationProfile 
     spouseVisaStatus: row.spouse_visa_status as ImmigrationProfile["spouseVisaStatus"],
     primaryGoal: row.primary_goal as ImmigrationProfile["primaryGoal"],
     topConcerns: ((row.top_concerns as string[] | null) ?? []) as ImmigrationProfile["topConcerns"],
+    helpNeeded: Array.isArray(row.help_needed) ? (row.help_needed as string[]) : [],
     communityReplyEmailNotifications: Boolean(row.community_reply_email_notifications),
     statusUpdateEmailNotifications: Boolean(row.status_update_email_notifications)
   };

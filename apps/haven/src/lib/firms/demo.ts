@@ -50,6 +50,7 @@ export const DEMO_LEAD_TEMPLATES: DemoLeadTemplate[] = [
       ],
       spouseVisaStatus: "H4",
       topConcerns: ["layoffs", "visa_expiry", "gc_timeline"],
+      helpNeeded: ["job_loss_plan", "changing_employers"],
       jobEnded: "yes"
     }
   },
@@ -73,6 +74,7 @@ export const DEMO_LEAD_TEMPLATES: DemoLeadTemplate[] = [
       preferenceCategory: "EB-1A",
       spouseVisaStatus: "none",
       topConcerns: ["visa_expiry"],
+      helpNeeded: ["first_consultation", "other_paths"],
       agencyDeadlineType: "rfe"
     }
   },

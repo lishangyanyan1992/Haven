@@ -1,4 +1,9 @@
 import Link from "next/link";
+import { getFirmConversation } from "@/lib/firms/firm-messages";
+import { listSharedChatsForFirm } from "@/lib/firms/shared-chats";
+import { ClientMessagesPanel } from "./ClientMessagesPanel";
+import { SharedChatsPanel } from "./SharedChatsPanel";
+import { HELP_NEEDED_OPTIONS } from "@/lib/firms/help-needed";
 import { AlertTriangle, ArrowLeft, FileWarning } from "lucide-react";
 
 import { requireFirmMember } from "@/lib/firms/access";
@@ -76,6 +81,7 @@ const LABELS: Record<string, Record<string, string>> = {
     biometrics: "Biometrics appointment",
     other: "Other deadline"
   },
+  helpNeeded: Object.fromEntries(HELP_NEEDED_OPTIONS.map((option) => [option.value, option.label])),
   topConcerns: {
     layoffs: "Layoffs",
     visa_expiry: "Visa expiring",
@@ -125,7 +131,10 @@ const GROUPS: { title: string; rows: [string, SharedAnswerKey][] }[] = [
       ["Every green card filed", "greenCards"]
     ]
   },
-  { title: "Situation", rows: [["Spouse's status", "spouseVisaStatus"], ["Main concerns", "topConcerns"]] },
+  {
+    title: "Situation",
+    rows: [["Help needed", "helpNeeded"], ["Spouse's status", "spouseVisaStatus"], ["Main concerns (earlier setup)", "topConcerns"]]
+  },
   {
     title: "Deadlines",
     rows: [
@@ -232,9 +241,17 @@ function buildFirmClientAudit(
 export default async function FirmClientPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const membership = await requireFirmMember(`/firm/clients/${id}`);
-  const [client, intakeQuestions] = await Promise.all([
+  const [client, intakeQuestions, conversation, sharedChats] = await Promise.all([
     getFirmClient(membership.firmId, id),
-    getFirmIntakeQuestions(membership.firmId)
+    getFirmIntakeQuestions(membership.firmId),
+    getFirmConversation(membership.firmId, id).catch((error) => {
+      console.error("[firm] could not load messages", error);
+      return null;
+    }),
+    listSharedChatsForFirm(membership.firmId, id).catch((error) => {
+      console.error("[firm] could not load shared questions", error);
+      return [];
+    })
   ]);
 
   if (!client) {
@@ -325,6 +342,16 @@ export default async function FirmClientPage({ params }: { params: Promise<{ id:
         </div>
 
         {client.openContactRequest ? <ContactRequestPanel firmClientId={client.id} request={client.openContactRequest} /> : null}
+
+        <div className="grid gap-4 xl:grid-cols-2">
+          <ClientMessagesPanel
+            clientName={name}
+            firmClientId={client.id}
+            hasUnread={conversation?.hasUnread ?? false}
+            messages={conversation?.messages ?? []}
+          />
+          <SharedChatsPanel chats={sharedChats} clientName={name} firmClientId={client.id} />
+        </div>
 
         {/* High-visibility contact information & quick actions */}
         <ContactQuickActions
@@ -418,7 +445,7 @@ export default async function FirmClientPage({ params }: { params: Promise<{ id:
                           ))}
                         </ul>
                       ) : (
-                        row.value ?? "Not provided"
+                        row.value ?? (row.key === "helpNeeded" ? "Not answered" : "Not provided")
                       )}
                     </dd>
                   </div>

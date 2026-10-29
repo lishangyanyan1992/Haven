@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { HELP_NEEDED_OPTIONS, HELP_NEEDED_SENT_MARKER } from "@/lib/firms/help-needed";
 import { AlertTriangle, CheckCircle2, FileWarning } from "lucide-react";
 
+import { ALL_VISA_OPTIONS } from "@/lib/visas";
 import { AppShell } from "@/components/app/app-shell";
 import { GreenCardEditor } from "@/components/app/green-card-editor";
 import { FieldSourceLabel } from "@/components/app/field-source-label";
@@ -213,11 +215,17 @@ export default async function SettingsPage({
               <CardContent className="space-y-4">
                 <Field label="Current visa status">
                   <Select defaultValue={profile.visaType} name="visaType">
-                    {["OPT", "STEM OPT", "H1B", "H4", "O-1", "GC", "Citizen"].map((value) => (
-                      <option key={value} value={value}>
-                        {value}
-                      </option>
-                    ))}
+                    {(() => {
+                      const standardValues = ALL_VISA_OPTIONS.map((opt) => opt.value);
+                      const allOptions = standardValues.includes(profile.visaType)
+                        ? ALL_VISA_OPTIONS
+                        : [{ value: profile.visaType, label: profile.visaType, group: "Other" }, ...ALL_VISA_OPTIONS];
+                      return allOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ));
+                    })()}
                   </Select>
                   <FieldSourceLabel fieldKey="visaType" hasValue={Boolean(profile.visaType)} source={sources.visaType} />
                 </Field>
@@ -306,20 +314,37 @@ export default async function SettingsPage({
                 <Field label="Green card stage">
                   <Select defaultValue={greenCardStage} name="greenCardStage">
                     <option value="not_started">Not started yet</option>
+                    <option value="pwd_recruitment">Prevailing Wage / Recruitment</option>
                     <option value="perm_in_progress">PERM in progress</option>
                     <option value="perm_certified">PERM certified</option>
                     <option value="i140_filed">I-140 filed</option>
                     <option value="i140_approved">I-140 approved</option>
-                    <option value="i485_filed">I-485 filed</option>
+                    <option value="i130_filed">I-130 filed (Family / Marriage)</option>
+                    <option value="i130_approved">I-130 approved</option>
+                    <option value="consular_processing">Consular / NVC processing</option>
+                    <option value="i485_filed">I-485 filed (Adjustment of status)</option>
+                    <option value="conditional_resident">2-year conditional resident</option>
+                    <option value="i485_approved">Permanent Resident approved</option>
                   </Select>
                 </Field>
                 <Field label="Preference category">
                   <Select defaultValue={profile.preferenceCategory} name="preferenceCategory">
-                    {["EB-1", "EB-2", "EB-3", "EB-2 NIW", "Not sure"].map((value) => (
-                      <option key={value} value={value}>
-                        {value}
-                      </option>
-                    ))}
+                    {(() => {
+                      const standardCategories = [
+                        "EB-1", "EB-1A", "EB-1B", "EB-1C", "EB-2", "EB-2 NIW", "EB-3", "EB-4", "EB-5",
+                        "Immediate Relative (Spouse)", "Immediate Relative (Parent/Child)",
+                        "F-1", "F-2A", "F-2B", "F-3", "F-4",
+                        "Diversity Visa", "Asylum Adjustment", "Not sure"
+                      ];
+                      const allCats = standardCategories.includes(profile.preferenceCategory)
+                        ? standardCategories
+                        : [profile.preferenceCategory, ...standardCategories];
+                      return allCats.map((value) => (
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
+                      ));
+                    })()}
                   </Select>
                 </Field>
                 <Field label="Priority date">
@@ -365,34 +390,30 @@ export default async function SettingsPage({
             <Card>
               <CardHeader>
                 <div>
-                  <p className="text-label">Top concerns</p>
-                  <CardTitle className="mt-2">What Haven should prioritize first</CardTitle>
+                  <p className="text-label">Help needed</p>
+                  <CardTitle className="mt-2">What help do you need from your lawyer?</CardTitle>
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
                 <p className="text-body-sm">
-                  These selections influence your dashboard guidance, planner emphasis, and community matching.
+                  Pick any that apply. Your lawyer sees these, and they also shape your dashboard guidance and community matching.
                 </p>
-                {[
-                  ["layoffs", "Layoff risk", "Worried about job loss scenarios"],
-                  ["visa_expiry", "Visa expiry", "Tracking current status expiration"],
-                  ["gc_timeline", "Green card timeline", "Long waits and bulletin uncertainty"],
-                  ["job_change", "Job change", "Transferring H1B or changing employers"]
-                ].map(([value, label, description]) => (
+                <input name={HELP_NEEDED_SENT_MARKER} type="hidden" value="1" />
+                {HELP_NEEDED_OPTIONS.map((option) => (
                   <label
-                    key={value}
+                    key={option.value}
                     className="flex items-start gap-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--haven-cream)] p-4"
                   >
                     <input
                       className="mt-1 h-4 w-4 accent-[var(--haven-sage)]"
-                      defaultChecked={profile.topConcerns.includes(value as typeof profile.topConcerns[number])}
-                      name="topConcerns"
+                      defaultChecked={(profile.helpNeeded ?? []).includes(option.value)}
+                      name="helpNeeded"
                       type="checkbox"
-                      value={value}
+                      value={option.value}
                     />
                     <div>
-                      <p className="text-h3">{label}</p>
-                      <p className="text-body-sm mt-2">{description}</p>
+                      <p className="text-h3">{option.label}</p>
+                      <p className="text-body-sm mt-2">{option.description}</p>
                     </div>
                   </label>
                 ))}

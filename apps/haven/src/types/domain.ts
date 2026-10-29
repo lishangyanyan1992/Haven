@@ -1,7 +1,78 @@
-export type VisaType = "OPT" | "STEM OPT" | "H1B" | "H4" | "O-1" | "GC" | "Citizen";
+export type StandardVisaType =
+  | "OPT"
+  | "STEM OPT"
+  | "H1B"
+  | "H4"
+  | "H4 EAD"
+  | "O-1"
+  | "O-1A"
+  | "O-1B"
+  | "O-2"
+  | "B-1"
+  | "B-2"
+  | "B-1/B-2"
+  | "ESTA"
+  | "F-1"
+  | "J-1"
+  | "M-1"
+  | "L-1A"
+  | "L-1B"
+  | "L-2"
+  | "TN"
+  | "E-1"
+  | "E-2"
+  | "E-3"
+  | "H-1B1"
+  | "P-1"
+  | "R-1"
+  | "K-1"
+  | "K-3"
+  | "TPS"
+  | "DACA"
+  | "Pending Asylum"
+  | "Humanitarian Parole"
+  | "U Visa"
+  | "T Visa"
+  | "GC"
+  | "Citizen";
+
+export type VisaType = StandardVisaType | (string & {});
 export type PermStage = "not_started" | "in_progress" | "certified" | "denied";
-export type GreenCardStage = "not_started" | "perm_in_progress" | "perm_certified" | "i140_filed" | "i140_approved" | "i485_filed";
-export type PreferenceCategory = "EB-1" | "EB-2" | "EB-3" | "EB-2 NIW" | "Not sure";
+export type GreenCardStage =
+  | "not_started"
+  | "perm_in_progress"
+  | "perm_certified"
+  | "i140_filed"
+  | "i140_approved"
+  | "i130_filed"
+  | "i130_approved"
+  | "i485_filed"
+  | "consular_processing"
+  | "conditional_resident"
+  | (string & {});
+
+export type StandardPreferenceCategory =
+  | "EB-1"
+  | "EB-2"
+  | "EB-3"
+  | "EB-2 NIW"
+  | "EB-1A"
+  | "EB-1B"
+  | "EB-1C"
+  | "EB-4"
+  | "EB-5"
+  | "Immediate Relative (Spouse)"
+  | "Immediate Relative (Parent/Child)"
+  | "F-1"
+  | "F-2A"
+  | "F-2B"
+  | "F-3"
+  | "F-4"
+  | "Diversity Visa"
+  | "Asylum Adjustment"
+  | "Not sure";
+
+export type PreferenceCategory = StandardPreferenceCategory | (string & {});
 export type EmploymentStatus = "employed" | "actively_searching" | "laid_off";
 export type SpouseVisaStatus = "none" | "H1B" | "H4" | "H4 EAD" | "GC" | "citizen" | "other";
 export type PrimaryGoal = "get_gc" | "job_stability" | "explore_options" | "stay_flexible" | "not_sure";
@@ -66,7 +137,16 @@ export type ImmigrantPetitionType =
   | "employer_sponsored"
   | "self_petition_niw"
   | "self_petition_eb1a"
-  | "concurrent_employer";
+  | "concurrent_employer"
+  | "family_marriage_usc"
+  | "family_marriage_lpr"
+  | "family_preference"
+  | "investment_eb5"
+  | "humanitarian_asylum"
+  | "humanitarian_other"
+  | "diversity_lottery"
+  | "other"
+  | (string & {});
 
 export type ImmigrantPetitionStage =
   | "pwd_recruitment"
@@ -74,9 +154,14 @@ export type ImmigrantPetitionStage =
   | "perm_certified"
   | "i140_filed"
   | "i140_approved"
+  | "i130_filed"
+  | "i130_approved"
+  | "consular_processing"
+  | "conditional_resident"
   | "i485_filed"
   | "i485_approved"
-  | "withdrawn";
+  | "withdrawn"
+  | (string & {});
 
 export type PetitionEndedReason = "layoff" | "job_change" | "withdrawn" | "denied" | "other";
 
@@ -117,6 +202,7 @@ export interface ImmigrationProfile {
   fullName: string;
   email: string;
   visaType: VisaType;
+  customVisaDetail?: string;
   countryOfBirth: string;
   currentVisaExpiryDate?: string;
   h1bStartDate?: string;
@@ -126,6 +212,7 @@ export interface ImmigrationProfile {
   i140Approved: boolean;
   i140ApprovalDate?: string;
   priorityDate?: string;
+  greenCardPathway?: string;
   greenCardSponsor?: string;
   retainedPriorityDate?: string;
   retainedPriorityDateSponsor?: string;
@@ -141,6 +228,8 @@ export interface ImmigrationProfile {
   spouseVisaStatus: SpouseVisaStatus;
   primaryGoal: PrimaryGoal;
   topConcerns: Concern[];
+  /** "What help do you need from your lawyer?" choices; see lib/firms/help-needed. */
+  helpNeeded?: string[];
   communityReplyEmailNotifications?: boolean;
   statusUpdateEmailNotifications?: boolean;
 }

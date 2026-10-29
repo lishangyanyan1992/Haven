@@ -5,6 +5,8 @@ import { Timer } from "lucide-react";
 import { DashboardChangeHighlight, DashboardChangeProvider } from "@/components/app/dashboard-change-highlight";
 import { AppShell } from "@/components/app/app-shell";
 import { FirmEngagementDashboard } from "@/components/app/firm-engagement-dashboard";
+import { ClientMessages } from "@/components/app/client-messages";
+import { listClientConversations, type ClientConversation } from "@/lib/firms/client-messages";
 import { DashboardConflictNotes } from "@/components/app/dashboard-conflict-notes";
 import { ImmigrationJourneyDashboard } from "@/components/app/immigration-journey-dashboard";
 import { Badge } from "@/components/ui/badge";
@@ -72,13 +74,19 @@ export default async function DashboardPage({
     }
   }
 
-  const [initialSnapshot, crisisState, updates, inboxData, savedDeadlines, firmRecords] = await Promise.all([
+  const [initialSnapshot, crisisState, updates, inboxData, savedDeadlines, firmRecords, conversations] = await Promise.all([
     getDashboardPageData(),
     getCrisisState(),
     getImmigrationUpdates(),
     getInboxPageData(),
     user ? loadDeadlineAnswers(user.id) : Promise.resolve({} as DeadlineAnswers),
-    user ? getClientFirmEngagementRecords(user.id) : Promise.resolve([])
+    user ? getClientFirmEngagementRecords(user.id) : Promise.resolve([]),
+    user
+      ? listClientConversations(user.id).catch((error) => {
+          console.error("[dashboard] could not load messages", error);
+          return [] as ClientConversation[];
+        })
+      : Promise.resolve([] as ClientConversation[])
   ]);
   let snapshot = initialSnapshot;
 
@@ -403,6 +411,8 @@ export default async function DashboardPage({
           </DashboardChangeHighlight>
 
           <FirmEngagementDashboard engagement={defaultFirmEngagement} engagements={firmEngagements} />
+
+          {conversations.length > 0 ? <ClientMessages conversations={conversations} /> : null}
 
           {!profileUnavailable && <DashboardConflictNotes conflicts={dashboardFacts.conflicts} />}
 

@@ -1,4 +1,6 @@
 import { HAVEN_VAULT_BUCKET } from "@/lib/document-vault";
+import { firmClientsWithUnreadMessages } from "@/lib/firms/firm-messages";
+import { helpNeededLabels } from "@/lib/firms/help-needed";
 import type { SharedAnswers } from "@/lib/firms/answers";
 import { cleanEngagementState } from "@/lib/firms/engagement";
 import { getFirmRequiredDocuments } from "@/lib/firms/required-documents";
@@ -66,6 +68,10 @@ export type FirmClientSummary = {
   urgency: Urgency;
   /** Shown beside the urgency, never part of it: asking does not move anyone up the list. */
   openContactRequest: { id: string; sentAt: string } | null;
+  /** "What help do you need from your lawyer?", as plain labels. */
+  helpNeeded: string[];
+  /** The client wrote since anyone at the firm last opened their messages. Never part of the urgency. */
+  hasUnreadMessages: boolean;
 };
 
 async function firmClientRows(firmId: string): Promise<FirmClientRow[]> {
@@ -110,10 +116,11 @@ async function openContactRequests(firmId: string): Promise<Map<string, FirmCont
 }
 
 export async function listFirmClients(firmId: string): Promise<FirmClientSummary[]> {
-  const [rows, requiredDocs, contactRequests] = await Promise.all([
+  const [rows, requiredDocs, contactRequests, unreadClients] = await Promise.all([
     firmClientRows(firmId),
     getFirmRequiredDocuments(firmId),
-    openContactRequests(firmId)
+    openContactRequests(firmId),
+    firmClientsWithUnreadMessages(firmId)
   ]);
   const userIds = rows.map((r) => r.user_id).filter((id): id is string => Boolean(id));
 
@@ -189,7 +196,9 @@ export async function listFirmClients(firmId: string): Promise<FirmClientSummary
       openContactRequest: (() => {
         const request = contactRequests.get(row.id);
         return request ? { id: request.id, sentAt: request.sentAt } : null;
-      })()
+      })(),
+      helpNeeded: helpNeededLabels(answers.helpNeeded),
+      hasUnreadMessages: unreadClients.has(row.id)
     };
   });
 

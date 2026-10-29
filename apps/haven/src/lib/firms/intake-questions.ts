@@ -4,6 +4,7 @@ import {
   findPresetIntakeQuestion,
   getDefaultIntakeQuestions,
   isCustomQuestionKey,
+  normalizeIntakeQuestionKeys,
   PRESET_INTAKE_QUESTIONS,
   slugifyCustomQuestionKey,
   validateIntakeQuestionList,
@@ -17,6 +18,7 @@ export {
   findPresetIntakeQuestion,
   getDefaultIntakeQuestions,
   isCustomQuestionKey,
+  normalizeIntakeQuestionKeys,
   PRESET_INTAKE_QUESTIONS,
   slugifyCustomQuestionKey,
   validateIntakeQuestionList,
@@ -47,7 +49,7 @@ export async function getFirmIntakeQuestions(firmId: string): Promise<IntakeQues
   if (!Array.isArray(list) || list.length === 0) {
     return getDefaultIntakeQuestions();
   }
-  return list as IntakeQuestionItem[];
+  return normalizeIntakeQuestionKeys(list as IntakeQuestionItem[]);
 }
 
 /**
