@@ -21,7 +21,10 @@ export async function POST(request: Request) {
     const visibility = await getChatVisibility(user.id);
     if (visibility.needsNotice) {
       return Response.json(
-        { error: "needs_notice", firmNames: visibility.firms.map((f) => f.firmName) },
+        {
+          error: "needs_notice",
+          firms: visibility.firms.map((f) => ({ firmId: f.firmId, firmName: f.firmName, acknowledgedAt: f.acknowledgedAt }))
+        },
         { status: 409 }
       );
     }

@@ -43,6 +43,8 @@ export async function getChatVisibilityAction(): Promise<ChatVisibility> {
   return getChatVisibility(await requireUserId());
 }
 
-export async function acknowledgeChatVisibilityAction(): Promise<ChatVisibility> {
-  return acknowledgeChatVisibility(await requireUserId());
+/** Agree to share chats with the firms the notice named, and no others. */
+export async function acknowledgeChatVisibilityAction(shownFirmIds: string[]): Promise<ChatVisibility> {
+  const ids = Array.isArray(shownFirmIds) ? shownFirmIds.filter((id) => uuidPattern.test(String(id))).slice(0, 20) : [];
+  return acknowledgeChatVisibility(await requireUserId(), ids);
 }

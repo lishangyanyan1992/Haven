@@ -98,9 +98,9 @@ async function main() {
   check("nothing shared before agreeing", (await listSharedChatsForFirm(FIRM_A, "fc-a", db)).length === 0);
 
   now = "2026-11-02T09:00:00.000Z";
-  const acked = await acknowledgeChatVisibility(USER, db, new Date(now));
+  const acked = await acknowledgeChatVisibility(USER, [FIRM_A], db, new Date(now));
   check("agreeing records the time for the firm", !acked.needsNotice && acked.firms[0]?.acknowledgedAt === now, JSON.stringify(acked));
-  await acknowledgeChatVisibility(USER, db, new Date("2026-12-01T00:00:00Z"));
+  await acknowledgeChatVisibility(USER, [FIRM_A], db, new Date("2026-12-01T00:00:00Z"));
   check("agreeing again keeps the first time", tables.advisor_firm_visibility_acks.length === 1 && tables.advisor_firm_visibility_acks[0].acknowledged_at === now);
 
   // The September chat continues after agreeing: still private.
@@ -143,8 +143,14 @@ async function main() {
   const withB = await getChatVisibility(USER, db);
   check("joining a second firm shows the notice again", withB.needsNotice && withB.firms.length === 2);
   check("the new firm sees nothing before its notice", (await listSharedChatsForFirm(FIRM_B, "fc-b", db)).length === 0);
+  const shownOnlyA = await acknowledgeChatVisibility(USER, [FIRM_A], db, new Date("2026-11-03T08:00:00.000Z"));
+  check(
+    "a notice that didn't name the new firm records nothing",
+    shownOnlyA.needsNotice && !tables.advisor_firm_visibility_acks.some((a) => a.firm_id === FIRM_B),
+    JSON.stringify(tables.advisor_firm_visibility_acks)
+  );
   now = "2026-11-03T09:00:00.000Z";
-  await acknowledgeChatVisibility(USER, db, new Date(now));
+  await acknowledgeChatVisibility(USER, [FIRM_A, FIRM_B], db, new Date(now));
   check(
     "the first firm keeps its original time",
     tables.advisor_firm_visibility_acks.find((a) => a.firm_id === FIRM_A)?.acknowledged_at === "2026-11-02T09:00:00.000Z"
@@ -210,7 +216,7 @@ async function main() {
   check("rejoining a firm shows the notice again", rejoined.needsNotice && rejoined.firms.find((f) => f.firmName === "Baker Visa Partners")?.acknowledgedAt === null, JSON.stringify(rejoined));
   check("the old agreement exposes nothing after rejoining", (await listSharedChatsForFirm(FIRM_B, "fc-b2", db)).length === 0);
   now = "2026-11-12T10:00:00.000Z";
-  await acknowledgeChatVisibility(USER, db, new Date(now));
+  await acknowledgeChatVisibility(USER, [FIRM_A, FIRM_B], db, new Date(now));
   check(
     "agreeing again replaces the old agreement",
     tables.advisor_firm_visibility_acks.filter((a) => a.firm_id === FIRM_B).map((a) => a.acknowledged_at).join() === now
@@ -244,6 +250,7 @@ async function main() {
   const stream = route.indexOf("streamAdvisorResponse(body)");
   check("the send endpoint checks the notice before answering", gate > 0 && stream > gate && /needs_notice/.test(route.slice(gate, stream)));
   check("the send endpoint fails closed when it can't check", /status: 503/.test(route.slice(gate, stream)));
+  check("the notice agrees only to the firms it named", /acknowledgeChatVisibilityAction\(visibility\?\.firms\.map\(\(f\) => f\.firmId\)/.test(workspace));
 
   console.log(`\n${pass}/${pass + failures.length} passed`);
   if (failures.length) process.exit(1);

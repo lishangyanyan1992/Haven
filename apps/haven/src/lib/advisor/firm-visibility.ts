@@ -71,12 +71,22 @@ export async function getChatVisibility(userId: string, override?: unknown): Pro
  * Record that the client saw the notice, for every linked firm without a
  * current acknowledgement (none, or one from an earlier link, which is
  * replaced). Current ones keep their original time, so a repeat click can
- * never make older chats visible.
+ * never make older chats visible. `shownFirmIds` are the firms the notice
+ * named; nothing is recorded if any firm needing agreement wasn't among them.
  */
-export async function acknowledgeChatVisibility(userId: string, override?: unknown, now = new Date()): Promise<ChatVisibility> {
+export async function acknowledgeChatVisibility(
+  userId: string,
+  shownFirmIds: readonly string[],
+  override?: unknown,
+  now = new Date()
+): Promise<ChatVisibility> {
   const client = db(override);
   const current = await getChatVisibility(userId, client);
   const missing = current.firms.filter((f) => !f.acknowledgedAt);
+  // Only firms the client was shown can be agreed to. If a firm was linked
+  // after the notice appeared, record nothing: the refreshed notice names it.
+  const shown = new Set(shownFirmIds);
+  if (missing.some((f) => !shown.has(f.firmId))) return current;
   if (missing.length > 0) {
     const { error } = await client.from("advisor_firm_visibility_acks").upsert(
       missing.map((f) => ({ user_id: userId, firm_id: f.firmId, acknowledged_at: now.toISOString() })),
