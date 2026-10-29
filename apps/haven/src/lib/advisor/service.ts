@@ -1,3 +1,4 @@
+import { resolveDashboardFacts } from "@/lib/dashboard-facts";
 import { cache } from "react";
 import OpenAI from "openai";
 
@@ -1551,7 +1552,7 @@ function buildCaseSegmentFilters(
     // genuinely changes what someone can do after a layoff — it is the difference
     // between having a retained priority date and starting over — so it is a real
     // dimension of comparability, not a demographic one.
-    i140Status: profile.i140Approved ? "approved" : null,
+    i140Status: resolveDashboardFacts({ profile }).protection.hasApprovedI140 ? "approved" : null,
     nationalityBucket: queueMatters ? bucketNation(profile.countryOfBirth) : null,
     category: queueMatters ? mapCategory(profile.preferenceCategory) : null,
     trigger: "laid_off"
@@ -1756,8 +1757,14 @@ function buildDataDisclosure(
   // "no" is only a fact once the profile has been filled in. For somebody who
   // has never saved one, these are defaults, not answers they gave.
   const profileFilledIn = Boolean(profile.visaType);
-  if (profileFilledIn || profile.i140Approved) {
-    add("I-140 approved", profile.i140Approved ? `yes${profile.i140ApprovalDate ? ` (${profile.i140ApprovalDate})` : ""}` : "no");
+  const situationFacts = resolveDashboardFacts({ profile });
+  if (profileFilledIn || situationFacts.protection.hasApprovedI140) {
+    add(
+      "I-140 approved",
+      situationFacts.protection.hasApprovedI140
+        ? `yes${situationFacts.protection.protectingSponsor ? `, with ${situationFacts.protection.protectingSponsor}` : ""}${situationFacts.protection.approvalDateIso ? ` (${situationFacts.protection.approvalDateIso})` : ""}`
+        : "no"
+    );
   }
   if (profileFilledIn || profile.i485Filed) add("I-485 filed", profile.i485Filed ? "yes" : "no");
   add("Spouse status", profile.spouseVisaStatus);
@@ -1815,6 +1822,7 @@ export function buildAdvisorContext(
   // A user who has not filled a field in has it blank, and "Visa type: " reads
   // to the model as a value. Say "not on file" so it asks instead.
   const onFile = (value: string | null | undefined) => (value && value.trim() ? value : "not on file");
+  const promptFacts = resolveDashboardFacts({ profile, layoffDate: snapshot.activeLayoffEvent?.layoffDate ?? null });
 
   return {
     gracePeriodSummary: renderGracePeriodForPrompt(readGracePeriod(snapshot.activeLayoffEvent?.layoffDate)),
@@ -1822,9 +1830,18 @@ export function buildAdvisorContext(
       `Visa type: ${onFile(profile.visaType)}`,
       `Country of birth: ${onFile(profile.countryOfBirth)}`,
       `Primary goal: ${onFile(profile.primaryGoal)}`,
-      profile.priorityDate ? `Priority date: ${profile.priorityDate}` : "Priority date: not on file",
-      `Preference category: ${profile.preferenceCategory}`,
-      `I-140 approved: ${profile.i140Approved ? "yes" : "no"}`,
+      promptFacts.priorityDate.iso
+        ? `Priority date: ${promptFacts.priorityDate.iso}${promptFacts.priorityDate.sourceSponsorName ? ` (from ${promptFacts.priorityDate.sourceSponsorName})` : ""}`
+        : "Priority date: not on file",
+      `Preference category: ${promptFacts.priorityDate.category ?? profile.preferenceCategory}`,
+      `I-140 approved: ${promptFacts.protection.hasApprovedI140 ? `yes${promptFacts.protection.protectingSponsor ? `, with ${promptFacts.protection.protectingSponsor}` : ""}` : "no"}`,
+      ...(profile.immigrantPetitions && profile.immigrantPetitions.length > 0
+        ? [
+            `Green cards on file: ${profile.immigrantPetitions
+              .map((p) => `${p.sponsorName} (${p.preferenceCategory}, ${p.stage.replaceAll("_", " ")}${p.endedReason ? `, ended ${p.endedDate ?? ""} - ${p.endedReason}` : ""})`)
+              .join("; ")}`
+          ]
+        : []),
       `I-485 filed: ${profile.i485Filed ? "yes" : "no"}`,
       `PERM stage: ${onFile(profile.permStage)}`,
       `Employment status: ${onFile(profile.employmentStatus)}`,

@@ -1,4 +1,5 @@
 import { computeDerivedSignals } from "@/lib/haven";
+import { mapProfileRow } from "@/lib/profile-mapper";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Concern, EmploymentStatus, ImmigrationProfile, PrimaryGoal, PreferenceCategory, SpouseVisaStatus, VisaType } from "@/types/domain";
 
@@ -164,51 +165,14 @@ function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unk
   };
 }
 
-function mapProfileRow(row: Record<string, unknown>): ImmigrationProfile {
-  const deadlineMeta = (row.deadline_answers && typeof row.deadline_answers === "object" ? row.deadline_answers : {}) as Record<string, unknown>;
-  const greenCardSponsor =
-    typeof deadlineMeta.greenCardSponsor === "string" && deadlineMeta.greenCardSponsor.trim().length > 0
-      ? deadlineMeta.greenCardSponsor.trim()
-      : undefined;
-  const retainedPriorityDateSponsor =
-    typeof deadlineMeta.retainedPriorityDateSponsor === "string" && deadlineMeta.retainedPriorityDateSponsor.trim().length > 0
-      ? deadlineMeta.retainedPriorityDateSponsor.trim()
-      : undefined;
 
-  return {
-    id: String(row.id),
-    fullName: String(row.full_name ?? ""),
-    email: String(row.email ?? ""),
-    visaType: row.visa_type as ImmigrationProfile["visaType"],
-    countryOfBirth: String(row.country_of_birth ?? ""),
-    currentVisaExpiryDate: (row.current_visa_expiry_date as string | null) ?? undefined,
-    h1bStartDate: (row.h1b_start_date as string | null) ?? undefined,
-    permStage: row.perm_stage as ImmigrationProfile["permStage"],
-    permFilingDate: (row.perm_filing_date as string | null) ?? undefined,
-    i140Filed: Boolean(row.i140_filed),
-    i140Approved: Boolean(row.i140_approved),
-    i140ApprovalDate: (row.i140_approval_date as string | null) ?? undefined,
-    priorityDate: (row.priority_date as string | null) ?? undefined,
-    greenCardSponsor,
-    retainedPriorityDateSponsor,
-    preferenceCategory: row.preference_category as ImmigrationProfile["preferenceCategory"],
-    i485Filed: Boolean(row.i485_filed),
-    employerName: (row.employer_name as string | null) ?? undefined,
-    employerSize: (row.employer_size as ImmigrationProfile["employerSize"]) ?? undefined,
-    employerIndustry: (row.employer_industry as string | null) ?? undefined,
-    jobTitle: (row.job_title as string | null) ?? undefined,
-    employmentStatus: row.employment_status as ImmigrationProfile["employmentStatus"],
-    spouseVisaStatus: row.spouse_visa_status as ImmigrationProfile["spouseVisaStatus"],
-    primaryGoal: row.primary_goal as ImmigrationProfile["primaryGoal"],
-    topConcerns: ((row.top_concerns as string[] | null) ?? []) as ImmigrationProfile["topConcerns"],
-    communityReplyEmailNotifications: Boolean(row.community_reply_email_notifications),
-    statusUpdateEmailNotifications: Boolean(row.status_update_email_notifications)
-  };
-}
-
-async function persistDerivedSignals(userId: string, profile: ImmigrationProfile): Promise<boolean> {
+async function persistDerivedSignals(
+  userId: string,
+  profile: ImmigrationProfile,
+  deadlines?: Record<string, unknown> | null
+): Promise<boolean> {
   const admin = createSupabaseAdminClient() as any;
-  const signals = computeDerivedSignals(profile);
+  const signals = computeDerivedSignals(profile, null, { deadlines: deadlines ?? null });
 
   const { error } = await admin.from("derived_signals").upsert({
     user_id: userId,
@@ -236,11 +200,31 @@ export async function persistProfileDraft(userId: string, rawDraft: ProfileDraft
 
   const profile = mapProfileRow(row as Record<string, unknown>);
   try {
-    await persistDerivedSignals(userId, profile);
+    await persistDerivedSignals(userId, profile, (row as { deadline_answers?: Record<string, unknown> }).deadline_answers);
   } catch {
     // Non-blocking cache materialization; profile, deadlines, and firm answers remain primary
   }
   return profile;
+}
+
+/**
+ * Recompute the stored signals from the full saved profile. Called after any
+ * save that doesn't go through persistProfileDraft (deadlines, green cards),
+ * so the cache never lags behind what the user entered.
+ */
+export async function refreshDerivedSignals(userId: string): Promise<boolean> {
+  try {
+    const admin = createSupabaseAdminClient() as any;
+    const { data: row } = await admin.from("user_profiles").select("*").eq("id", userId).maybeSingle();
+    if (!row) return false;
+    return await persistDerivedSignals(
+      userId,
+      mapProfileRow(row as Record<string, unknown>),
+      (row as { deadline_answers?: Record<string, unknown> }).deadline_answers
+    );
+  } catch {
+    return false;
+  }
 }
 
 export function parseOverrideCookie(value: string | undefined) {

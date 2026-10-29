@@ -1,3 +1,4 @@
+import { resolveDashboardFacts } from "@/lib/dashboard-facts";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -42,11 +43,12 @@ export async function AppShell({
       ? `${profile.visaType} · ${profile.preferenceCategory} ${profile.countryOfBirth}`
       : profile.visaType || "Your profile";
 
+  const shellFacts = resolveDashboardFacts({ profile });
   const snapshotBody = profileUnavailable
     ? "We couldn't load your profile just now. Try again in a few minutes."
-    : profile.i140Approved
+    : shellFacts.protection.hasApprovedI140
     ? "I-140 approved. Your plan stays visible even when things feel noisy."
-    : profile.priorityDate
+    : shellFacts.priorityDate.iso
       ? "Priority date on record. Haven is tracking your bulletin position."
       : "Your timeline is active. Haven tracks what matters as things change.";
 

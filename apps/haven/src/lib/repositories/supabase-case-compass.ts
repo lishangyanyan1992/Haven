@@ -1,4 +1,5 @@
 import { getPriorityDateIntelligence, getPriorityDateSignalOverrides } from "@/lib/priority-date-intelligence";
+import { mapProfileRow } from "@/lib/profile-mapper";
 import type { HavenRepository } from "@/lib/repositories/contracts";
 import { computeDerivedSignals, mergeSnapshotProfile } from "@/lib/haven";
 import { havenSnapshot } from "@/lib/repositories/mock-data";
@@ -66,82 +67,44 @@ function extractDeadlineMetadata(raw: unknown): Record<string, unknown> {
   return raw as Record<string, unknown>;
 }
 
-function mapProfileRow(row: ProfileRow): ImmigrationProfile {
-  const deadlineMeta = extractDeadlineMetadata(row.deadline_answers);
-  const fallbackVisaExpiry =
-    typeof deadlineMeta.statusEndDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(deadlineMeta.statusEndDate.trim())
-      ? deadlineMeta.statusEndDate.trim()
-      : undefined;
-  const retainedPriorityDate =
-    typeof deadlineMeta.retainedPriorityDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(deadlineMeta.retainedPriorityDate.trim())
-      ? deadlineMeta.retainedPriorityDate.trim()
-      : undefined;
-  const retainedPriorityDateSponsor =
-    typeof deadlineMeta.retainedPriorityDateSponsor === "string" && deadlineMeta.retainedPriorityDateSponsor.trim()
-      ? deadlineMeta.retainedPriorityDateSponsor.trim()
-      : undefined;
-  const greenCardSponsor =
-    typeof deadlineMeta.greenCardSponsor === "string" && deadlineMeta.greenCardSponsor.trim()
-      ? deadlineMeta.greenCardSponsor.trim()
-      : undefined;
-  const retainedPriorityDateCategory =
-    typeof deadlineMeta.retainedPriorityDateCategory === "string" && deadlineMeta.retainedPriorityDateCategory.trim()
-      ? (deadlineMeta.retainedPriorityDateCategory.trim() as ImmigrationProfile["preferenceCategory"])
-      : undefined;
-  const immigrantPetitions = Array.isArray(deadlineMeta.immigrantPetitions)
-    ? (deadlineMeta.immigrantPetitions as ImmigrationProfile["immigrantPetitions"])
-    : undefined;
 
-  return {
-    id: row.id,
-    fullName: row.full_name,
-    email: row.email,
-    visaType: row.visa_type as ImmigrationProfile["visaType"],
-    countryOfBirth: row.country_of_birth,
-    currentVisaExpiryDate: row.current_visa_expiry_date ?? fallbackVisaExpiry,
-    h1bStartDate: row.h1b_start_date ?? undefined,
-    permStage: row.perm_stage as ImmigrationProfile["permStage"],
-    permFilingDate: row.perm_filing_date ?? undefined,
-    i140Filed: Boolean(row.i140_filed),
-    i140Approved: row.i140_approved,
-    i140ApprovalDate: row.i140_approval_date ?? undefined,
-    priorityDate: row.priority_date ?? undefined,
-    greenCardSponsor,
-    retainedPriorityDate,
-    retainedPriorityDateSponsor,
-    retainedPriorityDateCategory,
-    immigrantPetitions,
-    preferenceCategory: row.preference_category as ImmigrationProfile["preferenceCategory"],
-    i485Filed: row.i485_filed,
-    employerName: row.employer_name ?? undefined,
-    employerSize: (row.employer_size as ImmigrationProfile["employerSize"] | null) ?? undefined,
-    employerIndustry: row.employer_industry ?? undefined,
-    jobTitle: row.job_title ?? undefined,
-    employmentStatus: row.employment_status as ImmigrationProfile["employmentStatus"],
-    spouseVisaStatus: row.spouse_visa_status as ImmigrationProfile["spouseVisaStatus"],
-    primaryGoal: row.primary_goal as ImmigrationProfile["primaryGoal"],
-    topConcerns: row.top_concerns as ImmigrationProfile["topConcerns"],
-    communityReplyEmailNotifications: row.community_reply_email_notifications,
-    statusUpdateEmailNotifications: row.status_update_email_notifications
-  };
-}
-
-function mapDerivedSignals(
-  row: DerivedSignalRow,
+/**
+ * Live values from the current profile always win. The stored row is a cache:
+ * it only fills a gap the live calculation can't (for example, the bulletin
+ * feed is down), so an old saved answer can never contradict current input.
+ */
+export function mapDerivedSignals(
+  row: Pick<
+    DerivedSignalRow,
+    | "h1b_cap_date"
+    | "days_until_visa_expiry"
+    | "visa_bulletin_position"
+    | "estimated_gc_date_range"
+    | "ac21_portability_status"
+    | "layoff_readiness_score"
+    | "layoff_readiness_reasoning"
+  >,
   profile: ImmigrationProfile,
-  priorityDateSignals?: Pick<DerivedProfileSignals, "visaBulletinPosition" | "estimatedGreenCardDateRange"> | null
+  priorityDateSignals?: Pick<DerivedProfileSignals, "visaBulletinPosition" | "estimatedGreenCardDateRange"> | null,
+  now?: Date,
+  // Deadline answers and layoff date, so live readiness matches what saves store.
+  context?: Omit<NonNullable<Parameters<typeof computeDerivedSignals>[2]>, "now">
 ): DerivedProfileSignals {
-  const fallback = computeDerivedSignals(profile, priorityDateSignals);
+  const live = computeDerivedSignals(profile, priorityDateSignals, { now, ...context });
 
   return {
-    h1bCapDate: row.h1b_cap_date ?? fallback.h1bCapDate,
-    daysUntilVisaExpiry: fallback.daysUntilVisaExpiry ?? row.days_until_visa_expiry ?? undefined,
-    visaBulletinPosition: priorityDateSignals?.visaBulletinPosition ?? row.visa_bulletin_position ?? fallback.visaBulletinPosition,
-    estimatedGreenCardDateRange:
-      priorityDateSignals?.estimatedGreenCardDateRange ?? row.estimated_gc_date_range ?? fallback.estimatedGreenCardDateRange,
-    ac21PortabilityStatus: row.ac21_portability_status ?? fallback.ac21PortabilityStatus,
-    layoffReadinessScore: row.layoff_readiness_score as DerivedProfileSignals["layoffReadinessScore"],
-    layoffReadinessReasoning: row.layoff_readiness_reasoning
+    h1bCapDate: live.h1bCapDate ?? row.h1b_cap_date ?? undefined,
+    daysUntilVisaExpiry: live.daysUntilVisaExpiry ?? row.days_until_visa_expiry ?? undefined,
+    visaBulletinPosition: live.visaBulletinPosition ?? row.visa_bulletin_position ?? undefined,
+    estimatedGreenCardDateRange: priorityDateSignals
+      ? priorityDateSignals.estimatedGreenCardDateRange
+      : // "Estimate pending" from the live side is weaker than a real stored estimate.
+        live.estimatedGreenCardDateRange && live.estimatedGreenCardDateRange !== "Estimate pending bulletin sync"
+        ? live.estimatedGreenCardDateRange
+        : row.estimated_gc_date_range ?? live.estimatedGreenCardDateRange,
+    ac21PortabilityStatus: live.ac21PortabilityStatus,
+    layoffReadinessScore: live.layoffReadinessScore,
+    layoffReadinessReasoning: live.layoffReadinessReasoning
   };
 }
 
@@ -493,7 +456,7 @@ async function buildSnapshotContext(): Promise<SnapshotContext> {
     };
   }
 
-  const profile = mapProfileRow(profileRow);
+  const profile = mapProfileRow(profileRow as unknown as Record<string, unknown>);
   const communityUnreadCount = await countUnreadCommunityPosts(supabase, profileRow.community_last_seen_at);
   const priorityDateIntelligence = await getPriorityDateIntelligence(profile);
   const priorityDateSignals = getPriorityDateSignalOverrides(priorityDateIntelligence);
@@ -505,7 +468,10 @@ async function buildSnapshotContext(): Promise<SnapshotContext> {
   };
 
   if (derivedSignalRow) {
-    const mappedSignals = mapDerivedSignals(derivedSignalRow, profile, priorityDateSignals);
+    const mappedSignals = mapDerivedSignals(derivedSignalRow, profile, priorityDateSignals, undefined, {
+      deadlines: deadlineMeta as Record<string, unknown>,
+      layoffDate: activeLayoffEvent?.layoffDate ?? null
+    });
     snapshot = {
       ...snapshot,
       dashboard: {

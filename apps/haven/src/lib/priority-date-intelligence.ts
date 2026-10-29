@@ -1,3 +1,4 @@
+import { resolveEffectivePriorityDate } from "@/lib/immigration-journey";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { hasSupabaseEnv } from "@/lib/env";
 import type {
@@ -253,8 +254,15 @@ export function getPriorityDateSignalOverrides(
 export async function getPriorityDateIntelligence(
   profile: ImmigrationProfile
 ): Promise<PriorityDateIntelligence | null> {
-  const category = mapPreferenceCategory(profile.preferenceCategory);
-  if (!hasSupabaseEnv || !profile.priorityDate || !category) {
+  // Use the same priority date and category the rest of the dashboard uses,
+  // including one kept from an earlier employer's approved I-140.
+  const effective = resolveEffectivePriorityDate(profile);
+  const effectivePriorityDate = effective.effectiveDate ? effective.effectiveDate.toISOString().slice(0, 10) : null;
+  // A green card saved as "Not sure" falls back to the profile's category.
+  const category =
+    mapPreferenceCategory(effective.retainedCategory ?? profile.preferenceCategory) ??
+    mapPreferenceCategory(profile.preferenceCategory);
+  if (!hasSupabaseEnv || !effectivePriorityDate || !category) {
     return null;
   }
 
@@ -276,7 +284,7 @@ export async function getPriorityDateIntelligence(
 
   const latest = rows[0];
   const historyPoints = buildHistoryPoints(rows);
-  const priorityDate = new Date(`${profile.priorityDate}T00:00:00Z`);
+  const priorityDate = new Date(`${effectivePriorityDate}T00:00:00Z`);
   const latestCutoffDate = latest.cutoff_date ? new Date(`${latest.cutoff_date}T00:00:00Z`) : null;
   const isCurrent = latestCutoffDate ? priorityDate.getTime() <= latestCutoffDate.getTime() : latest.cutoff_label === "C";
   const velocity =

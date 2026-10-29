@@ -10,7 +10,8 @@ import type {
   PreferenceCategory,
   PriorityDateIntelligence
 } from "@/types/domain";
-import { isPetitionWithdrawn } from "@/types/domain";
+import { isPetitionEnded } from "@/types/domain";
+import { activePetitions, ENDED_REASON_LABELS, isApprovedStage, providesI140Protection, sponsorMatches, STAGE_ORDER } from "@/lib/petitions";
 
 export type JourneyTrackTone = "sage" | "sky" | "sand" | "blush" | "ink";
 
@@ -120,6 +121,24 @@ export type ImmigrantPetitionSummary = {
   notes?: string;
 };
 
+export type PetitionTrackStage = {
+  key: "perm" | "priority_date" | "i140" | "bulletin_queue" | "i485";
+  label: string;
+  status: "completed" | "current" | "upcoming" | "stopped";
+};
+
+/** One green card (one petition) drawn as its own milestone row. */
+export type PetitionTrack = {
+  id: string;
+  sponsorName: string;
+  categoryLabel: string;
+  tone: "active" | "protected" | "ended";
+  isPrimary: boolean;
+  statusLine: string;
+  stages: PetitionTrackStage[];
+  notes?: string;
+};
+
 export type GreenCardJourneyTrack = {
   stage: GreenCardStage;
   categoryLabel: string;
@@ -136,6 +155,10 @@ export type GreenCardJourneyTrack = {
   activePetitionSponsor?: string | null;
   activePetitionStageLabel?: string | null;
   petitions?: ImmigrantPetitionSummary[];
+  /** One row per green card. Empty when the user has no petition records. */
+  tracks: PetitionTrack[];
+  /** Who the shown priority date comes from. */
+  priorityDateSourceName?: string | null;
   estimatedRangeLabel: string | null;
   bulletinCutoffLabel: string | null;
   nodes: GreenCardStageNode[];
@@ -368,29 +391,29 @@ export function findActivePetition(profile: ImmigrationProfile): ImmigrantPetiti
   if (!profile.immigrantPetitions || profile.immigrantPetitions.length === 0) {
     return null;
   }
-  const nonWithdrawn = profile.immigrantPetitions.filter(p => !isPetitionWithdrawn(p));
-  if (nonWithdrawn.length === 0) return null;
+  // Ended petitions never set the current stage.
+  const moving = activePetitions(profile.immigrantPetitions);
+  if (moving.length === 0) return null;
 
   const isEmployerType = (type: string) =>
     type === "employer_sponsored" || type === "concurrent_employer";
 
-  if (profile.employerName) {
-    const empLower = profile.employerName.trim().toLowerCase();
-    const currentEmployerPetition = nonWithdrawn.find(
-      p => isEmployerType(p.petitionType) && p.sponsorName?.trim().toLowerCase() === empLower
+  if (profile.employerName && profile.employmentStatus !== "laid_off") {
+    const currentEmployerPetition = moving.find(
+      p => isEmployerType(p.petitionType) && sponsorMatches(p.sponsorName, profile.employerName)
     );
     if (currentEmployerPetition) return currentEmployerPetition;
   }
 
-  const inProgressEmployer = nonWithdrawn.find(
-    p => isEmployerType(p.petitionType) && p.stage !== "i140_approved" && p.stage !== "i485_approved"
+  const inProgressEmployer = moving.find(
+    p => isEmployerType(p.petitionType) && !isApprovedStage(p.stage)
   );
   if (inProgressEmployer) return inProgressEmployer;
 
-  const anyEmployer = nonWithdrawn.find(p => isEmployerType(p.petitionType));
+  const anyEmployer = moving.find(p => isEmployerType(p.petitionType));
   if (anyEmployer) return anyEmployer;
 
-  return nonWithdrawn[0];
+  return moving[0];
 }
 
 export function inferProfileGreenCardStage(profile: ImmigrationProfile): GreenCardStage {
@@ -418,32 +441,15 @@ export function resolveEffectivePriorityDate(profile: ImmigrationProfile): {
   retainedSponsorName: string | null;
   retainedCategory: PreferenceCategory | null;
   isRecaptured: boolean;
+  /** Who the effective priority date comes from, whether or not it was retained. */
+  sourceSponsorName?: string | null;
 } {
-  // 1. Explicit retainedPriorityDate
-  if (profile.retainedPriorityDate) {
-    const parsed = parseIsoDate(profile.retainedPriorityDate);
-    if (parsed) {
-      const hasRecaptured = profile.immigrantPetitions?.some(
-        p => p.isPriorityDateRecaptured || p.stage === "i140_approved"
-      ) ?? false;
-      return {
-        effectiveDate: parsed,
-        isRetained: true,
-        retainedSponsorName: profile.retainedPriorityDateSponsor ?? null,
-        retainedCategory: profile.retainedPriorityDateCategory ?? profile.preferenceCategory,
-        isRecaptured: hasRecaptured
-      };
-    }
-  }
-
-  // 2. Search immigrantPetitions for approved I-140 petitions
+  // 1. Earliest priority date among approved I-140s, including ones from
+  // jobs that have ended (the date belongs to the person once approved).
   if (profile.immigrantPetitions && profile.immigrantPetitions.length > 0) {
     const activePetition = findActivePetition(profile);
     const approvedPetitions = profile.immigrantPetitions.filter(
-      p =>
-        (p.stage === "i140_approved" || p.stage === "i485_filed" || p.stage === "i485_approved") &&
-        !isPetitionWithdrawn(p) &&
-        p.priorityDate
+      p => providesI140Protection(p) && p.priorityDate
     );
     if (approvedPetitions.length > 0) {
       approvedPetitions.sort((a, b) => {
@@ -454,21 +460,42 @@ export function resolveEffectivePriorityDate(profile: ImmigrationProfile): {
       const earliestApproved = approvedPetitions[0];
       const parsed = parseIsoDate(earliestApproved.priorityDate);
       if (parsed) {
-        const activeSponsor = activePetition?.sponsorName ?? profile.employerName;
+        const activeSponsor =
+          activePetition?.sponsorName ?? (profile.employmentStatus === "laid_off" ? null : profile.employerName);
         const isFromPriorSponsor = Boolean(
-          earliestApproved.petitionType === "employer_sponsored" &&
-          activeSponsor &&
+          earliestApproved.petitionType !== "self_petition_niw" &&
+          earliestApproved.petitionType !== "self_petition_eb1a" &&
           earliestApproved.sponsorName &&
-          earliestApproved.sponsorName.trim().toLowerCase() !== activeSponsor.trim().toLowerCase()
+          (!activeSponsor || !sponsorMatches(earliestApproved.sponsorName, activeSponsor))
         );
         return {
           effectiveDate: parsed,
           isRetained: isFromPriorSponsor,
           retainedSponsorName: isFromPriorSponsor ? earliestApproved.sponsorName : null,
+          sourceSponsorName: earliestApproved.sponsorName,
           retainedCategory: earliestApproved.preferenceCategory,
-          isRecaptured: earliestApproved.isPriorityDateRecaptured ?? false
+          isRecaptured: Boolean(activePetition && activePetition.id !== earliestApproved.id && activePetition.isPriorityDateRecaptured) ||
+            (earliestApproved.isPriorityDateRecaptured ?? false)
         };
       }
+    }
+  }
+
+  // 2. Retained priority date entered directly
+  if (profile.retainedPriorityDate) {
+    const parsed = parseIsoDate(profile.retainedPriorityDate);
+    if (parsed) {
+      const hasRecaptured = profile.immigrantPetitions?.some(
+        p => p.isPriorityDateRecaptured || p.stage === "i140_approved"
+      ) ?? false;
+      return {
+        effectiveDate: parsed,
+        isRetained: true,
+        retainedSponsorName: profile.retainedPriorityDateSponsor ?? null,
+        sourceSponsorName: profile.retainedPriorityDateSponsor ?? null,
+        retainedCategory: profile.retainedPriorityDateCategory ?? profile.preferenceCategory,
+        isRecaptured: hasRecaptured
+      };
     }
   }
 
@@ -543,11 +570,7 @@ export function evaluateI140Protections(
   const nowMs = nowUtc.getTime();
 
   if (profile.immigrantPetitions && profile.immigrantPetitions.length > 0) {
-    const qualifyingPetitions = profile.immigrantPetitions.filter(
-      p =>
-        (p.stage === "i140_approved" || p.stage === "i485_filed" || p.stage === "i485_approved") &&
-        !isPetitionWithdrawn(p)
-    );
+    const qualifyingPetitions = profile.immigrantPetitions.filter(providesI140Protection);
 
     if (qualifyingPetitions.length > 0) {
       const isUnlocked = (p: (typeof qualifyingPetitions)[number]) => {
@@ -656,6 +679,89 @@ export function evaluateI140Protections(
   };
 }
 
+const PETITION_TRACK_STAGES: { key: PetitionTrackStage["key"]; label: string }[] = [
+  { key: "perm", label: "PERM" },
+  { key: "priority_date", label: "Priority date" },
+  { key: "i140", label: "I-140" },
+  { key: "bulletin_queue", label: "Wait in line" },
+  { key: "i485", label: "I-485" }
+];
+
+function monthYearLabel(value: string | undefined): string | null {
+  const d = parseIsoDate(value ?? null);
+  return d ? d.toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" }) : null;
+}
+
+/** Builds one milestone row per green card. Ended ones stop where they ended. */
+export function buildPetitionTracks(profile: ImmigrationProfile, nowUtc: Date = new Date()): PetitionTrack[] {
+  const list = profile.immigrantPetitions ?? [];
+  if (list.length === 0) return [];
+  const primary = findActivePetition(profile) ?? list.find(providesI140Protection) ?? list[0];
+  const nowMs = nowUtc.getTime();
+
+  const tracks = list.map((p): PetitionTrack => {
+    const ended = isPetitionEnded(p);
+    const protects = providesI140Protection(p);
+    const order = STAGE_ORDER[p.stage];
+    const hasOwnPd = Boolean(p.permFilingDate) || order >= STAGE_ORDER.perm_certified;
+    const done: Record<PetitionTrackStage["key"], boolean> = {
+      perm: order >= STAGE_ORDER.perm_certified,
+      priority_date: hasOwnPd || Boolean(p.isPriorityDateRecaptured && p.priorityDate),
+      i140: order >= STAGE_ORDER.i140_approved || (p.stage === "withdrawn" && Boolean(p.i140ApprovalDate)),
+      bulletin_queue: order >= STAGE_ORDER.i485_filed,
+      i485: p.stage === "i485_approved"
+    };
+    let currentAssigned = false;
+    const stages = PETITION_TRACK_STAGES.map(({ key, label }): PetitionTrackStage => {
+      if (done[key]) return { key, label, status: "completed" };
+      if (ended) return { key, label, status: "stopped" };
+      if (!currentAssigned) {
+        currentAssigned = true;
+        return { key, label, status: "current" };
+      }
+      return { key, label, status: "upcoming" };
+    });
+
+    const approvalLabel = formatDateLabel(p.i140ApprovalDate ?? null);
+    const lockedIn =
+      Boolean(p.isRevocationProtected) ||
+      Boolean(parseIsoDate(p.i140ApprovalDate ?? null) && parseIsoDate(p.i140ApprovalDate ?? null)!.getTime() + 180 * DAY_MS <= nowMs);
+    const endedLabel = p.endedReason ? ENDED_REASON_LABELS[p.endedReason] : "Ended";
+    const endedWhen = monthYearLabel(p.endedDate);
+
+    let tone: PetitionTrack["tone"];
+    let statusLine: string;
+    if (protects) {
+      tone = "protected";
+      statusLine = `${lockedIn ? "Protected" : "Approved"} · I-140 approved${approvalLabel ? ` ${approvalLabel}` : ""}${
+        ended ? ` · ${endedLabel.toLowerCase()}${endedWhen ? `, ${endedWhen}` : ""}, priority date kept` : ""
+      }`;
+    } else if (ended) {
+      tone = "ended";
+      statusLine = `${endedLabel}${endedWhen ? `, ${endedWhen}` : ""}`;
+    } else {
+      tone = "active";
+      const current = stages.find((st) => st.status === "current");
+      statusLine = current ? `In progress · ${current.label}` : "In progress";
+    }
+
+    return {
+      id: p.id,
+      sponsorName: p.sponsorName,
+      categoryLabel: p.preferenceCategory,
+      tone,
+      isPrimary: p.id === primary.id,
+      statusLine,
+      stages,
+      notes: p.notes
+    };
+  });
+
+  // Primary first, then active, protected, ended.
+  const rank = (t: PetitionTrack) => (t.isPrimary ? 0 : t.tone === "active" ? 1 : t.tone === "protected" ? 2 : 3);
+  return tracks.sort((a, b) => rank(a) - rank(b));
+}
+
 export function synthesizePetitions(
   profile: ImmigrationProfile,
   nowUtc: Date = new Date()
@@ -695,7 +801,7 @@ export function synthesizePetitions(
         p.petitionType === "employer_sponsored" || p.petitionType === "concurrent_employer";
       const isPrimaryActive = activePetition
         ? p.id === activePetition.id
-        : isEmployer && !isPetitionWithdrawn(p);
+        : isEmployer && !isPetitionEnded(p);
 
       return {
         id: p.id,
@@ -867,6 +973,12 @@ export function buildImmigrationJourney(input: {
   const retainedSponsorName = pdResolution.retainedSponsorName;
   const isPriorityDateRecaptured = pdResolution.isRecaptured;
   const petitions = synthesizePetitions(profile, todayUtc);
+  const activePetitionForTrack = findActivePetition(profile);
+  // The green card track names the green card's sponsor, not whoever employs
+  // the user today (they can differ after a layoff or job change).
+  const gcSponsorName =
+    activePetitionForTrack?.sponsorName ??
+    (profile.employmentStatus === "laid_off" ? null : profile.employerName?.trim() || null);
 
   const permFilingDate = parseIsoDate(profile.permFilingDate ?? null);
 
@@ -1486,8 +1598,8 @@ export function buildImmigrationJourney(input: {
               : "Not started",
       dateOrMeta: permFilingDate
         ? `Filed ${formatDateLabel(permFilingDate)}`
-        : employerName
-          ? `With ${employerName}`
+        : gcSponsorName
+          ? `With ${gcSponsorName}`
           : "Step 1 of sponsorship",
       detail: "Prevailing wage determination, recruitment, and DOL ETA-9089 certification."
     },
@@ -1535,7 +1647,7 @@ export function buildImmigrationJourney(input: {
           ? `Approved ${formatDateLabel(effectiveI140ApprovalDate)}`
           : hasI140Approval
             ? isRetainedPriorityDate
-              ? `Recapturing at ${employerName ?? "new sponsor"}`
+              ? `Recapturing at ${gcSponsorName ?? "new sponsor"}`
               : "Approved on file"
             : "Unlocks AC21 extensions",
       detail: "Approves your immigrant classification and unlocks post-6-year H-1B extensions."
@@ -2525,9 +2637,11 @@ export function buildImmigrationJourney(input: {
       retainedPriorityDateLabel: isRetainedPriorityDate && priorityDate ? formatDateLabel(priorityDate) : null,
       retainedSponsorName,
       isPriorityDateRecaptured,
-      activePetitionSponsor: employerName ?? null,
+      activePetitionSponsor: gcSponsorName,
       activePetitionStageLabel: STAGE_BADGE_LABELS[gcStage],
       petitions,
+      tracks: buildPetitionTracks(profile, todayUtc),
+      priorityDateSourceName: pdResolution.sourceSponsorName ?? retainedSponsorName ?? null,
       estimatedRangeLabel,
       bulletinCutoffLabel,
       nodes: gcNodes,

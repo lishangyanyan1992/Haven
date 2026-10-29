@@ -72,3 +72,6 @@ jobs:
 
       - name: Firm isolation, status and intake
         run: npm run check:firms
+
+      - name: Dashboard consistency and green cards
+        run: npm run check:dashboard

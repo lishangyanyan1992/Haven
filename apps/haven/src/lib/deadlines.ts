@@ -1,5 +1,6 @@
 import { formLimitedTo, recordFirmSharedAnswers } from "@/lib/firms/answers";
 import { openLayoffEvent } from "@/lib/layoff-events";
+import { refreshDerivedSignals } from "@/lib/profile-sync";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -126,6 +127,8 @@ export async function saveDeadlineAnswers(userId: string, form: FormData) {
   if (!(await recordFirmSharedAnswers(userId, draft, formLimitedTo(form, DEADLINE_KEYS)))) {
     throw new Error("Could not share deadline answers with the firm.");
   }
+  // Layoff and status dates change readiness and protection; keep the cache current.
+  await refreshDerivedSignals(userId);
 }
 
 /** The client's saved deadline answers, to fill in the form again. */

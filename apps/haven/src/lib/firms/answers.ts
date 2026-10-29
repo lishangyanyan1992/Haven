@@ -1,3 +1,4 @@
+import { greenCardLinesForFirm } from "@/lib/firms/green-cards";
 import { isCustomQuestionKey } from "@/lib/firms/intake-question-catalog";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -25,6 +26,9 @@ export const SHARED_ANSWER_KEYS = [
   "retainedPriorityDateSponsor",
   "priorityDate",
   "preferenceCategory",
+  // Every green card filed for the client, one plain line each. Written by
+  // the green card editor in settings, not by a form field.
+  "greenCards",
   "spouseVisaStatus",
   "topConcerns",
   // "Your deadlines" (setup step 5 and the one-time prompt)
@@ -103,6 +107,7 @@ export function sharedAnswersFromProfile(p: Record<string, any> | null): SharedA
     retainedPriorityDateSponsor: (deadlineRecord.retainedPriorityDateSponsor as string) ?? "",
     priorityDate: p.priority_date ?? "",
     preferenceCategory: p.preference_category,
+    greenCards: greenCardLinesForFirm(deadlineRecord.immigrantPetitions),
     spouseVisaStatus: p.spouse_visa_status,
     topConcerns: p.top_concerns ?? [],
     statusEndDate: deadlineRecord.statusEndDate ?? p.current_visa_expiry_date ?? "",
@@ -207,4 +212,40 @@ export async function recordFirmSharedAnswers(userId: string, draft: Record<stri
     }
   }
   return true;
+}
+
+/**
+ * Replace the green card list in the firm's copy after the client saves green
+ * cards in settings. An empty list removes it. True when the copy is up to
+ * date (or there's no firm to update).
+ */
+export async function recordFirmSharedGreenCards(userId: string, rawPetitions: unknown): Promise<boolean> {
+  const admin = createSupabaseAdminClient() as any;
+  const { data: rows, error: readError } = await admin
+    .from("firm_clients")
+    .select("id, shared_answers, joined_at")
+    .eq("user_id", userId);
+  if (readError) {
+    console.error("[firms] could not read shared answers", readError.message);
+    return false;
+  }
+  // A client can belong to more than one firm; each joined firm gets the list.
+  for (const row of (rows ?? []).filter((r: any) => Boolean(r.joined_at))) {
+    const next = withSharedGreenCards(row.shared_answers ?? {}, rawPetitions);
+    const { error } = await admin.from("firm_clients").update({ shared_answers: next }).eq("id", row.id);
+    if (error) {
+      console.error("[firms] could not save shared green cards", error.message);
+      return false;
+    }
+  }
+  return true;
+}
+
+/** The firm's copy with its green card list replaced. Leaves every other answer alone. */
+export function withSharedGreenCards(current: SharedAnswers, rawPetitions: unknown): SharedAnswers {
+  const lines = greenCardLinesForFirm(rawPetitions);
+  const next: SharedAnswers = { ...current };
+  if (lines.length) next.greenCards = lines;
+  else delete next.greenCards;
+  return next;
 }

@@ -30,6 +30,7 @@ import type {
   JourneyBarSegment,
   JourneyPlotPin,
   JourneyTrackTone,
+  PetitionTrack,
   TacticalTimelinePin,
   TacticalTimelineView
 } from "@/lib/immigration-journey";
@@ -265,7 +266,6 @@ export function ImmigrationJourneyDashboard({
 }) {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
-  const [showPetitionsDrawer, setShowPetitionsDrawer] = useState(false);
   const [showCapturedDataDrawer, setShowCapturedDataDrawer] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -328,6 +328,8 @@ export function ImmigrationJourneyDashboard({
   };
 
   const { axis, visaTrack, jobTrack, greenCardTrack, overlayInsights, missingFields, tacticalWindow, protection, intakeAudit } = journey;
+  const primaryTrack = greenCardTrack.tracks.find((t) => t.isPrimary) ?? greenCardTrack.tracks[0] ?? null;
+  const otherTracks = greenCardTrack.tracks.filter((t) => t !== primaryTrack);
 
   const hasMilestoneTarget = (pinId: string): boolean => {
     const targets = [
@@ -981,7 +983,10 @@ export function ImmigrationJourneyDashboard({
                       <span className="font-bold text-[var(--haven-ink)]">{greenCardTrack.retainedPriorityDateLabel}</span>
                     </div>
                     <p className="mt-1 text-[11px] text-[var(--haven-ink-mid)] leading-relaxed">
-                      Locked from {greenCardTrack.retainedSponsorName ?? "prior sponsoring employer"}. Sets your permanent queue position while {greenCardTrack.activePetitionSponsor ?? "your current employer"} completes PERM & new I-140.
+                      Kept from {greenCardTrack.retainedSponsorName ?? "an earlier employer's approved I-140"}.{" "}
+                      {greenCardTrack.activePetitionSponsor
+                        ? `Sets your place in line while ${greenCardTrack.activePetitionSponsor} completes PERM and a new I-140.`
+                        : "It carries over to your next employer's green card."}
                     </p>
                   </div>
                 )}
@@ -1011,83 +1016,6 @@ export function ImmigrationJourneyDashboard({
                   )}
                 </dl>
 
-                {greenCardTrack.petitions && greenCardTrack.petitions.length > 0 && (
-                  <div className="mt-4 border-t border-[var(--color-border)] pt-3">
-                    <button
-                      type="button"
-                      onClick={() => setShowPetitionsDrawer(!showPetitionsDrawer)}
-                      className="flex w-full items-center justify-between text-body-sm font-semibold text-[var(--haven-ink)] hover:text-[var(--haven-ink-mid)] cursor-pointer"
-                    >
-                      <span className="flex items-center gap-1.5">
-                        <Briefcase className="h-3.5 w-3.5 text-[var(--haven-ink-mid)]" />
-                        Petitions & Sponsoring Employers ({greenCardTrack.petitions.length})
-                      </span>
-                      <span className="text-[12px] text-[var(--haven-ink-mid)] underline underline-offset-2">
-                        {showPetitionsDrawer ? "Hide petitions" : "View petitions & sponsors"}
-                      </span>
-                    </button>
-
-                    {showPetitionsDrawer && (
-                      <div className="mt-3 space-y-2.5">
-                        {greenCardTrack.petitions.map((petition) => (
-                          <div
-                            key={petition.id}
-                            className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--haven-cream)] p-3 text-[12px]"
-                          >
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                <span className="font-bold text-[var(--haven-ink)]">{petition.sponsorName}</span>
-                                <span className="rounded-full bg-[var(--haven-white)] px-2 py-0.5 text-[10px] font-semibold text-[var(--haven-ink-mid)] border border-[var(--color-border)]">
-                                  {petition.preferenceCategory}
-                                </span>
-                                {petition.isPrimaryActive && (
-                                  <span className="rounded-full bg-[var(--haven-sky-light)] px-2 py-0.5 text-[10px] font-semibold text-[var(--haven-sky-ink)]">
-                                    Current Active Sponsor
-                                  </span>
-                                )}
-                              </div>
-                              <span
-                                className={cn(
-                                  "rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                                  petition.isApproved
-                                    ? "bg-[var(--haven-sage-light)] text-[var(--haven-ink)] border border-[var(--haven-sage-mid)]"
-                                    : "bg-[var(--haven-sand)] text-[var(--haven-ink-mid)] border border-[var(--color-border)]"
-                                )}
-                              >
-                                {petition.stageLabel}
-                              </span>
-                            </div>
-
-                            <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1 text-[11px] text-[var(--haven-ink-mid)]">
-                              <div>
-                                Priority Date:{" "}
-                                <span className="font-semibold text-[var(--haven-ink)]">
-                                  {petition.priorityDateLabel ?? "TBD"}
-                                </span>
-                              </div>
-                              <div>
-                                Portability:{" "}
-                                <span className="font-semibold text-[var(--haven-ink)]">
-                                  {petition.isRevocationProtected
-                                    ? "Permanent (180+ days past approval)"
-                                    : petition.isApproved
-                                      ? "Approved (Within 180-day window)"
-                                      : "Subject to PERM certification"}
-                                </span>
-                              </div>
-                            </div>
-
-                            {petition.notes && (
-                              <p className="mt-1.5 text-[11px] text-[var(--haven-ink-mid)] italic border-t border-[var(--color-border)] pt-1.5">
-                                {petition.notes}
-                              </p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
 
               <div className="mt-5 border-t border-[var(--color-border)] pt-3">
@@ -1112,7 +1040,16 @@ export function ImmigrationJourneyDashboard({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="text-label">Permanent residency stages</p>
-              <h3 className="text-h3 mt-0.5">Green card milestone progression</h3>
+              <h3 className="text-h3 mt-0.5">
+                {greenCardTrack.tracks.length > 1 ? "Your green cards" : "Green card milestone progression"}
+              </h3>
+              {greenCardTrack.priorityDateLabel && (
+                <p className="mt-1 text-body-sm text-[var(--haven-ink-mid)]">
+                  Priority date <span className="font-semibold text-[var(--haven-ink)]">{greenCardTrack.priorityDateLabel}</span>
+                  {greenCardTrack.priorityDateSourceName ? ` · from ${greenCardTrack.priorityDateSourceName}` : ""}
+                  {greenCardTrack.tracks.length > 1 ? " · carries over to whichever green card moves forward" : ""}
+                </p>
+              )}
             </div>
             {greenCardTrack.bulletinCutoffLabel && (
               <span className="rounded-full bg-[var(--haven-sky-light)] px-3 py-1 text-[12px] font-medium text-[var(--haven-sky-ink)]">
@@ -1120,6 +1057,10 @@ export function ImmigrationJourneyDashboard({
               </span>
             )}
           </div>
+
+          {greenCardTrack.tracks.length > 1 && primaryTrack && (
+            <PetitionTrackHeader track={primaryTrack} />
+          )}
 
           <div className="relative">
             <div
@@ -1222,6 +1163,14 @@ export function ImmigrationJourneyDashboard({
               })}
             </div>
           </div>
+
+          {otherTracks.length > 0 && (
+            <div className="space-y-3 pt-1">
+              {otherTracks.map((track) => (
+                <PetitionTrackRow key={track.id} track={track} />
+              ))}
+            </div>
+          )}
         </div>
 
         {/* =================================================================== */}
@@ -1478,6 +1427,75 @@ export function ImmigrationJourneyDashboard({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+const TRACK_TONE_BADGE: Record<PetitionTrack["tone"], string> = {
+  active: "bg-[var(--haven-sky-light)] text-[var(--haven-sky-ink)] border-[var(--haven-sky-mid)]",
+  protected: "bg-[var(--haven-sage-light)] text-[var(--haven-ink)] border-[var(--haven-sage-mid)]",
+  ended: "bg-[var(--haven-sand)] text-[var(--haven-ink-mid)] border-[var(--color-border)]"
+};
+
+const TRACK_TONE_LABEL: Record<PetitionTrack["tone"], string> = {
+  active: "In progress",
+  protected: "Protected",
+  ended: "Ended"
+};
+
+function PetitionTrackHeader({ track }: { track: PetitionTrack }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Briefcase className="h-3.5 w-3.5 text-[var(--haven-ink-mid)]" />
+      <span className="text-body-sm font-semibold text-[var(--haven-ink)]">{track.sponsorName}</span>
+      <span className="rounded-full border border-[var(--color-border)] bg-[var(--haven-white)] px-2 py-0.5 text-[10px] font-semibold text-[var(--haven-ink-mid)]">
+        {track.categoryLabel}
+      </span>
+      <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-semibold", TRACK_TONE_BADGE[track.tone])}>
+        {TRACK_TONE_LABEL[track.tone]}
+      </span>
+      <span className="text-[12px] text-[var(--haven-ink-mid)]">{track.statusLine}</span>
+    </div>
+  );
+}
+
+/** A compact milestone row for a green card other than the main one. */
+function PetitionTrackRow({ track }: { track: PetitionTrack }) {
+  const isEnded = track.tone === "ended";
+  return (
+    <div
+      className={cn(
+        "rounded-[var(--radius-xl)] border p-4",
+        isEnded
+          ? "border-dashed border-[var(--color-border)] bg-[var(--haven-cream)]/60 opacity-70"
+          : "border-[var(--color-border)] bg-[var(--haven-white)]"
+      )}
+      aria-label={`${track.sponsorName} green card: ${track.statusLine}`}
+    >
+      <PetitionTrackHeader track={track} />
+      <ol className="mt-3 flex flex-wrap gap-1.5 sm:grid sm:grid-cols-5">
+        {track.stages.map((stage) => (
+          <li
+            key={stage.key}
+            className={cn(
+              "rounded-[var(--radius-md)] border px-2 py-1.5 text-center text-[11px] font-medium",
+              stage.status === "completed"
+                ? "border-[var(--haven-sage-mid)] bg-[var(--haven-sage-light)] text-[var(--haven-ink)]"
+                : stage.status === "current"
+                  ? "border-[var(--haven-ink)] bg-[var(--haven-cream)] text-[var(--haven-ink)]"
+                  : stage.status === "stopped"
+                    ? "border-[var(--color-border)] bg-transparent text-[var(--haven-ink-light)] line-through"
+                    : "border-[var(--color-border)] bg-[var(--haven-white)] text-[var(--haven-ink-mid)]"
+            )}
+          >
+            <span className="block whitespace-nowrap sm:truncate">{stage.label}</span>
+            <span className="sr-only">
+              {stage.status === "completed" ? "done" : stage.status === "current" ? "current step" : stage.status === "stopped" ? "not reached, ended" : "upcoming"}
+            </span>
+          </li>
+        ))}
+      </ol>
+      {track.notes && <p className="mt-2 text-[11px] italic text-[var(--haven-ink-mid)]">{track.notes}</p>}
+    </div>
   );
 }
 

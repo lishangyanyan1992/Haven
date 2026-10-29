@@ -1,3 +1,4 @@
+import { resolveDashboardFacts } from "@/lib/dashboard-facts";
 import type { ImmigrationProfile } from "@/types/domain";
 
 export interface ChecklistItem {
@@ -78,11 +79,8 @@ export function buildChecklist(profile: ImmigrationProfile): ChecklistItem[] {
 
   // Profile-conditional additions
 
-  if (
-    profile.i140Approved &&
-    profile.i140ApprovalDate &&
-    daysSince(profile.i140ApprovalDate) >= 180
-  ) {
+  const protection = resolveDashboardFacts({ profile }).protection;
+  if (protection.hasApprovedI140 && protection.isRevocationProtected) {
     items.splice(3, 0, {
       key: "ac21-portability-check",
       window: "Day 7–21",

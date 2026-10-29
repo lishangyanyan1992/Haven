@@ -1,15 +1,16 @@
+import { resolveDashboardFacts, type DashboardFactsInput } from "@/lib/dashboard-facts";
 import type { Concern, DerivedProfileSignals, HavenWorkspaceSnapshot, ImmigrationProfile, TimelineEvent } from "@/types/domain";
 
 type PriorityDateSignalOverrides = Pick<DerivedProfileSignals, "visaBulletinPosition" | "estimatedGreenCardDateRange">;
 
 export function computeDerivedSignals(
   profile: ImmigrationProfile,
-  priorityDateSignals?: PriorityDateSignalOverrides | null
+  priorityDateSignals?: PriorityDateSignalOverrides | null,
+  context?: Pick<DashboardFactsInput, "deadlines" | "layoffDate" | "now">
 ): DerivedProfileSignals {
-  const today = new Date();
+  const today = context?.now ?? new Date();
   const expiry = profile.currentVisaExpiryDate ? new Date(profile.currentVisaExpiryDate) : undefined;
   const h1bStart = profile.h1bStartDate ? new Date(profile.h1bStartDate) : undefined;
-  const i140Approval = profile.i140ApprovalDate ? new Date(profile.i140ApprovalDate) : undefined;
 
   const h1bCapDate = h1bStart
     ? new Date(h1bStart.getFullYear() + 6, h1bStart.getMonth(), h1bStart.getDate()).toISOString().slice(0, 10)
@@ -17,49 +18,23 @@ export function computeDerivedSignals(
 
   const daysUntilVisaExpiry = expiry ? Math.max(0, Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))) : undefined;
 
-  let layoffReadinessScore: DerivedProfileSignals["layoffReadinessScore"] = "low";
-  const layoffReadinessReasoning: string[] = [];
-
-  if (profile.i140Approved) {
-    layoffReadinessScore = "medium";
-    layoffReadinessReasoning.push("Approved I-140 improves portability and long-term leverage.");
-  } else {
-    layoffReadinessReasoning.push("No approved I-140 means fewer employer-independent protections.");
-  }
-
-  if (profile.spouseVisaStatus === "H1B" || profile.spouseVisaStatus === "H4" || profile.spouseVisaStatus === "H4 EAD") {
-    layoffReadinessReasoning.push("Spousal status may create fallback options.");
-    if (layoffReadinessScore === "low") layoffReadinessScore = "medium";
-  }
-
-  if (profile.employmentStatus === "laid_off") {
-    layoffReadinessScore = profile.i140Approved ? "medium" : "low";
-    layoffReadinessReasoning.unshift("You are already in an active layoff scenario.");
-  }
-
-  const ac21PortabilityStatus =
-    i140Approval
-      ? `Available after ${new Date(i140Approval.getTime() + 180 * 24 * 60 * 60 * 1000).toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric"
-        })}`
-      : undefined;
+  // Protection, readiness, priority date and wait come from the shared resolver.
+  const facts = resolveDashboardFacts({
+    profile,
+    bulletin: priorityDateSignals ?? null,
+    deadlines: context?.deadlines,
+    layoffDate: context?.layoffDate,
+    now: today
+  });
 
   return {
     h1bCapDate,
     daysUntilVisaExpiry,
-    visaBulletinPosition:
-      priorityDateSignals?.visaBulletinPosition ??
-      (profile.priorityDate && (profile.preferenceCategory === "EB-1" || profile.preferenceCategory === "EB-2" || profile.preferenceCategory === "EB-2 NIW" || profile.preferenceCategory === "EB-3")
-        ? `Backlogged. Monitor ${profile.preferenceCategory} movement for ${profile.countryOfBirth}.`
-        : undefined),
-    estimatedGreenCardDateRange:
-      priorityDateSignals?.estimatedGreenCardDateRange ??
-      (profile.priorityDate ? "Estimate pending bulletin sync" : undefined),
-    ac21PortabilityStatus,
-    layoffReadinessScore,
-    layoffReadinessReasoning
+    visaBulletinPosition: facts.visaBulletinPosition,
+    estimatedGreenCardDateRange: facts.waitEstimate,
+    ac21PortabilityStatus: facts.protection.statusLabel,
+    layoffReadinessScore: facts.readiness.score,
+    layoffReadinessReasoning: facts.readiness.reasoning
   };
 }
 
@@ -97,15 +72,15 @@ export function buildTimeline(profile: ImmigrationProfile, signals: DerivedProfi
     events.push({
       id: "ac21",
       kind: "ac21_unlock",
-      group: "upcoming",
+      group: signals.ac21PortabilityStatus.startsWith("Available after") ? "upcoming" : "past",
       title: "AC21 portability milestone",
-      dateLabel: signals.ac21PortabilityStatus.replace("Available after ", ""),
+      dateLabel: signals.ac21PortabilityStatus.replace(/^(Available after|Unlocked since) /, ""),
       nextAction: "If a layoff or job change happens after this point, review same-or-similar role rules.",
       explanation: "180 days after I-140 approval."
     });
   }
 
-  if (profile.priorityDate) {
+  if (resolveDashboardFacts({ profile }).priorityDate.iso) {
     events.push({
       id: "bulletin",
       kind: "visa_bulletin_update",
@@ -127,9 +102,13 @@ export function defaultNextActions(profile: ImmigrationProfile, signals: Derived
     actions.push("Run the layoff scenario planner and save your 60-day checklist.");
   }
   if (signals.ac21PortabilityStatus) {
-    actions.push(`Track ${signals.ac21PortabilityStatus.toLowerCase()} for portability planning.`);
+    actions.push(
+      signals.ac21PortabilityStatus.startsWith("Available after")
+        ? `Track AC21 portability: ${signals.ac21PortabilityStatus.toLowerCase()}.`
+        : `AC21 portability: ${signals.ac21PortabilityStatus.toLowerCase()}. Use it when planning a job change.`
+    );
   }
-  if (profile.priorityDate) {
+  if (resolveDashboardFacts({ profile }).priorityDate.iso) {
     actions.push("Monitor the next visa bulletin update and confirm whether your category moved.");
   } else {
     actions.push("Add your priority date to unlock timeline and bulletin tracking.");
@@ -144,11 +123,19 @@ export function concernLabels(concerns: Concern[]) {
 
 function buildPlannerSituationSummary(profile: ImmigrationProfile): string {
   const parts: string[] = [];
+  const facts = resolveDashboardFacts({ profile });
+  const category = facts.priorityDate.category;
 
-  if (profile.i140Approved) parts.push("an approved I-140");
+  if (facts.protection.hasApprovedI140) {
+    parts.push(
+      facts.protection.protectingSponsor
+        ? `an approved I-140 with ${facts.protection.protectingSponsor}`
+        : "an approved I-140"
+    );
+  }
 
-  if (profile.priorityDate && profile.preferenceCategory && profile.preferenceCategory !== "Not sure") {
-    parts.push(`an ${profile.preferenceCategory} ${profile.countryOfBirth} priority date`);
+  if (facts.priorityDate.iso && category && category !== "Not sure") {
+    parts.push(`an ${category} ${profile.countryOfBirth} priority date`);
   }
 
   if (!profile.i485Filed) parts.push("no current I-485");
@@ -158,7 +145,7 @@ function buildPlannerSituationSummary(profile: ImmigrationProfile): string {
       ? `You are on ${profile.visaType} with ${parts.join(", ")}.`
       : `You are on ${profile.visaType}.`;
 
-  const portability = profile.i140Approved
+  const portability = facts.protection.hasApprovedI140
     ? " preserving long-term green card progress through AC21 portability after the 180-day threshold"
     : " keeping your immigration options open";
 
@@ -189,7 +176,7 @@ export function mergeSnapshotProfile(
 
   const cohortName =
     profile.preferenceCategory && profile.preferenceCategory !== "Not sure" && profile.countryOfBirth
-      ? `${profile.preferenceCategory} ${profile.countryOfBirth} | ${profile.i140Approved ? "Approved I-140" : "Green card track"} | Layoff watch`
+      ? `${profile.preferenceCategory} ${profile.countryOfBirth} | ${resolveDashboardFacts({ profile }).protection.hasApprovedI140 ? "Approved I-140" : "Green card track"} | Layoff watch`
       : base.cohorts[0]?.name ?? "H1B Layoff watch";
 
   return {

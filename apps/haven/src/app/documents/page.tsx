@@ -1,3 +1,4 @@
+import { resolveDashboardFacts } from "@/lib/dashboard-facts";
 import Link from "next/link";
 import { CheckCircle2, CircleAlert, FileText, Upload } from "lucide-react";
 
@@ -113,9 +114,10 @@ export default async function DocumentsPage() {
       neededKind: "Most recent I-94"
     });
   }
-  if (profile.i140Approved && !uploadedKinds.has("i140_notice")) {
+  const docFacts = resolveDashboardFacts({ profile });
+  if (docFacts.protection.hasApprovedI140 && !uploadedKinds.has("i140_notice")) {
     unverifiedIntakeClaims.push({
-      title: `Approved ${profile.preferenceCategory} I-140 (${profile.priorityDate ?? "Priority Date"}) is unverified`,
+      title: `Approved ${docFacts.priorityDate.category ?? profile.preferenceCategory} I-140 (${docFacts.priorityDate.iso ?? "Priority Date"}) is unverified`,
       detail: "Your AC21 3-year H-1B extension eligibility and priority date retention rely on an approved Form I-140 that is not yet in your Vault.",
       neededKind: "I-140 approval notice"
     });
