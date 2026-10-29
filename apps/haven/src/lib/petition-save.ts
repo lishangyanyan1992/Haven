@@ -35,9 +35,19 @@ export function flatFieldsFrom(
     typeof row.priority_date === "string" &&
     previousDerived instanceof Date &&
     previousDerived.toISOString().slice(0, 10) === row.priority_date.slice(0, 10);
+  // Likewise a stored PERM filing date copied from a green card that's now gone.
+  const previousPermDates = (mapProfileRow(row).immigrantPetitions ?? [])
+    .map((p) => p.permFilingDate?.slice(0, 10))
+    .filter(Boolean);
+  const storedPerm = typeof row.perm_filing_date === "string" ? row.perm_filing_date.slice(0, 10) : null;
+  const storedPermIsRemoved =
+    storedPerm !== null &&
+    previousPermDates.includes(storedPerm) &&
+    !petitions.some((p) => p.permFilingDate?.slice(0, 10) === storedPerm);
   const profile = mapProfileRow({
     ...row,
     priority_date: legacyIsCopy ? null : row.priority_date,
+    perm_filing_date: storedPermIsRemoved ? null : row.perm_filing_date,
     deadline_answers: { ...existingAnswers, immigrantPetitions: petitions }
   });
   const protecting = petitions.filter(providesI140Protection);
@@ -52,6 +62,7 @@ export function flatFieldsFrom(
     i140_filed: petitions.some((p) => STAGE_ORDER[p.stage] >= STAGE_ORDER.i140_filed) || protecting.length > 0,
     priority_date: effective.effectiveDate ? effective.effectiveDate.toISOString().slice(0, 10) : null
   };
+  if (storedPermIsRemoved) patch.perm_filing_date = null;
 
   // PERM stage describes the current employer's green card, so only change it
   // when there is one that is still moving.

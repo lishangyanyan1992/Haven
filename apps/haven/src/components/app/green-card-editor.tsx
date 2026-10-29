@@ -109,16 +109,20 @@ export function GreenCardEditor({ initialPetitions }: { initialPetitions: Immigr
       return;
     }
     startTransition(async () => {
-      const result = await savePetitionsAction(cleaned);
-      if (result.ok) {
-        setPetitions(result.petitions);
-        setServerErrors({});
-        setShowErrors(false);
-        setMessage({ tone: "ok", text: "Green cards saved. Your dashboard now uses them." });
-        router.refresh();
-      } else {
-        setServerErrors(result.fieldErrors ?? {});
-        setMessage({ tone: "error", text: result.error });
+      try {
+        const result = await savePetitionsAction(cleaned);
+        if (result.ok) {
+          setPetitions(result.petitions);
+          setServerErrors({});
+          setShowErrors(false);
+          setMessage({ tone: "ok", text: "Green cards saved. Your dashboard now uses them." });
+          router.refresh();
+        } else {
+          setServerErrors(result.fieldErrors ?? {});
+          setMessage({ tone: "error", text: result.error });
+        }
+      } catch {
+        setMessage({ tone: "error", text: "We couldn't save your green cards. Try again in a moment." });
       }
     });
   };

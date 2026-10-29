@@ -215,6 +215,17 @@ async function main() {
     JSON.stringify(typedPlan.ok ? (typedPlan.update as Record<string, any>).priority_date : typedPlan)
   );
 
+  // A PERM filing date copied from a removed green card doesn't come back as the priority date.
+  const permCard = { id: "perm-1", sponsorName: "Acme Robotics", petitionType: "employer_sponsored", preferenceCategory: "EB-2", stage: "perm_in_progress", permFilingDate: "2024-02-05" };
+  const permRow = { ...savedRow, priority_date: null, perm_filing_date: "2024-02-05", deadline_answers: { immigrantPetitions: [permCard] } };
+  const permPlan = planPetitionSave([], permRow);
+  check(
+    "save: removing a green card clears its copied PERM date and priority date",
+    permPlan.ok && (permPlan.update as Record<string, any>).perm_filing_date === null &&
+      (permPlan.update as Record<string, any>).priority_date === null,
+    JSON.stringify(permPlan.ok ? permPlan.update : permPlan)
+  );
+
   console.log(`\n${pass}/${pass + failures.length} passed`);
   if (failures.length) process.exit(1);
 }

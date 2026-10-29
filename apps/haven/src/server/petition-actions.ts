@@ -34,13 +34,13 @@ async function writePetitions(userId: string, input: unknown): Promise<SavePetit
   if (updateError) return { ok: false, error: "We couldn't save your green cards. Try again in a moment." };
 
   await refreshDerivedSignals(userId);
+  revalidatePath("/dashboard");
+  revalidatePath("/settings");
+  revalidatePath("/timeline");
   // The client chose to share green cards with their law firm, if they have one.
   if (!(await recordFirmSharedGreenCards(userId, plan.petitions))) {
     return { ok: false, error: "Your green cards were saved, but your law firm's copy didn't update. Save again to retry." };
   }
-  revalidatePath("/dashboard");
-  revalidatePath("/settings");
-  revalidatePath("/timeline");
   return { ok: true, petitions: plan.petitions };
 }
 

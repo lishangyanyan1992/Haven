@@ -86,9 +86,11 @@ export function mapDerivedSignals(
   >,
   profile: ImmigrationProfile,
   priorityDateSignals?: Pick<DerivedProfileSignals, "visaBulletinPosition" | "estimatedGreenCardDateRange"> | null,
-  now?: Date
+  now?: Date,
+  // Deadline answers and layoff date, so live readiness matches what saves store.
+  context?: Omit<NonNullable<Parameters<typeof computeDerivedSignals>[2]>, "now">
 ): DerivedProfileSignals {
-  const live = computeDerivedSignals(profile, priorityDateSignals, { now });
+  const live = computeDerivedSignals(profile, priorityDateSignals, { now, ...context });
 
   return {
     h1bCapDate: live.h1bCapDate ?? row.h1b_cap_date ?? undefined,
@@ -466,7 +468,10 @@ async function buildSnapshotContext(): Promise<SnapshotContext> {
   };
 
   if (derivedSignalRow) {
-    const mappedSignals = mapDerivedSignals(derivedSignalRow, profile, priorityDateSignals);
+    const mappedSignals = mapDerivedSignals(derivedSignalRow, profile, priorityDateSignals, undefined, {
+      deadlines: deadlineMeta as Record<string, unknown>,
+      layoffDate: activeLayoffEvent?.layoffDate ?? null
+    });
     snapshot = {
       ...snapshot,
       dashboard: {
