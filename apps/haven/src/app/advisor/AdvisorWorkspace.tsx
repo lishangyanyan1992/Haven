@@ -326,6 +326,7 @@ export function AdvisorWorkspace({
   );
 
   const openThread = useCallback(async (threadId: string) => {
+    if (isDeletingThread) return;
     setOpeningThreadId(threadId);
     setError(null);
     try {
@@ -348,7 +349,7 @@ export function AdvisorWorkspace({
     } finally {
       setOpeningThreadId(null);
     }
-  }, []);
+  }, [isDeletingThread]);
 
   const startNewConversation = useCallback(() => {
     backgroundStore.isPending = false;
@@ -502,9 +503,32 @@ export function AdvisorWorkspace({
       items.push({ kind: "firm", createdAt: fm.createdAt, message: fm });
     }
 
-    const combinedAdvisorMessages = [...sharedMessages];
+    const selectedFirmAck = visibility?.firms.find(
+      (f) => f.firmId === activeFirmConversation?.firmId
+    )?.acknowledgedAt;
+
+    const visibleSharedMessages = sharedMessages.filter((am) => {
+      if (!selectedFirmAck) return false;
+      const threadCreatedAt =
+        threads.find((t) => t.id === am.threadId)?.createdAt ?? am.createdAt;
+      return isThreadVisibleToFirm(threadCreatedAt, selectedFirmAck);
+    });
+
+    const combinedAdvisorMessages = [...visibleSharedMessages];
     for (const m of messages) {
-      if (!combinedAdvisorMessages.some((existing) => existing.id === m.id)) {
+      const isDuplicate = combinedAdvisorMessages.some((existing) => {
+        if (existing.id === m.id) return true;
+        if (existing.traceId && m.traceId && existing.traceId === m.traceId) return true;
+        if (
+          existing.role === m.role &&
+          existing.content.trim() === m.content.trim() &&
+          Math.abs(new Date(existing.createdAt).getTime() - new Date(m.createdAt).getTime()) < 60_000
+        ) {
+          return true;
+        }
+        return false;
+      });
+      if (!isDuplicate) {
         combinedAdvisorMessages.push(m);
       }
     }
@@ -521,7 +545,16 @@ export function AdvisorWorkspace({
     }
 
     return items.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-  }, [activeFirmConversation?.messages, hasFirm, messages, sharedMessages, viewingPrivateThread]);
+  }, [
+    activeFirmConversation?.firmId,
+    activeFirmConversation?.messages,
+    hasFirm,
+    messages,
+    sharedMessages,
+    threads,
+    viewingPrivateThread,
+    visibility?.firms,
+  ]);
 
   useEffect(() => {
     const element = scrollerRef.current;
@@ -814,7 +847,20 @@ export function AdvisorWorkspace({
               ...optimisticUserMessage,
               threadId: event.conversationId ?? conversationId ?? "session",
             };
-            setSharedMessages((current) => [...current, userMsgForShared, event.assistantMessage]);
+            setSharedMessages((current) => {
+              const withoutDupes = current.filter((existing) => {
+                if (existing.id === userMsgForShared.id || existing.id === event.assistantMessage.id) return false;
+                if (
+                  event.assistantMessage.traceId &&
+                  existing.traceId &&
+                  existing.traceId === event.assistantMessage.traceId
+                ) {
+                  return false;
+                }
+                return true;
+              });
+              return [...withoutDupes, userMsgForShared, event.assistantMessage];
+            });
             setStreamingId(null);
             setIsPending(false);
             trackEvent("Search", { search_query: content, user_id: null, results_count: 1 });
@@ -1072,7 +1118,9 @@ export function AdvisorWorkspace({
                     <LawyerMessageCard
                       key={`firm-${item.message.id}`}
                       message={item.message}
-                      onOpenChat={(chatId) => void openThread(chatId)}
+                      onOpenChat={(chatId) => {
+                        if (!isDeletingThread) void openThread(chatId);
+                      }}
                     />
                   ) : (
                     <UserMessageCard
