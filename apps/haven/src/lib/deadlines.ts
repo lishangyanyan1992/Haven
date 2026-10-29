@@ -2,6 +2,7 @@ import { formLimitedTo, recordFirmSharedAnswers } from "@/lib/firms/answers";
 import { openLayoffEvent } from "@/lib/layoff-events";
 import { refreshDerivedSignals } from "@/lib/profile-sync";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { recordPersonEdits } from "@/lib/field-sources/person";
 
 /**
  * "Your deadlines": setup step 5 and the one-time prompt
@@ -87,7 +88,12 @@ export function mergeDeadlineAnswers(current: DeadlineAnswers, draft: DeadlineAn
  * submitted form so fields it didn't send are left alone. Throws if either
  * copy couldn't be saved, so callers don't treat a failure as done.
  */
-export async function saveDeadlineAnswers(userId: string, form: FormData) {
+export async function saveDeadlineAnswers(
+  userId: string,
+  form: FormData,
+  /** False when Haven fills the date from a document, so it isn't labeled as typed. */
+  options: { byPerson?: boolean } = {}
+) {
   const draft = deadlineDraftFromForm(form);
   if (Object.keys(draft).length === 0) return;
   const admin = createSupabaseAdminClient() as any;
@@ -110,6 +116,10 @@ export async function saveDeadlineAnswers(userId: string, form: FormData) {
     }
     const { error } = await admin.from("user_profiles").update(updatePatch).eq("id", userId);
     if (error) throw new Error(`Could not save deadline answers: ${error.message}`);
+    if (options.byPerson !== false && "statusEndDate" in draft) {
+      const previous = (profile.deadline_answers?.statusEndDate as string | undefined) ?? profile.current_visa_expiry_date ?? null;
+      await recordPersonEdits(userId, [{ fieldKey: "statusEndDate", previous, next: next.statusEndDate ?? null }]);
+    }
     if (next.jobEnded === "yes" && next.lastWorkDay) {
       await openLayoffEvent(userId, next.lastWorkDay).catch(() => null);
     } else if (draft.jobEnded && draft.jobEnded !== "yes") {

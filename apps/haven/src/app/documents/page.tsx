@@ -7,7 +7,13 @@ import { DocumentContextUploader } from "@/components/app/document-context-uploa
 import { RefreshWhileReading } from "@/components/app/refresh-while-reading";
 import { Card, CardContent } from "@/components/ui/card";
 import GonePage from "@/app/gone/page";
-import { findPresetDocument, PRESET_REQUIRED_DOCUMENTS } from "@/lib/document-vault";
+import { isPerSponsor, PRESET_REQUIRED_DOCUMENTS } from "@/lib/document-vault";
+import { normalizePetitions } from "@/lib/petitions";
+import { expandRequiredDocuments } from "@/lib/sponsor-documents";
+import { factSetForKind, willTakeSentence } from "@/lib/document-facts/catalog";
+import { describeFacts } from "@/lib/document-facts/describe";
+import { loadFactsByDocument } from "@/lib/document-facts/run";
+import { loadFieldSources } from "@/lib/field-sources/db";
 import { documentContextAvailableFor } from "@/lib/document-context/store";
 import { FirmSharingNote } from "@/components/app/firm-sharing-note";
 import { getClientFirms, type ClientFirmInfo } from "@/lib/firms/intake";
@@ -87,19 +93,34 @@ export default async function DocumentsPage() {
     ...(requiredDocs?.filter((r) => r.isCustom).map((r) => ({ key: r.key, label: r.label })) ?? [])
   ];
 
-  const firmChecklist = (requiredDocs ?? []).map((req) => {
-    const matchingDocs = documents.filter((d) => d.documentKind === req.key);
-    const preset = findPresetDocument(req.key);
-    return {
-      key: req.key,
-      label: req.label,
-      detail: preset?.detail,
-      isUploaded: matchingDocs.length > 0,
-      documents: matchingDocs
-    };
+  // Sponsor documents (I-140, PERM, H-1B packet) are asked once per sponsor.
+  const petitions = normalizePetitions(snapshot.profile.immigrantPetitions);
+  const sponsorOptions = petitions.map((p) => ({
+    id: p.id,
+    label: p.endedReason ? `${p.sponsorName} (ended)` : p.sponsorName
+  }));
+  // Kinds that belong to one green card. The H-1B packet belongs to the employer, so it isn't linked to one.
+  const perSponsorKeys = [
+    ...PRESET_REQUIRED_DOCUMENTS.filter((p) => isPerSponsor({ key: p.key }) && p.key !== "h1b_petition").map((p) => p.key),
+    ...(requiredDocs?.filter((r) => r.isCustom && isPerSponsor(r)).map((r) => r.key) ?? [])
+  ];
+  const isSponsorDoc = (doc: UserDocument) => perSponsorKeys.includes(doc.documentKind);
+  // "What Haven took" for each document.
+  const [factsByDocument, fieldSources] = await Promise.all([loadFactsByDocument(user.id), loadFieldSources(user.id)]);
+  const sponsorNames = new Map(petitions.map((p) => [p.id, p.sponsorName]));
+  const detailsFor = (doc: UserDocument) => ({
+    ...describeFacts(factsByDocument.get(doc.id) ?? [], sponsorNames, fieldSources),
+    // A general USCIS notice may be an I-140 or H-1B approval; only reading it tells.
+    hasFactSet: Boolean(factSetForKind(doc.documentKind)) || doc.documentKind === "uscis_notice"
   });
-
-  const fulfilledCount = firmChecklist.filter((item) => item.isUploaded).length;
+  const checklist = expandRequiredDocuments({
+    items: requiredDocs ?? [],
+    petitions,
+    employerName: snapshot.profile.employerName,
+    documents
+  });
+  const firmChecklist = checklist.entries;
+  const fulfilledCount = checklist.uploadedCount;
   const additionalDocuments = hasFirmRequirements
     ? documents.filter((d) => !requiredKeys.has(d.documentKind))
     : documents;
@@ -189,7 +210,12 @@ export default async function DocumentsPage() {
             <div>
               <p className="text-body-sm font-semibold text-[var(--haven-ink)]">Upload a document</p>
               <div className="mt-2">
-                <DocumentContextUploader allowCategorySelect availableCategories={availableCategories} />
+                <DocumentContextUploader
+                  allowCategorySelect
+                  availableCategories={availableCategories}
+                  perSponsorKeys={perSponsorKeys}
+                  sponsorOptions={sponsorOptions}
+                />
               </div>
             </div>
           </CardContent>
@@ -208,54 +234,90 @@ export default async function DocumentsPage() {
                   </p>
                 </div>
                 <span className="rounded-full bg-[var(--haven-cream)] px-3 py-1 text-body-sm font-semibold text-[var(--haven-ink)]">
-                  {fulfilledCount} of {requiredDocs?.length} fulfilled
+                  {fulfilledCount} of {checklist.requestedCount} fulfilled
                 </span>
               </div>
 
+              {checklist.unlinked.length > 0 && (
+                <div className="mt-4 rounded-[var(--radius-lg)] border border-[var(--haven-blush)] bg-[var(--haven-blush-light)]/60 p-3.5">
+                  <p className="text-body-sm font-semibold text-[var(--haven-ink)]">Which sponsor is each of these for?</p>
+                  <p className="mt-0.5 text-[12px] text-[var(--haven-ink-mid)]">
+                    You have more than one green card sponsor, so pick the one each document belongs to.
+                  </p>
+                  <div className="mt-3 space-y-2">
+                    {checklist.unlinked.map((doc) => (
+                      <DocumentCard
+                        availableCategories={availableCategories}
+                        details={detailsFor(doc)}
+                        document={doc}
+                        key={doc.id}
+                        perSponsor
+                        sponsorOptions={sponsorOptions}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="mt-4 divide-y divide-[var(--color-border)]">
                 {firmChecklist.map((item) => (
-                  <div className="py-4 first:pt-0 last:pb-0" key={item.key}>
+                  <div className="py-4 first:pt-0 last:pb-0" key={item.id}>
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        {item.isUploaded ? (
+                        {item.status === "uploaded" ? (
                           <CheckCircle2 className="h-4 w-4 text-[var(--haven-sage)]" />
+                        ) : item.status === "not_needed_yet" ? (
+                          <FileText className="h-4 w-4 text-[var(--haven-ink-mid)]" />
                         ) : (
                           <CircleAlert className="h-4 w-4 text-[var(--haven-blush-ink)]" />
                         )}
                         <p className="text-body-sm font-semibold text-[var(--haven-ink)]">{item.label}</p>
                         <span
                           className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                            item.isUploaded
+                            item.status === "uploaded"
                               ? "bg-[var(--haven-sage-light)] text-[var(--haven-ink)]"
-                              : "bg-[var(--haven-blush-light)] text-[var(--haven-blush-ink)]"
+                              : item.status === "not_needed_yet"
+                                ? "bg-[var(--haven-cream)] text-[var(--haven-ink-mid)]"
+                                : "bg-[var(--haven-blush-light)] text-[var(--haven-blush-ink)]"
                           }`}
                         >
-                          {item.isUploaded ? "Uploaded" : "Needed"}
+                          {item.status === "uploaded" ? "Uploaded" : item.status === "not_needed_yet" ? "Not needed yet" : "Needed"}
                         </span>
                       </div>
                     </div>
 
-                    {item.detail && !item.isUploaded && (
-                      <p className="text-body-sm mt-1 text-[var(--haven-ink-mid)]">{item.detail}</p>
-                    )}
+                    {item.status === "not_needed_yet" ? (
+                      <p className="text-body-sm mt-1 text-[var(--haven-ink-mid)]">{item.reason}</p>
+                    ) : item.status !== "uploaded" ? (
+                      <>
+                        {item.detail ? <p className="text-body-sm mt-1 text-[var(--haven-ink-mid)]">{item.detail}</p> : null}
+                        <p className="mt-1 text-[12px] text-[var(--haven-ink-mid)]">{willTakeSentence(item.key, item.sponsorName)}</p>
+                      </>
+                    ) : null}
 
-                    {item.isUploaded ? (
+                    {item.status === "uploaded" ? (
                       <div className="mt-3 space-y-2">
                         {item.documents.map((doc) => (
                           <DocumentCard
                             availableCategories={availableCategories}
-                            document={doc}
+                            details={detailsFor(doc)}
+                        document={doc}
                             key={doc.id}
+                            perSponsor={isSponsorDoc(doc)}
+                            sponsorOptions={sponsorOptions}
                           />
                         ))}
                       </div>
-                    ) : (
+                    ) : item.status === "not_needed_yet" ? null : (
                       <div className="mt-3 rounded-[var(--radius-lg)] border border-dashed border-[var(--color-border)] bg-[var(--haven-cream)] p-3">
                         <DocumentContextUploader
-                          buttonLabel={`Upload ${item.label}`}
+                          buttonLabel={`Upload ${item.baseLabel}`}
                           compact
                           displayLabel={item.label}
                           documentKind={item.key}
+                          perSponsorKeys={perSponsorKeys}
+                          petitionId={item.petitionId}
+                          sponsorOptions={sponsorOptions}
                         />
                       </div>
                     )}
@@ -273,8 +335,11 @@ export default async function DocumentsPage() {
                   {additionalDocuments.map((doc) => (
                     <DocumentCard
                       availableCategories={availableCategories}
-                      document={doc}
+                      details={detailsFor(doc)}
+                        document={doc}
                       key={doc.id}
+                      perSponsor={isSponsorDoc(doc)}
+                      sponsorOptions={sponsorOptions}
                     />
                   ))}
                 </div>
@@ -295,8 +360,11 @@ export default async function DocumentsPage() {
                 {documents.map((doc) => (
                   <DocumentCard
                     availableCategories={availableCategories}
-                    document={doc}
+                    details={detailsFor(doc)}
+                        document={doc}
                     key={doc.id}
+                    perSponsor={isSponsorDoc(doc)}
+                    sponsorOptions={sponsorOptions}
                   />
                 ))}
               </div>

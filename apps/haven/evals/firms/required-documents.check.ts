@@ -53,6 +53,39 @@ async function main() {
     JSON.stringify(existingKeyTest)
   );
 
+  // 2a. Per-sponsor flag
+  const sponsorTest = validateRequiredDocumentList([
+    { key: "i140_notice", label: "I-140 approval notice" },
+    { key: "passport_biographic_page", label: "Passport biographic page" },
+    { key: "", label: "Employment verification letter", isCustom: true, perSponsor: true },
+    { key: "", label: "Updated resume", isCustom: true }
+  ]);
+  check(
+    "per sponsor: presets default by type, custom items opt in",
+    sponsorTest.ok &&
+      sponsorTest.items[0].perSponsor === true &&
+      sponsorTest.items[1].perSponsor === false &&
+      sponsorTest.items[2].perSponsor === true &&
+      sponsorTest.items[3].perSponsor === false,
+    JSON.stringify(sponsorTest)
+  );
+  const roundTrip = sponsorTest.ok ? validateRequiredDocumentList(sponsorTest.items) : null;
+  check(
+    "per sponsor: saved custom per-sponsor item round-trips",
+    Boolean(roundTrip?.ok && roundTrip.items[2].perSponsor === true && roundTrip.items[2].key === (sponsorTest.ok ? sponsorTest.items[2].key : "")),
+    JSON.stringify(roundTrip)
+  );
+  const { unionRequiredDocuments } = await import("@/lib/firms/required-documents");
+  const unioned = unionRequiredDocuments([
+    { firmId: "firm-a-0000", docs: [{ key: "custom_letter", label: "Letter", isCustom: true, perSponsor: false }] },
+    { firmId: "firm-b-0000", docs: [{ key: "custom_letter", label: "Letter", isCustom: true, perSponsor: true }] }
+  ]);
+  check(
+    "per sponsor: two firms asking for the same item ask per sponsor if either does",
+    unioned.length === 1 && unioned[0].perSponsor === true,
+    JSON.stringify(unioned)
+  );
+
   // 2b. Default required documents and default intake questions
   const defaultDocs = getDefaultRequiredDocuments();
   check("defaults: default required documents has 4 preset items", defaultDocs.length === 4, JSON.stringify(defaultDocs));

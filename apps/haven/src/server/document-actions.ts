@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { HAVEN_VAULT_BUCKET } from "@/lib/document-vault";
+import { ownPetitionId } from "@/lib/document-sponsor-link";
+import { forgetDeletedDocument } from "@/lib/field-sources/person";
 
 async function requireUser() {
   const supabase = await createSupabaseServerClient();
@@ -49,6 +51,8 @@ export async function deleteVaultDocument(formData: FormData) {
     throw new Error(storageError.message);
   }
 
+  // Values this document filled stay, labeled "From a document you deleted — please confirm".
+  await forgetDeletedDocument(user.id, document.id);
   const { error: deleteError } = await admin.from("user_documents").delete().eq("id", document.id).eq("user_id", user.id);
   if (deleteError) {
     throw new Error(deleteError.message);
@@ -89,5 +93,26 @@ export async function updateVaultDocumentAction(formData: FormData) {
 
   revalidatePath("/documents");
   revalidatePath("/inbox");
+  revalidatePath("/firm");
+}
+
+/** Links a sponsor document to one of the user's green cards, or clears the link. */
+export async function setDocumentSponsorAction(formData: FormData) {
+  const user = await requireUser();
+  const documentId = String(formData.get("documentId") ?? "").trim();
+  if (!documentId) throw new Error("Missing document ID.");
+  const raw = String(formData.get("petitionId") ?? "").trim();
+  const petitionId = await ownPetitionId(user.id, raw);
+  if (raw && !petitionId) throw new Error("That green card isn't on your account.");
+
+  const { error } = await createSupabaseAdminClient()
+    .from("user_documents")
+    .update({ petition_id: petitionId })
+    .eq("id", documentId)
+    .eq("user_id", user.id);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/documents");
+  revalidatePath("/dashboard");
   revalidatePath("/firm");
 }

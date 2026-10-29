@@ -8,6 +8,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isReadableMimeType } from "@/lib/document-context/read";
 import { documentContextAvailableFor, readQueuedDocument } from "@/lib/document-context/store";
 import { isInvitedEmail } from "@/lib/access";
+import { ownPetitionId } from "@/lib/document-sponsor-link";
 import {
   HAVEN_VAULT_BUCKET,
   MAX_DOCUMENT_BYTES,
@@ -187,6 +188,8 @@ export async function POST(request: Request) {
     const explicitLabel = String(formData.get("displayLabel") ?? "").trim();
     const documentKind = explicitKind || inferred.documentKind;
     const displayLabel = explicitLabel || customLabel?.trim() || inferred.displayLabel;
+    // Which green card a sponsor document belongs to. Only the user's own ids are kept.
+    const petitionId = await ownPetitionId(user.id, formData.get("petitionId"));
 
     const extensionSafeName = sanitizeFilename(file.name || "document");
     const storagePath = `${user.id}/${new Date().toISOString().slice(0, 7)}/${randomUUID()}-${extensionSafeName}`;
@@ -220,7 +223,8 @@ export async function POST(request: Request) {
         mime_type: contentType,
         crisis_critical: inferred.crisisCritical,
         notes: notes || null,
-        metadata
+        metadata,
+        petition_id: petitionId
       })
       .select("id, display_label, document_kind, crisis_critical")
       .single();

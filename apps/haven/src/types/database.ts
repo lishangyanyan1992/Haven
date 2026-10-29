@@ -979,6 +979,63 @@ export type Database = {
           },
         ]
       }
+      document_facts: {
+        Row: {
+          applied_to: string | null
+          confident: boolean
+          created_at: string
+          document_id: string
+          fact_key: string
+          id: string
+          page: number | null
+          raw_text: string | null
+          state: string
+          user_id: string
+          value: string | null
+        }
+        Insert: {
+          applied_to?: string | null
+          confident?: boolean
+          created_at?: string
+          document_id: string
+          fact_key: string
+          id?: string
+          page?: number | null
+          raw_text?: string | null
+          state?: string
+          user_id: string
+          value?: string | null
+        }
+        Update: {
+          applied_to?: string | null
+          confident?: boolean
+          created_at?: string
+          document_id?: string
+          fact_key?: string
+          id?: string
+          page?: number | null
+          raw_text?: string | null
+          state?: string
+          user_id?: string
+          value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_facts_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "user_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_facts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_reading_usage: {
         Row: {
           day: string
@@ -1240,6 +1297,66 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "email_threads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      field_sources: {
+        Row: {
+          document_fact_id: string | null
+          document_label: string | null
+          document_page: number | null
+          document_value: string | null
+          field_key: string
+          id: string
+          origin: string
+          resolution: string | null
+          updated_at: string
+          updated_by: string | null
+          user_id: string
+          value: string | null
+        }
+        Insert: {
+          document_fact_id?: string | null
+          document_label?: string | null
+          document_page?: number | null
+          document_value?: string | null
+          field_key: string
+          id?: string
+          origin: string
+          resolution?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          user_id: string
+          value?: string | null
+        }
+        Update: {
+          document_fact_id?: string | null
+          document_label?: string | null
+          document_page?: number | null
+          document_value?: string | null
+          field_key?: string
+          id?: string
+          origin?: string
+          resolution?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string
+          value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "field_sources_document_fact_id_fkey"
+            columns: ["document_fact_id"]
+            isOneToOne: false
+            referencedRelation: "document_facts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "field_sources_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "user_profiles"
@@ -1987,6 +2104,7 @@ export type Database = {
           notes: string | null
           original_name: string
           page_count: number | null
+          petition_id: string | null
           read_at: string | null
           reading_error: string | null
           reading_started_at: string | null
@@ -2007,6 +2125,7 @@ export type Database = {
           notes?: string | null
           original_name: string
           page_count?: number | null
+          petition_id?: string | null
           read_at?: string | null
           reading_error?: string | null
           reading_started_at?: string | null
@@ -2027,6 +2146,7 @@ export type Database = {
           notes?: string | null
           original_name?: string
           page_count?: number | null
+          petition_id?: string | null
           read_at?: string | null
           reading_error?: string | null
           reading_started_at?: string | null

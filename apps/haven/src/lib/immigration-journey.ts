@@ -265,6 +265,8 @@ export type JourneyDocumentContext = {
   uploadedDocumentKinds?: string[];
   uploadedDocumentLabels?: string[];
   requiredDocumentKeys?: { key: string; label: string }[];
+  /** Counts with sponsor documents asked per sponsor. Used instead of counting keys when given. */
+  requiredDocumentCounts?: { requested: number; uploaded: number };
   pendingEmailSubjects?: string[];
   hasBaseVisaExpiryOnProfile?: boolean;
   resumeContext?: {
@@ -2076,7 +2078,9 @@ export function buildImmigrationJourney(input: {
     { key: "uscis_notice", label: "I-797 approval / receipt notice" },
     { key: "h1b_petition", label: "H-1B petition packet" }
   ];
-  const fulfilledRequiredCount = requiredDocs.filter((r) => uploadedKinds.has(r.key)).length;
+  const fulfilledRequiredCount =
+    docContext?.requiredDocumentCounts?.uploaded ?? requiredDocs.filter((r) => uploadedKinds.has(r.key)).length;
+  const requestedRequiredCount = docContext?.requiredDocumentCounts?.requested ?? requiredDocs.length;
   const uploadedDocumentCount = docContext?.uploadedDocumentKinds?.length ?? 0;
   const pendingEmailSubjects = docContext?.pendingEmailSubjects ?? [];
 
@@ -2557,7 +2561,7 @@ export function buildImmigrationJourney(input: {
     warningCount: clientWarnings.length,
     criticalWarningCount: clientWarnings.filter((w) => w.severity === "critical").length,
     uploadedDocumentCount,
-    requiredDocumentCount: requiredDocs.length,
+    requiredDocumentCount: requestedRequiredCount,
     fulfilledRequiredDocumentCount: fulfilledRequiredCount,
     pendingEmailIngestCount: pendingEmailSubjects.length,
     capturedFields,

@@ -7,11 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   getDefaultRequiredDocuments,
+  isPerSponsor,
   PRESET_REQUIRED_DOCUMENTS,
   slugifyCustomKey
 } from "@/lib/document-vault";
 import type { RequiredDocumentItem } from "@/lib/firms/types";
 import { saveFirmRequiredDocumentsAction } from "@/server/firm-actions";
+
+function toCustomDraft(item: RequiredDocumentItem) {
+  return { key: item.key, label: item.label, perSponsor: isPerSponsor(item) };
+}
 
 export function RequiredDocumentsControls({
   initialItems
@@ -33,8 +38,8 @@ export function RequiredDocumentsControls({
     return set;
   });
 
-  const [customItems, setCustomItems] = useState<Array<{ key: string; label: string }>>(() => {
-    return savedItems.filter((item) => item.isCustom).map((i) => ({ key: i.key, label: i.label }));
+  const [customItems, setCustomItems] = useState<Array<{ key: string; label: string; perSponsor: boolean }>>(() => {
+    return savedItems.filter((item) => item.isCustom).map(toCustomDraft);
   });
 
   const [newCustomLabel, setNewCustomLabel] = useState("");
@@ -56,9 +61,13 @@ export function RequiredDocumentsControls({
       return;
     }
     const key = slugifyCustomKey(trimmed);
-    setCustomItems((prev) => [...prev, { key, label: trimmed }]);
+    setCustomItems((prev) => [...prev, { key, label: trimmed, perSponsor: false }]);
     setNewCustomLabel("");
     setError(null);
+  }
+
+  function handleToggleCustomSponsor(index: number) {
+    setCustomItems((prev) => prev.map((item, i) => (i === index ? { ...item, perSponsor: !item.perSponsor } : item)));
   }
 
   function handleRemoveCustom(index: number) {
@@ -75,7 +84,8 @@ export function RequiredDocumentsControls({
         itemsToSave.push({
           key: preset.key,
           label: preset.label,
-          isCustom: false
+          isCustom: false,
+          perSponsor: isPerSponsor({ key: preset.key })
         });
       }
     }
@@ -85,7 +95,8 @@ export function RequiredDocumentsControls({
       itemsToSave.push({
         key: custom.key,
         label: custom.label,
-        isCustom: true
+        isCustom: true,
+        perSponsor: custom.perSponsor
       });
     }
 
@@ -100,7 +111,7 @@ export function RequiredDocumentsControls({
         if (res.ok) {
           setSavedItems(res.items);
           setSelectedPresets(new Set(res.items.filter((item) => !item.isCustom).map((item) => item.key)));
-          setCustomItems(res.items.filter((item) => item.isCustom).map((item) => ({ key: item.key, label: item.label })));
+          setCustomItems(res.items.filter((item) => item.isCustom).map(toCustomDraft));
           setIsEditing(false);
         } else {
           setError(res.error);
@@ -118,7 +129,7 @@ export function RequiredDocumentsControls({
       if (!item.isCustom) presets.add(item.key);
     }
     setSelectedPresets(presets);
-    setCustomItems(savedItems.filter((i) => i.isCustom).map((i) => ({ key: i.key, label: i.label })));
+    setCustomItems(savedItems.filter((i) => i.isCustom).map(toCustomDraft));
     setIsEditing(false);
   }
 
@@ -156,6 +167,9 @@ export function RequiredDocumentsControls({
                 {item.isCustom && (
                   <span className="text-[11px] font-medium text-[var(--haven-ink-mid)]">(Custom)</span>
                 )}
+                {isPerSponsor(item) && (
+                  <span className="text-[11px] font-medium text-[var(--haven-ink-mid)]">· per sponsor</span>
+                )}
               </span>
             ))}
           </div>
@@ -186,6 +200,9 @@ export function RequiredDocumentsControls({
                   <div className="min-w-0">
                     <p className="text-body-sm font-medium text-[var(--haven-ink)]">{preset.label}</p>
                     <p className="text-[11px] text-[var(--haven-ink-mid)]">{preset.detail}</p>
+                    {isPerSponsor({ key: preset.key }) && (
+                      <p className="mt-0.5 text-[11px] font-medium text-[var(--haven-ink-mid)]">Asked once per sponsor</p>
+                    )}
                   </div>
                 </label>
               );
@@ -201,7 +218,16 @@ export function RequiredDocumentsControls({
                     key={`${item.key}-${idx}`}
                     className="flex items-center justify-between gap-2 rounded-[var(--radius-md)] bg-[var(--haven-cream)] px-3 py-1.5 text-body-sm text-[var(--haven-ink)]"
                   >
-                    <span>{item.label}</span>
+                    <span className="min-w-0 flex-1">{item.label}</span>
+                    <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[12px] text-[var(--haven-ink-mid)]">
+                      <input
+                        checked={item.perSponsor}
+                        className="h-3.5 w-3.5 rounded border-[var(--color-border)]"
+                        onChange={() => handleToggleCustomSponsor(idx)}
+                        type="checkbox"
+                      />
+                      Tied to a sponsor
+                    </label>
                     <button
                       aria-label={`Remove ${item.label}`}
                       className="text-[var(--haven-ink-mid)] hover:text-[var(--haven-blush-ink)]"

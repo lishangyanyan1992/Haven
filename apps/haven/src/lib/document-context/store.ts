@@ -4,6 +4,7 @@
  * signed in, so every query is scoped by user_id by hand.
  */
 
+import { readDocumentDetails } from "@/lib/document-facts/run";
 import { env } from "@/lib/env";
 import { isInvitedEmail } from "@/lib/access";
 import { isJoinedFirmClientEmail } from "@/lib/firms/intake";
@@ -176,6 +177,15 @@ export async function readQueuedDocument(documentId: string): Promise<ReadOutcom
   }
 
   await finish("done", { reading_error: null, page_count: actualPages, read_at: new Date().toISOString() });
+
+  // Then take its details (dates, receipt numbers) into the profile. Its own
+  // step: if it fails, the document stays readable for the chat, and the
+  // "Read details" button lets the person try again.
+  try {
+    await readDocumentDetails(documentId);
+  } catch (error) {
+    console.error("[documents] reading details failed", documentId, error instanceof Error ? error.message : error);
+  }
   return "done";
 }
 

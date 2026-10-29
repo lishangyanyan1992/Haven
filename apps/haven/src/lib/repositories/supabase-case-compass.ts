@@ -339,7 +339,8 @@ function buildDocuments(rows: DocumentRow[]): UserDocument[] {
     // Defaulted so the vault still renders if this code ships before the
     // migration that adds the column.
     readingStatus: (row.reading_status ?? "not_requested") as UserDocument["readingStatus"],
-    readingError: row.reading_error ?? undefined
+    readingError: row.reading_error ?? undefined,
+    petitionId: row.petition_id ?? undefined
   }));
 }
 

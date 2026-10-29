@@ -15,6 +15,29 @@ import { PipelineStatusSelect } from "../../PipelineStatusSelect";
 import { ContactRequestPanel } from "./ContactRequestPanel";
 import { EngagementStageControls } from "./EngagementStageControls";
 import { OpenDocumentButton } from "./OpenDocumentButton";
+import type { FactLine } from "@/lib/document-facts/describe";
+
+/** What Haven read from one document and where it went, for the lawyer. */
+function WhatHavenTook({ lines, createdSponsor }: { lines: FactLine[]; createdSponsor: string | null }) {
+  if (lines.length === 0) return null;
+  return (
+    <div className="mt-1.5 rounded-[var(--radius-md)] bg-[var(--haven-cream)] px-2.5 py-2">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--haven-ink-mid)]">What Haven took</p>
+      {createdSponsor ? <p className="text-[12px] text-[var(--haven-ink)]">Added a new green card for {createdSponsor}.</p> : null}
+      <ul className="mt-0.5 space-y-0.5">
+        {lines.map((line) => (
+          <li className="text-[12px] text-[var(--haven-ink-mid)]" key={line.label}>
+            <span className="font-medium text-[var(--haven-ink)]">{line.label}:</span> {line.value || "—"}
+            {line.page ? ` (page ${line.page})` : ""} ·{" "}
+            <span className={line.tone === "check" ? "text-[var(--haven-blush-ink)]" : undefined}>
+              {line.outcome.replace(/ Check it in Settings\.$/, "")}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 export const metadata = { ...noIndexMetadata, title: "Client · Haven" };
 export const dynamic = "force-dynamic";
@@ -136,7 +159,7 @@ const PRESET_KEY_FOR_ROW: Partial<Record<SharedAnswerKey, string>> = {
 
 function buildFirmClientAudit(
   answers: SharedAnswers,
-  requiredDocuments: Array<{ key: string; label: string; isUploaded: boolean }>
+  requiredDocuments: Array<{ key: string; label: string; isUploaded: boolean; status?: string }>
 ) {
   const warnings: Array<{
     id: string;
@@ -198,7 +221,7 @@ function buildFirmClientAudit(
     missingItems.push("Status / I-94 end date not provided in intake.");
   }
 
-  const missingReqDocs = requiredDocuments.filter((doc) => !doc.isUploaded);
+  const missingReqDocs = requiredDocuments.filter((doc) => !doc.isUploaded && doc.status !== "not_needed_yet");
   for (const reqDoc of missingReqDocs) {
     missingItems.push(`Required document missing: ${reqDoc.label}`);
   }
@@ -233,6 +256,9 @@ export default async function FirmClientPage({ params }: { params: Promise<{ id:
   const name = fullName || client.email;
   const urgency = rankUrgency(client.answers);
   const clientAudit = buildFirmClientAudit(client.answers, client.requiredDocuments);
+  // Sponsor documents a case hasn't produced yet are shown but not counted.
+  const requestedDocs = client.requiredDocuments.filter((r) => r.status !== "not_needed_yet");
+  const uploadedRequestedCount = requestedDocs.filter((r) => r.isUploaded).length;
   const enabledKeys = new Set(intakeQuestions.map((q) => q.key));
   const customQuestions = intakeQuestions.filter((q) => q.isCustom);
 
@@ -311,10 +337,10 @@ export default async function FirmClientPage({ params }: { params: Promise<{ id:
           completedAt={client.completedAt}
           firmClientId={client.id}
           firmName={membership.firmName}
-          fulfilledRequiredCount={client.requiredDocuments.filter((r) => r.isUploaded).length}
+          fulfilledRequiredCount={uploadedRequestedCount}
           initialState={client.engagementState}
           joinedAt={client.joinedAt}
-          requiredDocumentCount={client.requiredDocuments.length}
+          requiredDocumentCount={requestedDocs.length}
           reviewedAt={client.reviewedAt}
           uploadedDocumentCount={client.documents.length}
         />
@@ -402,12 +428,49 @@ export default async function FirmClientPage({ params }: { params: Promise<{ id:
           ))}
         </div>
 
+        {client.disagreements.length > 0 ? (
+          <section
+            className="rounded-[var(--radius-2xl)] border border-[var(--haven-blush)] bg-[var(--haven-white)] p-5 sm:p-6"
+            id="values-to-check"
+          >
+            <h2 className="text-h3">Values that differ from documents</h2>
+            <p className="text-body-sm mt-1 text-[var(--haven-ink-mid)]">
+              The client&apos;s value is what Haven uses. The client settles these in their Settings.
+            </p>
+            <ul className="mt-3 divide-y divide-[var(--color-border)]">
+              {client.disagreements.map((d) => (
+                <li className="flex flex-wrap items-center justify-between gap-3 py-3" key={d.fieldKey}>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-body-sm font-medium text-[var(--haven-ink)]">{d.title}</p>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                          d.resolution === "open"
+                            ? "bg-[var(--haven-blush-light)] text-[var(--haven-blush-ink)]"
+                            : "bg-[var(--haven-cream)] text-[var(--haven-ink-mid)]"
+                        }`}
+                      >
+                        {d.resolution === "open" ? "To check" : "Client kept their own value"}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-[12px] text-[var(--haven-ink-mid)]">
+                      Client: {d.clientValue} · {d.documentLabel}
+                      {d.page ? ` (page ${d.page})` : ""}: {d.documentValue}
+                    </p>
+                  </div>
+                  {d.documentId ? <OpenDocumentButton documentId={d.documentId} firmClientId={client.id} /> : null}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
         <section className="rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-5 sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-h3">Documents</h2>
             {client.requiredDocuments.length > 0 && (
               <span className="rounded-full bg-[var(--haven-cream)] px-2.5 py-1 text-[12px] font-semibold text-[var(--haven-ink)]">
-                {client.requiredDocuments.filter((r) => r.isUploaded).length}/{client.requiredDocuments.length} required uploaded
+                {uploadedRequestedCount}/{requestedDocs.length} required uploaded
               </span>
             )}
           </div>
@@ -428,16 +491,22 @@ export default async function FirmClientPage({ params }: { params: Promise<{ id:
                             className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
                               req.isUploaded
                                 ? "bg-[var(--haven-sage-light)] text-[var(--haven-ink)]"
-                                : "bg-[var(--haven-blush-light)] text-[var(--haven-blush-ink)]"
+                                : req.status === "not_needed_yet"
+                                  ? "bg-[var(--haven-cream)] text-[var(--haven-ink-mid)]"
+                                  : "bg-[var(--haven-blush-light)] text-[var(--haven-blush-ink)]"
                             }`}
                           >
-                            {req.isUploaded ? "Uploaded" : "Missing"}
+                            {req.isUploaded ? "Uploaded" : req.status === "not_needed_yet" ? "Not needed yet" : "Missing"}
                           </span>
                         </div>
+                        {req.reason ? <p className="mt-0.5 text-[12px] text-[var(--haven-ink-mid)]">{req.reason.replace(/^Not needed yet: /, "")}</p> : null}
                         {req.documents.map((doc) => (
-                          <p className="mt-0.5 text-[12px] text-[var(--haven-ink-mid)]" key={doc.id}>
-                            {doc.name} · uploaded {formatDate(doc.uploadedAt)}
-                          </p>
+                          <div key={doc.id}>
+                            <p className="mt-0.5 text-[12px] text-[var(--haven-ink-mid)]">
+                              {doc.name} · uploaded {formatDate(doc.uploadedAt)}
+                            </p>
+                            <WhatHavenTook createdSponsor={doc.createdSponsor} lines={doc.details} />
+                          </div>
                         ))}
                       </div>
                       {req.documents.length > 0 && (
@@ -465,6 +534,7 @@ export default async function FirmClientPage({ params }: { params: Promise<{ id:
                           <p className="text-[12px] text-[var(--haven-ink-mid)]">
                             {doc.kind} · uploaded {formatDate(doc.uploadedAt)}
                           </p>
+                          <WhatHavenTook createdSponsor={doc.createdSponsor} lines={doc.details} />
                         </div>
                         <OpenDocumentButton documentId={doc.id} firmClientId={client.id} />
                       </li>
@@ -484,6 +554,7 @@ export default async function FirmClientPage({ params }: { params: Promise<{ id:
                     <p className="text-[12px] text-[var(--haven-ink-mid)]">
                       {doc.kind} · uploaded {formatDate(doc.uploadedAt)}
                     </p>
+                    <WhatHavenTook createdSponsor={doc.createdSponsor} lines={doc.details} />
                   </div>
                   <OpenDocumentButton documentId={doc.id} firmClientId={client.id} />
                 </li>

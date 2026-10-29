@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { validatePetition, type PetitionFieldError } from "@/lib/petitions";
+import { petitionFieldKey, type FieldSource } from "@/lib/field-sources/plan";
+import { FieldSourceLabel } from "@/components/app/field-source-label";
 import { savePetitionsAction } from "@/server/petition-actions";
 import type {
   ImmigrantPetition,
@@ -80,7 +82,14 @@ function FieldError({ errors, field }: { errors: PetitionFieldError[]; field: ke
 }
 
 /** Settings section to add, edit, end and remove green cards. */
-export function GreenCardEditor({ initialPetitions }: { initialPetitions: ImmigrantPetition[] }) {
+export function GreenCardEditor({
+  initialPetitions,
+  sources = {}
+}: {
+  initialPetitions: ImmigrantPetition[];
+  /** Where each saved value came from, by field key. */
+  sources?: Record<string, FieldSource>;
+}) {
   const router = useRouter();
   const [petitions, setPetitions] = useState<ImmigrantPetition[]>(initialPetitions);
   const [serverErrors, setServerErrors] = useState<Record<string, PetitionFieldError[]>>({});
@@ -206,6 +215,11 @@ export function GreenCardEditor({ initialPetitions }: { initialPetitions: Immigr
                       <option key={c} value={c}>{c}</option>
                     ))}
                   </Select>
+                  <FieldSourceLabel
+                    fieldKey={petitionFieldKey(p.id, "preferenceCategory")}
+                    hasValue={false}
+                    source={sources[petitionFieldKey(p.id, "preferenceCategory")]}
+                  />
                 </div>
                 <div>
                   <label className="text-label" htmlFor={`${p.id}-stage`}>Furthest step reached</label>
@@ -232,8 +246,27 @@ export function GreenCardEditor({ initialPetitions }: { initialPetitions: Immigr
                       onChange={(e) => update(p.id, { [key]: e.target.value || undefined })}
                     />
                     <FieldError errors={errors} field={key} />
+                    <FieldSourceLabel
+                      fieldKey={petitionFieldKey(p.id, key)}
+                      hasValue={Boolean(initialPetitions.find((i) => i.id === p.id)?.[key])}
+                      source={sources[petitionFieldKey(p.id, key)]}
+                    />
                   </div>
                 ))}
+                <div>
+                  <label className="text-label" htmlFor={`${p.id}-receipt`}>I-140 receipt number</label>
+                  <Input
+                    id={`${p.id}-receipt`}
+                    placeholder="e.g. IOE0912345678"
+                    value={p.i140ReceiptNumber ?? ""}
+                    onChange={(e) => update(p.id, { i140ReceiptNumber: e.target.value.trim().toUpperCase() || undefined })}
+                  />
+                  <FieldSourceLabel
+                    fieldKey={petitionFieldKey(p.id, "i140ReceiptNumber")}
+                    hasValue={Boolean(initialPetitions.find((i) => i.id === p.id)?.i140ReceiptNumber)}
+                    source={sources[petitionFieldKey(p.id, "i140ReceiptNumber")]}
+                  />
+                </div>
               </div>
 
               <label className="flex items-center gap-2 text-body-sm text-[var(--haven-ink-mid)]">
