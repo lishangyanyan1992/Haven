@@ -71,7 +71,13 @@ export function unionRequiredDocuments(
   for (const { firmId, docs } of firmLists) {
     for (const d of docs) {
       const docIdentity = d.isCustom ? `${d.key}:${d.label.toLowerCase().trim()}` : d.key;
-      if (!seenIdentities.has(docIdentity)) {
+      if (seenIdentities.has(docIdentity)) {
+        // Same document from two firms: ask per sponsor if either firm does.
+        const existing = unioned.find((u) => (u.isCustom ? `${u.key}:${u.label.toLowerCase().trim()}` : u.key) === docIdentity);
+        if (existing && d.perSponsor && !existing.perSponsor) {
+          unioned[unioned.indexOf(existing)] = { ...existing, perSponsor: true };
+        }
+      } else {
         seenIdentities.add(docIdentity);
         let finalItem = d;
         if (d.isCustom && unioned.some((existing) => existing.key === d.key && existing.label !== d.label)) {

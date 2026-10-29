@@ -1,4 +1,5 @@
 import { ENDED_REASON_LABELS, normalizePetitions } from "@/lib/petitions";
+import type { SponsorRef } from "@/lib/sponsor-documents";
 import type { ImmigrantPetition, ImmigrantPetitionStage, ImmigrantPetitionType } from "@/types/domain";
 
 /**
@@ -64,6 +65,44 @@ export function greenCardLine(p: ImmigrantPetition): string {
     parts.push(ended ? `${ENDED_REASON_LABELS[p.endedReason]} ${ended}` : ENDED_REASON_LABELS[p.endedReason]);
   }
   return parts.join(" · ");
+}
+
+/**
+ * The few fields the document checklist needs per green card, one JSON string
+ * each so they fit the shared answers' string-list shape. Lets the firm's
+ * checklist ask for sponsor documents per sponsor without reading the profile.
+ */
+export function greenCardSponsorsForFirm(raw: unknown): string[] {
+  return normalizePetitions(raw)
+    .filter((p) => p.sponsorName.trim())
+    .map((p) =>
+      JSON.stringify({
+        id: p.id,
+        sponsorName: p.sponsorName.trim(),
+        stage: p.stage,
+        ...(p.endedReason ? { endedReason: p.endedReason } : {}),
+        ...(p.permCertifiedDate ? { permCertifiedDate: p.permCertifiedDate } : {}),
+        ...(p.i140FiledDate ? { i140FiledDate: p.i140FiledDate } : {}),
+        ...(p.i140ApprovalDate ? { i140ApprovalDate: p.i140ApprovalDate } : {})
+      })
+    );
+}
+
+/** Reads greenCardSponsorsForFirm output back. Bad entries are skipped. */
+export function parseFirmGreenCardSponsors(value: unknown): SponsorRef[] {
+  if (!Array.isArray(value)) return [];
+  const out: SponsorRef[] = [];
+  for (const entry of value) {
+    try {
+      const parsed = JSON.parse(String(entry));
+      if (parsed && typeof parsed.id === "string" && typeof parsed.sponsorName === "string" && typeof parsed.stage === "string") {
+        out.push(parsed as SponsorRef);
+      }
+    } catch {
+      // Skip anything that isn't ours.
+    }
+  }
+  return out;
 }
 
 /** The firm's lines for a saved (possibly older-format) petition list. Empty list when there are none. */

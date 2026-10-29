@@ -75,3 +75,6 @@ jobs:
 
       - name: Dashboard consistency and green cards
         run: npm run check:dashboard
+
+      - name: Document detail checks (per-sponsor checklist, details read, labels)
+        run: npm run check:documents

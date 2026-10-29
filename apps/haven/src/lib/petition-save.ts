@@ -88,7 +88,12 @@ export type PetitionSavePlan =
   | { ok: true; petitions: ImmigrantPetition[]; update: Record<string, unknown> }
   | { ok: false; error: string; fieldErrors?: Record<string, PetitionFieldError[]> };
 
-export function planPetitionSave(input: unknown, row: Record<string, unknown>): PetitionSavePlan {
+export function planPetitionSave(
+  input: unknown,
+  row: Record<string, unknown>,
+  /** Check only these green cards. Others are saved as they were, even if an older one has a problem. */
+  options: { onlyCheck?: string[] } = {}
+): PetitionSavePlan {
   if (!Array.isArray(input)) return { ok: false, error: "Nothing to save." };
   if (input.length > MAX_PETITIONS) return { ok: false, error: `You can track up to ${MAX_PETITIONS} green cards.` };
 
@@ -100,6 +105,7 @@ export function planPetitionSave(input: unknown, row: Record<string, unknown>): 
 
   const fieldErrors: Record<string, PetitionFieldError[]> = {};
   for (const p of petitions) {
+    if (options.onlyCheck && !options.onlyCheck.includes(p.id)) continue;
     const errors = validatePetition(p);
     if (errors.length > 0) fieldErrors[p.id] = errors;
   }

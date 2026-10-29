@@ -23,6 +23,7 @@
     "check:firm-isolation": "npm run check:firm-isolation --workspace @haven/app",
     "check:firms": "npm run check:firm-isolation --workspace @haven/app && npm run check:firm-status --workspace @haven/app && npm run check:firm-intake --workspace @haven/app && npm run check:firm-demo --workspace @haven/app && npm run check:lead-urgency --workspace @haven/app && npm run check:firm-required-docs --workspace @haven/app && npm run check:case-dashboard --workspace @haven/app && npm run check:advisor-firm-link --workspace @haven/app && npm run check:contact-requests --workspace @haven/app && npm run check:firm-green-cards --workspace @haven/app && npm run check:multi-firm --workspace @haven/app",
     "check:dashboard": "npm run check:dashboard --workspace @haven/app",
+    "check:documents": "npm run check:sponsor-checklist --workspace @haven/app && npm run check:fact-catalog --workspace @haven/app && npm run check:fact-extraction --workspace @haven/app && npm run check:apply-facts --workspace @haven/app",
     "test:wizard": "npm run test --workspace @haven/immig-wizard",
     "seo:report": "node apps/haven/scripts/seo-loop/run.mjs",
     "seo:monitor": "node apps/haven/scripts/seo-loop/run.mjs",

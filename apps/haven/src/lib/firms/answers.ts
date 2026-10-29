@@ -1,4 +1,4 @@
-import { greenCardLinesForFirm } from "@/lib/firms/green-cards";
+import { greenCardLinesForFirm, greenCardSponsorsForFirm } from "@/lib/firms/green-cards";
 import { isCustomQuestionKey } from "@/lib/firms/intake-question-catalog";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -29,6 +29,9 @@ export const SHARED_ANSWER_KEYS = [
   // Every green card filed for the client, one plain line each. Written by
   // the green card editor in settings, not by a form field.
   "greenCards",
+  // The same green cards as JSON strings (id, sponsor, stage), so the firm's
+  // document checklist can ask for sponsor documents per sponsor.
+  "greenCardSponsors",
   "spouseVisaStatus",
   "topConcerns",
   // "Your deadlines" (setup step 5 and the one-time prompt)
@@ -108,6 +111,7 @@ export function sharedAnswersFromProfile(p: Record<string, any> | null): SharedA
     priorityDate: p.priority_date ?? "",
     preferenceCategory: p.preference_category,
     greenCards: greenCardLinesForFirm(deadlineRecord.immigrantPetitions),
+    greenCardSponsors: greenCardSponsorsForFirm(deadlineRecord.immigrantPetitions),
     spouseVisaStatus: p.spouse_visa_status,
     topConcerns: p.top_concerns ?? [],
     statusEndDate: deadlineRecord.statusEndDate ?? p.current_visa_expiry_date ?? "",
@@ -244,8 +248,11 @@ export async function recordFirmSharedGreenCards(userId: string, rawPetitions: u
 /** The firm's copy with its green card list replaced. Leaves every other answer alone. */
 export function withSharedGreenCards(current: SharedAnswers, rawPetitions: unknown): SharedAnswers {
   const lines = greenCardLinesForFirm(rawPetitions);
+  const sponsors = greenCardSponsorsForFirm(rawPetitions);
   const next: SharedAnswers = { ...current };
   if (lines.length) next.greenCards = lines;
   else delete next.greenCards;
+  if (sponsors.length) next.greenCardSponsors = sponsors;
+  else delete next.greenCardSponsors;
   return next;
 }

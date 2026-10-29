@@ -2,6 +2,18 @@ import { HAVEN_VAULT_BUCKET } from "@/lib/document-vault";
 import type { SharedAnswers } from "@/lib/firms/answers";
 import { cleanEngagementState } from "@/lib/firms/engagement";
 import { getFirmRequiredDocuments } from "@/lib/firms/required-documents";
+import { parseFirmGreenCardSponsors } from "@/lib/firms/green-cards";
+import { expandRequiredDocuments, type ChecklistStatus } from "@/lib/sponsor-documents";
+import {
+  describeFacts,
+  disagreementsFrom,
+  toStoredFact,
+  type Disagreement,
+  type FactLine,
+  type StoredFact
+} from "@/lib/document-facts/describe";
+import { toFieldSource } from "@/lib/field-sources/db";
+import type { FieldSource } from "@/lib/field-sources/plan";
 import { compareByUrgency, rankUrgency, type Urgency } from "@/lib/firms/urgency";
 import { firmClientStatus, isNewFirmClient } from "@/lib/firms/status";
 import type { FirmClientEngagementState, FirmClientRow, FirmClientStatus, FirmPipelineStatus } from "@/lib/firms/types";
@@ -47,6 +59,8 @@ export type FirmClientSummary = {
   documentCount: number;
   requiredDocumentCount?: number;
   totalRequiredCount?: number;
+  /** Fields where the client's value and a document disagree and nobody has settled it. */
+  toCheckCount?: number;
   joinedAt: string | null;
   createdAt: string;
   urgency: Urgency;
@@ -104,23 +118,32 @@ export async function listFirmClients(firmId: string): Promise<FirmClientSummary
   const userIds = rows.map((r) => r.user_id).filter((id): id is string => Boolean(id));
 
   const docCounts = new Map<string, number>();
-  const userDocKinds = new Map<string, Set<string>>();
+  const userDocs = new Map<string, Array<{ id: string; documentKind: string; petitionId: string | null }>>();
 
   if (userIds.length > 0) {
     const { data: docRows } = await admin()
       .from("user_documents")
-      .select("user_id, document_kind")
+      .select("id, user_id, document_kind, petition_id")
       .in("user_id", userIds);
     for (const d of docRows ?? []) {
       docCounts.set(d.user_id, (docCounts.get(d.user_id) ?? 0) + 1);
-      if (!userDocKinds.has(d.user_id)) {
-        userDocKinds.set(d.user_id, new Set<string>());
-      }
-      userDocKinds.get(d.user_id)!.add(d.document_kind);
+      if (!userDocs.has(d.user_id)) userDocs.set(d.user_id, []);
+      userDocs.get(d.user_id)!.push({ id: d.id, documentKind: d.document_kind, petitionId: d.petition_id ?? null });
     }
   }
 
-  const totalRequired = requiredDocs?.length ?? 0;
+  const openDisagreements = new Map<string, number>();
+  if (userIds.length > 0) {
+    const { data: openRows } = await admin()
+      .from("field_sources")
+      .select("user_id")
+      .in("user_id", userIds)
+      .eq("resolution", "open");
+    for (const r of openRows ?? []) openDisagreements.set(r.user_id, (openDisagreements.get(r.user_id) ?? 0) + 1);
+  }
+
+  const hasRequirements = (requiredDocs?.length ?? 0) > 0;
+  const firmSuffix = `_${firmId.slice(0, 8)}`;
   const now = new Date();
   const summaries: FirmClientSummary[] = rows.map((row) => {
     const answersRecord = (row.shared_answers ?? {}) as Record<string, unknown>;
@@ -131,16 +154,19 @@ export async function listFirmClients(firmId: string): Promise<FirmClientSummary
     const rawPhone = answersRecord.phone ?? answersRecord.phoneNumber;
     const resolvedPhone = row.phone ?? (typeof rawPhone === "string" ? rawPhone.trim() : null);
 
+    // Sponsor documents count once per sponsor; "not needed yet" items don't count.
     let requiredDocumentCount: number | undefined;
-    if (totalRequired > 0) {
-      const kinds = row.user_id ? userDocKinds.get(row.user_id) : undefined;
-      let count = 0;
-      if (kinds) {
-        for (const req of requiredDocs ?? []) {
-          if (kinds.has(req.key)) count += 1;
-        }
-      }
-      requiredDocumentCount = count;
+    let totalRequired = 0;
+    if (hasRequirements) {
+      const checklist = expandRequiredDocuments({
+        items: requiredDocs ?? [],
+        petitions: parseFirmGreenCardSponsors(answers.greenCardSponsors),
+        employerName: typeof answers.employerName === "string" ? answers.employerName : null,
+        documents: row.user_id ? userDocs.get(row.user_id) ?? [] : [],
+        kindMatches: (kind, key) => kind === key || kind === `${key}${firmSuffix}`
+      });
+      requiredDocumentCount = checklist.uploadedCount;
+      totalRequired = checklist.requestedCount;
     }
 
     return {
@@ -155,7 +181,8 @@ export async function listFirmClients(firmId: string): Promise<FirmClientSummary
       isNew: isNewFirmClient(row),
       documentCount: row.user_id ? docCounts.get(row.user_id) ?? 0 : 0,
       requiredDocumentCount,
-      totalRequiredCount: totalRequired > 0 ? totalRequired : undefined,
+      totalRequiredCount: hasRequirements ? totalRequired : undefined,
+      toCheckCount: row.user_id ? openDisagreements.get(row.user_id) ?? 0 : 0,
       joinedAt: row.joined_at,
       createdAt: row.created_at,
       urgency: rankUrgency(answers, now),
@@ -182,13 +209,22 @@ export type FirmClientDocument = {
   kind: string;
   documentKind: string;
   uploadedAt: string;
+  petitionId: string | null;
+  /** What Haven took from it. Empty when nothing was read. */
+  details: FactLine[];
+  /** Set when a green card was created from this document. */
+  createdSponsor: string | null;
 };
 
 export type FirmRequiredDocumentStatus = {
+  /** Unique per checklist entry (requirement key, plus the sponsor's green card id). */
   key: string;
   label: string;
   isCustom?: boolean;
   isUploaded: boolean;
+  status: ChecklistStatus;
+  /** Why it isn't asked yet, when status is "not_needed_yet". */
+  reason?: string;
   documents: FirmClientDocument[];
 };
 
@@ -208,6 +244,8 @@ export type FirmClientDetail = {
   documents: FirmClientDocument[];
   requiredDocuments: FirmRequiredDocumentStatus[];
   additionalDocuments: FirmClientDocument[];
+  /** Fields where the client's value differs from a document's, open ones first. */
+  disagreements: Disagreement[];
   openContactRequest: FirmContactRequest | null;
 };
 
@@ -232,7 +270,7 @@ export async function getFirmClient(firmId: string, firmClientId: string): Promi
   if (client.user_id) {
     const { data: docs } = await admin()
       .from("user_documents")
-      .select("id, original_name, display_label, document_kind, uploaded_at")
+      .select("id, original_name, display_label, document_kind, uploaded_at, petition_id")
       .eq("user_id", client.user_id)
       .eq("source_kind", "manual_upload")
       .order("uploaded_at", { ascending: false });
@@ -241,8 +279,29 @@ export async function getFirmClient(firmId: string, firmClientId: string): Promi
       name: d.original_name,
       kind: d.display_label || d.document_kind,
       documentKind: d.document_kind,
-      uploadedAt: d.uploaded_at
+      uploadedAt: d.uploaded_at,
+      petitionId: d.petition_id ?? null,
+      details: [],
+      createdSponsor: null
     }));
+  }
+
+  // What Haven read from each document, and where the client disagrees with one.
+  let disagreements: Disagreement[] = [];
+  if (client.user_id) {
+    const sponsors = new Map(parseFirmGreenCardSponsors(answers.greenCardSponsors).map((p) => [p.id, p.sponsorName]));
+    const [{ data: factRows }, { data: sourceRows }] = await Promise.all([
+      admin().from("document_facts").select("*").eq("user_id", client.user_id),
+      admin().from("field_sources").select("*").eq("user_id", client.user_id)
+    ]);
+    const facts: StoredFact[] = (factRows ?? []).map(toStoredFact);
+    const sources: FieldSource[] = (sourceRows ?? []).map(toFieldSource);
+    const sourceMap = new Map<string, FieldSource>(sources.map((s) => [s.fieldKey, s]));
+    documents = documents.map((d) => {
+      const described = describeFacts(facts.filter((f) => f.documentId === d.id), sponsors, sourceMap);
+      return { ...d, details: described.lines, createdSponsor: described.createdSponsor };
+    });
+    disagreements = disagreementsFrom(sources, new Map(facts.map((f) => [f.id, f.documentId])), sponsors);
   }
 
   const requiredDocuments: FirmRequiredDocumentStatus[] = [];
@@ -250,23 +309,30 @@ export async function getFirmClient(firmId: string, firmClientId: string): Promi
 
   if (requiredDocs && requiredDocs.length > 0) {
     const firmSuffix = `_${firmId.slice(0, 8)}`;
-    for (const req of requiredDocs) {
-      requiredKeys.add(req.key);
-      const matchingDocs = documents.filter(
-        (d) => d.documentKind === req.key || d.documentKind === `${req.key}${firmSuffix}`
-      );
+    const kindMatches = (kind: string, key: string) => kind === key || kind === `${key}${firmSuffix}`;
+    const checklist = expandRequiredDocuments({
+      items: requiredDocs,
+      petitions: parseFirmGreenCardSponsors(answers.greenCardSponsors),
+      employerName: typeof answers.employerName === "string" ? answers.employerName : null,
+      documents,
+      kindMatches
+    });
+    for (const req of requiredDocs) requiredKeys.add(req.key);
+    for (const entry of checklist.entries) {
       requiredDocuments.push({
-        key: req.key,
-        label: req.label,
-        isCustom: req.isCustom,
-        isUploaded: matchingDocs.length > 0,
-        documents: matchingDocs
+        key: entry.id,
+        label: entry.label,
+        isCustom: entry.isCustom,
+        isUploaded: entry.status === "uploaded",
+        status: entry.status,
+        reason: entry.reason,
+        documents: entry.documents
       });
     }
   }
 
   const additionalDocuments = requiredDocs && requiredDocs.length > 0
-    ? documents.filter((d) => !requiredKeys.has(d.documentKind))
+    ? documents.filter((d) => ![...requiredKeys].some((key) => d.documentKind === key || d.documentKind === `${key}_${firmId.slice(0, 8)}`))
     : documents;
 
   const answersRecord = (client.shared_answers ?? {}) as Record<string, unknown>;
@@ -291,6 +357,7 @@ export async function getFirmClient(firmId: string, firmClientId: string): Promi
     documents,
     requiredDocuments,
     additionalDocuments,
+    disagreements,
     openContactRequest: contactRequest
   };
 }

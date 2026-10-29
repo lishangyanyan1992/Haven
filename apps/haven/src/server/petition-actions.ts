@@ -2,17 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 
-import { recordFirmSharedGreenCards } from "@/lib/firms/answers";
-import { planPetitionSave } from "@/lib/petition-save";
-import { normalizePetitions, type PetitionFieldError } from "@/lib/petitions";
-import { refreshDerivedSignals } from "@/lib/profile-sync";
+import { forgetRemovedPetitions, petitionEdits, recordPersonEdits } from "@/lib/field-sources/person";
+import { writePetitions, type SavePetitionsResult } from "@/lib/petition-write";
+import { normalizePetitions } from "@/lib/petitions";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { ImmigrantPetition, PetitionEndedReason } from "@/types/domain";
+import type { PetitionEndedReason } from "@/types/domain";
 
-export type SavePetitionsResult =
-  | { ok: true; petitions: ImmigrantPetition[] }
-  | { ok: false; error: string; fieldErrors?: Record<string, PetitionFieldError[]> };
+export type { SavePetitionsResult };
 
 async function currentUserId(): Promise<string | null> {
   const supabase = await createSupabaseServerClient();
@@ -22,33 +19,24 @@ async function currentUserId(): Promise<string | null> {
   return user?.id ?? null;
 }
 
-async function writePetitions(userId: string, input: unknown): Promise<SavePetitionsResult> {
-  const admin = createSupabaseAdminClient() as any;
-  const { data: row, error: readError } = await admin.from("user_profiles").select("*").eq("id", userId).maybeSingle();
-  if (readError || !row) return { ok: false, error: "We couldn't load your profile. Try again in a moment." };
-
-  const plan = planPetitionSave(input, row as Record<string, unknown>);
-  if (!plan.ok) return plan;
-
-  const { error: updateError } = await admin.from("user_profiles").update(plan.update).eq("id", userId);
-  if (updateError) return { ok: false, error: "We couldn't save your green cards. Try again in a moment." };
-
-  await refreshDerivedSignals(userId);
-  revalidatePath("/dashboard");
-  revalidatePath("/settings");
-  revalidatePath("/timeline");
-  // The client chose to share green cards with their law firm, if they have one.
-  if (!(await recordFirmSharedGreenCards(userId, plan.petitions))) {
-    return { ok: false, error: "Your green cards were saved, but your law firm's copy didn't update. Save again to retry." };
-  }
-  return { ok: true, petitions: plan.petitions };
-}
-
 /** Save the whole green card list from settings. */
 export async function savePetitionsAction(petitions: unknown): Promise<SavePetitionsResult> {
   const userId = await currentUserId();
   if (!userId) return { ok: false, error: "Please sign in again." };
-  return writePetitions(userId, petitions);
+  const { data: row } = await (createSupabaseAdminClient() as any)
+    .from("user_profiles")
+    .select("deadline_answers")
+    .eq("id", userId)
+    .maybeSingle();
+  const before = normalizePetitions((row?.deadline_answers as Record<string, unknown> | null)?.immigrantPetitions);
+  const result = await writePetitions(userId, petitions);
+  if (result.ok) {
+    // Changes to values read from documents are labeled as the person's; removed green cards lose their labels.
+    const { edits, removed } = petitionEdits(before, result.petitions);
+    await recordPersonEdits(userId, edits);
+    await forgetRemovedPetitions(userId, removed);
+  }
+  return result;
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;

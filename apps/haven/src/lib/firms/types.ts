@@ -4,6 +4,8 @@ export type RequiredDocumentItem = {
   key: string;
   label: string;
   isCustom?: boolean;
+  /** Asked once per green card sponsor (or the H-1B employer) instead of once per client. */
+  perSponsor?: boolean;
 };
 
 export type IntakeQuestionItem = {

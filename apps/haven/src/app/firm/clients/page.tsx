@@ -135,9 +135,21 @@ export default async function RetainedClientsPage({ searchParams }: { searchPara
                             <span className="text-[11px] text-[var(--haven-ink-mid)]">
                               {client.documentCount} total files
                             </span>
+                            {client.toCheckCount ? (
+                              <span className="text-[11px] font-semibold text-[var(--haven-blush-ink)]">
+                                {client.toCheckCount} to check
+                              </span>
+                            ) : null}
                           </div>
                         ) : (
-                          <span className="font-medium text-[var(--haven-ink)]">{client.documentCount} files</span>
+                          <span className="flex flex-col">
+                            <span className="font-medium text-[var(--haven-ink)]">{client.documentCount} files</span>
+                            {client.toCheckCount ? (
+                              <span className="text-[11px] font-semibold text-[var(--haven-blush-ink)]">
+                                {client.toCheckCount} to check
+                              </span>
+                            ) : null}
+                          </span>
                         )}
                       </td>
 

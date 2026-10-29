@@ -310,6 +310,8 @@ export interface UserDocument {
   readingStatus?: DocumentReadingStatus;
   /** Plain-language reason, set only when readingStatus is "failed". */
   readingError?: string;
+  /** The green card (petition id) a sponsor-tied document belongs to. */
+  petitionId?: string;
 }
 
 export type DocumentReadingStatus = "not_requested" | "pending" | "reading" | "done" | "failed" | "deferred";

@@ -14,6 +14,8 @@ import { Select } from "@/components/ui/select";
 import { buildChecklist } from "@/lib/crisis-checklist";
 import { loadDeadlineAnswers, type DeadlineAnswers } from "@/lib/deadlines";
 import { getDefaultRequiredDocuments } from "@/lib/document-vault";
+import { normalizePetitions } from "@/lib/petitions";
+import { expandRequiredDocuments } from "@/lib/sponsor-documents";
 import { buildFirmEngagementOverview } from "@/lib/firms/engagement";
 import type { RequiredDocumentItem } from "@/lib/firms/types";
 import { getClientFirmEngagementRecords } from "@/lib/firms/intake";
@@ -148,7 +150,16 @@ export default async function DashboardPage({
   const manualDocuments = profileUnavailable
     ? []
     : inboxData.documents.filter((d) => d.sourceKind === "manual_upload");
-  const uploadedDocKinds = new Set(manualDocuments.map((d) => d.documentKind));
+  // Sponsor documents count once per sponsor, the same as the Documents page.
+  const sponsorPetitions = normalizePetitions(profile.immigrantPetitions);
+  const countChecklist = (items: RequiredDocumentItem[], firmId?: string) =>
+    expandRequiredDocuments({
+      items,
+      petitions: sponsorPetitions,
+      employerName: profile.employerName,
+      documents: manualDocuments,
+      kindMatches: (kind, key) => documentKindMatchesRequirement(kind, key, firmId)
+    });
 
   let firmDocsFailed = false;
   let firmDocsList: Array<{
@@ -183,9 +194,8 @@ export default async function DashboardPage({
   const unionedRequiredDocs = unionRequiredDocuments(firmDocsList);
 
   const firmEngagements = firmDocsList.map(({ firmId, docs, record }) => {
-    const fulfilledRequiredCount = docs.filter((req) =>
-      manualDocuments.some((d) => documentKindMatchesRequirement(d.documentKind, req.key, firmId))
-    ).length;
+    const firmChecklist = countChecklist(docs, firmId);
+    const fulfilledRequiredCount = firmChecklist.uploadedCount;
     return buildFirmEngagementOverview({
       firmName: record.firmName,
       isConnectedToFirm: true,
@@ -194,7 +204,7 @@ export default async function DashboardPage({
       reviewedAt: record.reviewedAt,
       hasProfileSetup: !profileUnavailable && Boolean(profile.countryOfBirth?.trim()),
       uploadedDocumentCount: manualDocuments.length,
-      requiredDocumentCount: docs.length,
+      requiredDocumentCount: firmChecklist.requestedCount,
       fulfilledRequiredCount,
       bookingUrl: record.bookingUrl,
       bookingEmail: record.bookingEmail,
@@ -215,8 +225,8 @@ export default async function DashboardPage({
       reviewedAt: null,
       hasProfileSetup: !profileUnavailable && Boolean(profile.countryOfBirth?.trim()),
       uploadedDocumentCount: manualDocuments.length,
-      requiredDocumentCount: defaultDocs.length,
-      fulfilledRequiredCount: defaultDocs.filter((req) => uploadedDocKinds.has(req.key)).length,
+      requiredDocumentCount: countChecklist(defaultDocs).requestedCount,
+      fulfilledRequiredCount: countChecklist(defaultDocs).uploadedCount,
       bookingUrl: null,
       bookingEmail: null,
       engagementState: null
@@ -250,6 +260,10 @@ export default async function DashboardPage({
           uploadedDocumentKinds: manualDocuments.map((d) => d.documentKind),
           uploadedDocumentLabels: manualDocuments.map((d) => d.originalName || d.displayLabel),
           requiredDocumentKeys: effectiveRequiredDocs,
+          requiredDocumentCounts: (() => {
+            const c = countChecklist(effectiveRequiredDocs);
+            return { requested: c.requestedCount, uploaded: c.uploadedCount };
+          })(),
           pendingEmailSubjects,
           resumeContext: {
             phone: typeof deadlineMeta.inferredPhone === "string" ? deadlineMeta.inferredPhone : null,

@@ -87,13 +87,26 @@ export const DEFAULT_PRESET_KEYS = [
   "h1b_petition"
 ];
 
+/**
+ * Presets that belong to one sponsor. I-140 and PERM are asked per green card
+ * sponsor; the H-1B packet is asked for the current H-1B employer.
+ */
+export const SPONSOR_TIED_PRESET_KEYS = ["i140_notice", "perm_certification", "h1b_petition"] as const;
+
+/** Whether a required document is asked once per sponsor. Presets default by type; custom items opt in. */
+export function isPerSponsor(item: Pick<RequiredDocumentItem, "key" | "perSponsor">): boolean {
+  if (typeof item.perSponsor === "boolean") return item.perSponsor;
+  return (SPONSOR_TIED_PRESET_KEYS as readonly string[]).includes(item.key);
+}
+
 export function getDefaultRequiredDocuments(): RequiredDocumentItem[] {
   return DEFAULT_PRESET_KEYS.map((key) => {
     const preset = PRESET_REQUIRED_DOCUMENTS.find((p) => p.key === key);
     return {
       key,
       label: preset?.label ?? key,
-      isCustom: false
+      isCustom: false,
+      perSponsor: isPerSponsor({ key })
     };
   });
 }
@@ -147,10 +160,14 @@ export function validateRequiredDocumentList(items: unknown): { ok: true; items:
     }
     seenKeys.add(finalKey);
 
+    const custom = isCustom || finalKey.startsWith("custom_");
+    const rawPerSponsor = (raw as any).perSponsor;
     validated.push({
       key: finalKey,
       label,
-      isCustom: isCustom || finalKey.startsWith("custom_")
+      isCustom: custom,
+      // Custom items are per client unless the lawyer ticks "Tied to a sponsor".
+      perSponsor: typeof rawPerSponsor === "boolean" ? rawPerSponsor : custom ? false : isPerSponsor({ key: finalKey })
     });
   }
 

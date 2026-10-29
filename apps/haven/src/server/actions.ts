@@ -14,6 +14,8 @@ import { env } from "@/lib/env";
 import { SIGNED_IN_HOME } from "@/lib/archived-routes";
 import { isInvitedEmail } from "@/lib/access";
 import { DEADLINE_KEYS, saveDeadlineAnswers } from "@/lib/deadlines";
+import { loadProfileValues } from "@/lib/field-sources/db";
+import { profileEdits, recordPersonEdits } from "@/lib/field-sources/person";
 import { getFirmMembership, isAnyLawyerEmail, isFirmLawyerEmail } from "@/lib/firms/access";
 import { formLimitedTo, recordFirmSharedAnswers } from "@/lib/firms/answers";
 import { markFirmClientCompleted } from "@/lib/firms/intake";
@@ -577,8 +579,17 @@ export async function saveProfileSettingsAction(formData: FormData) {
     spouseVisaStatus: String(formData.get("spouseVisaStatus") ?? ""),
     topConcerns: formData.getAll("topConcerns").map(String)
   };
+  const before = await loadProfileValues(user.id);
   await persistProfileDraft(user.id, setupDraft);
   await recordFirmSharedAnswers(user.id, setupDraft, formData);
+  // Changing a value Haven filled from a document keeps the document's value beside it.
+  const after = await loadProfileValues(user.id);
+  if (before && after) {
+    await recordPersonEdits(
+      user.id,
+      profileEdits(before, { visaType: after.visaType, countryOfBirth: after.countryOfBirth, employerName: after.employerName })
+    );
+  }
 
   cookieStore.delete(ONBOARDING_OVERRIDE_COOKIE);
 
@@ -619,9 +630,16 @@ export async function saveCaseJourneyDatesAction(formData: FormData): Promise<{ 
     i140Approved
   };
 
+  const before = await loadProfileValues(user.id);
   const profile = await persistProfileDraft(user.id, setupDraft);
   if (!profile) {
     throw new Error("Could not save profile data");
+  }
+  if (before) {
+    await recordPersonEdits(
+      user.id,
+      profileEdits(before, { visaType: profile.visaType, countryOfBirth: profile.countryOfBirth, employerName: profile.employerName ?? null })
+    );
   }
 
   const sharedForm = formLimitedTo(formData, DEADLINE_KEYS, "except");

@@ -3,6 +3,10 @@ import { AlertTriangle, CheckCircle2, FileWarning } from "lucide-react";
 
 import { AppShell } from "@/components/app/app-shell";
 import { GreenCardEditor } from "@/components/app/green-card-editor";
+import { FieldSourceLabel } from "@/components/app/field-source-label";
+import { formatSourceValue } from "@/lib/field-sources/format";
+import { loadFieldSources } from "@/lib/field-sources/db";
+import type { FieldSource } from "@/lib/field-sources/plan";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,6 +44,13 @@ export default async function SettingsPage({
   // No database means a local test persona: there are no saved deadlines to load.
   const savedDeadlines = profile.id && hasSupabaseEnv ? await loadDeadlineAnswers(profile.id) : undefined;
   const greenCardStage = inferGreenCardStage(profile);
+  // Where each value came from (a document, or the person). None for a local test persona.
+  const sources: Record<string, FieldSource> =
+    profile.id && hasSupabaseEnv ? Object.fromEntries(await loadFieldSources(profile.id)) : {};
+  const statusEndDate = savedDeadlines?.statusEndDate ?? profile.currentVisaExpiryDate ?? null;
+  const countryOptions = ["India", "China", "Mexico", "Philippines", "South Korea", "Brazil", "Canada", "United Kingdom", "Other"];
+  // A country read from a passport may not be in the short list; keep it selectable so saving doesn't change it.
+  if (profile.countryOfBirth && !countryOptions.includes(profile.countryOfBirth)) countryOptions.unshift(profile.countryOfBirth);
 
   const profileGaps: Array<{
     id: string;
@@ -208,15 +219,17 @@ export default async function SettingsPage({
                       </option>
                     ))}
                   </Select>
+                  <FieldSourceLabel fieldKey="visaType" hasValue={Boolean(profile.visaType)} source={sources.visaType} />
                 </Field>
                 <Field label="Country of birth">
                   <Select defaultValue={profile.countryOfBirth} name="countryOfBirth">
-                    {["India", "China", "Mexico", "Philippines", "South Korea", "Brazil", "Canada", "United Kingdom", "Other"].map((value) => (
+                    {countryOptions.map((value) => (
                       <option key={value} value={value}>
                         {value}
                       </option>
                     ))}
                   </Select>
+                  <FieldSourceLabel fieldKey="countryOfBirth" hasValue={Boolean(profile.countryOfBirth)} source={sources.countryOfBirth} />
                 </Field>
                 <Field label="Primary goal">
                   <Select defaultValue={profile.primaryGoal} name="primaryGoal">
@@ -250,7 +263,20 @@ export default async function SettingsPage({
               <CardContent className="space-y-4">
                 <Field label="Employer name">
                   <Input defaultValue={profile.employerName ?? ""} name="employerName" placeholder="e.g. Nimbus AI" />
+                  <FieldSourceLabel fieldKey="employerName" hasValue={Boolean(profile.employerName)} source={sources.employerName} />
                 </Field>
+                {statusEndDate || sources.statusEndDate ? (
+                  <div>
+                    <p className="field-label">Status end date</p>
+                    <p className="text-body-sm text-[var(--haven-ink)]">
+                      {formatSourceValue(statusEndDate)}{" "}
+                      <Link className="text-[12px] underline underline-offset-2" href="/dashboard#journey-statusEndDate">
+                        Change on your dashboard
+                      </Link>
+                    </p>
+                    <FieldSourceLabel fieldKey="statusEndDate" hasValue={Boolean(statusEndDate)} source={sources.statusEndDate} />
+                  </div>
+                ) : null}
                 <Field label="Job title">
                   <Input defaultValue={profile.jobTitle ?? ""} name="jobTitle" placeholder="e.g. Senior Software Engineer" />
                 </Field>
@@ -413,7 +439,7 @@ export default async function SettingsPage({
           </div>
         </form>
 
-        <GreenCardEditor initialPetitions={profile.immigrantPetitions ?? []} />
+        <GreenCardEditor initialPetitions={profile.immigrantPetitions ?? []} sources={sources} />
       </div>
     </AppShell>
   );

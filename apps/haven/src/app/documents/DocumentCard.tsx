@@ -6,8 +6,9 @@ import { Download, Edit3, ExternalLink, FileText, Loader2, Trash2, X } from "luc
 import { Button } from "@/components/ui/button";
 import { PendingSubmitButton } from "@/components/app/pending-submit-button";
 import { formatBytes, PRESET_REQUIRED_DOCUMENTS } from "@/lib/document-vault";
-import { deleteVaultDocument, updateVaultDocumentAction } from "@/server/document-actions";
-import { readDocumentAction } from "@/server/document-context-actions";
+import { deleteVaultDocument, setDocumentSponsorAction, updateVaultDocumentAction } from "@/server/document-actions";
+import { readDocumentAction, readDocumentDetailsAction } from "@/server/document-context-actions";
+import type { FactLine } from "@/lib/document-facts/describe";
 import type { UserDocument } from "@/types/domain";
 
 const STATUS: Record<NonNullable<UserDocument["readingStatus"]>, string> = {
@@ -26,10 +27,19 @@ export type DocumentCategoryOption = {
 
 export function DocumentCard({
   document,
-  availableCategories
+  availableCategories,
+  sponsorOptions = [],
+  perSponsor = false,
+  details
 }: {
   document: UserDocument;
   availableCategories?: DocumentCategoryOption[];
+  /** The user's green cards, for linking a sponsor document. */
+  sponsorOptions?: Array<{ id: string; label: string }>;
+  /** Whether this document's kind belongs to a sponsor. */
+  perSponsor?: boolean;
+  /** What Haven took from it. */
+  details?: { lines: FactLine[]; createdSponsor: string | null; hasFactSet: boolean };
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editLabel, setEditLabel] = useState(document.displayLabel || document.originalName);
@@ -126,6 +136,71 @@ export function DocumentCard({
             {formatBytes(document.fileSizeBytes)} · uploaded {new Date(document.uploadedAt).toLocaleDateString()} · {STATUS[status]}
           </p>
         )}
+
+        {perSponsor && sponsorOptions.length > 0 ? (
+          <form action={setDocumentSponsorAction} className="mt-2 flex flex-wrap items-center gap-2">
+            <input type="hidden" name="documentId" value={document.id} />
+            <label className="text-[12px] text-[var(--haven-ink-mid)]" htmlFor={`sponsor-${document.id}`}>
+              Sponsor
+            </label>
+            <select
+              className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--haven-white)] px-2.5 py-1 text-body-sm text-[var(--haven-ink)]"
+              defaultValue={document.petitionId ?? ""}
+              id={`sponsor-${document.id}`}
+              name="petitionId"
+            >
+              <option value="">{document.petitionId ? "No sponsor" : "Which sponsor is this for?"}</option>
+              {sponsorOptions.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+            <PendingSubmitButton label="Change sponsor" pendingLabel="Saving…" variant="outline" />
+          </form>
+        ) : null}
+
+        {status === "done" && details ? (
+          details.lines.length > 0 ? (
+            <div className="mt-3 rounded-[var(--radius-lg)] bg-[var(--haven-cream)] p-3" data-what-haven-took>
+              <p className="text-[12px] font-semibold text-[var(--haven-ink)]">What Haven took from this document</p>
+              {details.createdSponsor ? (
+                <p className="mt-1 text-[12px] text-[var(--haven-ink)]">Added a new green card for {details.createdSponsor}.</p>
+              ) : null}
+              <ul className="mt-1.5 space-y-1">
+                {details.lines.map((line) => (
+                  <li className="text-[12px] text-[var(--haven-ink-mid)]" key={line.label}>
+                    <span className="font-medium text-[var(--haven-ink)]">{line.label}:</span> {line.value || "—"}
+                    {line.page ? ` (page ${line.page})` : ""} ·{" "}
+                    <span className={line.tone === "check" ? "text-[var(--haven-blush-ink)]" : undefined}>
+                      {line.href ? (
+                        <a className="underline underline-offset-2" href={line.href}>
+                          {line.outcome}
+                        </a>
+                      ) : (
+                        line.outcome
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <form action={readDocumentDetailsAction} className="mt-2">
+                <input name="documentId" type="hidden" value={document.id} />
+                <PendingSubmitButton label="Read details again" pendingLabel="Starting…" variant="outline" />
+              </form>
+            </div>
+          ) : details.hasFactSet ? (
+            <form action={readDocumentDetailsAction} className="mt-2 flex flex-wrap items-center gap-2">
+              <input name="documentId" type="hidden" value={document.id} />
+              <span className="text-[12px] text-[var(--haven-ink-mid)]">Haven hasn&apos;t taken any details from this yet.</span>
+              <PendingSubmitButton label="Read details" pendingLabel="Starting…" variant="outline" />
+            </form>
+          ) : (
+            <p className="mt-1 text-[12px] text-[var(--haven-ink-mid)]">
+              Haven keeps this document but doesn&apos;t take any details from it.
+            </p>
+          )
+        ) : null}
 
         {status === "failed" && document.readingError ? (
           <p className="mt-1 text-body-sm text-[var(--haven-blush-ink)]">{document.readingError}</p>
