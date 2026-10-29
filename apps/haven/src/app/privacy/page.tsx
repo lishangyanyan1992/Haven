@@ -84,8 +84,15 @@ export default function PrivacyPage() {
       <h2>Who else sees it</h2>
       <p>
         We do not sell your information, and we do not share it with employers, immigration authorities, or anyone
-        acting on their behalf. We use a small number of service providers to run Haven:
+        acting on their behalf.
       </p>
+      <p>
+        <strong>Your law firm.</strong> If a law firm invited you, it sees your setup answers, the documents you upload,
+        and messages you send it in Haven. Once you agree in the Advisor, it also sees the questions you ask the Advisor
+        and the answers it gives, so your lawyer can confirm or correct them. Conversations from before you agreed stay
+        private, and deleting a conversation removes it for the firm too.
+      </p>
+      <p>We use a small number of service providers to run Haven:</p>
       <ul>
         <li>
           <strong>OpenAI</strong> — processes Advisor questions. When you ask the Advisor something, your question and

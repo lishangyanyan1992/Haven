@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { isOwnerEmail, normalizeEmail } from "@/lib/access";
 import { sharedAnswersFromProfile } from "@/lib/firms/answers";
 import { cleanEngagementState } from "@/lib/firms/engagement";
+import { normalizeIntakeQuestionKeys } from "@/lib/firms/intake-question-catalog";
 import { lookupIntakeToken } from "@/lib/firms/links";
 import type {
   FirmClientEngagementState,
@@ -466,7 +467,7 @@ export async function getClientFirms(userId: string | null | undefined): Promise
     firmId: row.firm_id,
     firmName: row.firms?.name ?? "your law firm",
     requiredDocuments: Array.isArray(row.firms?.required_documents) ? row.firms.required_documents : [],
-    intakeQuestions: Array.isArray(row.firms?.intake_questions) ? row.firms.intake_questions : []
+    intakeQuestions: Array.isArray(row.firms?.intake_questions) ? normalizeIntakeQuestionKeys(row.firms.intake_questions) : []
   }));
 }
 

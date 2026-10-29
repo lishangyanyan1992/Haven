@@ -20,6 +20,10 @@
  *    or writable from the browser at all. Its migration may grant exactly one
  *    policy: a lawyer select keyed on haven_firm_id(). Clients send requests
  *    through a server action that derives the firm itself.
+ * 8. A firm reads a client's AI chats anywhere but src/lib/firms/shared-chats.ts,
+ *    or that file reads a chat without first calling sharedChatScope() (which
+ *    checks the client is still linked and agreed to share), or reads the
+ *    chat's internal fields (specs/advisor-chat-firm-visibility).
  *
  * The rules also run against small deliberately broken examples, which must
  * fail, so the check can't quietly stop checking.
@@ -73,7 +77,13 @@ const FIRM_DATA_FUNCTIONS = [
   "setFirmLinkActive",
   "replaceFirmLink",
   "resetDemoFirm",
-  "markContactRequestHandled"
+  "markContactRequestHandled",
+  "getFirmConversation",
+  "markFirmConversationRead",
+  "firmClientsWithUnreadMessages",
+  "sendFirmMessage",
+  "listSharedChatsForFirm",
+  "isAiAnswerVisibleToFirm"
 ];
 
 /** Rules 1-3 on firm data files. Returns failure messages. */
@@ -93,7 +103,8 @@ function checkDataFiles(files: Source[]) {
       const firmQueries = [
         ...statements(fn.body, '.from("firm_clients")'),
         ...statements(fn.body, '.from("firm_intake_links")'),
-        ...statements(fn.body, '.from("firm_contact_requests")')
+        ...statements(fn.body, '.from("firm_contact_requests")'),
+        ...statements(fn.body, '.from("firm_conversations")')
       ];
       const rpcs = statements(fn.body, ".rpc(");
       if ((firmQueries.length || rpcs.length) && !takesFirm) failures.push(`${file.name} ${name}(): firm data functions must take firmId`);
@@ -170,6 +181,23 @@ function checkContactRequestsMoveNothing(file: Source) {
   return failures;
 }
 
+/** Rule 8: a firm reads chats only after sharedChatScope(), and never their internals. */
+function checkSharedChatReads(file: Source) {
+  const failures: string[] = [];
+  for (const [name, fn] of topLevelFunctions(file.source)) {
+    const reads = [...statements(fn.body, '.from("advisor_threads")'), ...statements(fn.body, '.from("advisor_messages")')];
+    if (!reads.length) continue;
+    const scopeAt = fn.body.search(/\bsharedChatScope\(\s*firmId\b/);
+    const firstRead = Math.min(...reads.map((q) => q.index));
+    if (scopeAt < 0 || scopeAt > firstRead) failures.push(`${file.name} ${name}(): reads a chat before sharedChatScope(firmId, ...)`);
+    for (const q of reads) {
+      if (/retrieval_metadata|remembered|"\*"/.test(q.text)) failures.push(`${file.name} ${name}(): reads internal chat fields`);
+      if (!/\.eq\("user_id",\s*scope\.userId\)/.test(q.text)) failures.push(`${file.name} ${name}(): chat read not scoped to the client from sharedChatScope()`);
+    }
+  }
+  return failures;
+}
+
 /** Rule 6: contact requests are lawyer-read-only at the database. */
 function checkContactRequestPolicies(file: Source) {
   const failures: string[] = [];
@@ -211,14 +239,29 @@ async function main() {
   const pages = walk(path.join(root, "src/app/firm")).map((f) => read(path.relative(root, f)));
 
   // ------------------------------------------------ the real code
-  const dataFiles = ["src/lib/firms/clients.ts", "src/lib/firms/links.ts"].map(read);
+  const dataFiles = [
+    "src/lib/firms/clients.ts",
+    "src/lib/firms/links.ts",
+    "src/lib/firms/firm-messages.ts",
+    "src/lib/firms/shared-chats.ts"
+  ].map(read);
   for (const file of dataFiles) check(`${file.name}: every firm query is scoped`, checkDataFiles([file]));
-  for (const file of [...dataFiles, read("src/lib/firms/access.ts"), read("src/server/firm-actions.ts"), ...pages]) {
+  const chatFreeFiles = dataFiles.filter((file) => file.name !== "src/lib/firms/shared-chats.ts");
+  for (const file of [...chatFreeFiles, read("src/lib/firms/access.ts"), read("src/server/firm-actions.ts"), ...pages]) {
     check(`${file.name}: no chats, no live profiles`, CHAT.test(file.source) ? ["touches chats or user_profiles"] : []);
   }
   for (const file of [read("src/server/firm-actions.ts"), ...pages]) check(`${file.name}: firm comes from requireFirmMember()`, checkCallers([file]));
 
   check("src/lib/firms/urgency.ts: ranking is a pure function of shared answers", checkPureRanking(read("src/lib/firms/urgency.ts")));
+
+  check("src/lib/firms/shared-chats.ts: chats read only after the sharing check", checkSharedChatReads(read("src/lib/firms/shared-chats.ts")));
+  check(
+    "messages never change stage or urgency",
+    checkContactRequestsMoveNothing({
+      name: "src/lib/firms/firm-messages.ts",
+      source: read("src/lib/firms/firm-messages.ts").source.replace(/firm_conversations/g, "firm_contact_requests")
+    })
+  );
 
   check("src/lib/firms/clients.ts: a contact request never changes stage or urgency", checkContactRequestsMoveNothing(read("src/lib/firms/clients.ts")));
 
@@ -230,6 +273,40 @@ async function main() {
 
   // ------------------------------------------------ broken examples that must be caught
   const bad = (name: string, source: string) => ({ name: `example:${name}`, source });
+  check(
+    "catches a chat read without the sharing check",
+    checkSharedChatReads(
+      bad(
+        "no-scope",
+        `export async function listSharedChatsForFirm(firmId: string, id: string) {\n  const scope = { userId: "x" };\n  await db.from("advisor_threads").select("id").eq("user_id", scope.userId);\n}\n`
+      )
+    ),
+    true
+  );
+  check(
+    "catches a chat read of internal fields",
+    checkSharedChatReads(
+      bad(
+        "internals",
+        `export async function listSharedChatsForFirm(firmId: string, id: string) {\n  const scope = await sharedChatScope(firmId, id, db);\n  await db.from("advisor_messages").select("id, retrieval_metadata").eq("user_id", scope.userId);\n}\n`
+      )
+    ),
+    true
+  );
+  check(
+    "accepts a scoped chat read",
+    checkSharedChatReads(
+      bad(
+        "scoped-chat",
+        `export async function listSharedChatsForFirm(firmId: string, id: string) {\n  const scope = await sharedChatScope(firmId, id, db);\n  await db.from("advisor_threads").select("id").eq("user_id", scope.userId);\n}\n`
+      )
+    )
+  );
+  check(
+    "catches an unscoped conversation update",
+    checkDataFiles([bad("unscoped-conversation", `export async function markFirmConversationRead(firmId: string, id: string) {\n  await db.from("firm_conversations").update({ firm_last_read_at: now }).eq("firm_client_id", id);\n}\n`)]),
+    true
+  );
   check(
     "catches a ranking that reads the database",
     checkPureRanking(bad("impure-ranking", `import { createSupabaseAdminClient } from "@/lib/supabase/admin";\nexport function rankUrgency() {}\n`)),

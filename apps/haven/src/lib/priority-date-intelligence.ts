@@ -47,7 +47,7 @@ function withStalenessCaveat(position: string, isStale: boolean, bulletinLabel: 
 
 function mapPreferenceCategory(category: ImmigrationProfile["preferenceCategory"]): BulletinPreferenceCategory | null {
   if (category === "EB-2 NIW") return "EB-2";
-  if (category === "EB-1" || category === "EB-2" || category === "EB-3") return category;
+  if (category === "EB-1" || category === "EB-2" || category === "EB-3") return category as BulletinPreferenceCategory;
   return null;
 }
 

@@ -1559,13 +1559,17 @@ export function buildImmigrationJourney(input: {
         ? `Category TBD · ${profile.countryOfBirth}`
         : "Category TBD";
 
-  const STAGE_ORDER: Record<GreenCardStage, number> = {
+  const STAGE_ORDER: Record<string, number> = {
     not_started: 0,
     perm_in_progress: 1,
     perm_certified: 2,
     i140_filed: 3,
     i140_approved: 4,
-    i485_filed: 5
+    i130_filed: 3,
+    i130_approved: 4,
+    consular_processing: 4,
+    i485_filed: 5,
+    conditional_resident: 5
   };
   const stageRank = STAGE_ORDER[gcStage];
   const isGcComplete = profile.visaType === "GC" || profile.visaType === "Citizen";
@@ -1770,12 +1774,16 @@ export function buildImmigrationJourney(input: {
     });
   }
 
-  const STAGE_BADGE_LABELS: Record<GreenCardStage, string> = {
+  const STAGE_BADGE_LABELS: Record<string, string> = {
     not_started: "Not started",
     perm_in_progress: "PERM in progress",
     perm_certified: "PERM certified",
     i140_filed: "I-140 filed",
     i140_approved: "I-140 approved",
+    i130_filed: "I-130 filed",
+    i130_approved: "I-130 approved",
+    consular_processing: "Consular processing",
+    conditional_resident: "Conditional resident",
     i485_filed: "I-485 filed"
   };
 

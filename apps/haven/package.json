@@ -66,9 +66,13 @@
     "check:lead-urgency": "tsx --tsconfig tsconfig.json evals/firms/urgency.check.ts",
     "check:advisor-firm-link": "tsx --tsconfig tsconfig.json evals/firms/advisor-link.check.ts",
     "check:contact-requests": "tsx --tsconfig tsconfig.json evals/firms/contact-requests.check.ts",
+    "check:help-needed": "tsx --tsconfig tsconfig.json evals/firms/help-needed.check.ts",
+    "check:messaging": "tsx --tsconfig tsconfig.json evals/firms/messaging.check.ts",
+    "check:chat-visibility": "tsx --tsconfig tsconfig.json evals/advisor/firm-visibility.check.ts",
     "check:case-dashboard": "tsx --tsconfig tsconfig.json evals/firms/case-dashboard.check.ts",
     "check:firm-green-cards": "tsx --tsconfig tsconfig.json evals/firms/green-cards.check.ts",
     "check:dashboard": "tsx --tsconfig tsconfig.json evals/dashboard/petitions.check.ts && tsx --tsconfig tsconfig.json evals/dashboard/facts.check.ts && tsx --tsconfig tsconfig.json evals/dashboard/consistency.check.ts",
+    "check:universal-intake": "tsx --tsconfig tsconfig.json evals/intake/universal-intake.check.ts && tsx --tsconfig tsconfig.json evals/intake/onboarding-flow.check.ts && tsx --tsconfig tsconfig.json evals/intake/personas-e2e.check.ts",
     "check:multi-firm": "tsx --tsconfig tsconfig.json evals/firms/multi-firm.check.ts"
   },
   "dependencies": {

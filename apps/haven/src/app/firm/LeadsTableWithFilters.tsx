@@ -39,6 +39,7 @@ export function LeadsTableWithFilters({ leads }: { leads: FirmClientSummary[] })
   const [visaFilter, setVisaFilter] = useState<string>("all");
   const [dateRangeFilter, setDateRangeFilter] = useState<string>("all");
   const [askedOnly, setAskedOnly] = useState(false);
+  const [unreadOnly, setUnreadOnly] = useState(false);
 
   const availableVisas = useMemo(() => {
     const set = new Set<string>();
@@ -51,6 +52,7 @@ export function LeadsTableWithFilters({ leads }: { leads: FirmClientSummary[] })
   const filteredLeads = useMemo(() => {
     return leads.filter((lead) => {
       if (askedOnly && !lead.openContactRequest) return false;
+      if (unreadOnly && !lead.hasUnreadMessages) return false;
       if (tierFilter !== "all" && lead.urgency.tier !== tierFilter) return false;
       if (pipelineFilter !== "all" && lead.pipelineStatus !== pipelineFilter) return false;
       if (visaFilter !== "all" && (lead.visaType || "Unknown") !== visaFilter) return false;
@@ -71,7 +73,7 @@ export function LeadsTableWithFilters({ leads }: { leads: FirmClientSummary[] })
       }
       return true;
     });
-  }, [leads, search, tierFilter, pipelineFilter, visaFilter, dateRangeFilter, askedOnly]);
+  }, [leads, search, tierFilter, pipelineFilter, visaFilter, dateRangeFilter, askedOnly, unreadOnly]);
 
   const handleExportCsv = () => {
     const headers = [
@@ -228,6 +230,15 @@ export function LeadsTableWithFilters({ leads }: { leads: FirmClientSummary[] })
               />
               Asked to be contacted
             </label>
+            <label className="flex items-center gap-1.5 text-body-sm text-[var(--haven-ink)]">
+              <input
+                checked={unreadOnly}
+                className="h-3.5 w-3.5"
+                onChange={(e) => setUnreadOnly(e.target.checked)}
+                type="checkbox"
+              />
+              Unread messages
+            </label>
           </div>
         </div>
       </div>
@@ -279,6 +290,22 @@ export function LeadsTableWithFilters({ leads }: { leads: FirmClientSummary[] })
                       <div>
                         <ContactRequestMarker firmClientId={lead.id} sentAt={lead.openContactRequest.sentAt} />
                       </div>
+                    ) : null}
+                    {lead.hasUnreadMessages ? (
+                      <div>
+                        <Link
+                          className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-[var(--haven-blush-light)] px-2 py-0.5 text-[12px] font-semibold text-[var(--haven-blush-ink)]"
+                          href={`/firm/clients/${lead.id}#messages`}
+                        >
+                          New message
+                        </Link>
+                      </div>
+                    ) : null}
+                    {lead.helpNeeded.length > 0 ? (
+                      <p className="mt-1 text-[12px] text-[var(--haven-ink-mid)]" title={lead.helpNeeded.join(", ")}>
+                        Wants: {lead.helpNeeded.slice(0, 2).join(", ")}
+                        {lead.helpNeeded.length > 2 ? ` +${lead.helpNeeded.length - 2} more` : ""}
+                      </p>
                     ) : null}
                   </td>
 

@@ -9,11 +9,16 @@ import { getCrisisState } from "@/lib/get-crisis-state";
 import { getAppShellSnapshot } from "@/lib/repositories/case-compass";
 import { noIndexMetadata } from "@/lib/seo";
 
-import { AdvisorWorkspace } from "./AdvisorWorkspace";
+import { getChatVisibility } from "@/lib/advisor/firm-visibility";
+import { AdvisorWorkspace, type AdvisorChatVisibility } from "./AdvisorWorkspace";
 
 export const metadata = noIndexMetadata;
 
-export default async function AdvisorPage() {
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export default async function AdvisorPage({ searchParams }: { searchParams?: Promise<{ chat?: string }> }) {
+  const requestedChat = (searchParams ? await searchParams : undefined)?.chat ?? "";
+  const initialThreadId = uuidPattern.test(requestedChat) ? requestedChat : null;
   const [snapshot, crisisState, advisorUsage] = await Promise.all([
     getAppShellSnapshot(),
     getCrisisState(),
@@ -23,12 +28,28 @@ export default async function AdvisorPage() {
   // Demo mode runs without Supabase, and the server client throws there; the
   // link only matters to signed-in accounts on the test switch anyway.
   let showDocumentsLink = false;
+  let chatVisibility: AdvisorChatVisibility | null = null;
   if (hasSupabaseEnv) {
     const supabase = await createSupabaseServerClient();
     const {
       data: { user }
     } = await supabase.auth.getUser();
     showDocumentsLink = await documentContextAvailableFor(user?.email);
+    if (user) {
+      try {
+        const visibility = await getChatVisibility(user.id);
+        chatVisibility =
+          visibility.firms.length > 0
+            ? {
+                firms: visibility.firms.map((f) => ({ firmName: f.firmName, acknowledgedAt: f.acknowledgedAt })),
+                needsNotice: visibility.needsNotice
+              }
+            : null;
+      } catch (error) {
+        // Fail closed for firm clients: the send endpoint checks again and asks for the notice.
+        console.error("[advisor] could not load chat sharing", error);
+      }
+    }
   }
 
   return (
@@ -43,6 +64,8 @@ export default async function AdvisorPage() {
       ) : null}
       <AdvisorWorkspace
         advisorUsage={advisorUsage}
+        chatVisibility={chatVisibility}
+        initialThreadId={initialThreadId}
         initialThreads={seed.threads}
         suggestedPrompts={seed.suggestedPrompts}
         welcomeMessage={seed.welcomeMessage}

@@ -81,6 +81,11 @@ function summarizeMovement(current: BulletinDeliveryRow, previous?: BulletinDeli
   return `The new bulletin is live. Your queue moved from ${previousCutoff} to ${currentCutoff}.`;
 }
 
+/** Plain-text product email through Mailgun. Skips quietly when mail is not configured. */
+export async function sendProductEmail(input: { to: string; subject: string; text: string }) {
+  return sendMailgunEmail(input);
+}
+
 async function sendMailgunEmail(input: {
   to: string;
   subject: string;

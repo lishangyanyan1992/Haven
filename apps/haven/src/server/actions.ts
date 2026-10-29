@@ -1,6 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { HELP_NEEDED_SENT_MARKER } from "@/lib/firms/help-needed";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -577,7 +578,8 @@ export async function saveProfileSettingsAction(formData: FormData) {
     preferenceCategory: String(formData.get("preferenceCategory") ?? ""),
     i140Approved: String(formData.get("i140Approved") ?? "false"),
     spouseVisaStatus: String(formData.get("spouseVisaStatus") ?? ""),
-    topConcerns: formData.getAll("topConcerns").map(String)
+    // "What help do you need from your lawyer?" (the old concern areas are derived from it)
+    ...(formData.has(HELP_NEEDED_SENT_MARKER) ? { helpNeeded: formData.getAll("helpNeeded").map(String) } : {})
   };
   const before = await loadProfileValues(user.id);
   await persistProfileDraft(user.id, setupDraft);
