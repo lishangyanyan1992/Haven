@@ -275,8 +275,10 @@ export function chosenGreenCardStage(savedStage: string | undefined, flagStage: 
 /** Turn a visa class as printed (F1, L1A, B-2) into the standard value, or null if it isn't one. */
 export function standardVisaValue(raw: string): string | null {
   const squash = (v: string) => v.toUpperCase().replace(/[\s/-]/g, "");
-  const target = squash(raw);
+  let target = squash(raw);
   if (!target) return null;
+  // I-94 class for an L-2 spouse (L2Y children stay unmatched).
+  if (target === "L2S") target = "L2";
   const match = ALL_VISA_OPTIONS.find((o) => o.value !== "other" && squash(o.value) === target);
   return match?.value ?? null;
 }

@@ -73,7 +73,7 @@ function helpNeededPatch(rawDraft: ProfileDraft, existingConcerns: Concern[]) {
   return { top_concerns: asConcerns(rawDraft.topConcerns) ?? fallback };
 }
 
-function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unknown> | null) {
+export function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unknown> | null) {
   const existingConcerns = ((existingRow?.top_concerns as string[] | null) ?? []).filter((item): item is Concern =>
     concerns.includes(item as Concern)
   );

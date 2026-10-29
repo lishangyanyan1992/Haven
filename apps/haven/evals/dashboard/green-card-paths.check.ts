@@ -182,12 +182,25 @@ async function main() {
   );
   const doneProfile = twoEmployerProfile({ immigrantPetitions: [{ ...marriage, stage: "i485_approved" }] as never });
   check("approved green card shows as permanent resident", displayedPetitionStage(doneProfile) === "i485_approved", displayedPetitionStage(doneProfile));
-  const { readFileSync } = await import("node:fs");
-  const sync = readFileSync(new URL("../../src/lib/profile-sync.ts", import.meta.url), "utf8");
+  const { normalizeDraft } = await import("@/lib/profile-sync");
+  const noStage = normalizeDraft({ visaType: "H1B" } as never, {}) as Record<string, unknown>;
   check(
-    "save step: stage flags only rewritten when a stage or I-140 answer was sent",
-    /\.\.\.\(stageSent \? \{ perm_stage: permStage \}/.test(sync) && /\.\.\.\(stageSent \? \{ i140_filed:/.test(sync)
+    "save step: no stage sent leaves PERM, I-140 and I-485 flags alone",
+    !("perm_stage" in noStage) && !("i140_filed" in noStage) && !("i485_filed" in noStage),
+    Object.keys(noStage).join(",")
   );
+  const withStage = normalizeDraft({ visaType: "H1B", greenCardStage: "i140_filed" } as never, {}) as Record<string, unknown>;
+  check(
+    "save step: a sent stage writes the matching flags",
+    withStage.perm_stage !== undefined && withStage.i140_filed === true && withStage.i485_filed === false,
+    JSON.stringify({ perm: withStage.perm_stage, i140: withStage.i140_filed, i485: withStage.i485_filed })
+  );
+  const savedOnly = (stage: string) => inferProfileGreenCardStage({ ...twoEmployerProfile({ immigrantPetitions: [] as never }), i140Filed: false, i140Approved: false, permStage: "not_started", greenCardStage: stage } as never);
+  check("saved 'permanent resident' step with no green card record isn't 'not started'", savedOnly("i485_approved") === "i485_filed", savedOnly("i485_approved"));
+  check("saved 'PWD / recruitment' step with no green card record shows PERM in progress", savedOnly("pwd_recruitment") === "perm_in_progress", savedOnly("pwd_recruitment"));
+  const { standardVisaValue } = await import("@/lib/visas");
+  check("I-94 class L2S fills L-2", standardVisaValue("L2S") === "L-2", String(standardVisaValue("L2S")));
+  check("I-94 class L2Y does not fill L-2", standardVisaValue("L2Y") === null, String(standardVisaValue("L2Y")));
 
   console.log(`\n${pass}/${pass + failures.length} checks passed.`);
   if (failures.length > 0) process.exit(1);

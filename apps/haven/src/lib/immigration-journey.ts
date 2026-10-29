@@ -441,6 +441,8 @@ export function inferProfileGreenCardStage(profile: ImmigrationProfile): GreenCa
   if (profile.permStage === "certified") return "perm_certified";
   if (profile.permStage === "in_progress") return "perm_in_progress";
   // A step saved in Settings with no green card record (I-130 filed, consular processing…).
+  if (profile.greenCardStage === "i485_approved") return "i485_filed";
+  if (profile.greenCardStage === "pwd_recruitment") return "perm_in_progress";
   if (profile.greenCardStage && NON_I140_STAGES.has(profile.greenCardStage)) return profile.greenCardStage;
   return "not_started";
 }
@@ -1770,7 +1772,10 @@ export function buildImmigrationJourney(input: {
       dateOrMeta: gcSponsorName ? `Petitioner: ${gcSponsorName}` : "Step 1",
       detail: "The petition that starts this green card, filed with USCIS."
     },
-    employmentGcNodes.find((n) => n.key === "priority_date")!,
+    (() => {
+      const node = employmentGcNodes.find((n) => n.key === "priority_date")!;
+      return priorityDate ? node : { ...node, dateOrMeta: "Set when the first petition is filed" };
+    })(),
     {
       ...employmentGcNodes.find((n) => n.key === "bulletin_queue")!,
       status:
@@ -2189,7 +2194,7 @@ export function buildImmigrationJourney(input: {
     missingFields.push("Current visa expiry date");
   }
   if (!employerName && isWorkVisa) missingFields.push("Employer name");
-  if (!priorityDate && stageRank >= 1) missingFields.push("Priority date");
+  if (!priorityDate && stageRank >= 1 && hasVisaQueue(gcPathType)) missingFields.push("Priority date");
 
   // =========================================================================
   // INTAKE COMPLETENESS, MISSING INFORMATION & CLIENT RISK WARNINGS AUDIT
@@ -2382,7 +2387,7 @@ export function buildImmigrationJourney(input: {
         actionLabel: "Upload I-140 notice",
         actionHref: "/documents"
       });
-    } else if (!hasI140Doc && priorityDate) {
+    } else if (!hasI140Doc && priorityDate && isI140Path(gcPathType, gcStage)) {
       missingItems.push({
         id: "missing-doc-i140",
         category: "document",
