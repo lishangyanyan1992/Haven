@@ -2,7 +2,7 @@ import { revalidatePath } from "next/cache";
 
 import { recordFirmSharedGreenCards } from "@/lib/firms/answers";
 import { planPetitionSave } from "@/lib/petition-save";
-import type { PetitionFieldError } from "@/lib/petitions";
+import { normalizePetitions, type PetitionFieldError } from "@/lib/petitions";
 import { refreshDerivedSignals } from "@/lib/profile-sync";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { ImmigrantPetition } from "@/types/domain";
@@ -29,12 +29,17 @@ export type SavePetitionsResult =
  */
 export async function writePetitions(
   userId: string,
-  input: unknown,
+  /** The whole list, or a function that builds it from the list as saved right now. */
+  input: unknown | ((current: ImmigrantPetition[]) => unknown),
   options: { onlyCheck?: string[] } = {}
 ): Promise<SavePetitionsResult> {
   const admin = createSupabaseAdminClient() as any;
   const { data: row, error: readError } = await admin.from("user_profiles").select("*").eq("id", userId).maybeSingle();
   if (readError || !row) return { ok: false, error: "We couldn't load your profile. Try again in a moment." };
+  if (typeof input === "function") {
+    const answers = (row.deadline_answers && typeof row.deadline_answers === "object" ? row.deadline_answers : {}) as Record<string, unknown>;
+    input = (input as (current: ImmigrantPetition[]) => unknown)(normalizePetitions(answers.immigrantPetitions));
+  }
 
   const plan = planPetitionSave(input, row as Record<string, unknown>, options);
   if (!plan.ok) return plan;

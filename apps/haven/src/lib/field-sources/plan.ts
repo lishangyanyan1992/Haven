@@ -400,3 +400,39 @@ export function sourceAfterDocumentDeleted(source: FieldSource, deletedFactIds: 
   // A person's value next to the deleted document's: just the person's now.
   return { ...source, documentFactId: null, documentValue: null, documentLabel: null, documentPage: null, resolution: null };
 }
+
+// ── Saving green card changes without losing others ──────────────────────────
+
+/**
+ * Apply only the changes a document made (original → next, for the touched
+ * green cards) onto the list as it is saved now. Anything else saved in the
+ * meantime — another document, a Settings edit — is kept. A green card created
+ * by the document is added; one removed meanwhile stays removed.
+ */
+export function mergePetitionChanges(
+  original: ImmigrantPetition[],
+  next: ImmigrantPetition[],
+  current: ImmigrantPetition[],
+  touchedIds: string[]
+): ImmigrantPetition[] {
+  let out = current.map((p) => ({ ...p }));
+  for (const id of touchedIds) {
+    const after = next.find((p) => p.id === id);
+    if (!after) continue;
+    const before = original.find((p) => p.id === id);
+    const now = out.find((p) => p.id === id);
+    if (!before) {
+      if (!now) out.push({ ...after });
+      continue;
+    }
+    if (!now) continue;
+    const changes: Record<string, unknown> = {};
+    const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+    for (const key of keys) {
+      const a = (after as unknown as Record<string, unknown>)[key];
+      if (a !== (before as unknown as Record<string, unknown>)[key]) changes[key] = a;
+    }
+    out = out.map((p) => (p.id === id ? ({ ...p, ...changes } as ImmigrantPetition) : p));
+  }
+  return out;
+}

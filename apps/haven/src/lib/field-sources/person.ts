@@ -21,7 +21,7 @@ export async function recordPersonEdits(
   edits: Array<{ fieldKey: string; previous: string | null | undefined; next: string | null | undefined }>
 ) {
   try {
-    const sources = await loadFieldSources(userId);
+    const sources = await loadFieldSources(userId, { strict: true });
     const updates: FieldSource[] = [];
     for (const edit of edits) {
       const next = sourceAfterPersonSave(edit.fieldKey, edit.previous ?? null, edit.next ?? null, sources.get(edit.fieldKey));
@@ -75,20 +75,21 @@ export async function forgetRemovedPetitions(userId: string, petitionIds: string
   }
 }
 
-/** Call before a document is deleted: relabels the values it filled. */
+/**
+ * Call before a document is deleted: relabels the values it filled. Throws on
+ * failure, so the delete stops rather than leaving values labeled with a
+ * document that no longer exists.
+ */
 export async function forgetDeletedDocument(userId: string, documentId: string) {
-  try {
-    const db = createSupabaseAdminClient() as any;
-    const { data: facts } = await db.from("document_facts").select("id").eq("document_id", documentId).eq("user_id", userId);
-    const ids = new Set<string>((facts ?? []).map((f: { id: string }) => f.id));
-    if (ids.size === 0) return;
-    const updates: FieldSource[] = [];
-    for (const source of (await loadFieldSources(userId)).values()) {
-      const next = sourceAfterDocumentDeleted(source, ids);
-      if (next) updates.push(next);
-    }
-    await saveFieldSources(userId, updates, userId);
-  } catch (error) {
-    console.error("[field-sources] could not relabel after delete", error instanceof Error ? error.message : error);
+  const db = createSupabaseAdminClient() as any;
+  const { data: facts, error } = await db.from("document_facts").select("id").eq("document_id", documentId).eq("user_id", userId);
+  if (error) throw new Error(`Could not read this document's details: ${error.message}`);
+  const ids = new Set<string>((facts ?? []).map((f: { id: string }) => f.id));
+  if (ids.size === 0) return;
+  const updates: FieldSource[] = [];
+  for (const source of (await loadFieldSources(userId, { strict: true })).values()) {
+    const next = sourceAfterDocumentDeleted(source, ids);
+    if (next) updates.push(next);
   }
+  await saveFieldSources(userId, updates, userId);
 }

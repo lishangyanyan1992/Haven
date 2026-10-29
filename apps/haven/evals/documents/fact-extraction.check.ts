@@ -53,6 +53,11 @@ async function main() {
 
   // 1. Formats
   check("dates: US, passport and ISO forms", normalizeDate("06/14/2022") === "2022-06-14" && normalizeDate("13 JUN 2032") === "2032-06-13" && normalizeDate("2024-02-09") === "2024-02-09");
+  check(
+    "dates: full month names, both orders",
+    normalizeDate("June 14, 2021") === "2021-06-14" && normalizeDate("13 JUNE 2032") === "2032-06-13" && normalizeDate("March 3, 2023") === "2023-03-03" && normalizeDate("Sept. 9, 2024") === "2024-09-09",
+    [normalizeDate("June 14, 2021"), normalizeDate("13 JUNE 2032"), normalizeDate("March 3, 2023"), normalizeDate("Sept. 9, 2024")].join()
+  );
   check("dates: impossible date rejected", normalizeDate("02/30/2024") === null && normalizeDate("13/01/2024") === null);
   check("category: class codes and sections", normalizeCategory("E21") === "EB-2" && normalizeCategory("Sec.203(b)(1)") === "EB-1" && normalizeCategory("EW3") === "EB-3");
   check("receipt: spaces removed, bad shape rejected", normalizeReceipt("IOE 0912345678") === "IOE0912345678" && normalizeReceipt("IOE12345") === null);

@@ -44,9 +44,10 @@ export function normalizeDate(raw: string): string | null {
   if (m) return isoIfReal(+m[1], +m[2], +m[3]);
   m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (m) return isoIfReal(+m[3], +m[1], +m[2]);
-  m = s.match(/^(\d{1,2})[\s-]+([A-Za-z]{3,4})[a-z]*[\s-]+(\d{4})$/);
+  // Month names: the first three letters decide ("Jun", "June", "JUNE", "Sept").
+  m = s.match(/^(\d{1,2})[\s-]+([A-Za-z]{3})[A-Za-z]*\.?[\s-]+(\d{4})$/);
   if (m && MONTHS[m[2].toLowerCase()]) return isoIfReal(+m[3], MONTHS[m[2].toLowerCase()], +m[1]);
-  m = s.match(/^([A-Za-z]{3,4})[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})$/);
+  m = s.match(/^([A-Za-z]{3})[A-Za-z]*\.?\s+(\d{1,2}),?\s+(\d{4})$/);
   if (m && MONTHS[m[1].toLowerCase()]) return isoIfReal(+m[3], MONTHS[m[1].toLowerCase()], +m[2]);
   return null;
 }

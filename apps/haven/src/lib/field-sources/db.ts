@@ -37,10 +37,15 @@ function toRow(userId: string, source: FieldSource, updatedBy: string | null) {
   };
 }
 
-/** Every recorded source for a user, by field key. Empty when there are none. */
-export async function loadFieldSources(userId: string): Promise<Map<string, FieldSource>> {
+/**
+ * Every recorded source for a user, by field key. Screens get an empty map on
+ * error; anything that writes sources passes `strict`, because writing from an
+ * empty map would relabel document values as typed ones.
+ */
+export async function loadFieldSources(userId: string, options: { strict?: boolean } = {}): Promise<Map<string, FieldSource>> {
   const { data, error } = await admin().from("field_sources").select("*").eq("user_id", userId);
   if (error) {
+    if (options.strict) throw new Error(`Could not load where values came from: ${error.message}`);
     console.error("[field-sources] could not load", error.message);
     return new Map();
   }

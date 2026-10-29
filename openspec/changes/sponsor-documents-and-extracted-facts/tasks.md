@@ -3,7 +3,7 @@
 ## 1. Prerequisites and data
 
 - [x] 1.1 Confirm `dashboard-consistency-multi-green-card` (Settings "Green cards" editor, `normalizePetitions`, `sponsorMatches`) and `add-client-document-vault-tab` (checklist on `/documents` and `/firm/clients/[id]`) are merged. Verify: both are on `main` and their screens load locally; stop and tell the owner if not.
-- [x] 1.2 Add migration `0049_document_facts_and_field_sources.sql` (0048 was taken): `document_facts` (cascade on document delete), `field_sources` (unique user_id + field_key, `document_fact_id` set null on delete), `user_documents.petition_id`, owner-only RLS plus firm read through the existing firm-client access check. Update `types/database.ts`. Verify: `npm run typecheck`; after merge, check live `schema_migrations` lists 0048.
+- [x] 1.2 Add migration `0049_document_facts_and_field_sources.sql` (0048 was taken): `document_facts` (cascade on document delete), `field_sources` (unique user_id + field_key, `document_fact_id` set null on delete), `user_documents.petition_id`, owner-only RLS plus firm read through the existing firm-client access check. Update `types/database.ts`. Verify: `npm run typecheck`; after merge, check live `schema_migrations` lists 0049.
 
 ## 2. Per-sponsor checklist
 

@@ -11,6 +11,7 @@ import type { ImmigrantPetition } from "@/types/domain";
 
 import { loadFieldSources, profileValuesFromRow, saveFieldSources } from "./db";
 import {
+  mergePetitionChanges,
   parseFieldKey,
   planFactApplication,
   type FactOutcome,
@@ -92,7 +93,7 @@ export async function applyDocumentFacts(userId: string, documentId: string): Pr
     document: { id: doc.id, label: set.documentName, petitionId: doc.petition_id ?? null },
     profile: profileValuesFromRow(row),
     petitions,
-    sources: await loadFieldSources(userId),
+    sources: await loadFieldSources(userId, { strict: true }),
     hasI94StatusDate: (i94Count ?? 0) > 0,
     newPetitionId
   });
@@ -103,7 +104,13 @@ export async function applyDocumentFacts(userId: string, documentId: string): Pr
     // Only the green card this document changed is checked: an older one with a
     // problem of its own must not block the document.
     const touched = plan.createdPetition ? [plan.createdPetition.id] : plan.petitionId ? [plan.petitionId] : [];
-    const saved = await writePetitions(userId, plan.petitions as ImmigrantPetition[], { onlyCheck: touched });
+    // Apply this document's changes to the list as saved now, so a save that
+    // happened since it was read (another document, Settings) isn't lost.
+    const saved = await writePetitions(
+      userId,
+      (current: ImmigrantPetition[]) => mergePetitionChanges(petitions, plan.petitions, current, touched),
+      { onlyCheck: touched }
+    );
     if (!saved.ok) {
       // These values wouldn't pass the green card's checks: leave the ones that
       // needed writing for a person. Disagreements need no write, so they stay.
@@ -144,6 +151,10 @@ export async function writeFieldValue(userId: string, fieldKey: string, value: s
   const petitions = normalizePetitions(answers.immigrantPetitions);
   if (!petitions.some((p) => p.id === parsed.petitionId)) return { ok: false, error: "That green card wasn't found." };
   const next = petitions.map((p) => (p.id === parsed.petitionId ? { ...p, [parsed.field]: value } : p));
-  const saved = await writePetitions(userId, next);
+  const saved = await writePetitions(
+    userId,
+    (current: ImmigrantPetition[]) => mergePetitionChanges(petitions, next, current, [parsed.petitionId]),
+    { onlyCheck: [parsed.petitionId] }
+  );
   return saved.ok ? { ok: true } : { ok: false, error: saved.error };
 }

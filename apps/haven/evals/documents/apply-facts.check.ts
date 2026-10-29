@@ -228,6 +228,20 @@ async function main() {
   check("whole-list save refuses an older broken green card", !planPetitionSave([fixedOne, broken], {}).ok);
   check("document save checks only the green card it changed", planPetitionSave([fixedOne, broken], {}, { onlyCheck: ["pet-acme"] }).ok);
 
+  // 7f. Two documents read at once: the second keeps the first one's changes.
+  const { mergePetitionChanges } = await import("@/lib/field-sources/plan");
+  const snapshot = [acme];
+  const fromDocA = [{ ...acme, i140FiledDate: "2024-03-27" }];
+  const savedMeanwhile = [{ ...acme, priorityDate: "2021-06-14" }, { ...acme, id: "pet-new", sponsorName: "IBM" }];
+  const merged = mergePetitionChanges(snapshot, fromDocA, savedMeanwhile, ["pet-acme"]);
+  check(
+    "overlapping saves: only this document's change is applied, others kept",
+    merged.length === 2 && merged[0].i140FiledDate === "2024-03-27" && merged[0].priorityDate === "2021-06-14" && merged[1].sponsorName === "IBM",
+    JSON.stringify(merged)
+  );
+  const createdMerge = mergePetitionChanges([], [{ ...acme, id: "doc-ibm", sponsorName: "IBM" }], savedMeanwhile, ["doc-ibm"]);
+  check("overlapping saves: a created green card is added to the fresh list", createdMerge.length === 3);
+
   // 8. Pages rebuilt from stored passages, in order.
   const pages = pagesFromChunks([
     { page: 2, chunk_index: 2, content: "b2" },
