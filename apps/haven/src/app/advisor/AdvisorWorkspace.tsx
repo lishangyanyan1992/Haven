@@ -257,18 +257,21 @@ export function AdvisorWorkspace({
 
   // Which firms see the open chat. A new chat is shared with every firm the
   // client has agreed to; an older one only with firms they agreed to before it began.
-  // An open chat uses its start time. When that time is unknown, claim no firm sees it.
-  const activeCreatedAt = !conversationId
+  // An open chat uses its start time. When that time isn't known yet, the line
+  // makes no claim either way (undefined hides it).
+  const activeCreatedAt: string | null | undefined = !conversationId
     ? null
     : threads.find((t) => t.id === conversationId)?.createdAt ??
-      (openedThreadCreatedAt?.id === conversationId ? openedThreadCreatedAt.createdAt ?? "" : "");
-  const seeingFirms = !hasFirm
+      (openedThreadCreatedAt?.id === conversationId ? openedThreadCreatedAt.createdAt ?? undefined : undefined);
+  const seeingFirms: string[] | undefined = !hasFirm
     ? []
-    : activeCreatedAt === null
-      ? visibility!.firms.filter((f) => f.acknowledgedAt).map((f) => f.firmName)
-      : visibility!.firms
-          .filter((f) => isThreadVisibleToFirm(activeCreatedAt, f.acknowledgedAt))
-          .map((f) => f.firmName);
+    : activeCreatedAt === undefined
+      ? undefined
+      : activeCreatedAt === null
+        ? visibility!.firms.filter((f) => f.acknowledgedAt).map((f) => f.firmName)
+        : visibility!.firms
+            .filter((f) => isThreadVisibleToFirm(activeCreatedAt, f.acknowledgedAt))
+            .map((f) => f.firmName);
 
   const acknowledgeNotice = useCallback(async () => {
     setAcknowledging(true);
@@ -425,8 +428,8 @@ export function AdvisorWorkspace({
             // A chat reserved just now: keep the server's start time, so the sharing line
             // stays right even if this first answer is stopped and never reaches the list.
             // Unknown time means the line claims no firm sees it.
-            if (event.conversationId && !conversationId) {
-              setOpenedThreadCreatedAt({ id: event.conversationId, createdAt: event.createdAt ?? null });
+            if (event.conversationId && event.createdAt) {
+              setOpenedThreadCreatedAt({ id: event.conversationId, createdAt: event.createdAt });
             }
           } else if (event.type === "delta" || event.type === "replace") {
             // `replace` carries the whole reviewed answer, sent when a safety
@@ -541,7 +544,7 @@ export function AdvisorWorkspace({
           </Button>
         </CardHeader>
         <CardContent className="space-y-4">
-          {hasFirm && !needsNotice && (
+          {hasFirm && !needsNotice && seeingFirms !== undefined && (
             <p className="rounded-[var(--radius-lg)] bg-[var(--haven-sage-light)] px-4 py-2.5 text-body-sm text-[var(--haven-ink)]">
               {seeingFirms.length > 0
                 ? visibilityLineText(seeingFirms)

@@ -47,7 +47,7 @@ import {
   type ThreadState,
   type TurnResolution
 } from "@/lib/advisor/thread-state";
-import { getThreadCreatedAt, getThreadMessages, listThreads, persistExchange, type AdvisorThreadSummary } from "@/lib/advisor/threads";
+import { getThreadMessages, listThreads, persistExchange, type AdvisorThreadSummary } from "@/lib/advisor/threads";
 import { collectAttempts, renderAttemptsForPrompt } from "@/lib/advisor/attempted-steps";
 import { buildAttorneyHandoff, HANDOFF_DELIVERED, pointCounselToFirm, renderFirmForPrompt } from "@/lib/advisor/attorney-handoff";
 import { getAdvisorFirmLink, type AdvisorFirmLink } from "@/lib/firms/advisor-link";
@@ -1970,14 +1970,19 @@ function createAssistantMessage(threadId: string, payload: AdvisorAnswerPayload,
   };
 }
 
+/**
+ * The conversation this question belongs to, created if needed. Returns its id
+ * and when it started (the database's clock), which the chat screen uses to say
+ * which firms can see it.
+ */
 async function reserveAdvisorConversation(
   userId: string,
   content: string,
   conversationId?: string,
   options: { email?: string | null } = {}
-) {
+): Promise<{ id: string; createdAt: string | null }> {
   if (!hasSupabaseEnv) {
-    return conversationId ?? "session";
+    return { id: conversationId ?? "session", createdAt: null };
   }
 
   const admin = createSupabaseAdminClient() as any;
@@ -1985,7 +1990,7 @@ async function reserveAdvisorConversation(
   if (conversationId) {
     const { data: existingThread, error } = await admin
       .from("advisor_threads")
-      .select("id")
+      .select("id, created_at")
       .eq("id", conversationId)
       .eq("user_id", userId)
       .maybeSingle();
@@ -1995,7 +2000,7 @@ async function reserveAdvisorConversation(
     }
 
     if (existingThread?.id) {
-      return existingThread.id as string;
+      return { id: existingThread.id as string, createdAt: (existingThread.created_at as string | null) ?? null };
     }
   }
 
@@ -2023,14 +2028,14 @@ async function reserveAdvisorConversation(
       user_id: userId,
       title
     })
-    .select("id")
+    .select("id, created_at")
     .single();
 
   if (insertError || !newThread?.id) {
     throw new Error(`Unable to create advisor conversation: ${insertError?.message ?? "Missing thread id."}`);
   }
 
-  return newThread.id as string;
+  return { id: newThread.id as string, createdAt: (newThread.created_at as string | null) ?? null };
 }
 
 function buildContextBlock(label: string, lines: string[]) {
@@ -4520,26 +4525,19 @@ export async function* streamAdvisorResponse(
   // Same rule on the mock path: a sentinel that isn't a UUID would fail schema
   // validation on the next request, so emit null and let the client open a fresh
   // thread instead of sending an id the server will reject.
-  const threadId = identity.isMock
-    ? conversationId ?? null
+  const reserved = identity.isMock
+    ? { id: conversationId ?? null, createdAt: null }
     : await reserveAdvisorConversation(identity.id, content, conversationId, {
           email: identity.email
       });
+  const threadId = reserved.id;
 
   // The thread row is created here, before generation, and it counts against the
   // user's daily allowance from this moment. Announcing the id now rather than at
   // `done` means a stopped, errored, or abandoned answer still leaves the client
   // holding the conversation it already paid for — otherwise the next question
   // opened a second thread and silently burned another of the five.
-  let threadCreatedAt: string | null = null;
-  if (threadId && !conversationId && !identity.isMock) {
-    try {
-      threadCreatedAt = await getThreadCreatedAt(identity.id, threadId);
-    } catch {
-      threadCreatedAt = null; // The screen then claims no firm sees it, never more.
-    }
-  }
-  yield { type: "start", conversationId: threadId, createdAt: threadCreatedAt };
+  yield { type: "start", conversationId: threadId, createdAt: reserved.createdAt };
 
   // Display-only id on in-memory message objects; the wire value stays null so
   // the client never stores a non-UUID conversation id.
