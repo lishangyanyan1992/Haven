@@ -295,6 +295,12 @@ export function OnboardingFlow({
   const activeStepsRef = useRef(activeSteps);
   const helpQuestionShownRef = useRef(enabledKeys.has("helpNeeded"));
   useEffect(() => { helpQuestionShownRef.current = enabledKeys.has("helpNeeded"); }, [enabledKeys]);
+  // Saved choices aren't loaded into this form, so it only speaks for them once
+  // the client has picked something here. Otherwise a save from another step
+  // (or another device) would clear choices made earlier.
+  const helpTouchedRef = useRef(false);
+  const holdsHelpChoices = (data: Partial<OnboardingData>) =>
+    helpTouchedRef.current || (data.helpNeeded?.length ?? 0) > 0;
 
   useEffect(() => {
     setUploadedDocuments(initialUploadedDocuments);
@@ -341,7 +347,10 @@ export function OnboardingFlow({
   useEffect(() => {
     if (typeof window === "undefined" || typeof document === "undefined") return;
     window.localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify({ currentStep, formData, userEmail }));
-    document.cookie = `${ONBOARDING_OVERRIDE_COOKIE}=${encodeURIComponent(JSON.stringify(formData))}; path=/; max-age=86400; samesite=lax`;
+    // The message to the lawyer is private and can be long, so it stays out of the cookie.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { lawyerMessage: _message, ...cookieData } = formData;
+    document.cookie = `${ONBOARDING_OVERRIDE_COOKIE}=${encodeURIComponent(JSON.stringify(cookieData))}; path=/; max-age=86400; samesite=lax`;
   }, [currentStep, formData]);
 
   useEffect(() => {
@@ -366,6 +375,7 @@ export function OnboardingFlow({
   };
 
   const toggleHelpNeeded = (choice: string) => {
+    helpTouchedRef.current = true;
     setHasInteracted(true);
     setFormData((prev) => {
       const current = prev.helpNeeded ?? [];
@@ -384,7 +394,7 @@ export function OnboardingFlow({
         if (Array.isArray(value)) (value as string[]).forEach((v) => data.append(key, v));
         else if (value !== undefined) data.append(key, value as string);
       });
-      if (helpQuestionShownRef.current) data.append(HELP_NEEDED_SENT_MARKER, "1");
+      if (helpQuestionShownRef.current && holdsHelpChoices(formDataRef.current)) data.append(HELP_NEEDED_SENT_MARKER, "1");
       try {
         await saveStepActionRef.current(currentStepRef.current, data);
       } catch {
@@ -432,7 +442,7 @@ export function OnboardingFlow({
       if (value !== undefined) data.append(key, value);
     });
     // An empty selection sends no field; the marker lets it clear saved choices.
-    if (enabledKeys.has("helpNeeded")) data.append(HELP_NEEDED_SENT_MARKER, "1");
+    if (enabledKeys.has("helpNeeded") && holdsHelpChoices(formData)) data.append(HELP_NEEDED_SENT_MARKER, "1");
     return data;
   };
 

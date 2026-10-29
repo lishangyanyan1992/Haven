@@ -376,8 +376,16 @@ export function AdvisorWorkspace({
           firmNames?: string[];
         };
         if (errorBody.error === "needs_notice") {
-          // Joined another firm since this page loaded: show the notice again.
-          setVisibility((current) => ({ firms: current?.firms ?? [], needsNotice: true }));
+          // Joined a firm since this page loaded: show the notice, naming every
+          // firm the server listed. Known firms keep their time; new ones have none.
+          const names = errorBody.firmNames ?? [];
+          setVisibility((current) => {
+            const known = new Map((current?.firms ?? []).map((f) => [f.firmName, f.acknowledgedAt]));
+            const firms = names.length
+              ? names.map((firmName) => ({ firmName, acknowledgedAt: known.get(firmName) ?? null }))
+              : current?.firms ?? [];
+            return { firms: firms.length ? firms : [{ firmName: "your law firm", acknowledgedAt: null }], needsNotice: true };
+          });
           setDraft(content);
           setMessages(messages);
           setStreamingId(null);

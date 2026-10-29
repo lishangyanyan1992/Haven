@@ -202,6 +202,28 @@ async function main() {
   tables.firm_clients = tables.firm_clients.filter((r) => r.id !== "fc-b");
   check("a firm the client left sees nothing", (await listSharedChatsForFirm(FIRM_B, "fc-b", db)).length === 0);
 
+  // ---- rejoining: the old agreement no longer counts
+  tables.advisor_threads.push({ id: "t-away", user_id: USER, title: "While away", created_at: "2026-11-10T09:00:00.000Z" });
+  tables.advisor_messages.push({ id: "m-away", thread_id: "t-away", user_id: USER, role: "user", content: "asked while not linked to Baker", created_at: "2026-11-10T09:00:00.000Z" });
+  tables.firm_clients.push({ id: "fc-b2", firm_id: FIRM_B, user_id: USER, normalized_email: "p@example.com", joined_at: "2026-11-12T00:00:00.000Z", shared_answers: {} });
+  const rejoined = await getChatVisibility(USER, db);
+  check("rejoining a firm shows the notice again", rejoined.needsNotice && rejoined.firms.find((f) => f.firmName === "Baker Visa Partners")?.acknowledgedAt === null, JSON.stringify(rejoined));
+  check("the old agreement exposes nothing after rejoining", (await listSharedChatsForFirm(FIRM_B, "fc-b2", db)).length === 0);
+  now = "2026-11-12T10:00:00.000Z";
+  await acknowledgeChatVisibility(USER, db, new Date(now));
+  check(
+    "agreeing again replaces the old agreement",
+    tables.advisor_firm_visibility_acks.filter((a) => a.firm_id === FIRM_B).map((a) => a.acknowledged_at).join() === now
+  );
+  check(
+    "chats from while the client was away stay hidden",
+    !(await listSharedChatsForFirm(FIRM_B, "fc-b2", db)).some((c) => c.id === "t-away")
+  );
+  check(
+    "the other firm's agreement is untouched",
+    tables.advisor_firm_visibility_acks.find((a) => a.firm_id === FIRM_A)?.acknowledged_at === "2026-11-02T09:00:00.000Z"
+  );
+
   // ---- the code that shows and gates
   const root = path.resolve(new URL("../../", import.meta.url).pathname);
   const read = (relative: string) => fs.readFileSync(path.join(root, relative), "utf8");

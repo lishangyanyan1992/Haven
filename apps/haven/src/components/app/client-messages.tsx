@@ -73,6 +73,7 @@ export function ClientMessages({ conversations }: { conversations: ClientConvers
 
       <div className="mt-4">
         <MessageComposer
+          key={active.firmId}
           label={`Message to ${active.firmName}`}
           onSend={async (body) => {
             const result = await sendClientMessageAction({ firmId: active.firmId, body });

@@ -57,8 +57,10 @@ async function main() {
     untouched.priorityDate === "2023-03-15" && untouched.employerName === "Acme",
     JSON.stringify(untouched)
   );
-  const noConcerns = mergeSharedAnswers(before, { spouseVisaStatus: "H4", topConcerns: [] }, form(["spouseVisaStatus"])).next;
-  check("answers: unticking every concern clears them", !("topConcerns" in noConcerns), JSON.stringify(noConcerns));
+  // "Main concerns" was replaced by "What help do you need?"; a situation-step
+  // save must not wipe answers given before the change.
+  const keptConcerns = mergeSharedAnswers(before, { spouseVisaStatus: "H4" }, form(["spouseVisaStatus"])).next;
+  check("answers: earlier concerns survive a situation-step save", JSON.stringify(keptConcerns.topConcerns) === JSON.stringify(["layoffs"]), JSON.stringify(keptConcerns));
 
   const withCustom = mergeSharedAnswers(
     before,

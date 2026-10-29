@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { MESSAGE_MAX_LENGTH } from "@/lib/firms/message-limits";
@@ -24,6 +24,7 @@ export function MessageComposer({
   onCancel?: () => void;
   autoFocus?: boolean;
 }) {
+  const fieldId = useId();
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSending, startSending] = useTransition();
@@ -46,13 +47,13 @@ export function MessageComposer({
 
   return (
     <div className="space-y-2">
-      <label className="sr-only" htmlFor={`composer-${label}`}>
+      <label className="sr-only" htmlFor={fieldId}>
         {label}
       </label>
       <textarea
         autoFocus={autoFocus}
         className="min-h-24 w-full rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--haven-white)] px-4 py-3 text-base text-[var(--haven-ink)] placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--haven-sage)] focus:outline-none"
-        id={`composer-${label}`}
+        id={fieldId}
         onChange={(e) => setDraft(e.target.value)}
         placeholder={placeholder}
         value={draft}

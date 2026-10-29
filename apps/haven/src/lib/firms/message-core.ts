@@ -153,10 +153,11 @@ export async function loadMessages(client: any, conversationId: string): Promise
     .from("firm_messages")
     .select("id, sender_role, sender_name, body, source, advisor_message_id, created_at")
     .eq("conversation_id", conversationId)
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
     .limit(MAX_MESSAGES);
   if (error) throw new Error(`Could not load messages: ${error.message}`);
-  const rows = (data ?? []) as any[];
+  // Newest 500, shown oldest first.
+  const rows = ((data ?? []) as any[]).reverse();
 
   const quotedIds = rows.map((row) => row.advisor_message_id).filter((id): id is string => typeof id === "string");
   const quotes = new Map<string, { excerpt: string; chatId: string }>();
@@ -198,8 +199,18 @@ export function excerpt(markdown: string): string {
   return plain.length > QUOTE_LENGTH ? `${plain.slice(0, QUOTE_LENGTH - 1).trimEnd()}…` : plain;
 }
 
-/** Site address for links in alert emails. */
+const PRODUCTION_SITE = "https://haven-h1b.com";
+
+/** Site address for links in alert emails. Never a localhost link outside development. */
 export function siteUrl(path: string): string {
-  const base = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  let base = process.env.NEXT_PUBLIC_SITE_URL;
+  if (!base) {
+    if (process.env.NODE_ENV === "production") {
+      console.error("[messages] NEXT_PUBLIC_SITE_URL is not set; alert links use the public site address");
+      base = PRODUCTION_SITE;
+    } else {
+      base = "http://localhost:3000";
+    }
+  }
   return new URL(path, base).toString();
 }
