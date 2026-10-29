@@ -279,7 +279,8 @@ export function AdvisorWorkspace({
     } finally {
       setAcknowledging(false);
     }
-  }, []);
+    // Re-created when the notice's firm list changes, so "Got it" sends the firms on screen.
+  }, [visibility]);
 
   useEffect(() => {
     if (initialThreadId) void openThread(initialThreadId);
