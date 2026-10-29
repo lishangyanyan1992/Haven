@@ -139,9 +139,16 @@ async function main() {
   const asylumProfile = twoEmployerProfile({ immigrantPetitions: [{ id: "asy", sponsorName: "Asylum adjustment", petitionType: "humanitarian_asylum", preferenceCategory: "Asylum Adjustment", stage: "i485_filed" }] as never, i140Approved: false, permStage: "not_started" });
   const asylumJourney = buildImmigrationJourney({ profile: asylumProfile, signals: { layoffReadinessScore: "medium", layoffReadinessReasoning: [] } as never, now: new Date("2026-10-28T12:00:00Z") } as never);
   check(
-    "asylum timeline: no first-petition step",
-    !asylumJourney.greenCardTrack.nodes.some((n) => n.key === "petition" || n.key === "perm" || n.key === "i140"),
+    "asylum timeline: only the green card step (no petition, PERM, I-140, priority date or queue)",
+    asylumJourney.greenCardTrack.nodes.map((n) => n.key).join() === "i485",
     JSON.stringify(asylumJourney.greenCardTrack.nodes.map((n) => n.key))
+  );
+  const consularProfile = twoEmployerProfile({ immigrantPetitions: [{ id: "emp", sponsorName: "Acme", petitionType: "employer_sponsored", preferenceCategory: "EB-2", stage: "consular_processing", i140ApprovalDate: "2025-01-01" }] as never });
+  const consularJourney = buildImmigrationJourney({ profile: consularProfile, signals: { layoffReadinessScore: "medium", layoffReadinessReasoning: [] } as never, now: new Date("2026-10-28T12:00:00Z") } as never);
+  check(
+    "employer green card in consular processing keeps its I-140 milestone",
+    consularJourney.greenCardTrack.nodes.some((n) => n.key === "i140"),
+    JSON.stringify(consularJourney.greenCardTrack.nodes.map((n) => n.key))
   );
   const saved = twoEmployerProfile({ immigrantPetitions: undefined, i140Approved: false, permStage: "not_started", greenCardStage: "i130_filed" });
   check("saved step with no green card record: shown", inferProfileGreenCardStage(saved) === "i130_filed");

@@ -453,8 +453,15 @@ const NON_I140_STAGES = new Set(["i130_filed", "i130_approved", "consular_proces
  * investor, humanitarian and lottery green cards get their own milestones.
  */
 function isI140Path(petitionType: string | undefined, stage: string): boolean {
-  if (NON_I140_STAGES.has(stage)) return false;
-  return usesI140(petitionType);
+  // A known kind decides (an employer green card in consular processing still has its I-140);
+  // with no kind recorded, a family-style step means a non-I-140 path.
+  if (petitionType) return usesI140(petitionType);
+  return !NON_I140_STAGES.has(stage);
+}
+
+/** Asylum adjustment has no visa queue, so no priority date or wait-in-line step. */
+function hasVisaQueue(petitionType: string | undefined): boolean {
+  return petitionType !== "humanitarian_asylum";
 }
 
 export function resolveEffectivePriorityDate(profile: ImmigrationProfile): {
@@ -746,7 +753,7 @@ export function buildPetitionTracks(profile: ImmigrationProfile, nowUtc: Date = 
         : PETITION_TRACK_STAGES.filter((st) => st.key !== "perm")
       : [
           ...(firstPetitionForm(p.petitionType) ? [{ key: "petition" as const, label: firstPetitionForm(p.petitionType)! }] : []),
-          { key: "bulletin_queue" as const, label: "Wait in line" },
+          ...(hasVisaQueue(p.petitionType) ? [{ key: "bulletin_queue" as const, label: "Wait in line" }] : []),
           { key: "i485" as const, label: "Green card" }
         ];
     const stages = trackStages.map(({ key, label }): PetitionTrackStage => {
@@ -1774,7 +1781,11 @@ export function buildImmigrationJourney(input: {
   // Asylum adjustment and the lottery have no first petition; they start at I-485 or consular processing.
   const gcNodes = isI140Path(gcPathType, gcStage)
     ? employmentGcNodes
-    : nonI140GcNodes.filter((n) => n.key !== "petition" || !gcPathType || firstPetitionForm(gcPathType) !== null);
+    : nonI140GcNodes.filter(
+        (n) =>
+          (n.key !== "petition" || !gcPathType || firstPetitionForm(gcPathType) !== null) &&
+          (hasVisaQueue(gcPathType) || (n.key !== "priority_date" && n.key !== "bulletin_queue"))
+      );
 
   const gcSegments: JourneyBarSegment[] = [];
   const gcPins: JourneyPlotPin[] = [];
