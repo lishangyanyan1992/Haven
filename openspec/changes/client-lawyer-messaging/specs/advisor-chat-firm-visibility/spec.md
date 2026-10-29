@@ -6,16 +6,20 @@ Lets a firm see the questions its client asks Haven's AI and the answers it give
 
 ## ADDED Requirements
 
-### Requirement: Client is told before any chat is shared
-Before a firm client sends their first AI chat message after this change ships, Haven SHALL show a notice naming every firm they are connected to and saying those firms can see their AI chats. The client SHALL acknowledge it before sending. The time of acknowledgement SHALL be recorded.
+### Requirement: Client is asked if they want AI answers in Ask
+When a firm client opens Ask (`/advisor`) to message their lawyer, Haven SHALL ask whether they want AI answers (`Yes` or `No`), and let them toggle this choice later. If they say `Yes`, Haven SHALL tell them that the AI will answer first, that it may not be 100% accurate, and that their lawyer will respond once they see the message, and SHALL record the time of acknowledgement. If they say `No`, their messages SHALL be sent directly to their lawyer without generating an AI answer.
 
-#### Scenario: First chat after launch
-- **WHEN** a client connected to one firm opens the AI chat for the first time after launch
-- **THEN** they see "Questions you ask here go to your lawyer at [Firm]. Haven's AI answers first, and your lawyer may follow up to confirm or add to it." and must choose "Got it" before sending
+#### Scenario: Client says Yes to AI answers
+- **WHEN** a firm client chooses "Yes" to AI answers in Ask
+- **THEN** they see that the AI will answer first, that it may not be 100% accurate, and that their lawyer will respond once they see the message, and sending a message produces an AI answer first while also sending the message to their lawyer
+
+#### Scenario: Client says No to AI answers
+- **WHEN** a firm client chooses "No" to AI answers in Ask and sends a message
+- **THEN** the message is sent directly to their lawyer and no AI answer is generated
 
 #### Scenario: Client not connected to any firm
 - **WHEN** a person with no firm uses the AI chat
-- **THEN** no notice is shown and nothing is shared
+- **THEN** no lawyer prompt is shown and nothing is shared
 
 ### Requirement: Only chats after the notice are shared
 A firm SHALL see only AI chat conversations started after the client acknowledged the notice. Conversations from before SHALL stay private to the client.

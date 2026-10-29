@@ -6,6 +6,7 @@ import { documentContextAvailableFor } from "@/lib/document-context/store";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getAdvisorUsage, getAdvisorWorkspaceSeed } from "@/lib/advisor/service";
 import { getCrisisState } from "@/lib/get-crisis-state";
+import { listClientConversations, type ClientConversation } from "@/lib/firms/client-messages";
 import { getAppShellSnapshot } from "@/lib/repositories/case-compass";
 import { noIndexMetadata } from "@/lib/seo";
 
@@ -16,9 +17,16 @@ export const metadata = noIndexMetadata;
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export default async function AdvisorPage({ searchParams }: { searchParams?: Promise<{ chat?: string }> }) {
-  const requestedChat = (searchParams ? await searchParams : undefined)?.chat ?? "";
+export default async function AdvisorPage({
+  searchParams
+}: {
+  searchParams?: Promise<{ chat?: string; firm?: string }>;
+}) {
+  const params = searchParams ? await searchParams : undefined;
+  const requestedChat = params?.chat ?? "";
+  const requestedFirm = params?.firm ?? "";
   const initialThreadId = uuidPattern.test(requestedChat) ? requestedChat : null;
+  const initialFirmId = uuidPattern.test(requestedFirm) ? requestedFirm : null;
   const [snapshot, crisisState, advisorUsage] = await Promise.all([
     getAppShellSnapshot(),
     getCrisisState(),
@@ -29,6 +37,7 @@ export default async function AdvisorPage({ searchParams }: { searchParams?: Pro
   // link only matters to signed-in accounts on the test switch anyway.
   let showDocumentsLink = false;
   let chatVisibility: AdvisorChatVisibility | null = null;
+  let firmConversations: ClientConversation[] = [];
   if (hasSupabaseEnv) {
     const supabase = await createSupabaseServerClient();
     const {
@@ -36,8 +45,12 @@ export default async function AdvisorPage({ searchParams }: { searchParams?: Pro
     } = await supabase.auth.getUser();
     showDocumentsLink = await documentContextAvailableFor(user?.email);
     if (user) {
-      try {
-        const visibility = await getChatVisibility(user.id);
+      const [visibilityResult, conversationsResult] = await Promise.allSettled([
+        getChatVisibility(user.id),
+        listClientConversations(user.id)
+      ]);
+      if (visibilityResult.status === "fulfilled") {
+        const visibility = visibilityResult.value;
         chatVisibility =
           visibility.firms.length > 0
             ? {
@@ -45,9 +58,14 @@ export default async function AdvisorPage({ searchParams }: { searchParams?: Pro
                 needsNotice: visibility.needsNotice
               }
             : null;
-      } catch (error) {
+      } else {
         // Fail closed for firm clients: the send endpoint checks again and asks for the notice.
-        console.error("[advisor] could not load chat sharing", error);
+        console.error("[advisor] could not load chat sharing", visibilityResult.reason);
+      }
+      if (conversationsResult.status === "fulfilled") {
+        firmConversations = conversationsResult.value;
+      } else {
+        console.error("[advisor] could not load lawyer conversations", conversationsResult.reason);
       }
     }
   }
@@ -65,6 +83,8 @@ export default async function AdvisorPage({ searchParams }: { searchParams?: Pro
       <AdvisorWorkspace
         advisorUsage={advisorUsage}
         chatVisibility={chatVisibility}
+        initialConversations={firmConversations}
+        initialFirmId={initialFirmId}
         initialThreadId={initialThreadId}
         initialThreads={seed.threads}
         suggestedPrompts={seed.suggestedPrompts}

@@ -31,7 +31,13 @@ import { trackEvent } from "@/lib/mixpanel";
 import type { AdvisorAnswerPayload, AdvisorFirmContactOffer, AdvisorMessage } from "@/types/domain";
 import { PENDING_QUESTION_KEY } from "@/lib/pending-question";
 import { getFirmContactRequestStatusAction, sendFirmContactRequestAction } from "@/server/firm-contact-actions";
-import { acknowledgeChatVisibilityAction } from "@/server/message-actions";
+import {
+  acknowledgeChatVisibilityAction,
+  markClientMessagesReadAction,
+  sendClientMessageAction
+} from "@/server/message-actions";
+import type { ClientConversation } from "@/lib/firms/client-messages";
+import type { ConversationMessage } from "@/lib/firms/message-core";
 import {
   aiAnswerLabel,
   isThreadVisibleToFirm,
@@ -53,6 +59,10 @@ type AdvisorWorkspaceProps = {
   welcomeMessage: AdvisorAnswerPayload;
   /** Set for a firm's client: their lawyer sees chats started after they agree. */
   chatVisibility?: AdvisorChatVisibility | null;
+  /** Ongoing conversations with connected law firms. */
+  initialConversations?: ClientConversation[];
+  /** Selected firm id from ?firm=... query param. */
+  initialFirmId?: string | null;
   /** Open this chat on arrival, from a lawyer's reply that quotes it. */
   initialThreadId?: string | null;
 };
@@ -104,14 +114,28 @@ export function AdvisorWorkspace({
   suggestedPrompts,
   welcomeMessage,
   chatVisibility = null,
+  initialConversations = [],
+  initialFirmId = null,
   initialThreadId = null
 }: AdvisorWorkspaceProps) {
   const [visibility, setVisibility] = useState<AdvisorChatVisibility | null>(chatVisibility);
   const [acknowledging, setAcknowledging] = useState(false);
-  const hasFirm = Boolean(visibility && visibility.firms.length > 0);
+  const [firmConversations, setFirmConversations] = useState<ClientConversation[]>(initialConversations);
+  const [activeFirmId, setActiveFirmId] = useState<string>(
+    initialFirmId && initialConversations.some((c) => c.firmId === initialFirmId)
+      ? initialFirmId
+      : initialConversations[0]?.firmId ?? ""
+  );
+  const activeFirmConversation =
+    firmConversations.find((c) => c.firmId === activeFirmId) ?? firmConversations[0] ?? null;
+  const hasFirm = Boolean((visibility && visibility.firms.length > 0) || firmConversations.length > 0);
   const needsNotice = Boolean(hasFirm && visibility?.needsNotice);
-  const firmNames = visibility?.firms.map((f) => f.firmName) ?? [];
+  const firmNames =
+    visibility && visibility.firms.length > 0
+      ? visibility.firms.map((f) => f.firmName)
+      : firmConversations.map((c) => c.firmName);
   const answerLabel = aiAnswerLabel(hasFirm);
+  const [aiPreference, setAiPreference] = useState<"unasked" | "yes" | "no">("unasked");
   const [messages, setMessages] = useState<AdvisorMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -126,6 +150,16 @@ export function AdvisorWorkspace({
   const [openedThreadCreatedAt, setOpenedThreadCreatedAt] = useState<{ id: string; createdAt: string | null } | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  // Viewing the active lawyer conversation clears its unread marker.
+  useEffect(() => {
+    if (!activeFirmConversation?.hasUnread) return;
+    const firmId = activeFirmConversation.firmId;
+    setFirmConversations((current) =>
+      current.map((c) => (c.firmId === firmId ? { ...c, hasUnread: false } : c))
+    );
+    void markClientMessagesReadAction(firmId);
+  }, [activeFirmConversation?.firmId, activeFirmConversation?.hasUnread]);
 
   const refreshThreads = useCallback(async () => {
     try {
@@ -268,10 +302,11 @@ export function AdvisorWorkspace({
     : activeCreatedAt === undefined
       ? undefined
       : activeCreatedAt === null
-        ? visibility!.firms.filter((f) => f.acknowledgedAt).map((f) => f.firmName)
-        : visibility!.firms
+        ? (visibility?.firms ?? []).filter((f) => f.acknowledgedAt).map((f) => f.firmName)
+        : (visibility?.firms ?? [])
             .filter((f) => isThreadVisibleToFirm(activeCreatedAt, f.acknowledgedAt))
             .map((f) => f.firmName);
+  const viewingPrivateThread = Boolean(hasFirm && conversationId && seeingFirms !== undefined && seeingFirms.length === 0);
 
   const acknowledgeNotice = useCallback(async () => {
     setAcknowledging(true);
@@ -291,6 +326,17 @@ export function AdvisorWorkspace({
     // Re-created when the notice's firm list changes, so "Got it" sends the firms on screen.
   }, [visibility]);
 
+  const chooseAiPreference = useCallback(
+    async (choice: "yes" | "no") => {
+      setAiPreference(choice);
+      setError(null);
+      if (choice === "yes" && needsNotice) {
+        await acknowledgeNotice();
+      }
+    },
+    [acknowledgeNotice, needsNotice]
+  );
+
   useEffect(() => {
     if (initialThreadId) void openThread(initialThreadId);
     // Only on arrival.
@@ -301,22 +347,55 @@ export function AdvisorWorkspace({
   const overLimit = draftLength > MESSAGE_CHAR_LIMIT;
   const nearLimit = draftLength > MESSAGE_CHAR_LIMIT * 0.8;
   const historyTrimmed = messages.length > HISTORY_LIMIT;
+  const needsAiChoice = Boolean(hasFirm && !viewingPrivateThread && aiPreference === "unasked");
 
   function stopAnswer() {
     abortRef.current?.abort();
     abortRef.current = null;
   }
 
+  // Merge lawyer conversation messages (client + lawyer) with AI conversation turns
+  // in chronological order when viewing the ongoing lawyer conversation.
+  const unifiedItems = useMemo(() => {
+    if (!hasFirm || viewingPrivateThread) {
+      return messages.map((m) => ({ kind: "advisor" as const, createdAt: m.createdAt, message: m }));
+    }
+    const lawyerMessages = activeFirmConversation?.messages ?? [];
+    const userAdvisorTimes = messages
+      .filter((m) => m.role === "user")
+      .map((m) => ({ body: m.content.trim(), time: new Date(m.createdAt).getTime() }));
+
+    const items: (
+      | { kind: "advisor"; createdAt: string; message: AdvisorMessage }
+      | { kind: "firm"; createdAt: string; message: ConversationMessage }
+    )[] = [];
+
+    for (const fm of lawyerMessages) {
+      if (fm.senderRole === "client") {
+        const fmTime = new Date(fm.createdAt).getTime();
+        const isDuplicateOfAdvisorUserTurn = userAdvisorTimes.some(
+          (u) => u.body === fm.body.trim() && Math.abs(u.time - fmTime) < 60_000
+        );
+        if (isDuplicateOfAdvisorUserTurn) continue;
+      }
+      items.push({ kind: "firm", createdAt: fm.createdAt, message: fm });
+    }
+    for (const am of messages) {
+      items.push({ kind: "advisor", createdAt: am.createdAt, message: am });
+    }
+    return items.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  }, [activeFirmConversation?.messages, hasFirm, messages, viewingPrivateThread]);
+
   useEffect(() => {
     const element = scrollerRef.current;
     if (!element) return;
     element.scrollTop = element.scrollHeight;
-  }, [messages, isPending]);
+  }, [unifiedItems, isPending]);
 
   async function sendMessage(rawMessage?: string) {
     const content = (rawMessage ?? draft).trim();
     if (!content || isPending) return;
-    if (needsNotice || openingThreadId) return;
+    if (!content || isPending || needsAiChoice || openingThreadId !== null) return;
 
     if (content.length > MESSAGE_CHAR_LIMIT) {
       setError(
@@ -329,12 +408,134 @@ export function AdvisorWorkspace({
     setDraft("");
     setIsPending(true);
 
+    const nowIso = new Date().toISOString();
+
+    if (hasFirm && !viewingPrivateThread && !activeFirmConversation) {
+      setError("Your lawyer conversation could not be loaded. Try reloading the page.");
+      setIsPending(false);
+      setDraft(content);
+      return;
+    }
+
+    // When messaging the lawyer with AI answers OFF, send directly to the lawyer conversation.
+    if (hasFirm && !viewingPrivateThread && aiPreference === "no" && activeFirmConversation) {
+      const targetFirmId = activeFirmConversation.firmId;
+      const optimisticFirmMessage: ConversationMessage = {
+        id: `tmp-firm-${Date.now()}`,
+        senderRole: "client",
+        senderName: "You",
+        body: content,
+        source: "dashboard",
+        createdAt: nowIso,
+        aiAnswerQuote: null
+      };
+      setFirmConversations((current) =>
+        current.map((c) =>
+          c.firmId === targetFirmId ? { ...c, messages: [...c.messages, optimisticFirmMessage] } : c
+        )
+      );
+      try {
+        const result = await sendClientMessageAction({ firmId: targetFirmId, body: content });
+        if (result.status !== "sent" && result.status !== "already_sent") {
+          setFirmConversations((current) =>
+            current.map((c) =>
+              c.firmId === targetFirmId
+                ? { ...c, messages: c.messages.filter((m) => m.id !== optimisticFirmMessage.id) }
+                : c
+            )
+          );
+          setDraft(content);
+          setError(result.status === "invalid" ? result.error : "That didn't send. Try again in a moment.");
+        }
+      } catch {
+        setFirmConversations((current) =>
+          current.map((c) =>
+            c.firmId === targetFirmId
+              ? { ...c, messages: c.messages.filter((m) => m.id !== optimisticFirmMessage.id) }
+              : c
+          )
+        );
+        setDraft(content);
+        setError("That didn't send. Try again in a moment.");
+      } finally {
+        setIsPending(false);
+      }
+      return;
+    }
+
+    let lawyerMessageDelivered = false;
+
+    // When AI answers are ON for a firm client, ensure visibility is acknowledged and
+    // record the message in the lawyer's conversation so the lawyer gets alerted.
+    if (hasFirm && !viewingPrivateThread && activeFirmConversation) {
+      if (needsNotice) {
+        try {
+          const next = await acknowledgeChatVisibilityAction(visibility?.firms.map((f) => f.firmId) ?? []);
+          setVisibility({
+            firms: next.firms.map((f) => ({ firmId: f.firmId, firmName: f.firmName, acknowledgedAt: f.acknowledgedAt })),
+            needsNotice: next.needsNotice
+          });
+        } catch {
+          setDraft(content);
+          setIsPending(false);
+          setError("Haven couldn't save that just now. Try again in a moment.");
+          return;
+        }
+      }
+
+      const targetFirmId = activeFirmConversation.firmId;
+      const optimisticFirmMessage: ConversationMessage = {
+        id: `tmp-firm-${Date.now()}`,
+        senderRole: "client",
+        senderName: "You",
+        body: content,
+        source: "dashboard",
+        createdAt: nowIso,
+        aiAnswerQuote: null
+      };
+      setFirmConversations((current) =>
+        current.map((c) =>
+          c.firmId === targetFirmId ? { ...c, messages: [...c.messages, optimisticFirmMessage] } : c
+        )
+      );
+
+      try {
+        const result = await sendClientMessageAction({ firmId: targetFirmId, body: content });
+        if (result.status !== "sent" && result.status !== "already_sent") {
+          setFirmConversations((current) =>
+            current.map((c) =>
+              c.firmId === targetFirmId
+                ? { ...c, messages: c.messages.filter((m) => m.id !== optimisticFirmMessage.id) }
+                : c
+            )
+          );
+          setDraft(content);
+          setIsPending(false);
+          setError(result.status === "invalid" ? result.error : "That didn't send to your lawyer. Try again in a moment.");
+          return;
+        }
+        lawyerMessageDelivered = true;
+      } catch {
+        setFirmConversations((current) =>
+          current.map((c) =>
+            c.firmId === targetFirmId
+              ? { ...c, messages: c.messages.filter((m) => m.id !== optimisticFirmMessage.id) }
+              : c
+          )
+        );
+        setDraft(content);
+        setIsPending(false);
+        setError("That didn't send to your lawyer. Try again in a moment.");
+        return;
+      }
+    }
+
     const optimisticUserMessage: AdvisorMessage = {
       id: `tmp-user-${Date.now()}`,
       threadId: "session",
       role: "user",
       content,
-      createdAt: new Date().toISOString(),
+      createdAt: nowIso,
     };
 
     const sid = `streaming-${Date.now()}`;
@@ -469,9 +670,11 @@ export function AdvisorWorkspace({
       } else {
         const raw = caughtError instanceof Error ? caughtError.message : "";
         setError(
-          raw && !/^Unable to send message\.?$/i.test(raw)
-            ? raw
-            : "Haven couldn't reach the advisor just now. Your question wasn't sent — try again in a moment, and if it keeps happening, reload the page."
+          lawyerMessageDelivered
+            ? "Haven couldn't reach the advisor for an instant AI answer just now. Your message was still sent to your lawyer, and they will respond once they see it."
+            : raw && !/^Unable to send message\.?$/i.test(raw)
+              ? raw
+              : "Haven couldn't reach the advisor just now. Your question wasn't sent — try again in a moment, and if it keeps happening, reload the page."
         );
         setMessages(nextMessages);
         setStreamingId(null);
@@ -528,58 +731,179 @@ export function AdvisorWorkspace({
 
       <Card>
         <CardHeader>
-          <div />
+          {hasFirm && !viewingPrivateThread ? (
+            <div className="space-y-1">
+              <h2 className="text-h3" id="messages-heading">
+                Messages with your lawyer
+              </h2>
+              <p className="text-caption text-[var(--haven-ink-mid)]">
+                You&apos;ll get an email when your lawyer replies.
+              </p>
+              {firmConversations.length > 1 ? (
+                <div className="mt-2 flex flex-wrap gap-2" role="tablist" aria-label="Law firms">
+                  {firmConversations.map((c) => (
+                    <button
+                      aria-selected={c.firmId === activeFirmConversation?.firmId}
+                      className={`min-h-9 rounded-full border px-3.5 py-1.5 text-sm ${
+                        c.firmId === activeFirmConversation?.firmId
+                          ? "border-[var(--haven-sage)] bg-[var(--haven-sage-light)] text-[var(--haven-ink)]"
+                          : "border-[var(--color-border)] bg-[var(--haven-white)] text-[var(--haven-ink-mid)]"
+                      }`}
+                      key={c.firmId}
+                      onClick={() => setActiveFirmId(c.firmId)}
+                      role="tab"
+                      type="button"
+                    >
+                      {c.firmName}
+                      {c.hasUnread && c.firmId !== activeFirmConversation?.firmId ? (
+                        <span
+                          className="ml-2 inline-block h-2 w-2 rounded-full bg-[var(--haven-blush-ink)]"
+                          aria-label="new message"
+                        />
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
+              ) : activeFirmConversation ? (
+                <p className="text-body-sm text-[var(--haven-ink-mid)]">{activeFirmConversation.firmName}</p>
+              ) : null}
+            </div>
+          ) : (
+            <div />
+          )}
           {/* Was "Reset", which read as "clear the screen" while actually
               abandoning a conversation the user had already paid for out of their
               daily five. Now that conversations are saved, this really does start a
               new one and the old one stays in the list above. */}
-          <Button
-            disabled={isPending || messages.length === 0}
-            onClick={startNewConversation}
-            size="sm"
-            variant="outline"
-          >
-            <Plus className="h-4 w-4" />
-            New conversation
-          </Button>
+          {(!hasFirm || viewingPrivateThread || messages.length > 0) && (
+            <Button
+              disabled={isPending || (!viewingPrivateThread && messages.length === 0)}
+              onClick={startNewConversation}
+              size="sm"
+              variant="outline"
+            >
+              <Plus className="h-4 w-4" />
+              {hasFirm && viewingPrivateThread
+                ? `Back to messages with ${activeFirmConversation?.firmName ?? "your lawyer"}`
+                : "New conversation"}
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="space-y-4">
-          {hasFirm && !needsNotice && seeingFirms !== undefined && (
+          {hasFirm && viewingPrivateThread && (
             <p className="rounded-[var(--radius-lg)] bg-[var(--haven-sage-light)] px-4 py-2.5 text-body-sm text-[var(--haven-ink)]">
-              {seeingFirms.length > 0
-                ? visibilityLineText(seeingFirms)
-                : "This older chat is private to you. It started before you chose to share chats with your lawyer."}
+              This older chat is private to you. It started before you chose to share chats with your lawyer.
             </p>
           )}
+          {hasFirm && !viewingPrivateThread && needsAiChoice && (
+            <div
+              className="rounded-[var(--radius-xl)] border border-[var(--haven-sage)] bg-[var(--haven-sage-light)] p-4"
+              role="region"
+              aria-label="Do you want AI answers?"
+            >
+              <p className="text-h3">Do you want AI answers?</p>
+              <p className="text-body-sm mt-2 text-[var(--haven-ink)]">
+                Would you like Haven&apos;s AI to answer your question first while you wait for{" "}
+                {activeFirmConversation?.firmName ?? visibilityNoticeText(firmNames)}?
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button disabled={acknowledging} onClick={() => void chooseAiPreference("yes")} size="sm">
+                  {acknowledging ? "Saving…" : "Yes"}
+                </Button>
+                <Button
+                  disabled={acknowledging}
+                  onClick={() => void chooseAiPreference("no")}
+                  size="sm"
+                  variant="outline"
+                >
+                  No, only message my lawyer
+                </Button>
+              </div>
+            </div>
+          )}
+          {hasFirm && !viewingPrivateThread && aiPreference === "yes" && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-lg)] bg-[var(--haven-sage-light)] px-4 py-2.5">
+              <p className="text-body-sm text-[var(--haven-ink)]">
+                The AI will answer first, but it may not be 100% accurate, and your lawyer will respond once they see your message.
+              </p>
+              <button
+                className="text-caption font-medium text-[var(--haven-ink)] underline underline-offset-2"
+                onClick={() => void chooseAiPreference("no")}
+                type="button"
+              >
+                Turn off AI answers
+              </button>
+            </div>
+          )}
+          {hasFirm && !viewingPrivateThread && aiPreference === "no" && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-lg)] bg-[var(--haven-sand)] px-4 py-2.5">
+              <p className="text-body-sm text-[var(--haven-ink)]">
+                AI answers are off. Your lawyer at {activeFirmConversation?.firmName ?? "your law firm"} will respond once they see your message.
+              </p>
+              <button
+                className="text-caption font-medium text-[var(--haven-ink)] underline underline-offset-2"
+                onClick={() => void chooseAiPreference("yes")}
+                type="button"
+              >
+                Turn on AI answers
+              </button>
+            </div>
+          )}
           <div ref={scrollerRef} className="max-h-[620px] space-y-4 overflow-y-auto pr-1">
-            {messages.length === 0 ? (
-              <AdvisorAnswerCard
-                aiLabel={answerLabel}
-                isPending={false}
-                traceId={null}
-                message={{
-                  id: "welcome",
-                  threadId: "session",
-                  role: "assistant",
-                  content: welcomeMessage.answer_markdown,
-                  createdAt: new Date().toISOString(),
-                  answerPayload: welcomeMessage,
-                }}
-              />
+            {unifiedItems.length === 0 ? (
+              hasFirm && !viewingPrivateThread && aiPreference !== "yes" ? (
+                <p className="text-body-sm text-[var(--haven-ink-mid)]">
+                  No messages yet. Write to {activeFirmConversation?.firmName ?? "your lawyer"} below.
+                </p>
+              ) : (
+                <AdvisorAnswerCard
+                  aiLabel={answerLabel}
+                  isPending={false}
+                  traceId={null}
+                  message={{
+                    id: "welcome",
+                    threadId: "session",
+                    role: "assistant",
+                    content: welcomeMessage.answer_markdown,
+                    createdAt: new Date().toISOString(),
+                    answerPayload: welcomeMessage,
+                  }}
+                />
+              )
             ) : (
-              messages.map((message) =>
-                message.role === "assistant" ? (
+              unifiedItems.map((item) =>
+                item.kind === "firm" ? (
+                  item.message.senderRole === "lawyer" ? (
+                    <LawyerMessageCard
+                      key={`firm-${item.message.id}`}
+                      message={item.message}
+                      onOpenChat={(chatId) => void openThread(chatId)}
+                    />
+                  ) : (
+                    <UserMessageCard
+                      key={`firm-${item.message.id}`}
+                      message={{
+                        id: item.message.id,
+                        threadId: "firm",
+                        role: "user",
+                        content: item.message.body,
+                        createdAt: item.message.createdAt,
+                      }}
+                      subtitle={item.message.source === "onboarding" ? "sent during setup" : undefined}
+                    />
+                  )
+                ) : item.message.role === "assistant" ? (
                   <AdvisorAnswerCard
                     aiLabel={answerLabel}
-                    key={message.id}
-                    isPending={message.id === streamingId}
-                    message={message}
-                    onFollowUp={needsNotice || openingThreadId ? undefined : (question) => void sendMessage(question)}
-                    stopped={stoppedIds.includes(message.id)}
-                    traceId={message.traceId ?? null}
+                    key={item.message.id}
+                    isPending={item.message.id === streamingId}
+                    message={item.message}
+                    onFollowUp={needsAiChoice || openingThreadId !== null ? undefined : (question) => void sendMessage(question)}
+                    stopped={stoppedIds.includes(item.message.id)}
+                    traceId={item.message.traceId ?? null}
                   />
                 ) : (
-                  <UserMessageCard key={message.id} message={message} />
+                  <UserMessageCard key={item.message.id} message={item.message} />
                 )
               )
             )}
@@ -591,7 +915,7 @@ export function AdvisorWorkspace({
             </div>
           )}
 
-          {messages.length === 0 && suggestedPrompts.length > 0 && (
+          {unifiedItems.length === 0 && (!hasFirm || aiPreference === "yes") && suggestedPrompts.length > 0 && (
             <div className="space-y-2">
               <p className="text-caption text-[var(--color-text-secondary)]">Not sure where to start?</p>
               <div className="flex flex-wrap gap-2">
@@ -599,7 +923,7 @@ export function AdvisorWorkspace({
                   <button
                     key={prompt}
                     className="rounded-full border border-[var(--color-border)] bg-[var(--haven-white)] px-3 py-1.5 text-left text-caption transition-colors hover:border-[var(--haven-sage-mid)] hover:bg-[var(--haven-sage-light)] disabled:opacity-50"
-                    disabled={isPending || needsNotice || openingThreadId !== null}
+                    disabled={isPending || needsAiChoice || openingThreadId !== null}
                     onClick={() => void sendMessage(prompt)}
                     type="button"
                   >
@@ -617,32 +941,19 @@ export function AdvisorWorkspace({
             </p>
           )}
 
-          {needsNotice && (
-            <div
-              className="rounded-[var(--radius-xl)] border border-[var(--haven-sage)] bg-[var(--haven-sage-light)] p-4"
-              role="region"
-              aria-label="Who sees your questions"
-            >
-              <p className="text-h3">Your questions go to your lawyer</p>
-              <p className="text-body-sm mt-2 text-[var(--haven-ink)]">{visibilityNoticeText(firmNames)}</p>
-              <p className="text-caption mt-2 text-[var(--color-text-secondary)]">
-                Chats you started before now stay private to you.
-              </p>
-              <Button className="mt-3" disabled={acknowledging} onClick={() => void acknowledgeNotice()} size="sm">
-                {acknowledging ? "Saving…" : "Got it"}
-              </Button>
-            </div>
-          )}
-
           <div className="rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-sand)] p-4">
             <Textarea
-              aria-label={hasFirm ? "Ask your lawyer a question" : "Ask Haven a question"}
+              aria-label={
+                hasFirm && !viewingPrivateThread
+                  ? `Message to ${activeFirmConversation?.firmName ?? "your lawyer"}`
+                  : "Ask Haven a question"
+              }
               className="min-h-[120px] bg-[var(--haven-white)]"
-              disabled={needsNotice || openingThreadId !== null}
+              disabled={needsAiChoice || openingThreadId !== null}
               onChange={(event) => setDraft(event.target.value)}
               placeholder={
-                hasFirm
-                  ? "Ask your lawyer a question"
+                hasFirm && !viewingPrivateThread
+                  ? `Write to ${activeFirmConversation?.firmName ?? "your lawyer"}`
                   : "Ask about H-1B, PERM, I-140, I-485, the visa bulletin, or how your Haven timeline fits those rules."
               }
               value={draft}
@@ -663,12 +974,18 @@ export function AdvisorWorkspace({
                   where they go, and the second is the one a user handing over their
                   immigration history is entitled to know without hunting for it. */}
               <p className="text-caption">
-                Official sources first, then your Haven profile, then community context as anecdotal backup. Your
-                question and the relevant parts of your profile are sent to an AI provider to produce the answer —{" "}
-                <a className="underline underline-offset-2" href="/privacy">
-                  how Haven handles your data
-                </a>
-                .
+                {hasFirm && !viewingPrivateThread && aiPreference === "no" ? (
+                  <>Sent directly to {activeFirmConversation?.firmName ?? "your lawyer"}. They get an email alert when you write.</>
+                ) : (
+                  <>
+                    Official sources first, then your Haven profile, then community context as anecdotal backup. Your
+                    question and the relevant parts of your profile are sent to an AI provider to produce the answer —{" "}
+                    <a className="underline underline-offset-2" href="/privacy">
+                      how Haven handles your data
+                    </a>
+                    .
+                  </>
+                )}
               </p>
               {isPending ? (
                 <Button onClick={stopAnswer} size="sm" variant="outline">
@@ -677,12 +994,12 @@ export function AdvisorWorkspace({
                 </Button>
               ) : (
                 <Button
-                  disabled={needsNotice || openingThreadId !== null || overLimit || draftLength === 0}
+                  disabled={needsAiChoice || openingThreadId !== null || overLimit || draftLength === 0}
                   onClick={() => void sendMessage()}
                   size="sm"
                 >
                   <SendHorizonal className="h-4 w-4" />
-                  {hasFirm ? "Ask" : "Ask Haven"}
+                  {hasFirm && !viewingPrivateThread ? "Send" : "Ask Haven"}
                 </Button>
               )}
             </div>
@@ -746,15 +1063,65 @@ export function AdvisorWorkspace({
   );
 }
 
-function UserMessageCard({ message }: { message: AdvisorMessage }) {
+function formatMessageWhen(iso: string) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+function UserMessageCard({ message, subtitle }: { message: AdvisorMessage; subtitle?: string }) {
+  const when = formatMessageWhen(message.createdAt);
   return (
     <div className="flex justify-end">
       <div className="max-w-[85%] rounded-[var(--radius-xl)] bg-[var(--haven-ink)] px-5 py-4 text-white">
-        <div className="mb-2 flex items-center gap-2 text-[12px] uppercase tracking-[0.08em] text-[rgba(253,250,246,0.72)]">
+        <div className="mb-2 flex flex-wrap items-center gap-2 text-[12px] uppercase tracking-[0.08em] text-[rgba(253,250,246,0.72)]">
           <User2 className="h-3.5 w-3.5" />
-          You
+          <span>You</span>
+          {when ? <span className="normal-case tracking-normal">· {when}</span> : null}
+          {subtitle ? <span className="normal-case tracking-normal">· {subtitle}</span> : null}
         </div>
         <p className="whitespace-pre-wrap text-body-sm text-white">{message.content}</p>
+      </div>
+    </div>
+  );
+}
+
+function LawyerMessageCard({
+  message,
+  onOpenChat
+}: {
+  message: ConversationMessage;
+  onOpenChat: (chatId: string) => void;
+}) {
+  const who = message.senderName || "Your lawyer";
+  const when = formatMessageWhen(message.createdAt);
+  return (
+    <div className="flex justify-start">
+      <div className="max-w-[85%] rounded-[var(--radius-xl)] border border-[var(--haven-sage)] bg-[var(--haven-white)] px-5 py-4 shadow-[0_6px_20px_rgba(37,44,39,0.04)]">
+        <p className="text-caption text-[var(--haven-ink-mid)]">
+          <span className="font-semibold text-[var(--haven-ink)]">{who}</span>
+          {when ? ` · ${when}` : ""}
+        </p>
+        {message.aiAnswerQuote ? (
+          "deleted" in message.aiAnswerQuote ? (
+            <p className="mt-2 border-l-2 border-[var(--color-border)] pl-3 text-caption italic text-[var(--haven-ink-mid)]">
+              The AI chat this refers to was deleted
+            </p>
+          ) : (
+            <div className="mt-2 border-l-2 border-[var(--haven-sage)] pl-3">
+              <p className="text-caption text-[var(--haven-ink-mid)]">About this Haven AI answer:</p>
+              <p className="text-caption italic text-[var(--haven-ink)]">&ldquo;{message.aiAnswerQuote.excerpt}&rdquo;</p>
+              <button
+                className="text-caption underline underline-offset-2"
+                onClick={() => onOpenChat(message.aiAnswerQuote && !("deleted" in message.aiAnswerQuote) ? message.aiAnswerQuote.chatId : "")}
+                type="button"
+              >
+                Open that chat
+              </button>
+            </div>
+          )
+        ) : null}
+        <p className="mt-2 whitespace-pre-wrap break-words text-body-sm text-[var(--haven-ink)]">{message.body}</p>
       </div>
     </div>
   );

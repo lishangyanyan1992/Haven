@@ -7,7 +7,7 @@ import remarkGfm from "remark-gfm";
 
 import { MessageComposer } from "@/components/app/message-composer";
 import { AI_ANSWER_LABEL_FIRM } from "@/lib/advisor/firm-visibility-copy";
-import type { SharedChat } from "@/lib/firms/shared-chats";
+import type { SharedChat, SharedChatMessage } from "@/lib/firms/shared-chats";
 import { sendFirmMessageAction } from "@/server/firm-actions";
 
 /**
@@ -61,7 +61,7 @@ export function SharedChatsPanel({
                       <p className="mt-1 whitespace-pre-wrap break-words text-body-sm text-[var(--haven-ink)]">{message.text}</p>
                     </li>
                   ) : (
-                    <AiAnswer answer={message} firmClientId={firmClientId} key={message.id} />
+                    <SharedAiAnswer answer={message} firmClientId={firmClientId} key={message.id} />
                   )
                 )}
               </ol>
@@ -73,7 +73,7 @@ export function SharedChatsPanel({
   );
 }
 
-function AiAnswer({ answer, firmClientId }: { answer: SharedChat["messages"][number]; firmClientId: string }) {
+export function SharedAiAnswer({ answer, firmClientId }: { answer: SharedChatMessage; firmClientId: string }) {
   const router = useRouter();
   const [replying, setReplying] = useState(false);
   const [sent, setSent] = useState(false);

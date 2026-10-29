@@ -23,7 +23,7 @@ Current state that shapes the approach:
 **Non-Goals:**
 - Attachments, message editing or deletion, typing indicators, real-time push. Pages refresh on load and after send.
 - Per-lawyer assignment or per-lawyer read state. Read state is per firm.
-- Letting the client choose per chat whether it is shared. Sharing is all-or-nothing after the notice.
+- Letting the client choose per chat whether it is shared. When AI answers are enabled, chats started after acknowledgement are shared; when AI answers are off, messages go directly to the lawyer.
 - Changing what contact requests contain.
 
 ## Decisions
@@ -53,13 +53,17 @@ Unread = messages from the other side newer than this side's `last_read_at`. Ope
 ### 4. Onboarding message sent once on finish
 The open box is held in onboarding form state and written only in the final save, inside the same server action that records shared answers, once per firm the client is onboarding with. A unique partial index on (`conversation_id`) where `source = 'onboarding'` prevents a double submit creating two.
 
-### 5. Chat sharing decided by acknowledgement time
-New table `advisor_firm_visibility_acks` (`user_id`, `firm_id`, `acknowledged_at`, unique pair). A firm can see a thread when: the client is currently linked to that firm in `firm_clients`, an ack exists for that firm, and `thread.created_at >= ack.acknowledged_at`. This is checked in one server helper used by every firm-side read; no RLS policy grants firms access to advisor tables, so a missed check fails closed.
-The chat send endpoint refuses (returns a `needs_notice` result with the firm names) when the user has a firm link without an ack. The chat screen shows the notice and records acks for all listed firms on "Got it".
-*Alternative:* a `shared` flag on each thread. Rejected: harder to reason about when firms are added or removed.
+### 5. Unified thread in Ask (`/advisor`) and AI answers choice
+On the client dashboard, "Messages with your lawyer" is a call-to-action card that shows the connected firm(s), any unread badge or latest message preview, and a button linking to `/advisor`.
+In `/advisor`, a firm client's primary view is their ongoing conversation with their lawyer (with firm tabs if connected to multiple firms, and a "Your conversations" list for older private AI chats).
+When the client arrives in `/advisor`, Haven asks if they want AI answers (`Yes` or `No`), with a toggle to switch later:
+- **If Yes:** Haven records `advisor_firm_visibility_acks` (`user_id`, `firm_id`, `acknowledged_at`, unique pair) and tells the client: *"The AI will answer first, but it may not be 100% accurate, and your lawyer will respond once they see your message."* Sending a message saves the client message in `firm_messages` (triggering the throttled lawyer email alert and unread marker) and streams an AI answer in `advisor_threads` / `advisor_messages`.
+- **If No:** Sending a message saves the client message in `firm_messages` (triggering the throttled lawyer email alert and unread marker) without calling the AI.
 
-### 6. Lawyer view renders the client's own rows
-The firm client page loads shared threads through the helper in decision 5 and renders answers with the same answer component the client sees, in read-only mode, from `content` and the client-visible parts of `answer_payload`. `retrieval_metadata` and internal payload fields are never selected.
+A firm can see a thread when: the client is currently linked to that firm in `firm_clients`, an ack exists for that firm, and `thread.created_at >= ack.acknowledged_at`. This is checked in one server helper used by every firm-side read; no RLS policy grants firms access to advisor tables, so a missed check fails closed.
+
+### 6. Unified lawyer and client thread view
+Both the client view in `/advisor` and the lawyer view on `/firm/clients/[id]` render a single unified chronological conversation per firm by combining `firm_messages` (client messages and lawyer replies) with the visible AI answers from `advisor_messages` (deduplicating user prompts that match client messages sent at the same time). `retrieval_metadata` and internal payload fields are never selected on the firm side.
 A lawyer reply to an answer is a normal `firm_messages` row with `source = 'advisor_reply'` and `advisor_message_id`. The quote is rendered live from the referenced message; if it is gone (set null by the delete cascade), the UI shows "The AI chat this refers to was deleted". No AI text is copied.
 
 ### 7. Label rendered by the UI
