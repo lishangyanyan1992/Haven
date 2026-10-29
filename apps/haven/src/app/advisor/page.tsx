@@ -40,11 +40,14 @@ export default async function AdvisorPage({
   let showDocumentsLink = false;
   let chatVisibility: AdvisorChatVisibility | null = null;
   let firmConversations: ClientConversation[] = [];
+  let sharedAdvisorMessages: AdvisorMessage[] = [];
+  let currentUserId: string | null = null;
   if (hasSupabaseEnv) {
     const supabase = await createSupabaseServerClient();
     const {
       data: { user }
     } = await supabase.auth.getUser();
+    currentUserId = user?.id ?? null;
     showDocumentsLink = await documentContextAvailableFor(user?.email);
     if (user) {
       const [visibilityResult, conversationsResult] = await Promise.allSettled([
@@ -69,24 +72,14 @@ export default async function AdvisorPage({
       } else {
         console.error("[advisor] could not load lawyer conversations", conversationsResult.reason);
       }
-    }
-  }
 
-  let sharedAdvisorMessages: AdvisorMessage[] = [];
-  if (hasSupabaseEnv && chatVisibility?.firms.some((f) => f.acknowledgedAt)) {
-    const acks = chatVisibility.firms.map((f) => f.acknowledgedAt).filter(Boolean) as string[];
-    if (acks.length > 0) {
-      const earliestAck = acks.reduce((min, cur) => (cur < min ? cur : min), acks[0]);
-      try {
-        const supabase = await createSupabaseServerClient();
-        const {
-          data: { user }
-        } = await supabase.auth.getUser();
-        if (user) {
-          sharedAdvisorMessages = await getRecentAdvisorMessages(user.id, earliestAck);
+      const acks = (chatVisibility?.firms ?? []).map((f) => f.acknowledgedAt).filter(Boolean) as string[];
+      if (acks.length > 0) {
+        try {
+          sharedAdvisorMessages = await getRecentAdvisorMessages(user.id, acks);
+        } catch (err) {
+          console.error("[advisor] could not load shared advisor messages", err);
         }
-      } catch (err) {
-        console.error("[advisor] could not load shared advisor messages", err);
       }
     }
   }
@@ -110,6 +103,7 @@ export default async function AdvisorPage({
         initialThreadId={initialThreadId}
         initialThreads={seed.threads}
         suggestedPrompts={seed.suggestedPrompts}
+        userId={currentUserId}
         welcomeMessage={seed.welcomeMessage}
       />
     </AppShell>

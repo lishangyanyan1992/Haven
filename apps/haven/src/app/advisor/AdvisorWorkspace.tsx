@@ -67,6 +67,8 @@ type AdvisorWorkspaceProps = {
   initialSharedMessages?: AdvisorMessage[];
   /** Open this chat on arrival, from a lawyer's reply that quotes it. */
   initialThreadId?: string | null;
+  /** ID of the signed-in user, for scoping background streams and stored preferences. */
+  userId?: string | null;
 };
 
 // Server-side limits, mirrored so the user learns about them before pressing send
@@ -111,6 +113,7 @@ function relativeTime(iso: string) {
 }
 
 interface InFlightAdvisorState {
+  userId: string | null;
   isPending: boolean;
   streamingId: string | null;
   conversationId: string | null;
@@ -121,6 +124,7 @@ interface InFlightAdvisorState {
 }
 
 const backgroundStore: InFlightAdvisorState = {
+  userId: null,
   isPending: false,
   streamingId: null,
   conversationId: null,
@@ -149,8 +153,24 @@ export function AdvisorWorkspace({
   initialConversations = [],
   initialFirmId = null,
   initialSharedMessages = [],
-  initialThreadId = null
+  initialThreadId = null,
+  userId = null
 }: AdvisorWorkspaceProps) {
+  // If the user changed (e.g. sign-out or switched user), clear background store
+  if (backgroundStore.userId && backgroundStore.userId !== userId) {
+    backgroundStore.userId = userId;
+    backgroundStore.isPending = false;
+    backgroundStore.streamingId = null;
+    backgroundStore.conversationId = null;
+    backgroundStore.messages = [];
+    backgroundStore.stoppedIds = [];
+    backgroundStore.error = null;
+    backgroundStore.abortController?.abort();
+    backgroundStore.abortController = null;
+  } else if (!backgroundStore.userId && userId) {
+    backgroundStore.userId = userId;
+  }
+
   const [sharedMessages, setSharedMessages] = useState<AdvisorMessage[]>(initialSharedMessages);
   const [visibility, setVisibility] = useState<AdvisorChatVisibility | null>(chatVisibility);
   const [acknowledging, setAcknowledging] = useState(false);
@@ -169,6 +189,7 @@ export function AdvisorWorkspace({
       ? visibility.firms.map((f) => f.firmName)
       : firmConversations.map((c) => c.firmName);
   const answerLabel = aiAnswerLabel(hasFirm);
+  const [preferenceLoaded, setPreferenceLoaded] = useState(false);
   const [aiPreference, setAiPreferenceState] = useState<"unasked" | "yes" | "no">("unasked");
   const [messages, setMessages] = useState<AdvisorMessage[]>(() => {
     return backgroundStore.isPending && backgroundStore.messages.length > 0
@@ -212,17 +233,21 @@ export function AdvisorWorkspace({
 
   // Restore persisted AI preference from localStorage or active firm ack
   useEffect(() => {
+    const noticePending = Boolean(chatVisibility?.needsNotice);
+    const prefKey = userId ? `haven_ai_preference_${userId}` : "haven_ai_preference";
     try {
-      const stored = window.localStorage.getItem("haven_ai_preference");
-      if (stored === "yes" || stored === "no") {
+      const stored = window.localStorage.getItem(prefKey);
+      if (stored === "no" || (stored === "yes" && !noticePending)) {
         setAiPreferenceState(stored);
+        setPreferenceLoaded(true);
         return;
       }
     } catch {}
-    if (chatVisibility?.firms.some((f) => f.acknowledgedAt)) {
+    if (!noticePending && chatVisibility?.firms.some((f) => f.acknowledgedAt)) {
       setAiPreferenceState("yes");
     }
-  }, [chatVisibility]);
+    setPreferenceLoaded(true);
+  }, [chatVisibility, userId]);
 
   // Viewing the active lawyer conversation clears its unread marker.
   useEffect(() => {
@@ -408,15 +433,16 @@ export function AdvisorWorkspace({
   const chooseAiPreference = useCallback(
     async (choice: "yes" | "no") => {
       setAiPreferenceState(choice);
+      const prefKey = userId ? `haven_ai_preference_${userId}` : "haven_ai_preference";
       try {
-        window.localStorage.setItem("haven_ai_preference", choice);
+        window.localStorage.setItem(prefKey, choice);
       } catch {}
       setError(null);
       if (choice === "yes" && needsNotice) {
         await acknowledgeNotice();
       }
     },
-    [acknowledgeNotice, needsNotice]
+    [acknowledgeNotice, needsNotice, userId]
   );
 
   useEffect(() => {
@@ -429,7 +455,7 @@ export function AdvisorWorkspace({
   const overLimit = draftLength > MESSAGE_CHAR_LIMIT;
   const nearLimit = draftLength > MESSAGE_CHAR_LIMIT * 0.8;
   const historyTrimmed = messages.length > HISTORY_LIMIT;
-  const needsAiChoice = Boolean(hasFirm && !viewingPrivateThread && aiPreference === "unasked");
+  const needsAiChoice = Boolean(hasFirm && !viewingPrivateThread && preferenceLoaded && aiPreference === "unasked");
 
   function stopAnswer() {
     backgroundStore.abortController?.abort();
@@ -636,6 +662,7 @@ export function AdvisorWorkspace({
     const controller = new AbortController();
     abortRef.current = controller;
 
+    backgroundStore.userId = userId;
     backgroundStore.isPending = true;
     backgroundStore.streamingId = sid;
     backgroundStore.conversationId = conversationId;
@@ -952,7 +979,7 @@ export function AdvisorWorkspace({
               </div>
             </div>
           )}
-          {hasFirm && !viewingPrivateThread && aiPreference === "yes" && (
+          {hasFirm && !viewingPrivateThread && preferenceLoaded && aiPreference === "yes" && (
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-lg)] bg-[var(--haven-sage-light)] px-4 py-2.5">
               <p className="text-body-sm text-[var(--haven-ink)]">
                 The AI will answer first, but it may not be 100% accurate, and your lawyer will respond once they see your message.
@@ -966,7 +993,7 @@ export function AdvisorWorkspace({
               </button>
             </div>
           )}
-          {hasFirm && !viewingPrivateThread && aiPreference === "no" && (
+          {hasFirm && !viewingPrivateThread && preferenceLoaded && aiPreference === "no" && (
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-lg)] bg-[var(--haven-sand)] px-4 py-2.5">
               <p className="text-body-sm text-[var(--haven-ink)]">
                 AI answers are off. Your lawyer at {activeFirmConversation?.firmName ?? "your law firm"} will respond once they see your message.

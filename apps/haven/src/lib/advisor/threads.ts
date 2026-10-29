@@ -159,28 +159,52 @@ export async function getThreadMessages(userId: string, threadId: string): Promi
   }));
 }
 
-/** Read recent messages for this user, optionally since an ISO date (e.g. earliest firm visibility). */
-export async function getRecentAdvisorMessages(userId: string, sinceIso?: string | null): Promise<AdvisorMessage[]> {
+/** Read recent shared messages for this user whose thread was created at or after firm acknowledgement. */
+export async function getRecentAdvisorMessages(
+  userId: string,
+  acknowledgedCutoffs?: string[]
+): Promise<AdvisorMessage[]> {
   const admin = createSupabaseAdminClient() as any;
 
-  let query = admin
+  if (!acknowledgedCutoffs || acknowledgedCutoffs.length === 0) {
+    return [];
+  }
+
+  const earliestAck = acknowledgedCutoffs.reduce((min, cur) => (cur < min ? cur : min), acknowledgedCutoffs[0]);
+
+  // Only select threads whose creation was at or after an active firm acknowledgement
+  const { data: visibleThreads, error: threadsError } = await admin
+    .from("advisor_threads")
+    .select("id, created_at")
+    .eq("user_id", userId)
+    .gte("created_at", earliestAck)
+    .order("created_at", { ascending: false })
+    .limit(30);
+
+  if (threadsError || !visibleThreads || visibleThreads.length === 0) {
+    return [];
+  }
+
+  const threadIds = (visibleThreads as any[])
+    .filter((t) => acknowledgedCutoffs.some((ack) => t.created_at >= ack))
+    .map((t) => t.id);
+
+  if (threadIds.length === 0) return [];
+
+  const { data, error } = await admin
     .from("advisor_messages")
     .select("id, thread_id, role, content, answer_payload, retrieval_metadata, created_at")
     .eq("user_id", userId)
+    .in("thread_id", threadIds)
     .in("role", ["user", "assistant"])
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
     .limit(MAX_MESSAGES_PER_THREAD);
 
-  if (sinceIso) {
-    query = query.gte("created_at", sinceIso);
-  }
-
-  const { data, error } = await query;
   if (error) {
     throw new Error(`Unable to load recent messages: ${error.message}`);
   }
 
-  return (data ?? []).map((row: any) => ({
+  return [...(data ?? [])].reverse().map((row: any) => ({
     id: row.id as string,
     threadId: row.thread_id as string,
     role: row.role as AdvisorMessage["role"],
