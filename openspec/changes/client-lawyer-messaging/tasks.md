@@ -50,6 +50,13 @@
 - [x] 7.3 Unify the lawyer's view on `/firm/clients/[id]` (`src/app/firm/clients/[id]/ClientMessagesPanel.tsx`, `SharedChatsPanel.tsx`, `page.tsx`) so client messages, shared AI answers (with "Reply to this answer"), and lawyer replies appear in a single chronological Messages panel
 - [x] 7.4 Run `npm run typecheck` and all `apps/haven/evals/firms` and `apps/haven/evals/advisor` checks; verify all pass
 
+## 8. Background AI Execution & Unified Thread Persistence
+
+- [x] 8.1 Keep `/api/advisor/respond` running `streamAdvisorResponse` to completion on client disconnect (`src/app/api/advisor/respond/route.ts`) so `persistExchange` and `rememberFactsFrom` always save the answer when the user leaves `/advisor` mid-generation
+- [x] 8.2 Keep in-flight Ask stream state (`messages`, `streamingId`, `isPending`, `conversationId`, `aiPreference`) in a module-level background store and persist `aiPreference` across route changes and reloads in `AdvisorWorkspace.tsx`
+- [x] 8.3 Hydrate shared AI messages on `/advisor` (`src/app/advisor/page.tsx` and `src/app/advisor/AdvisorWorkspace.tsx`) so returning to `/advisor` displays persisted AI answers in the unified lawyer timeline alongside `firm_messages`
+- [x] 8.4 Extend `apps/haven/evals/advisor/firm-visibility.check.ts` to verify background stream completion and shared AI message hydration in `/advisor`, and run `npm run typecheck` and all checks
+
 ## Workflow follow-up
 
 - After merge, confirm migration 0050 is in the live migrations table (merging does not apply migrations).

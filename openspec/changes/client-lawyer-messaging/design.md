@@ -62,8 +62,12 @@ When the client arrives in `/advisor`, Haven asks if they want AI answers (`Yes`
 
 A firm can see a thread when: the client is currently linked to that firm in `firm_clients`, an ack exists for that firm, and `thread.created_at >= ack.acknowledged_at`. This is checked in one server helper used by every firm-side read; no RLS policy grants firms access to advisor tables, so a missed check fails closed.
 
-### 6. Unified lawyer and client thread view
+### 6. Unified lawyer and client thread view + background AI completion
 Both the client view in `/advisor` and the lawyer view on `/firm/clients/[id]` render a single unified chronological conversation per firm by combining `firm_messages` (client messages and lawyer replies) with the visible AI answers from `advisor_messages` (deduplicating user prompts that match client messages sent at the same time). `retrieval_metadata` and internal payload fields are never selected on the firm side.
+On the client side:
+- `/advisor/page.tsx` loads the messages from visible shared AI threads (`advisor_messages` for threads created after acknowledgement) so that returning to `/advisor` always displays past shared AI answers alongside `firm_messages` in the unified lawyer thread.
+- An in-memory background stream store holds active `/api/advisor/respond` streams, partial messages, `conversationId`, `isPending`, `streamingId`, and `aiPreference` outside the `AdvisorWorkspace` component lifecycle, and persists `aiPreference` in `localStorage` (falling back to `"yes"` when the client has already acknowledged visibility for the active firm). Navigating from `/advisor` to `/dashboard` and back keeps the stream running and re-subscribes immediately on remount.
+- On the server (`/api/advisor/respond/route.ts`), `streamAdvisorResponse` runs to completion and calls `persistExchange` + `rememberFactsFrom` even if the HTTP stream closes because the user closed or reloaded the tab; only an explicit user stop cancels the in-flight client stream.
 A lawyer reply to an answer is a normal `firm_messages` row with `source = 'advisor_reply'` and `advisor_message_id`. The quote is rendered live from the referenced message; if it is gone (set null by the delete cascade), the UI shows "The AI chat this refers to was deleted". No AI text is copied.
 
 ### 7. Label rendered by the UI

@@ -5,10 +5,12 @@ import { AppShell } from "@/components/app/app-shell";
 import { documentContextAvailableFor } from "@/lib/document-context/store";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getAdvisorUsage, getAdvisorWorkspaceSeed } from "@/lib/advisor/service";
+import { getRecentAdvisorMessages } from "@/lib/advisor/threads";
 import { getCrisisState } from "@/lib/get-crisis-state";
 import { listClientConversations, type ClientConversation } from "@/lib/firms/client-messages";
 import { getAppShellSnapshot } from "@/lib/repositories/case-compass";
 import { noIndexMetadata } from "@/lib/seo";
+import type { AdvisorMessage } from "@/types/domain";
 
 import { getChatVisibility } from "@/lib/advisor/firm-visibility";
 import { AdvisorWorkspace, type AdvisorChatVisibility } from "./AdvisorWorkspace";
@@ -38,11 +40,14 @@ export default async function AdvisorPage({
   let showDocumentsLink = false;
   let chatVisibility: AdvisorChatVisibility | null = null;
   let firmConversations: ClientConversation[] = [];
+  let sharedAdvisorMessages: AdvisorMessage[] = [];
+  let currentUserId: string | null = null;
   if (hasSupabaseEnv) {
     const supabase = await createSupabaseServerClient();
     const {
       data: { user }
     } = await supabase.auth.getUser();
+    currentUserId = user?.id ?? null;
     showDocumentsLink = await documentContextAvailableFor(user?.email);
     if (user) {
       const [visibilityResult, conversationsResult] = await Promise.allSettled([
@@ -67,6 +72,15 @@ export default async function AdvisorPage({
       } else {
         console.error("[advisor] could not load lawyer conversations", conversationsResult.reason);
       }
+
+      const acks = (chatVisibility?.firms ?? []).map((f) => f.acknowledgedAt).filter(Boolean) as string[];
+      if (acks.length > 0) {
+        try {
+          sharedAdvisorMessages = await getRecentAdvisorMessages(user.id, acks);
+        } catch (err) {
+          console.error("[advisor] could not load shared advisor messages", err);
+        }
+      }
     }
   }
 
@@ -85,9 +99,11 @@ export default async function AdvisorPage({
         chatVisibility={chatVisibility}
         initialConversations={firmConversations}
         initialFirmId={initialFirmId}
+        initialSharedMessages={sharedAdvisorMessages}
         initialThreadId={initialThreadId}
         initialThreads={seed.threads}
         suggestedPrompts={seed.suggestedPrompts}
+        userId={currentUserId}
         welcomeMessage={seed.welcomeMessage}
       />
     </AppShell>

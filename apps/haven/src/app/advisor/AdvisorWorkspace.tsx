@@ -63,8 +63,12 @@ type AdvisorWorkspaceProps = {
   initialConversations?: ClientConversation[];
   /** Selected firm id from ?firm=... query param. */
   initialFirmId?: string | null;
+  /** Shared AI messages across the client's visible threads, for hydrating the unified timeline. */
+  initialSharedMessages?: AdvisorMessage[];
   /** Open this chat on arrival, from a lawyer's reply that quotes it. */
   initialThreadId?: string | null;
+  /** ID of the signed-in user, for scoping background streams and stored preferences. */
+  userId?: string | null;
 };
 
 // Server-side limits, mirrored so the user learns about them before pressing send
@@ -108,6 +112,38 @@ function relativeTime(iso: string) {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(iso));
 }
 
+interface InFlightAdvisorState {
+  userId: string | null;
+  isPending: boolean;
+  streamingId: string | null;
+  conversationId: string | null;
+  messages: AdvisorMessage[];
+  stoppedIds: string[];
+  error: string | null;
+  abortController: AbortController | null;
+}
+
+const backgroundStore: InFlightAdvisorState = {
+  userId: null,
+  isPending: false,
+  streamingId: null,
+  conversationId: null,
+  messages: [],
+  stoppedIds: [],
+  error: null,
+  abortController: null,
+};
+
+const storeListeners = new Set<(state: InFlightAdvisorState) => void>();
+
+function notifyStoreListeners() {
+  for (const listener of storeListeners) {
+    try {
+      listener(backgroundStore);
+    } catch {}
+  }
+}
+
 export function AdvisorWorkspace({
   advisorUsage,
   initialThreads,
@@ -116,8 +152,26 @@ export function AdvisorWorkspace({
   chatVisibility = null,
   initialConversations = [],
   initialFirmId = null,
-  initialThreadId = null
+  initialSharedMessages = [],
+  initialThreadId = null,
+  userId = null
 }: AdvisorWorkspaceProps) {
+  // If the user changed (e.g. sign-out or switched user), clear background store
+  if (backgroundStore.userId && backgroundStore.userId !== userId) {
+    backgroundStore.userId = userId;
+    backgroundStore.isPending = false;
+    backgroundStore.streamingId = null;
+    backgroundStore.conversationId = null;
+    backgroundStore.messages = [];
+    backgroundStore.stoppedIds = [];
+    backgroundStore.error = null;
+    backgroundStore.abortController?.abort();
+    backgroundStore.abortController = null;
+  } else if (!backgroundStore.userId && userId) {
+    backgroundStore.userId = userId;
+  }
+
+  const [sharedMessages, setSharedMessages] = useState<AdvisorMessage[]>(initialSharedMessages);
   const [visibility, setVisibility] = useState<AdvisorChatVisibility | null>(chatVisibility);
   const [acknowledging, setAcknowledging] = useState(false);
   const [firmConversations, setFirmConversations] = useState<ClientConversation[]>(initialConversations);
@@ -135,21 +189,66 @@ export function AdvisorWorkspace({
       ? visibility.firms.map((f) => f.firmName)
       : firmConversations.map((c) => c.firmName);
   const answerLabel = aiAnswerLabel(hasFirm);
-  const [aiPreference, setAiPreference] = useState<"unasked" | "yes" | "no">("unasked");
-  const [messages, setMessages] = useState<AdvisorMessage[]>([]);
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [preferenceLoaded, setPreferenceLoaded] = useState(false);
+  const [aiPreference, setAiPreferenceState] = useState<"unasked" | "yes" | "no">("unasked");
+  const [messages, setMessages] = useState<AdvisorMessage[]>(() => {
+    return backgroundStore.isPending && backgroundStore.messages.length > 0
+      ? backgroundStore.messages
+      : [];
+  });
+  const [conversationId, setConversationId] = useState<string | null>(() => {
+    return backgroundStore.isPending ? backgroundStore.conversationId : null;
+  });
   const [draft, setDraft] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, setIsPending] = useState(false);
-  const [streamingId, setStreamingId] = useState<string | null>(null);
-  const [stoppedIds, setStoppedIds] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(() => backgroundStore.error);
+  const [isPending, setIsPending] = useState(() => backgroundStore.isPending);
+  const [streamingId, setStreamingId] = useState<string | null>(() => backgroundStore.streamingId);
+  const [stoppedIds, setStoppedIds] = useState<string[]>(() => backgroundStore.stoppedIds);
   const [threads, setThreads] = useState<AdvisorThreadSummary[]>(initialThreads);
   const [facts, setFacts] = useState<RememberedFact[]>([]);
   const [openingThreadId, setOpeningThreadId] = useState<string | null>(null);
+  const [isDeletingThread, setIsDeletingThread] = useState(false);
   // Start time of a chat opened from a link but missing from the list (it only shows the latest 30).
   const [openedThreadCreatedAt, setOpenedThreadCreatedAt] = useState<{ id: string; createdAt: string | null } | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
+  const abortRef = useRef<AbortController | null>(backgroundStore.abortController);
+
+  // Subscribe to in-flight background stream updates across route changes
+  useEffect(() => {
+    const listener = (state: InFlightAdvisorState) => {
+      setIsPending(state.isPending);
+      setStreamingId(state.streamingId);
+      if (state.conversationId) setConversationId(state.conversationId);
+      if (state.messages.length > 0) setMessages(state.messages);
+      setStoppedIds(state.stoppedIds);
+      if (state.error) setError(state.error);
+    };
+    storeListeners.add(listener);
+    if (backgroundStore.isPending || backgroundStore.messages.length > 0) {
+      listener(backgroundStore);
+    }
+    return () => {
+      storeListeners.delete(listener);
+    };
+  }, []);
+
+  // Restore persisted AI preference from localStorage or active firm ack
+  useEffect(() => {
+    const noticePending = Boolean(chatVisibility?.needsNotice);
+    const prefKey = userId ? `haven_ai_preference_${userId}` : "haven_ai_preference";
+    try {
+      const stored = window.localStorage.getItem(prefKey);
+      if (stored === "no" || (stored === "yes" && !noticePending)) {
+        setAiPreferenceState(stored);
+        setPreferenceLoaded(true);
+        return;
+      }
+    } catch {}
+    if (!noticePending && chatVisibility?.firms.some((f) => f.acknowledgedAt)) {
+      setAiPreferenceState("yes");
+    }
+    setPreferenceLoaded(true);
+  }, [chatVisibility, userId]);
 
   // Viewing the active lawyer conversation clears its unread marker.
   useEffect(() => {
@@ -227,6 +326,7 @@ export function AdvisorWorkspace({
   );
 
   const openThread = useCallback(async (threadId: string) => {
+    if (isDeletingThread) return;
     setOpeningThreadId(threadId);
     setError(null);
     try {
@@ -249,9 +349,15 @@ export function AdvisorWorkspace({
     } finally {
       setOpeningThreadId(null);
     }
-  }, []);
+  }, [isDeletingThread]);
 
   const startNewConversation = useCallback(() => {
+    backgroundStore.isPending = false;
+    backgroundStore.streamingId = null;
+    backgroundStore.conversationId = null;
+    backgroundStore.messages = [];
+    backgroundStore.error = null;
+    notifyStoreListeners();
     setMessages([]);
     setConversationId(null);
     setError(null);
@@ -268,6 +374,13 @@ export function AdvisorWorkspace({
       );
       if (!confirmed) return;
 
+      setIsDeletingThread(true);
+      if (conversationId === thread.id || backgroundStore.conversationId === thread.id) {
+        if (backgroundStore.isPending) {
+          abortRef.current?.abort();
+        }
+      }
+
       // Optimistic: the row disappears immediately and comes back if the delete
       // fails, rather than the user clicking again because nothing happened.
       const previous = threads;
@@ -276,6 +389,14 @@ export function AdvisorWorkspace({
       try {
         const response = await fetch(`/api/advisor/threads/${thread.id}`, { method: "DELETE" });
         if (!response.ok) throw new Error("delete failed");
+        setSharedMessages((current) => current.filter((m) => m.threadId !== thread.id));
+        if (backgroundStore.conversationId === thread.id) {
+          backgroundStore.conversationId = null;
+          backgroundStore.messages = [];
+          backgroundStore.isPending = false;
+          backgroundStore.streamingId = null;
+          notifyStoreListeners();
+        }
         if (conversationId === thread.id) {
           setMessages([]);
           setConversationId(null);
@@ -284,6 +405,8 @@ export function AdvisorWorkspace({
       } catch {
         setThreads(previous);
         setError("Haven couldn't delete that conversation. Try again in a moment.");
+      } finally {
+        setIsDeletingThread(false);
       }
     },
     [conversationId, threads]
@@ -328,13 +451,17 @@ export function AdvisorWorkspace({
 
   const chooseAiPreference = useCallback(
     async (choice: "yes" | "no") => {
-      setAiPreference(choice);
+      setAiPreferenceState(choice);
+      const prefKey = userId ? `haven_ai_preference_${userId}` : "haven_ai_preference";
+      try {
+        window.localStorage.setItem(prefKey, choice);
+      } catch {}
       setError(null);
       if (choice === "yes" && needsNotice) {
         await acknowledgeNotice();
       }
     },
-    [acknowledgeNotice, needsNotice]
+    [acknowledgeNotice, needsNotice, userId]
   );
 
   useEffect(() => {
@@ -347,9 +474,11 @@ export function AdvisorWorkspace({
   const overLimit = draftLength > MESSAGE_CHAR_LIMIT;
   const nearLimit = draftLength > MESSAGE_CHAR_LIMIT * 0.8;
   const historyTrimmed = messages.length > HISTORY_LIMIT;
-  const needsAiChoice = Boolean(hasFirm && !viewingPrivateThread && aiPreference === "unasked");
+  const needsAiChoice = Boolean(hasFirm && !viewingPrivateThread && preferenceLoaded && aiPreference === "unasked");
 
   function stopAnswer() {
+    backgroundStore.abortController?.abort();
+    backgroundStore.abortController = null;
     abortRef.current?.abort();
     abortRef.current = null;
   }
@@ -361,9 +490,9 @@ export function AdvisorWorkspace({
       return messages.map((m) => ({ kind: "advisor" as const, createdAt: m.createdAt, message: m }));
     }
     const lawyerMessages = activeFirmConversation?.messages ?? [];
-    const userAdvisorTimes = messages
-      .filter((m) => m.role === "user")
-      .map((m) => ({ body: m.content.trim(), time: new Date(m.createdAt).getTime() }));
+    const clientFirmTimes = lawyerMessages
+      .filter((m) => m.senderRole === "client")
+      .map((m) => ({ body: m.body.trim(), time: new Date(m.createdAt).getTime() }));
 
     const items: (
       | { kind: "advisor"; createdAt: string; message: AdvisorMessage }
@@ -371,20 +500,64 @@ export function AdvisorWorkspace({
     )[] = [];
 
     for (const fm of lawyerMessages) {
-      if (fm.senderRole === "client") {
-        const fmTime = new Date(fm.createdAt).getTime();
-        const isDuplicateOfAdvisorUserTurn = userAdvisorTimes.some(
-          (u) => u.body === fm.body.trim() && Math.abs(u.time - fmTime) < 60_000
-        );
-        if (isDuplicateOfAdvisorUserTurn) continue;
-      }
       items.push({ kind: "firm", createdAt: fm.createdAt, message: fm });
     }
-    for (const am of messages) {
+
+    const selectedFirmAck = visibility?.firms.find(
+      (f) => f.firmId === activeFirmConversation?.firmId
+    )?.acknowledgedAt;
+
+    const visibleSharedMessages = sharedMessages.filter((am) => {
+      if (!selectedFirmAck) return false;
+      const threadCreatedAt =
+        threads.find((t) => t.id === am.threadId)?.createdAt ??
+        (openedThreadCreatedAt?.id === am.threadId ? openedThreadCreatedAt.createdAt : undefined) ??
+        (am.threadId === "session" ? am.createdAt : undefined);
+      if (!threadCreatedAt) return false;
+      return isThreadVisibleToFirm(threadCreatedAt, selectedFirmAck);
+    });
+
+    const combinedAdvisorMessages = [...visibleSharedMessages];
+    for (const m of messages) {
+      const isDuplicate = visibleSharedMessages.some((existing) => {
+        if (existing.id === m.id) return true;
+        if (existing.traceId && m.traceId && existing.traceId === m.traceId) return true;
+        if (
+          existing.role === m.role &&
+          existing.content.trim() === m.content.trim() &&
+          Math.abs(new Date(existing.createdAt).getTime() - new Date(m.createdAt).getTime()) < 60_000
+        ) {
+          return true;
+        }
+        return false;
+      });
+      if (!isDuplicate) {
+        combinedAdvisorMessages.push(m);
+      }
+    }
+
+    for (const am of combinedAdvisorMessages) {
+      if (am.role === "user") {
+        const amTime = new Date(am.createdAt).getTime();
+        const isDuplicateOfFirmMessage = clientFirmTimes.some(
+          (u) => u.body === am.content.trim() && Math.abs(u.time - amTime) < 60_000
+        );
+        if (isDuplicateOfFirmMessage) continue;
+      }
       items.push({ kind: "advisor", createdAt: am.createdAt, message: am });
     }
+
     return items.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-  }, [activeFirmConversation?.messages, hasFirm, messages, viewingPrivateThread]);
+  }, [
+    activeFirmConversation?.firmId,
+    activeFirmConversation?.messages,
+    hasFirm,
+    messages,
+    sharedMessages,
+    threads,
+    viewingPrivateThread,
+    visibility?.firms,
+  ]);
 
   useEffect(() => {
     const element = scrollerRef.current;
@@ -394,8 +567,7 @@ export function AdvisorWorkspace({
 
   async function sendMessage(rawMessage?: string) {
     const content = (rawMessage ?? draft).trim();
-    if (!content || isPending) return;
-    if (!content || isPending || needsAiChoice || openingThreadId !== null) return;
+    if (!content || isPending || isDeletingThread || needsAiChoice || openingThreadId !== null) return;
 
     if (content.length > MESSAGE_CHAR_LIMIT) {
       setError(
@@ -532,30 +704,40 @@ export function AdvisorWorkspace({
 
     const optimisticUserMessage: AdvisorMessage = {
       id: `tmp-user-${Date.now()}`,
-      threadId: "session",
+      threadId: conversationId ?? "session",
       role: "user",
       content,
       createdAt: nowIso,
     };
 
     const sid = `streaming-${Date.now()}`;
-    setStreamingId(sid);
     const nextMessages = [...messages, optimisticUserMessage];
-    // Show user message immediately, then append the streaming bubble in the next tick
-    // so React commits the user message before the empty assistant card.
-    setMessages(nextMessages);
-    setTimeout(() => {
-      setMessages([...nextMessages, {
-        id: sid,
-        threadId: "session",
-        role: "assistant",
-        content: "",
-        createdAt: new Date().toISOString(),
-      }]);
-    }, 0);
-
     const controller = new AbortController();
     abortRef.current = controller;
+
+    backgroundStore.userId = userId;
+    backgroundStore.isPending = true;
+    backgroundStore.streamingId = sid;
+    backgroundStore.conversationId = conversationId;
+    backgroundStore.messages = nextMessages;
+    backgroundStore.error = null;
+    backgroundStore.abortController = controller;
+    notifyStoreListeners();
+
+    setStreamingId(sid);
+    setMessages(nextMessages);
+    setTimeout(() => {
+      const messagesWithEmptyAssistant = [...nextMessages, {
+        id: sid,
+        threadId: "session",
+        role: "assistant" as const,
+        content: "",
+        createdAt: new Date().toISOString(),
+      }];
+      backgroundStore.messages = messagesWithEmptyAssistant;
+      notifyStoreListeners();
+      setMessages(messagesWithEmptyAssistant);
+    }, 0);
 
     try {
       const response = await fetch("/api/advisor/respond", {
@@ -591,6 +773,10 @@ export function AdvisorWorkspace({
           // Joined a firm since this page loaded: show the notice for exactly
           // the firms the server listed, so "Got it" covers only those.
           setVisibility({ firms: errorBody.firms ?? [], needsNotice: true });
+          backgroundStore.isPending = false;
+          backgroundStore.streamingId = null;
+          backgroundStore.messages = messages;
+          notifyStoreListeners();
           setDraft(content);
           setMessages(messages);
           setStreamingId(null);
@@ -605,6 +791,7 @@ export function AdvisorWorkspace({
       const decoder = new TextDecoder();
       let sseBuffer = "";
       let streamText = "";
+      let streamFinished = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -626,6 +813,8 @@ export function AdvisorWorkspace({
             // this answer or it errors, the next question continues this conversation
             // instead of opening a second one against their daily limit.
             setConversationId(event.conversationId);
+            backgroundStore.conversationId = event.conversationId;
+            notifyStoreListeners();
             // A chat reserved just now: keep the server's start time, so the sharing line
             // stays right even if this first answer is stopped and never reaches the list.
             // Unknown time means the line claims no firm sees it.
@@ -636,16 +825,47 @@ export function AdvisorWorkspace({
             // `replace` carries the whole reviewed answer, sent when a safety
             // correction or cleanup changed text already on screen.
             streamText = event.type === "replace" ? event.text : streamText + event.text;
-            setMessages([...nextMessages, {
+            const updatedMessages = [...nextMessages, {
               id: sid,
               threadId: "session",
-              role: "assistant",
+              role: "assistant" as const,
               content: streamText,
               createdAt: new Date().toISOString(),
-            }]);
+            }];
+            backgroundStore.messages = updatedMessages;
+            notifyStoreListeners();
+            setMessages(updatedMessages);
           } else if (event.type === "done") {
+            streamFinished = true;
+            const finalMessages = [...nextMessages, event.assistantMessage];
+            backgroundStore.isPending = false;
+            backgroundStore.streamingId = null;
+            backgroundStore.conversationId = event.conversationId ?? null;
+            backgroundStore.messages = finalMessages;
+            notifyStoreListeners();
+
             setConversationId(event.conversationId ?? null);
-            setMessages([...nextMessages, event.assistantMessage]);
+            setMessages(finalMessages);
+            const userMsgForShared: AdvisorMessage = {
+              ...optimisticUserMessage,
+              threadId: event.conversationId ?? conversationId ?? "session",
+            };
+            if (!viewingPrivateThread) {
+              setSharedMessages((current) => {
+                const withoutDupes = current.filter((existing) => {
+                  if (existing.id === userMsgForShared.id || existing.id === event.assistantMessage.id) return false;
+                  if (
+                    event.assistantMessage.traceId &&
+                    existing.traceId &&
+                    existing.traceId === event.assistantMessage.traceId
+                  ) {
+                    return false;
+                  }
+                  return true;
+                });
+                return [...withoutDupes, userMsgForShared, event.assistantMessage];
+              });
+            }
             setStreamingId(null);
             setIsPending(false);
             trackEvent("Search", { search_query: content, user_id: null, results_count: 1 });
@@ -661,26 +881,52 @@ export function AdvisorWorkspace({
           }
         }
       }
+
+      if (!streamFinished) {
+        if (streamText) {
+          const nextStopped = [...stoppedIds, sid];
+          backgroundStore.stoppedIds = nextStopped;
+          setStoppedIds(nextStopped);
+          const retryMsg = "The connection closed before the answer finished. Try asking again to get the full response.";
+          setError(retryMsg);
+          backgroundStore.error = retryMsg;
+        }
+        setStreamingId(null);
+        backgroundStore.streamingId = null;
+        notifyStoreListeners();
+      }
     } catch (caughtError) {
       // A user-initiated stop is not an error: keep whatever streamed, mark it
       // incomplete, and leave the disclaimer in place (CD-1.15).
       if (caughtError instanceof DOMException && caughtError.name === "AbortError") {
-        setStoppedIds((previous) => [...previous, sid]);
+        const nextStopped = [...stoppedIds, sid];
+        backgroundStore.stoppedIds = nextStopped;
+        backgroundStore.isPending = false;
+        backgroundStore.streamingId = null;
+        notifyStoreListeners();
+        setStoppedIds(nextStopped);
         setStreamingId(null);
       } else {
         const raw = caughtError instanceof Error ? caughtError.message : "";
-        setError(
-          lawyerMessageDelivered
-            ? "Haven couldn't reach the advisor for an instant AI answer just now. Your message was still sent to your lawyer, and they will respond once they see it."
-            : raw && !/^Unable to send message\.?$/i.test(raw)
-              ? raw
-              : "Haven couldn't reach the advisor just now. Your question wasn't sent — try again in a moment, and if it keeps happening, reload the page."
-        );
+        const errorMsg = lawyerMessageDelivered
+          ? "Haven couldn't reach the advisor for an instant AI answer just now. Your message was still sent to your lawyer, and they will respond once they see it."
+          : raw && !/^Unable to send message\.?$/i.test(raw)
+            ? raw
+            : "Haven couldn't reach the advisor just now. Your question wasn't sent — try again in a moment, and if it keeps happening, reload the page.";
+        backgroundStore.error = errorMsg;
+        backgroundStore.messages = nextMessages;
+        backgroundStore.isPending = false;
+        backgroundStore.streamingId = null;
+        notifyStoreListeners();
+        setError(errorMsg);
         setMessages(nextMessages);
         setStreamingId(null);
       }
     } finally {
       abortRef.current = null;
+      backgroundStore.abortController = null;
+      backgroundStore.isPending = false;
+      notifyStoreListeners();
       setIsPending(false);
     }
   }
@@ -702,7 +948,7 @@ export function AdvisorWorkspace({
                           ? "bg-[var(--haven-sage-light)]"
                           : "hover:bg-[var(--haven-sand)] disabled:opacity-50"
                       }`}
-                      disabled={isPending || openingThreadId !== null}
+                      disabled={isPending || openingThreadId !== null || isDeletingThread}
                       onClick={() => void openThread(thread.id)}
                       type="button"
                     >
@@ -715,7 +961,7 @@ export function AdvisorWorkspace({
                     <button
                       aria-label={`Delete conversation: ${thread.title}`}
                       className="shrink-0 rounded-full p-2 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--haven-blush-light)] hover:text-[var(--haven-blush-ink)] disabled:opacity-50"
-                      disabled={isPending || openingThreadId !== null}
+                      disabled={isPending || openingThreadId !== null || isDeletingThread}
                       onClick={() => void removeThread(thread)}
                       type="button"
                     >
@@ -821,7 +1067,7 @@ export function AdvisorWorkspace({
               </div>
             </div>
           )}
-          {hasFirm && !viewingPrivateThread && aiPreference === "yes" && (
+          {hasFirm && !viewingPrivateThread && preferenceLoaded && aiPreference === "yes" && (
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-lg)] bg-[var(--haven-sage-light)] px-4 py-2.5">
               <p className="text-body-sm text-[var(--haven-ink)]">
                 The AI will answer first, but it may not be 100% accurate, and your lawyer will respond once they see your message.
@@ -835,7 +1081,7 @@ export function AdvisorWorkspace({
               </button>
             </div>
           )}
-          {hasFirm && !viewingPrivateThread && aiPreference === "no" && (
+          {hasFirm && !viewingPrivateThread && preferenceLoaded && aiPreference === "no" && (
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-lg)] bg-[var(--haven-sand)] px-4 py-2.5">
               <p className="text-body-sm text-[var(--haven-ink)]">
                 AI answers are off. Your lawyer at {activeFirmConversation?.firmName ?? "your law firm"} will respond once they see your message.
@@ -877,7 +1123,9 @@ export function AdvisorWorkspace({
                     <LawyerMessageCard
                       key={`firm-${item.message.id}`}
                       message={item.message}
-                      onOpenChat={(chatId) => void openThread(chatId)}
+                      onOpenChat={(chatId) => {
+                        if (!isDeletingThread) void openThread(chatId);
+                      }}
                     />
                   ) : (
                     <UserMessageCard
@@ -923,7 +1171,7 @@ export function AdvisorWorkspace({
                   <button
                     key={prompt}
                     className="rounded-full border border-[var(--color-border)] bg-[var(--haven-white)] px-3 py-1.5 text-left text-caption transition-colors hover:border-[var(--haven-sage-mid)] hover:bg-[var(--haven-sage-light)] disabled:opacity-50"
-                    disabled={isPending || needsAiChoice || openingThreadId !== null}
+                    disabled={isPending || needsAiChoice || openingThreadId !== null || isDeletingThread}
                     onClick={() => void sendMessage(prompt)}
                     type="button"
                   >
@@ -949,7 +1197,7 @@ export function AdvisorWorkspace({
                   : "Ask Haven a question"
               }
               className="min-h-[120px] bg-[var(--haven-white)]"
-              disabled={needsAiChoice || openingThreadId !== null}
+              disabled={needsAiChoice || openingThreadId !== null || isDeletingThread}
               onChange={(event) => setDraft(event.target.value)}
               placeholder={
                 hasFirm && !viewingPrivateThread
@@ -994,7 +1242,7 @@ export function AdvisorWorkspace({
                 </Button>
               ) : (
                 <Button
-                  disabled={needsAiChoice || openingThreadId !== null || overLimit || draftLength === 0}
+                  disabled={needsAiChoice || openingThreadId !== null || overLimit || draftLength === 0 || isDeletingThread}
                   onClick={() => void sendMessage()}
                   size="sm"
                 >
