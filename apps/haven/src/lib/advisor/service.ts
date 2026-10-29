@@ -47,7 +47,7 @@ import {
   type ThreadState,
   type TurnResolution
 } from "@/lib/advisor/thread-state";
-import { getThreadMessages, listThreads, persistExchange, type AdvisorThreadSummary } from "@/lib/advisor/threads";
+import { getThreadCreatedAt, getThreadMessages, listThreads, persistExchange, type AdvisorThreadSummary } from "@/lib/advisor/threads";
 import { collectAttempts, renderAttemptsForPrompt } from "@/lib/advisor/attempted-steps";
 import { buildAttorneyHandoff, HANDOFF_DELIVERED, pointCounselToFirm, renderFirmForPrompt } from "@/lib/advisor/attorney-handoff";
 import { getAdvisorFirmLink, type AdvisorFirmLink } from "@/lib/firms/advisor-link";
@@ -3931,7 +3931,9 @@ export function isAdvisorRateLimitError(error: unknown) {
 }
 
 export type AdvisorStreamEvent =
-  | { type: "start"; conversationId: string | null }
+  // createdAt: when a newly reserved chat started, by the database clock. The
+  // chat screen uses it to say which firms can see the chat.
+  | { type: "start"; conversationId: string | null; createdAt?: string | null }
   | { type: "delta"; text: string }
   // The whole answer so far, replacing what was streamed. Sent only when a
   // reviewed or cleaned-up answer differs from text already shown.
@@ -4529,7 +4531,15 @@ export async function* streamAdvisorResponse(
   // `done` means a stopped, errored, or abandoned answer still leaves the client
   // holding the conversation it already paid for — otherwise the next question
   // opened a second thread and silently burned another of the five.
-  yield { type: "start", conversationId: threadId };
+  let threadCreatedAt: string | null = null;
+  if (threadId && !conversationId && !identity.isMock) {
+    try {
+      threadCreatedAt = await getThreadCreatedAt(identity.id, threadId);
+    } catch {
+      threadCreatedAt = null; // The screen then claims no firm sees it, never more.
+    }
+  }
+  yield { type: "start", conversationId: threadId, createdAt: threadCreatedAt };
 
   // Display-only id on in-memory message objects; the wire value stays null so
   // the client never stores a non-UUID conversation id.

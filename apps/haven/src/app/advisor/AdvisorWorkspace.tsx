@@ -422,10 +422,11 @@ export function AdvisorWorkspace({
             // this answer or it errors, the next question continues this conversation
             // instead of opening a second one against their daily limit.
             setConversationId(event.conversationId);
-            // A chat reserved just now: note when, so the sharing line stays right even
-            // if this first answer is stopped and the chat never reaches the list.
+            // A chat reserved just now: keep the server's start time, so the sharing line
+            // stays right even if this first answer is stopped and never reaches the list.
+            // Unknown time means the line claims no firm sees it.
             if (event.conversationId && !conversationId) {
-              setOpenedThreadCreatedAt({ id: event.conversationId, createdAt: new Date().toISOString() });
+              setOpenedThreadCreatedAt({ id: event.conversationId, createdAt: event.createdAt ?? null });
             }
           } else if (event.type === "delta" || event.type === "replace") {
             // `replace` carries the whole reviewed answer, sent when a safety
