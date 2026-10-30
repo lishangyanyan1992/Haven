@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import { DOCUMENT_READER_MODEL, openaiClient } from "@/lib/document-context/read";
 import { factSetFor, type FactFormat, type FactSet } from "@/lib/document-facts/catalog";
+import { standardVisaValue } from "@/lib/visas";
 
 export type ExtractedFact = {
   key: string;
@@ -72,12 +73,9 @@ export function normalizeCategory(raw: string): "EB-1" | "EB-2" | "EB-3" | null 
 }
 
 /** Only classes the profile's visa type can hold. Others are shown, not filled. */
-export function normalizeVisaClass(raw: string): "H1B" | "H4" | "O-1" | null {
-  const s = raw.toUpperCase().replace(/[\s-]/g, "");
-  if (s === "H1B" || s === "H1B1") return "H1B";
-  if (s === "H4") return "H4";
-  if (s === "O1" || s === "O1A") return "O-1";
-  return null;
+/** A class of admission as printed (F1, B2, L1A, H1B) as the standard visa value, or null. */
+export function normalizeVisaClass(raw: string): string | null {
+  return standardVisaValue(raw);
 }
 
 function normalizeName(raw: string): string | null {

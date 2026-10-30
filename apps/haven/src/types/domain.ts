@@ -149,6 +149,7 @@ export type ImmigrantPetitionType =
   | (string & {});
 
 export type ImmigrantPetitionStage =
+  | "not_started"
   | "pwd_recruitment"
   | "perm_in_progress"
   | "perm_certified"
@@ -178,6 +179,9 @@ export interface ImmigrantPetition {
   i140ReceiptNumber?: string;
   i140FiledDate?: string;
   i140ApprovalDate?: string;
+  /** The first petition for non-I-140 paths: I-130 (family), I-526 (EB-5), I-360 and others. */
+  petitionFiledDate?: string;
+  petitionApprovalDate?: string;
   isRevocationProtected?: boolean;
   isWithdrawn?: boolean;
   withdrawnDate?: string;
@@ -213,6 +217,8 @@ export interface ImmigrationProfile {
   i140ApprovalDate?: string;
   priorityDate?: string;
   greenCardPathway?: string;
+  /** The step chosen in Settings, kept as chosen so family and other steps aren't lost. */
+  greenCardStage?: string;
   greenCardSponsor?: string;
   retainedPriorityDate?: string;
   retainedPriorityDateSponsor?: string;

@@ -1,5 +1,8 @@
 import { computeDerivedSignals } from "@/lib/haven";
 import { mapProfileRow } from "@/lib/profile-mapper";
+import { findActivePetition } from "@/lib/immigration-journey";
+import { usesI140, usesPerm } from "@/lib/petitions";
+import { PERM_I140_STAGE_IDS } from "@/lib/visas";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { concernsForHelpNeeded, normalizeHelpNeeded } from "@/lib/firms/help-needed";
 import type { Concern, EmploymentStatus, ImmigrationProfile, PrimaryGoal, PreferenceCategory, SpouseVisaStatus, VisaType } from "@/types/domain";
@@ -73,7 +76,19 @@ function helpNeededPatch(rawDraft: ProfileDraft, existingConcerns: Concern[]) {
   return { top_concerns: asConcerns(rawDraft.topConcerns) ?? fallback };
 }
 
-function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unknown> | null) {
+export function normalizeDraft(rawDraftIn: ProfileDraft, existingRow?: Record<string, unknown> | null) {
+  // Family, investor, humanitarian and lottery green cards have no PERM or I-140.
+  const existingProfile = existingRow ? mapProfileRow(existingRow) : null;
+  const pathway =
+    (existingProfile ? findActivePetition(existingProfile)?.petitionType : undefined) ??
+    asOptionalString(rawDraftIn.greenCardPathway) ??
+    existingProfile?.greenCardPathway;
+  // No pathway yet means the usual employer case.
+  const pathwayUsesI140 = !pathway || usesI140(pathway);
+  const pathwayUsesPerm = !pathway || usesPerm(pathway);
+  const sentStageIn = typeof rawDraftIn.greenCardStage === "string" ? rawDraftIn.greenCardStage.trim() : "";
+  const rawDraft: ProfileDraft =
+    !pathwayUsesI140 && PERM_I140_STAGE_IDS.has(sentStageIn) ? { ...rawDraftIn, greenCardStage: undefined } : rawDraftIn;
   const existingConcerns = ((existingRow?.top_concerns as string[] | null) ?? []).filter((item): item is Concern =>
     concerns.includes(item as Concern)
   );
@@ -81,7 +96,8 @@ function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unk
     rawDraft.retainedPriorityDateSponsor !== undefined ||
     rawDraft.greenCardSponsor !== undefined ||
     rawDraft.greenCardPathway !== undefined ||
-    rawDraft.customVisaDetail !== undefined;
+    rawDraft.customVisaDetail !== undefined ||
+    (typeof rawDraft.greenCardStage === "string" && rawDraft.greenCardStage.trim().length > 0);
   let nextDeadlineAnswers: Record<string, unknown> | undefined = undefined;
   if (shouldUpdateDeadlineAnswers) {
     const existingDeadlineAnswers =
@@ -101,14 +117,21 @@ function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unk
         : {}),
       ...(rawDraft.customVisaDetail !== undefined
         ? { customVisaDetail: asOptionalString(rawDraft.customVisaDetail) }
+        : {}),
+      // The flags below only describe PERM, I-140 and I-485; the step itself is kept so
+      // I-130, consular processing and other paths survive a save.
+      ...(typeof rawDraft.greenCardStage === "string" && rawDraft.greenCardStage.trim()
+        ? { greenCardStage: rawDraft.greenCardStage.trim().slice(0, 40) }
         : {})
     };
   }
   const i140Approved =
-    rawDraft.i140Approved !== undefined
+    pathwayUsesI140 &&
+    (rawDraft.i140Approved !== undefined
       ? rawDraft.i140Approved === true || rawDraft.i140Approved === "true"
-      : Boolean(existingRow?.i140_approved);
+      : Boolean(existingRow?.i140_approved));
 
+  const stageSent = typeof rawDraft.greenCardStage === "string" && rawDraft.greenCardStage.trim().length > 0;
   const greenCardStage =
     typeof rawDraft.greenCardStage === "string"
       ? rawDraft.greenCardStage
@@ -123,10 +146,19 @@ function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unk
               : existingRow?.perm_stage === "in_progress"
                 ? "perm_in_progress"
                 : "not_started";
-  const permStage =
-    greenCardStage === "perm_in_progress"
+  // Self-petitions and non-employer green cards never have a PERM.
+  // Consular and approved steps exist on family paths too, so with no pathway
+  // they keep whatever PERM status was already saved.
+  const keepsPerm = !pathway && (greenCardStage === "consular_processing" || greenCardStage === "i485_approved");
+  const permStage = !pathwayUsesPerm
+    ? "not_started"
+    : keepsPerm
+      ? asEnumValue(existingRow?.perm_stage, ["not_started", "in_progress", "certified", "denied"] as const, "not_started")
+      : greenCardStage === "perm_in_progress"
       ? "in_progress"
       : greenCardStage === "perm_certified" ||
+          greenCardStage === "consular_processing" ||
+          greenCardStage === "i485_approved" ||
           greenCardStage === "i140_filed" ||
           greenCardStage === "i140_approved" ||
           greenCardStage === "i485_filed"
@@ -172,7 +204,9 @@ function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unk
       employmentStatuses,
       (existingRow?.employment_status as EmploymentStatus | undefined) ?? "employed"
     ),
-    perm_stage: permStage,
+    // The stage flags are only rewritten when the form sent a stage or an I-140 answer.
+    // With green cards entered, the forms send neither and the green cards keep these in line.
+    ...(stageSent ? { perm_stage: permStage } : {}),
     priority_date:
       rawDraft.priorityDate !== undefined
         ? asOptionalString(rawDraft.priorityDate)
@@ -183,13 +217,17 @@ function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unk
         : typeof existingRow?.preference_category === "string" && existingRow.preference_category.trim().length > 0
           ? existingRow.preference_category.trim()
           : "Not sure",
-    i140_approved: i140Approved,
-    i140_filed: greenCardStage === "i140_filed",
-    i140_approval_date:
-      i140Approved
-        ? ((existingRow?.i140_approval_date as string | null) ?? new Date().toISOString().slice(0, 10))
-        : null,
-    i485_filed: greenCardStage === "i485_filed",
+    ...(stageSent || rawDraft.i140Approved !== undefined
+      ? {
+          i140_approved: i140Approved,
+          i140_approval_date: i140Approved
+            ? ((existingRow?.i140_approval_date as string | null) ?? new Date().toISOString().slice(0, 10))
+            : null
+        }
+      : {}),
+    ...(stageSent
+      ? { i140_filed: pathwayUsesI140 && greenCardStage === "i140_filed", i485_filed: greenCardStage === "i485_filed" }
+      : {}),
     spouse_visa_status: asEnumValue(rawDraft.spouseVisaStatus ?? existingRow?.spouse_visa_status, spouseVisaStatuses, "none"),
     ...helpNeededPatch(rawDraft, existingConcerns),
     community_reply_email_notifications:

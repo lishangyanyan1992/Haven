@@ -1,4 +1,5 @@
-import { ENDED_REASON_LABELS, normalizePetitions } from "@/lib/petitions";
+import { ENDED_REASON_LABELS, normalizePetitions, usesI140 } from "@/lib/petitions";
+import { firstPetitionForm } from "@/lib/green-card-forms";
 import type { SponsorRef } from "@/lib/sponsor-documents";
 import type { ImmigrantPetition, ImmigrantPetitionStage, ImmigrantPetitionType } from "@/types/domain";
 
@@ -50,20 +51,28 @@ export function greenCardLine(p: ImmigrantPetition): string {
   const type = TYPE_LABELS[p.petitionType];
   if (category || type) parts.push([category, type].filter(Boolean).join(", "));
 
-  const stage = STAGE_LABELS[p.stage] ?? p.stage;
+  // "I-130 filed" belongs to family green cards; EB-5 and others name their own form.
+  const firstForm = p.stage === "i130_filed" || p.stage === "i130_approved" ? firstPetitionForm(p.petitionType) : null;
+  const stage = firstForm && firstForm !== "I-130"
+    ? `${firstForm} ${p.stage === "i130_filed" ? "filed" : "approved"}`
+    : STAGE_LABELS[p.stage] ?? p.stage;
   const stageDate =
     p.stage === "i140_approved"
       ? formatDate(p.i140ApprovalDate)
       : p.stage === "i140_filed"
         ? formatDate(p.i140FiledDate)
-        : p.stage === "perm_certified"
+        : p.stage === "i130_filed"
+          ? formatDate(p.petitionFiledDate)
+          : p.stage === "i130_approved"
+            ? formatDate(p.petitionApprovalDate)
+            : p.stage === "perm_certified"
           ? formatDate(p.permCertifiedDate)
           : p.stage === "perm_in_progress"
             ? formatDate(p.permFilingDate)
             : null;
   parts.push(stageDate ? `${stage} ${stageDate}` : stage);
   // No I-485 dates are collected, so name the I-140 approval date separately.
-  if (p.stage === "i485_filed" || p.stage === "i485_approved") {
+  if ((p.stage === "i485_filed" || p.stage === "i485_approved") && usesI140(p.petitionType)) {
     const approved = formatDate(p.i140ApprovalDate);
     if (approved) parts.push(`I-140 approved ${approved}`);
   }
@@ -91,6 +100,7 @@ export function greenCardSponsorsForFirm(raw: unknown): string[] {
         id: p.id,
         sponsorName: p.sponsorName.trim(),
         stage: p.stage,
+        petitionType: p.petitionType,
         ...(p.endedReason ? { endedReason: p.endedReason } : {}),
         ...(p.permCertifiedDate ? { permCertifiedDate: p.permCertifiedDate } : {}),
         ...(p.i140FiledDate ? { i140FiledDate: p.i140FiledDate } : {}),

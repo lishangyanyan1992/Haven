@@ -196,13 +196,17 @@ export const STAGES_BY_PATHWAY: Record<string, StageOptionItem[]> = {
     { id: "perm_certified", label: "PERM certified", detail: "Labor certification approved; ready for Form I-140" },
     { id: "i140_filed", label: "Form I-140 filed", detail: "Immigrant petition pending with USCIS" },
     { id: "i140_approved", label: "Form I-140 approved", detail: "Approved I-140 locks in your Priority Date!" },
-    { id: "i485_filed", label: "Form I-485 filed (Adjustment of Status)", detail: "Adjustment application pending with USCIS" }
+    { id: "consular_processing", label: "Consular Processing / NVC", detail: "Visa interview abroad after the I-140 is approved" },
+    { id: "i485_filed", label: "Form I-485 filed (Adjustment of Status)", detail: "Adjustment application pending with USCIS" },
+    { id: "i485_approved", label: "Permanent Resident", detail: "Green card granted" }
   ],
   self_petition: [
     { id: "not_started", label: "Not started yet", detail: "Gathering evidence and drafting petition letters" },
     { id: "i140_filed", label: "Form I-140 filed", detail: "Self-petition submitted to USCIS (no PERM needed)" },
     { id: "i140_approved", label: "Form I-140 approved", detail: "Petition approved; priority date locked" },
-    { id: "i485_filed", label: "Form I-485 filed (Adjustment of Status)", detail: "Adjustment application pending with USCIS" }
+    { id: "consular_processing", label: "Consular Processing / NVC", detail: "Visa interview abroad after the I-140 is approved" },
+    { id: "i485_filed", label: "Form I-485 filed (Adjustment of Status)", detail: "Adjustment application pending with USCIS" },
+    { id: "i485_approved", label: "Permanent Resident", detail: "Green card granted" }
   ],
   universal: [
     { id: "not_started", label: "Not started yet", detail: "Gathering materials or awaiting eligibility" },
@@ -219,7 +223,11 @@ export function getStagesForPathway(pathwayId: string | undefined): StageOptionI
   if (!pathwayId) return STAGES_BY_PATHWAY.universal;
   if (pathwayId.startsWith("family_")) return STAGES_BY_PATHWAY.family;
   if (pathwayId.startsWith("self_petition_")) return STAGES_BY_PATHWAY.self_petition;
-  if (pathwayId === "employer_sponsored") return STAGES_BY_PATHWAY.employer;
+  if (pathwayId === "employer_sponsored" || pathwayId === "concurrent_employer") return STAGES_BY_PATHWAY.employer;
+  // Asylum adjustment and the lottery have no first petition to file.
+  if (pathwayId === "humanitarian_asylum" || pathwayId === "diversity_lottery") {
+    return STAGES_BY_PATHWAY.universal.filter((stage) => stage.id !== "i130_filed" && stage.id !== "i130_approved");
+  }
   return STAGES_BY_PATHWAY.universal;
 }
 
@@ -237,3 +245,60 @@ export const SPONSOR_ATTRIBUTION_OPTIONS: SponsorAttributionOption[] = [
   { value: "family_member", label: "Family Member", helper: "Sponsored by a parent, child, or sibling" },
   { value: "other", label: "Other / Third Party", helper: "Prospective employer or other sponsoring entity" }
 ];
+
+/** Every preference category, in the order people look for them. */
+export const ALL_PREFERENCE_CATEGORIES: string[] = [
+  "EB-1", "EB-1A", "EB-1B", "EB-1C", "EB-2", "EB-2 NIW", "EB-3", "EB-4", "EB-5",
+  "Immediate Relative (Spouse)", "Immediate Relative (Parent/Child)",
+  "F-1", "F-2A", "F-2B", "F-3", "F-4",
+  "Diversity Visa", "Asylum Adjustment", "Not sure"
+];
+
+/** Every green card step across all paths, for single-step fields (Settings, dashboard quick edit). */
+export const ALL_GREEN_CARD_STAGE_OPTIONS: Array<{ id: string; label: string }> = [
+  { id: "not_started", label: "Not started yet" },
+  { id: "pwd_recruitment", label: "Prevailing wage / recruitment" },
+  { id: "perm_in_progress", label: "PERM in progress" },
+  { id: "perm_certified", label: "PERM certified" },
+  { id: "i140_filed", label: "I-140 filed" },
+  { id: "i140_approved", label: "I-140 approved" },
+  { id: "i130_filed", label: "I-130 or first petition filed (family, EB-5, other)" },
+  { id: "i130_approved", label: "I-130 or first petition approved" },
+  { id: "consular_processing", label: "Consular / NVC processing" },
+  { id: "i485_filed", label: "I-485 filed (adjustment of status)" },
+  { id: "conditional_resident", label: "2-year conditional resident" },
+  { id: "i485_approved", label: "Permanent resident" }
+];
+
+/** PERM and I-140 steps, which only employer and self-petition green cards have. */
+export const PERM_I140_STAGE_IDS = new Set(["pwd_recruitment", "perm_in_progress", "perm_certified", "i140_filed", "i140_approved"]);
+
+/**
+ * The single-step options for this kind of green card. With no kind chosen,
+ * every step. The current step is always kept so a saved value still shows.
+ */
+export function stageOptionsFor(pathwayId: string | undefined, current?: string): Array<{ id: string; label: string }> {
+  if (!pathwayId) return ALL_GREEN_CARD_STAGE_OPTIONS;
+  const allowed = new Set(getStagesForPathway(pathwayId).map((s) => String(s.id)));
+  const list = ALL_GREEN_CARD_STAGE_OPTIONS.filter((o) => allowed.has(o.id) || o.id === current);
+  return list.length > 1 ? list : ALL_GREEN_CARD_STAGE_OPTIONS;
+}
+
+/** Steps the profile's yes/no flags can't hold, so the saved step is shown instead. */
+const FLAG_STAGES = new Set(["not_started", "perm_in_progress", "perm_certified", "i140_filed", "i140_approved", "i485_filed"]);
+
+/** The step to show: the one saved, unless the PERM/I-140/I-485 flags describe it. */
+export function chosenGreenCardStage(savedStage: string | undefined, flagStage: string): string {
+  return savedStage && !FLAG_STAGES.has(savedStage) ? savedStage : flagStage;
+}
+
+/** Turn a visa class as printed (F1, L1A, B-2) into the standard value, or null if it isn't one. */
+export function standardVisaValue(raw: string): string | null {
+  const squash = (v: string) => v.toUpperCase().replace(/[\s/-]/g, "");
+  let target = squash(raw);
+  if (!target) return null;
+  // I-94 class for an L-2 spouse (L2Y children stay unmatched).
+  if (target === "L2S") target = "L2";
+  const match = ALL_VISA_OPTIONS.find((o) => o.value !== "other" && squash(o.value) === target);
+  return match?.value ?? null;
+}

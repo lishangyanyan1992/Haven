@@ -10,7 +10,8 @@
  */
 
 import type { FactSet, FactTarget } from "@/lib/document-facts/catalog";
-import { STAGE_ORDER, sponsorMatches } from "@/lib/petitions";
+import { ALL_PREFERENCE_CATEGORIES, ALL_VISA_OPTIONS } from "@/lib/visas";
+import { STAGE_ORDER, sponsorMatches, usesI140, usesPerm } from "@/lib/petitions";
 import type { ImmigrantPetition, ImmigrantPetitionStage, PreferenceCategory } from "@/types/domain";
 
 export type FieldOrigin = "document" | "person" | "document_deleted";
@@ -43,7 +44,9 @@ export const PETITION_FIELDS = [
   "i140FiledDate",
   "i140ApprovalDate",
   "permFilingDate",
-  "permCertifiedDate"
+  "permCertifiedDate",
+  "petitionFiledDate",
+  "petitionApprovalDate"
 ] as const;
 export type PetitionField = (typeof PETITION_FIELDS)[number];
 
@@ -62,8 +65,9 @@ export function parseFieldKey(
   return null;
 }
 
-const VISA_TYPES = new Set(["OPT", "STEM OPT", "H1B", "H4", "O-1", "GC", "Citizen"]);
-const CATEGORIES = new Set(["EB-1", "EB-2", "EB-3", "EB-2 NIW"]);
+// Every standard visa and category (lib/visas.ts). A typed-in status isn't filled from a document.
+const VISA_TYPES = new Set(ALL_VISA_OPTIONS.map((o) => o.value).filter((v) => v !== "other"));
+const CATEGORIES = new Set(ALL_PREFERENCE_CATEGORIES.filter((c) => c !== "Not sure"));
 
 /** Same value, ignoring case and spacing for names; exact for dates and codes. */
 export function sameValue(a: string | null | undefined, b: string | null | undefined) {
@@ -152,6 +156,11 @@ export function planFactApplication(input: PlanInput): Plan {
     } else if (petitions.length === 1) {
       petitionId = petitions[0].id;
     }
+    // An I-140 or PERM document never fills a family, investor, humanitarian or lottery green card.
+    const target = petitions.find((p) => p.id === petitionId);
+    if (target && ((set.id === "i140" && !usesI140(target.petitionType)) || (set.id === "perm" && !usesPerm(target.petitionType)))) {
+      petitionId = null;
+    }
   }
 
   const petition = () => petitions.find((p) => p.id === petitionId) ?? null;
@@ -159,7 +168,17 @@ export function planFactApplication(input: PlanInput): Plan {
   // A document that proves a later step moves the green card forward. Never back.
   const proven = set.sponsorScoped ? provenStage(set, facts) : null;
   const current = petition();
-  if (proven && current && !createdPetition && STAGE_ORDER[current.stage] >= 0 && STAGE_ORDER[proven] > STAGE_ORDER[current.stage]) {
+  // Only for green cards that use that form: a PERM or I-140 never moves a family green card.
+  const fits = current && ((set.id === "i140" && usesI140(current.petitionType)) || (set.id === "perm" && usesPerm(current.petitionType)));
+  if (
+    proven &&
+    current &&
+    fits &&
+    !createdPetition &&
+    current.stage !== "withdrawn" &&
+    STAGE_ORDER[current.stage] !== undefined &&
+    STAGE_ORDER[proven] > STAGE_ORDER[current.stage]
+  ) {
     petitions = petitions.map((p) => (p.id === current.id ? { ...p, stage: proven } : p));
     petitionsChanged = true;
   }

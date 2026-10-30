@@ -88,7 +88,14 @@ export function pickSharedAnswers(draft: Record<string, unknown>): SharedAnswers
  */
 export function sharedAnswersFromProfile(p: Record<string, any> | null): SharedAnswers {
   if (!p || !String(p.country_of_birth ?? "").trim()) return {};
-  const greenCardStage = p.i485_filed
+  const savedStage =
+    p.deadline_answers && typeof p.deadline_answers === "object" && typeof p.deadline_answers.greenCardStage === "string"
+      ? p.deadline_answers.greenCardStage.trim()
+      : "";
+  // The active green card's own step first, then the step saved in Settings
+  // (I-130 filed, consular processing…), then the old flags.
+  const activeStage = findActivePetition(mapProfileRow(p))?.stage;
+  const greenCardStage = activeStage || savedStage || (p.i485_filed
     ? "i485_filed"
     : p.i140_approved
       ? "i140_approved"
@@ -98,7 +105,7 @@ export function sharedAnswersFromProfile(p: Record<string, any> | null): SharedA
           ? "perm_certified"
           : p.perm_stage === "in_progress"
             ? "perm_in_progress"
-            : "not_started";
+            : "not_started");
   const deadlineRecord =
     p.deadline_answers && typeof p.deadline_answers === "object" && !Array.isArray(p.deadline_answers)
       ? (p.deadline_answers as Record<string, unknown>)

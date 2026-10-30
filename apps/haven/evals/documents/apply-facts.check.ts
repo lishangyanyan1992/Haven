@@ -53,6 +53,12 @@ async function main() {
   check("routing: sponsor name on the document finds the green card", p1.petitionId === "pet-acme" && !p1.createdPetition);
   check("approval notice moves the stage forward to approved", acme1?.stage === "i140_approved");
 
+  // 1b. An I-140 with no sponsor name and only a family green card: nothing lands on it.
+  const family = { id: "pet-fam", sponsorName: "Jordan Lee", petitionType: "family_marriage_usc", preferenceCategory: "Not sure" as const, stage: "i130_filed" };
+  const pf = planFactApplication({ ...base, facts: i140Facts({ "i140.sponsor": { value: null, confident: false } }), petitions: [family] as never });
+  const fam = pf.petitions.find((p) => p.id === "pet-fam");
+  check("I-140 document doesn't fill a family green card", !fam?.priorityDate && fam?.stage === "i130_filed" && !pf.petitionsChanged, JSON.stringify(pf.petitions));
+
   // 2. Same value a person typed: confirmed by the document.
   const typed = { ...acme, priorityDate: "2021-06-14" };
   const p2 = planFactApplication({ ...base, facts: i140Facts(), petitions: [typed] });
@@ -132,8 +138,10 @@ async function main() {
   check("I-94 replaces a status end date the H-1B approval filled", i94.profilePatch.statusEndDate === "2027-09-30");
 
   // 6b. Visa class the profile can't hold is shown only.
-  const f1 = planFactApplication({ ...base, set: FACT_SETS.i94, facts: [{ id: "i2", key: "i94.class_of_admission", value: "F1", confident: true, page: 1 }], petitions: [] });
-  check("visa class F1: shown only", f1.outcomes[0].state === "no_target" && !f1.profilePatch.visaType);
+  const f1 = planFactApplication({ ...base, set: FACT_SETS.i94, facts: [{ id: "i2", key: "i94.class_of_admission", value: "F-1", confident: true, page: 1 }], petitions: [] });
+  check("visa class F-1: filled like any other visa", f1.outcomes[0].state === "filled" && f1.profilePatch.visaType === "F-1");
+  const g4 = planFactApplication({ ...base, set: FACT_SETS.i94, facts: [{ id: "i3", key: "i94.class_of_admission", value: "G4", confident: true, page: 1 }], petitions: [] });
+  check("visa class not in the list: shown only", g4.outcomes[0].state === "no_target" && !g4.profilePatch.visaType);
 
   // 6c. A value typed before sources existed counts as typed.
   const onboard = planFactApplication({ ...base, set: FACT_SETS.passport, facts: [{ id: "c1", key: "passport.country_of_birth", value: "India", confident: true, page: 1 }], petitions: [], profile: { countryOfBirth: "Nepal" } });

@@ -565,6 +565,8 @@ export async function saveProfileSettingsAction(formData: FormData) {
 
   const setupDraft = {
     visaType: String(formData.get("visaType") ?? ""),
+    // A typed-in status (any visa not in the list), kept alongside.
+    ...(formData.has("customVisaDetail") ? { customVisaDetail: String(formData.get("customVisaDetail") ?? "") } : {}),
     countryOfBirth: String(formData.get("countryOfBirth") ?? ""),
     primaryGoal: String(formData.get("primaryGoal") ?? ""),
     employerName: String(formData.get("employerName") ?? ""),
@@ -630,10 +632,14 @@ export async function saveCaseJourneyDatesAction(formData: FormData): Promise<{ 
   const { user } = await requireUser();
   const cookieStore = await cookies();
 
+  // With green cards entered, the step comes from them and the form doesn't send it.
+  const sentStage = formData.has("greenCardStage");
   const greenCardStage = String(formData.get("greenCardStage") ?? "").trim();
   const i140Approved =
     greenCardStage === "i140_approved" ||
     greenCardStage === "i485_filed" ||
+    greenCardStage === "consular_processing" ||
+    greenCardStage === "i485_approved" ||
     String(formData.get("i140Approved") ?? "") === "true";
 
   const statusEndDate = String(formData.get("statusEndDate") ?? "").trim();
@@ -643,17 +649,18 @@ export async function saveCaseJourneyDatesAction(formData: FormData): Promise<{ 
 
   const setupDraft = {
     ...(visaType ? { visaType } : {}),
+    ...(formData.has("customVisaDetail") ? { customVisaDetail: String(formData.get("customVisaDetail") ?? "") } : {}),
     ...(countryOfBirth ? { countryOfBirth } : {}),
     employerName: String(formData.get("employerName") ?? ""),
     jobTitle: String(formData.get("jobTitle") ?? ""),
     h1bStartDate: String(formData.get("h1bStartDate") ?? ""),
     currentVisaExpiryDate: statusEndDate,
-    greenCardStage,
+    ...(sentStage ? { greenCardStage } : {}),
     ...(formData.has("greenCardSponsor") ? { greenCardSponsor: String(formData.get("greenCardSponsor") ?? "").trim() } : {}),
     ...(formData.has("retainedPriorityDateSponsor") ? { retainedPriorityDateSponsor: String(formData.get("retainedPriorityDateSponsor") ?? "").trim() } : {}),
     priorityDate: String(formData.get("priorityDate") ?? ""),
     ...(preferenceCategory ? { preferenceCategory } : {}),
-    i140Approved
+    ...(sentStage ? { i140Approved } : {})
   };
 
   const before = await loadProfileValues(user.id);
