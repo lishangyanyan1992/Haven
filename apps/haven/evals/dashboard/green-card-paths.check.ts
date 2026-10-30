@@ -110,9 +110,9 @@ async function main() {
   );
 
   // 7. Review fixes: steps, timeline, lawyer summary, onboarding checks.
-  const { getStagesForPathway } = await import("@/lib/visas");
   const { buildPetitionTracks, inferProfileGreenCardStage, buildImmigrationJourney } = await import("@/lib/immigration-journey");
   const { greenCardLine } = await import("@/lib/firms/green-cards");
+  const { getStagesForPathway } = await import("@/lib/visas");
   const { onboardingStepThreeSchema } = await import("@/lib/validation");
   const { twoEmployerProfile } = await import("./fixtures");
   const ids = (t: string) => getStagesForPathway(t).map((s) => s.id);
@@ -209,6 +209,13 @@ async function main() {
   check("saved 'PWD / recruitment' step with no green card record shows PERM in progress", savedOnly("pwd_recruitment") === "perm_in_progress", savedOnly("pwd_recruitment"));
   const { standardVisaValue } = await import("@/lib/visas");
   check("I-94 class L2S fills L-2", standardVisaValue("L2S") === "L-2", String(standardVisaValue("L2S")));
+  check("asylum and lottery steps don't offer I-130", ["humanitarian_asylum", "diversity_lottery"].every((t) => !getStagesForPathway(t).some((st) => String(st.id).startsWith("i130"))));
+  const { validatePetition: vp } = await import("@/lib/petitions");
+  const staleFamily = vp({ id: "s", sponsorName: "Jordan", petitionType: "family_immediate_relative", preferenceCategory: "IR", stage: "i130_filed", permFilingDate: "2025-05-01", i140ApprovalDate: "2025-01-01" } as never);
+  check("old PERM/I-140 dates on a family green card don't block saving", staleFamily.length === 0, JSON.stringify(staleFamily));
+  const { sharedAnswersFromProfile } = await import("@/lib/firms/answers");
+  const shared = sharedAnswersFromProfile({ country_of_birth: "India", deadline_answers: { greenCardStage: "i130_filed" } }) as Record<string, unknown>;
+  check("lawyer sees the saved I-130 step", shared.greenCardStage === "i130_filed", String(shared.greenCardStage));
   check("typed 'H-1B' saves as H1B", standardVisaValue("H-1B") === "H1B", String(standardVisaValue("H-1B")));
   check("I-94 class L2Y does not fill L-2", standardVisaValue("L2Y") === null, String(standardVisaValue("L2Y")));
 

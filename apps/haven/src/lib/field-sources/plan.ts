@@ -44,7 +44,9 @@ export const PETITION_FIELDS = [
   "i140FiledDate",
   "i140ApprovalDate",
   "permFilingDate",
-  "permCertifiedDate"
+  "permCertifiedDate",
+  "petitionFiledDate",
+  "petitionApprovalDate"
 ] as const;
 export type PetitionField = (typeof PETITION_FIELDS)[number];
 

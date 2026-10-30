@@ -1,4 +1,4 @@
-import { ENDED_REASON_LABELS, normalizePetitions } from "@/lib/petitions";
+import { ENDED_REASON_LABELS, normalizePetitions, usesI140 } from "@/lib/petitions";
 import { firstPetitionForm } from "@/lib/green-card-forms";
 import type { SponsorRef } from "@/lib/sponsor-documents";
 import type { ImmigrantPetition, ImmigrantPetitionStage, ImmigrantPetitionType } from "@/types/domain";
@@ -72,7 +72,7 @@ export function greenCardLine(p: ImmigrantPetition): string {
             : null;
   parts.push(stageDate ? `${stage} ${stageDate}` : stage);
   // No I-485 dates are collected, so name the I-140 approval date separately.
-  if (p.stage === "i485_filed" || p.stage === "i485_approved") {
+  if ((p.stage === "i485_filed" || p.stage === "i485_approved") && usesI140(p.petitionType)) {
     const approved = formatDate(p.i140ApprovalDate);
     if (approved) parts.push(`I-140 approved ${approved}`);
   }

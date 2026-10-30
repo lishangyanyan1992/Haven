@@ -222,6 +222,10 @@ export function getStagesForPathway(pathwayId: string | undefined): StageOptionI
   if (pathwayId.startsWith("family_")) return STAGES_BY_PATHWAY.family;
   if (pathwayId.startsWith("self_petition_")) return STAGES_BY_PATHWAY.self_petition;
   if (pathwayId === "employer_sponsored" || pathwayId === "concurrent_employer") return STAGES_BY_PATHWAY.employer;
+  // Asylum adjustment and the lottery have no first petition to file.
+  if (pathwayId === "humanitarian_asylum" || pathwayId === "diversity_lottery") {
+    return STAGES_BY_PATHWAY.universal.filter((stage) => stage.id !== "i130_filed" && stage.id !== "i130_approved");
+  }
   return STAGES_BY_PATHWAY.universal;
 }
 

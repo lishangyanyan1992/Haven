@@ -237,13 +237,13 @@ export function validatePetition(p: ImmigrantPetition): PetitionFieldError[] {
   if (before(p.petitionApprovalDate, p.petitionFiledDate)) {
     errors.push({ field: "petitionApprovalDate", message: "The approval can't be before the petition was filed." });
   }
-  if (before(p.i140ApprovalDate, p.i140FiledDate)) {
+  if (usesI140(p.petitionType) && before(p.i140ApprovalDate, p.i140FiledDate)) {
     errors.push({ field: "i140ApprovalDate", message: "I-140 approval can't be before the I-140 was filed." });
   }
-  if (before(p.permCertifiedDate, p.permFilingDate)) {
+  if (usesPerm(p.petitionType) && before(p.permCertifiedDate, p.permFilingDate)) {
     errors.push({ field: "permCertifiedDate", message: "PERM approval can't be before PERM was filed." });
   }
-  if (before(p.i140ApprovalDate, p.permFilingDate)) {
+  if (usesPerm(p.petitionType) && before(p.i140ApprovalDate, p.permFilingDate)) {
     errors.push({ field: "i140ApprovalDate", message: "I-140 approval can't be before PERM was filed." });
   }
   // Family, investor, humanitarian and lottery paths have no I-140 or PERM.
