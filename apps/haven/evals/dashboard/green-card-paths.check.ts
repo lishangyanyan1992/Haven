@@ -210,6 +210,9 @@ async function main() {
   check("family green card: an I-140 step isn't saved as its step", familyI140.perm_stage === undefined && !("greenCardStage" in ((familyI140.deadline_answers as Record<string, unknown>) ?? {})), JSON.stringify({ perm: familyI140.perm_stage, da: familyI140.deadline_answers }));
   const { stageOptionsFor } = await import("@/lib/visas");
   check("Settings step list for a marriage green card has no PERM or I-140", !stageOptionsFor("family_marriage_usc").some((o) => /perm|i140|pwd/.test(o.id)));
+  check("employer and self-petition step lists offer consular processing", ["employer_sponsored", "self_petition_niw"].every((t) => stageOptionsFor(t).some((o) => o.id === "consular_processing")));
+  const niwSave = normalizeDraft({ visaType: "H1B", greenCardStage: "i140_approved", i140Approved: "true" } as never, { deadline_answers: { greenCardPathway: "self_petition_niw" } }) as Record<string, unknown>;
+  check("self-petition at I-140 approved doesn't record a PERM", niwSave.perm_stage === "not_started" && niwSave.i140_approved === true, JSON.stringify({ perm: niwSave.perm_stage, i140: niwSave.i140_approved }));
   check("Settings step list with no green card kind shows every step", stageOptionsFor(undefined).some((o) => o.id === "i140_filed"));
   const noPathI140 = normalizeDraft({ visaType: "H1B", greenCardStage: "i140_filed" } as never, {}) as Record<string, unknown>;
   check("no pathway chosen yet: I-140 filed still saves", noPathI140.i140_filed === true, String(noPathI140.i140_filed));

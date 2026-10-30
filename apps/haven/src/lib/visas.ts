@@ -196,6 +196,7 @@ export const STAGES_BY_PATHWAY: Record<string, StageOptionItem[]> = {
     { id: "perm_certified", label: "PERM certified", detail: "Labor certification approved; ready for Form I-140" },
     { id: "i140_filed", label: "Form I-140 filed", detail: "Immigrant petition pending with USCIS" },
     { id: "i140_approved", label: "Form I-140 approved", detail: "Approved I-140 locks in your Priority Date!" },
+    { id: "consular_processing", label: "Consular Processing / NVC", detail: "Visa interview abroad after the I-140 is approved" },
     { id: "i485_filed", label: "Form I-485 filed (Adjustment of Status)", detail: "Adjustment application pending with USCIS" },
     { id: "i485_approved", label: "Permanent Resident", detail: "Green card granted" }
   ],
@@ -203,6 +204,7 @@ export const STAGES_BY_PATHWAY: Record<string, StageOptionItem[]> = {
     { id: "not_started", label: "Not started yet", detail: "Gathering evidence and drafting petition letters" },
     { id: "i140_filed", label: "Form I-140 filed", detail: "Self-petition submitted to USCIS (no PERM needed)" },
     { id: "i140_approved", label: "Form I-140 approved", detail: "Petition approved; priority date locked" },
+    { id: "consular_processing", label: "Consular Processing / NVC", detail: "Visa interview abroad after the I-140 is approved" },
     { id: "i485_filed", label: "Form I-485 filed (Adjustment of Status)", detail: "Adjustment application pending with USCIS" },
     { id: "i485_approved", label: "Permanent Resident", detail: "Green card granted" }
   ],

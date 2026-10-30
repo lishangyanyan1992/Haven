@@ -1,7 +1,7 @@
 import { computeDerivedSignals } from "@/lib/haven";
 import { mapProfileRow } from "@/lib/profile-mapper";
 import { findActivePetition } from "@/lib/immigration-journey";
-import { usesI140 } from "@/lib/petitions";
+import { usesI140, usesPerm } from "@/lib/petitions";
 import { PERM_I140_STAGE_IDS } from "@/lib/visas";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { concernsForHelpNeeded, normalizeHelpNeeded } from "@/lib/firms/help-needed";
@@ -85,6 +85,7 @@ export function normalizeDraft(rawDraftIn: ProfileDraft, existingRow?: Record<st
     existingProfile?.greenCardPathway;
   // No pathway yet means the usual employer case.
   const pathwayUsesI140 = !pathway || usesI140(pathway);
+  const pathwayUsesPerm = !pathway || usesPerm(pathway);
   const sentStageIn = typeof rawDraftIn.greenCardStage === "string" ? rawDraftIn.greenCardStage.trim() : "";
   const rawDraft: ProfileDraft =
     !pathwayUsesI140 && PERM_I140_STAGE_IDS.has(sentStageIn) ? { ...rawDraftIn, greenCardStage: undefined } : rawDraftIn;
@@ -145,8 +146,10 @@ export function normalizeDraft(rawDraftIn: ProfileDraft, existingRow?: Record<st
               : existingRow?.perm_stage === "in_progress"
                 ? "perm_in_progress"
                 : "not_started";
-  const permStage =
-    greenCardStage === "perm_in_progress"
+  // Self-petitions and non-employer green cards never have a PERM.
+  const permStage = !pathwayUsesPerm
+    ? "not_started"
+    : greenCardStage === "perm_in_progress"
       ? "in_progress"
       : greenCardStage === "perm_certified" ||
           greenCardStage === "i140_filed" ||
