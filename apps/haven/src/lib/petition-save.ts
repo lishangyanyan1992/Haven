@@ -149,6 +149,26 @@ export function planPetitionSave(
     ]) {
       delete nextAnswers[key];
     }
+  } else {
+    const active = petitions.find((p) => !isPetitionEnded(p));
+    if (active) {
+      nextAnswers.greenCardSponsor = active.sponsorName;
+    } else {
+      delete nextAnswers.greenCardSponsor;
+    }
+
+    const prior = petitions.find((p) => isPetitionEnded(p) && providesI140Protection(p));
+    if (prior) {
+      nextAnswers.retainedPriorityDate = prior.priorityDate || prior.i140ApprovalDate;
+      nextAnswers.retainedPriorityDateSponsor = prior.sponsorName;
+      if (prior.preferenceCategory && prior.preferenceCategory !== "Not sure") {
+        nextAnswers.retainedPriorityDateCategory = prior.preferenceCategory;
+      }
+    } else {
+      delete nextAnswers.retainedPriorityDate;
+      delete nextAnswers.retainedPriorityDateSponsor;
+      delete nextAnswers.retainedPriorityDateCategory;
+    }
   }
 
   return { ok: true, petitions, update: { deadline_answers: nextAnswers, ...flatFieldsFrom(petitions, row) } };

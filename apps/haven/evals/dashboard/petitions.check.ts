@@ -267,9 +267,16 @@ async function main() {
       seededDual[1].isPriorityDateRecaptured === true
   );
 
-  // Saving empty petitions clears legacy sponsor/retained fields so seedPetitionsFromLegacyProfile returns []
+  // Saving empty petitions clears legacy sponsor/retained fields and resets flat status fields so seedPetitionsFromLegacyProfile returns []
   const legacyProfileRow = {
     ...savedRow,
+    perm_stage: "in_progress",
+    perm_filing_date: "2024-02-05",
+    i140_filed: true,
+    i140_approved: true,
+    i140_approval_date: "2024-06-01",
+    i485_filed: true,
+    priority_date: "2020-05-10",
     deadline_answers: {
       greenCardSponsor: "Prior Tech LLC",
       retainedPriorityDate: "2020-05-10",
@@ -287,15 +294,45 @@ async function main() {
       !("retainedPriorityDate" in emptyUpdate.deadline_answers) &&
       !("retainedPriorityDateSponsor" in emptyUpdate.deadline_answers) &&
       !("retainedPriorityDateCategory" in emptyUpdate.deadline_answers) &&
-      emptyUpdate.deadline_answers.immigrantPetitions.length === 0
+      emptyUpdate.deadline_answers.immigrantPetitions.length === 0 &&
+      emptyUpdate.perm_stage === "not_started" &&
+      emptyUpdate.i140_approved === false &&
+      emptyUpdate.i140_filed === false &&
+      emptyUpdate.i485_filed === false &&
+      emptyUpdate.priority_date === null
   );
   const reseeded = seedPetitionsFromLegacyProfile({
     immigrantPetitions: emptyUpdate.deadline_answers?.immigrantPetitions,
     greenCardSponsor: emptyUpdate.deadline_answers?.greenCardSponsor,
     retainedPriorityDate: emptyUpdate.deadline_answers?.retainedPriorityDate,
-    retainedPriorityDateSponsor: emptyUpdate.deadline_answers?.retainedPriorityDateSponsor
+    retainedPriorityDateSponsor: emptyUpdate.deadline_answers?.retainedPriorityDateSponsor,
+    permStage: emptyUpdate.perm_stage,
+    i140Approved: emptyUpdate.i140_approved,
+    i140Filed: emptyUpdate.i140_filed,
+    i485Filed: emptyUpdate.i485_filed,
+    priorityDate: emptyUpdate.priority_date
   });
   check("seed: saving empty petitions does not re-seed ghost cards from legacy answers", reseeded.length === 0);
+
+  // Saving nonempty petitions updates sponsor summaries in deadline_answers
+  const singlePetition = [
+    {
+      id: "pet-active-1",
+      sponsorName: "NextCorp",
+      petitionType: "employer_sponsored" as const,
+      preferenceCategory: "EB-2" as const,
+      stage: "perm_in_progress" as const
+    }
+  ];
+  const nonemptySavePlan = planPetitionSave(singlePetition, legacyProfileRow);
+  const nonemptyUpdate = nonemptySavePlan.ok ? (nonemptySavePlan.update as Record<string, any>) : {};
+  check(
+    "save: saving active petition updates greenCardSponsor and removes obsolete retained fields",
+    nonemptySavePlan.ok &&
+      nonemptyUpdate.deadline_answers.greenCardSponsor === "NextCorp" &&
+      !("retainedPriorityDate" in nonemptyUpdate.deadline_answers) &&
+      !("retainedPriorityDateSponsor" in nonemptyUpdate.deadline_answers)
+  );
 
   console.log(`\n${pass}/${pass + failures.length} passed`);
   if (failures.length) process.exit(1);

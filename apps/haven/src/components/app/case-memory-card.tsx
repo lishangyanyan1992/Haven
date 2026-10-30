@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { BrainCircuit, FileText, Plus, Trash2, X } from "lucide-react";
 
@@ -48,8 +48,30 @@ export function CaseMemoryCard({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
+  const pendingAddedRef = useRef<Map<string, RememberedFact>>(new Map());
+  const pendingRemovedRef = useRef<Set<string>>(new Set());
+
   useEffect(() => {
-    setFacts(initialFacts);
+    // If incoming initialFacts has caught up with our local additions, clean them from pending
+    for (const [id] of pendingAddedRef.current) {
+      if (initialFacts.some((f) => f.id === id)) {
+        pendingAddedRef.current.delete(id);
+      }
+    }
+    // If incoming initialFacts no longer includes our deleted facts, clean them from pending
+    for (const id of pendingRemovedRef.current) {
+      if (!initialFacts.some((f) => f.id === id)) {
+        pendingRemovedRef.current.delete(id);
+      }
+    }
+
+    // Filter out facts deleted locally that an older snapshot may still contain
+    const filtered = initialFacts.filter((f) => !pendingRemovedRef.current.has(f.id));
+    // Prepend local additions that are not yet in initialFacts
+    const pendingAdditions = Array.from(pendingAddedRef.current.values()).filter(
+      (p) => !filtered.some((f) => f.id === p.id)
+    );
+    setFacts([...pendingAdditions, ...filtered]);
   }, [initialFacts]);
 
   const handleAddNote = (e: React.FormEvent) => {
@@ -75,6 +97,8 @@ export function CaseMemoryCard({
           return;
         }
 
+        pendingAddedRef.current.set(data.fact.id, data.fact);
+        pendingRemovedRef.current.delete(data.fact.id);
         setFacts((prev) => [data.fact, ...prev.filter((f) => f.id !== data.fact.id)]);
         setNewNote("");
         onFactAdded?.(data.fact);
@@ -93,6 +117,8 @@ export function CaseMemoryCard({
           body: JSON.stringify({ factId })
         });
         if (res.ok) {
+          pendingRemovedRef.current.add(factId);
+          pendingAddedRef.current.delete(factId);
           setFacts((prev) => prev.filter((f) => f.id !== factId));
           onFactForgotten?.(factId);
         } else {

@@ -1,7 +1,9 @@
 import { greenCardLinesForFirm, greenCardSponsorsForFirm } from "@/lib/firms/green-cards";
 import { HELP_NEEDED_SENT_MARKER, normalizeHelpNeeded } from "@/lib/firms/help-needed";
 import { isCustomQuestionKey } from "@/lib/firms/intake-question-catalog";
+import { normalizePetitions, providesI140Protection } from "@/lib/petitions";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { isPetitionEnded } from "@/types/domain";
 
 /**
  * The setup answers a client shares with their firm.
@@ -268,6 +270,22 @@ export function withSharedGreenCards(current: SharedAnswers, rawPetitions: unkno
     delete next.greenCardStage;
     delete next.greenCardSponsor;
     delete next.retainedPriorityDateSponsor;
+  } else if (Array.isArray(rawPetitions)) {
+    const norm = normalizePetitions(rawPetitions);
+    const active = norm.find((p) => !isPetitionEnded(p));
+    if (active) {
+      next.greenCardSponsor = active.sponsorName;
+      next.greenCardStage = active.stage;
+    } else {
+      delete next.greenCardSponsor;
+      delete next.greenCardStage;
+    }
+    const prior = norm.find((p) => isPetitionEnded(p) && providesI140Protection(p));
+    if (prior) {
+      next.retainedPriorityDateSponsor = prior.sponsorName;
+    } else {
+      delete next.retainedPriorityDateSponsor;
+    }
   }
   return next;
 }
