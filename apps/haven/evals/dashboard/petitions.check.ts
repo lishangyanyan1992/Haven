@@ -392,6 +392,71 @@ async function main() {
       removePriorUpdate.deadline_answers.greenCardSponsor === "Current Corp"
   );
 
+  // Regression check: adding a new active petition to a legacy profile preserves legacy retained priority date
+  const legacyProfileNoList = {
+    id: "u-legacy",
+    employment_status: "employed",
+    employer_name: "Current Corp",
+    priority_date: "2019-11-20",
+    deadline_answers: {
+      retainedPriorityDate: "2019-11-20",
+      retainedPriorityDateSponsor: "First Employer"
+    }
+  };
+  const addActiveToLegacyPlan = planPetitionSave(
+    [
+      {
+        id: "pet-new",
+        sponsorName: "Current Corp",
+        petitionType: "employer_sponsored" as const,
+        preferenceCategory: "EB-3" as const,
+        stage: "perm_in_progress" as const
+      }
+    ],
+    legacyProfileNoList
+  );
+  const addActiveUpdate = addActiveToLegacyPlan.ok ? (addActiveToLegacyPlan.update as Record<string, any>) : {};
+  check(
+    "save: adding first petition preserves legacy retained priority date and updates greenCardSponsor",
+    addActiveToLegacyPlan.ok &&
+      addActiveUpdate.priority_date === "2019-11-20" &&
+      addActiveUpdate.deadline_answers.retainedPriorityDate === "2019-11-20" &&
+      addActiveUpdate.deadline_answers.retainedPriorityDateSponsor === "First Employer" &&
+      addActiveUpdate.deadline_answers.greenCardSponsor === "Current Corp"
+  );
+
+  // withSharedGreenCards keeps active category separate from retained category
+  const { withSharedGreenCards } = await import("@/lib/firms/answers");
+  const firmAnswers = withSharedGreenCards(
+    { employerName: "Current Corp" },
+    [
+      {
+        id: "p-act",
+        sponsorName: "Current Corp",
+        petitionType: "employer_sponsored",
+        preferenceCategory: "EB-3",
+        stage: "perm_in_progress"
+      },
+      {
+        id: "p-ret",
+        sponsorName: "Old Corp",
+        petitionType: "employer_sponsored",
+        preferenceCategory: "EB-2",
+        stage: "i140_approved",
+        endedReason: "job_change",
+        priorityDate: "2020-01-01",
+        i140ApprovalDate: "2021-01-01"
+      }
+    ]
+  );
+  check(
+    "firm answers: active EB-3 category is preserved, not overwritten by retained EB-2",
+    firmAnswers.preferenceCategory === "EB-3" &&
+      firmAnswers.greenCardSponsor === "Current Corp" &&
+      firmAnswers.retainedPriorityDateSponsor === "Old Corp" &&
+      firmAnswers.priorityDate === "2020-01-01"
+  );
+
   console.log(`\n${pass}/${pass + failures.length} passed`);
   if (failures.length) process.exit(1);
 }

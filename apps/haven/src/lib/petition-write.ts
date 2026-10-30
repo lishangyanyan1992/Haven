@@ -2,7 +2,8 @@ import { revalidatePath } from "next/cache";
 
 import { recordFirmSharedGreenCards } from "@/lib/firms/answers";
 import { planPetitionSave } from "@/lib/petition-save";
-import { normalizePetitions, type PetitionFieldError } from "@/lib/petitions";
+import { normalizePetitions, seedPetitionsFromLegacyProfile, type PetitionFieldError } from "@/lib/petitions";
+import { mapProfileRow } from "@/lib/profile-mapper";
 import { refreshDerivedSignals } from "@/lib/profile-sync";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { ImmigrantPetition } from "@/types/domain";
@@ -37,8 +38,9 @@ export async function writePetitions(
   const { data: row, error: readError } = await admin.from("user_profiles").select("*").eq("id", userId).maybeSingle();
   if (readError || !row) return { ok: false, error: "We couldn't load your profile. Try again in a moment." };
   if (typeof input === "function") {
-    const answers = (row.deadline_answers && typeof row.deadline_answers === "object" ? row.deadline_answers : {}) as Record<string, unknown>;
-    input = (input as (current: ImmigrantPetition[]) => unknown)(normalizePetitions(answers.immigrantPetitions));
+    const profile = mapProfileRow(row);
+    const existingPetitions = seedPetitionsFromLegacyProfile(profile);
+    input = (input as (current: ImmigrantPetition[]) => unknown)(existingPetitions);
   }
 
   const plan = planPetitionSave(input, row as Record<string, unknown>, options);
@@ -50,7 +52,11 @@ export async function writePetitions(
   await refreshDerivedSignals(userId);
   safeRevalidate("/dashboard", "/profile", "/settings", "/timeline");
   // The client chose to share green cards with their law firm, if they have one.
-  if (!(await recordFirmSharedGreenCards(userId, plan.petitions))) {
+  const savedPriorityDate =
+    typeof (plan.update as Record<string, unknown>).priority_date === "string"
+      ? ((plan.update as Record<string, unknown>).priority_date as string)
+      : null;
+  if (!(await recordFirmSharedGreenCards(userId, plan.petitions, savedPriorityDate))) {
     return { ok: false, error: "Your green cards were saved, but your law firm's copy didn't update. Save again to retry." };
   }
   return { ok: true, petitions: plan.petitions };

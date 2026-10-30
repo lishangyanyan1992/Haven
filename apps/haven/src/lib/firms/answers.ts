@@ -234,7 +234,11 @@ export async function recordFirmSharedAnswers(userId: string, draft: Record<stri
  * cards in settings. An empty list removes it. True when the copy is up to
  * date (or there's no firm to update).
  */
-export async function recordFirmSharedGreenCards(userId: string, rawPetitions: unknown): Promise<boolean> {
+export async function recordFirmSharedGreenCards(
+  userId: string,
+  rawPetitions: unknown,
+  savedPriorityDate?: string | null
+): Promise<boolean> {
   const admin = createSupabaseAdminClient() as any;
   const { data: rows, error: readError } = await admin
     .from("firm_clients")
@@ -246,7 +250,7 @@ export async function recordFirmSharedGreenCards(userId: string, rawPetitions: u
   }
   // A client can belong to more than one firm; each joined firm gets the list.
   for (const row of (rows ?? []).filter((r: any) => Boolean(r.joined_at))) {
-    const next = withSharedGreenCards(row.shared_answers ?? {}, rawPetitions);
+    const next = withSharedGreenCards(row.shared_answers ?? {}, rawPetitions, savedPriorityDate);
     const { error } = await admin.from("firm_clients").update({ shared_answers: next }).eq("id", row.id);
     if (error) {
       console.error("[firms] could not save shared green cards", error.message);
@@ -257,7 +261,11 @@ export async function recordFirmSharedGreenCards(userId: string, rawPetitions: u
 }
 
 /** The firm's copy with its green card list replaced. Leaves every other answer alone. */
-export function withSharedGreenCards(current: SharedAnswers, rawPetitions: unknown): SharedAnswers {
+export function withSharedGreenCards(
+  current: SharedAnswers,
+  rawPetitions: unknown,
+  savedPriorityDate?: string | null
+): SharedAnswers {
   const lines = greenCardLinesForFirm(rawPetitions);
   const sponsors = greenCardSponsorsForFirm(rawPetitions);
   const next: SharedAnswers = { ...current };
@@ -293,14 +301,13 @@ export function withSharedGreenCards(current: SharedAnswers, rawPetitions: unkno
     const effective = resolveEffectivePriorityDate(mockProfile);
     if (effective.effectiveDate) {
       next.priorityDate = effective.effectiveDate.toISOString().slice(0, 10);
+    } else if (savedPriorityDate) {
+      next.priorityDate = savedPriorityDate;
     } else {
       delete next.priorityDate;
     }
     if (effective.isRetained && effective.retainedSponsorName) {
       next.retainedPriorityDateSponsor = effective.retainedSponsorName;
-      if (effective.retainedCategory && (effective.retainedCategory as string) !== "Not sure") {
-        next.preferenceCategory = effective.retainedCategory;
-      }
     } else {
       delete next.retainedPriorityDateSponsor;
     }

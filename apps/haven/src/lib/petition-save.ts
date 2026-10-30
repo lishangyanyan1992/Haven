@@ -151,11 +151,14 @@ export function planPetitionSave(
       delete nextAnswers[key];
     }
   } else {
+    const hadPetitionsBefore = existing.immigrantPetitions !== undefined;
     const cleanAnswers = { ...nextAnswers };
     delete cleanAnswers.greenCardSponsor;
-    delete cleanAnswers.retainedPriorityDate;
-    delete cleanAnswers.retainedPriorityDateSponsor;
-    delete cleanAnswers.retainedPriorityDateCategory;
+    if (hadPetitionsBefore || !existing.retainedPriorityDate) {
+      delete cleanAnswers.retainedPriorityDate;
+      delete cleanAnswers.retainedPriorityDateSponsor;
+      delete cleanAnswers.retainedPriorityDateCategory;
+    }
 
     const mappedProfile = mapProfileRow({ ...row, deadline_answers: { ...cleanAnswers, immigrantPetitions: petitions } });
     const active = findActivePetition(mappedProfile);
@@ -187,6 +190,14 @@ export function planPetitionSave(
         nextAnswers.retainedPriorityDateCategory = earliestApproved.preferenceCategory;
       } else {
         delete nextAnswers.retainedPriorityDateCategory;
+      }
+    } else if (!hadPetitionsBefore && existing.retainedPriorityDate) {
+      nextAnswers.retainedPriorityDate = existing.retainedPriorityDate;
+      if (existing.retainedPriorityDateSponsor) {
+        nextAnswers.retainedPriorityDateSponsor = existing.retainedPriorityDateSponsor;
+      }
+      if (existing.retainedPriorityDateCategory) {
+        nextAnswers.retainedPriorityDateCategory = existing.retainedPriorityDateCategory;
       }
     } else {
       delete nextAnswers.retainedPriorityDate;
