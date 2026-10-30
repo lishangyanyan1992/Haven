@@ -610,13 +610,17 @@ export async function saveSystemPreferencesAction(formData: FormData) {
   const communityReply = formData.get("communityReplyEmailNotifications") === "true";
   const statusUpdate = formData.get("statusUpdateEmailNotifications") === "true";
 
-  await admin
+  const { error } = await admin
     .from("user_profiles")
     .update({
       community_reply_email_notifications: communityReply,
       status_update_email_notifications: statusUpdate
     })
     .eq("id", user.id);
+
+  if (error) {
+    throw new Error(`Could not save system preferences: ${error.message}`);
+  }
 
   revalidatePath("/settings");
   redirect("/settings?saved=1");

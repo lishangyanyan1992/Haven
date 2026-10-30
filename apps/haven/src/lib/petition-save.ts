@@ -140,5 +140,16 @@ export function planPetitionSave(
     nextAnswers.immigrantPetitionsLegacy = existing.immigrantPetitions;
   }
 
+  if (petitions.length === 0) {
+    for (const key of [
+      "greenCardSponsor",
+      "retainedPriorityDate",
+      "retainedPriorityDateSponsor",
+      "retainedPriorityDateCategory"
+    ]) {
+      delete nextAnswers[key];
+    }
+  }
+
   return { ok: true, petitions, update: { deadline_answers: nextAnswers, ...flatFieldsFrom(petitions, row) } };
 }

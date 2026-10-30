@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { BrainCircuit, FileText, Plus, Trash2, X } from "lucide-react";
 
@@ -47,6 +47,10 @@ export function CaseMemoryCard({
   const [newNote, setNewNote] = useState("");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setFacts(initialFacts);
+  }, [initialFacts]);
 
   const handleAddNote = (e: React.FormEvent) => {
     e.preventDefault();

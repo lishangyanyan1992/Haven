@@ -38,7 +38,7 @@ export async function GET() {
   }
 }
 
-const createSchema = z.object({ quote: z.string().min(1).max(240) });
+const createSchema = z.object({ quote: z.string().trim().min(1).max(240) });
 
 /** Add a manual case note to permanent memory. */
 export async function POST(request: Request) {
@@ -61,10 +61,10 @@ export async function POST(request: Request) {
   try {
     const fact = await addManualFact(user.id, body.data.quote);
     return NextResponse.json({ fact }, { status: 201 });
-  } catch (error: any) {
+  } catch (error) {
     console.error("[advisor/memory] add note failed:", error);
     return NextResponse.json(
-      { error: error?.message || "Unable to save note." },
+      { error: "Unable to save note." },
       { status: 500 }
     );
   }

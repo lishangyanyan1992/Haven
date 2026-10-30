@@ -267,6 +267,36 @@ async function main() {
       seededDual[1].isPriorityDateRecaptured === true
   );
 
+  // Saving empty petitions clears legacy sponsor/retained fields so seedPetitionsFromLegacyProfile returns []
+  const legacyProfileRow = {
+    ...savedRow,
+    deadline_answers: {
+      greenCardSponsor: "Prior Tech LLC",
+      retainedPriorityDate: "2020-05-10",
+      retainedPriorityDateSponsor: "Prior Tech LLC",
+      retainedPriorityDateCategory: "EB-2",
+      immigrantPetitions: []
+    }
+  };
+  const emptySavePlan = planPetitionSave([], legacyProfileRow);
+  const emptyUpdate = emptySavePlan.ok ? (emptySavePlan.update as Record<string, any>) : {};
+  check(
+    "save: saving empty petitions clears legacy sponsor and retained priority date fields",
+    emptySavePlan.ok &&
+      !("greenCardSponsor" in emptyUpdate.deadline_answers) &&
+      !("retainedPriorityDate" in emptyUpdate.deadline_answers) &&
+      !("retainedPriorityDateSponsor" in emptyUpdate.deadline_answers) &&
+      !("retainedPriorityDateCategory" in emptyUpdate.deadline_answers) &&
+      emptyUpdate.deadline_answers.immigrantPetitions.length === 0
+  );
+  const reseeded = seedPetitionsFromLegacyProfile({
+    immigrantPetitions: emptyUpdate.deadline_answers?.immigrantPetitions,
+    greenCardSponsor: emptyUpdate.deadline_answers?.greenCardSponsor,
+    retainedPriorityDate: emptyUpdate.deadline_answers?.retainedPriorityDate,
+    retainedPriorityDateSponsor: emptyUpdate.deadline_answers?.retainedPriorityDateSponsor
+  });
+  check("seed: saving empty petitions does not re-seed ghost cards from legacy answers", reseeded.length === 0);
+
   console.log(`\n${pass}/${pass + failures.length} passed`);
   if (failures.length) process.exit(1);
 }

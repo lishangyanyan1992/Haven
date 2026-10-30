@@ -317,7 +317,7 @@ export function seedPetitionsFromLegacyProfile(profile: {
       preferenceCategory: (profile.preferenceCategory as PreferenceCategory) || "EB-2",
       stage: "i140_approved",
       priorityDate: profile.retainedPriorityDate || profile.priorityDate || undefined,
-      i140ApprovalDate: profile.i140ApprovalDate || profile.priorityDate || undefined,
+      i140ApprovalDate: profile.i140ApprovalDate || undefined,
       endedReason: "job_change",
       notes: "Seeded from prior approved I-140 sponsor in profile"
     });
@@ -340,8 +340,12 @@ export function seedPetitionsFromLegacyProfile(profile: {
     petitionType = "self_petition_niw";
   } else if (profile.preferenceCategory === "EB-1A") {
     petitionType = "self_petition_eb1a";
-  } else if (profile.greenCardPathway?.includes("Marriage")) {
-    petitionType = "family_marriage_usc";
+  } else if (
+    profile.greenCardPathway === "family_marriage_usc" ||
+    profile.greenCardPathway === "family_marriage_lpr" ||
+    profile.greenCardPathway?.includes("Marriage")
+  ) {
+    petitionType = profile.greenCardPathway === "family_marriage_lpr" ? "family_marriage_lpr" : "family_marriage_usc";
   }
 
   seeded.push({

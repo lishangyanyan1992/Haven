@@ -71,14 +71,18 @@ export default async function ProfileInfoPage({
 
       if (factsByDoc.size > 0) {
         const supabase = await createSupabaseServerClient();
-        const { data: userDocs } = await (supabase as any)
+        const { data: userDocs, error: userDocsError } = await (supabase as any)
           .from("user_documents")
-          .select("id, original_filename, document_kind")
+          .select("id, original_name, display_label, document_kind")
           .eq("user_id", profile.id);
+
+        if (userDocsError) {
+          console.error("[profile] failed to load user documents:", userDocsError);
+        }
 
         const docMap = new Map<string, string>();
         for (const d of userDocs ?? []) {
-          docMap.set(d.id, d.original_filename || d.document_kind || "Document");
+          docMap.set(d.id, d.display_label || d.original_name || d.document_kind || "Document");
         }
 
         const sponsorNames = new Map(initialPetitions.map((p) => [p.id, p.sponsorName]));
