@@ -60,13 +60,30 @@ export function flatFieldsFrom(
     i140_approved: protecting.length > 0,
     i140_approval_date: earliestApproval ?? null,
     i140_filed: petitions.some((p) => STAGE_ORDER[p.stage] >= STAGE_ORDER.i140_filed) || protecting.length > 0,
+    i485_filed: petitions.some((p) => STAGE_ORDER[p.stage] >= STAGE_ORDER.i485_filed),
     priority_date: effective.effectiveDate ? effective.effectiveDate.toISOString().slice(0, 10) : null
   };
   if (storedPermIsRemoved) patch.perm_filing_date = null;
 
+  if (petitions.length === 0) {
+    patch.perm_stage = "not_started";
+    patch.perm_filing_date = null;
+    patch.i140_filed = false;
+    patch.i140_approved = false;
+    patch.i140_approval_date = null;
+    patch.i485_filed = false;
+    patch.priority_date = null;
+  } else {
+    // Sync preference category from the active/protecting petition if available
+    const activeOrProtecting = petitions.find((p) => !isPetitionEnded(p)) || protecting[0] || petitions[0];
+    if (activeOrProtecting?.preferenceCategory && activeOrProtecting.preferenceCategory !== "Not sure") {
+      patch.preference_category = activeOrProtecting.preferenceCategory;
+    }
+  }
+
   // PERM stage describes the current employer's green card, so only change it
   // when there is one that is still moving.
-  if (profile.employmentStatus !== "laid_off" && profile.employerName) {
+  if (profile.employmentStatus !== "laid_off" && profile.employerName && petitions.length > 0) {
     const current = petitions.find(
       (p) =>
         !isPetitionEnded(p) &&

@@ -5,7 +5,7 @@
 export {};
 
 async function main() {
-  const { normalizePetitions, sponsorMatches, validatePetition, providesI140Protection } = await import("@/lib/petitions");
+  const { normalizePetitions, sponsorMatches, validatePetition, providesI140Protection, seedPetitionsFromLegacyProfile } = await import("@/lib/petitions");
   const { findActivePetition, resolveEffectivePriorityDate, inferProfileGreenCardStage } = await import(
     "@/lib/immigration-journey"
   );
@@ -224,6 +224,47 @@ async function main() {
     permPlan.ok && (permPlan.update as Record<string, any>).perm_filing_date === null &&
       (permPlan.update as Record<string, any>).priority_date === null,
     JSON.stringify(permPlan.ok ? permPlan.update : permPlan)
+  );
+
+  // Seeding from legacy profile
+  const seededExisting = seedPetitionsFromLegacyProfile({ immigrantPetitions: petitions });
+  check("seed: leaves existing petitions untouched", seededExisting.length === 2);
+
+  const seededEmpty = seedPetitionsFromLegacyProfile({ immigrantPetitions: [] });
+  check("seed: empty profile yields empty petitions", seededEmpty.length === 0);
+
+  const seededLegacySingle = seedPetitionsFromLegacyProfile({
+    greenCardSponsor: "Acme Corp",
+    i140Approved: true,
+    priorityDate: "2021-08-15",
+    preferenceCategory: "EB-2"
+  });
+  check(
+    "seed: flat approved I-140 seeds single petition",
+    seededLegacySingle.length === 1 &&
+      seededLegacySingle[0].sponsorName === "Acme Corp" &&
+      seededLegacySingle[0].stage === "i140_approved" &&
+      seededLegacySingle[0].priorityDate === "2021-08-15"
+  );
+
+  const seededDual = seedPetitionsFromLegacyProfile({
+    employerName: "Current Inc",
+    greenCardSponsor: "Current Inc",
+    permStage: "in_progress",
+    i140Approved: true,
+    retainedPriorityDate: "2020-05-10",
+    retainedPriorityDateSponsor: "Prior Tech LLC",
+    preferenceCategory: "EB-2"
+  });
+  check(
+    "seed: prior retained sponsor seeds separate ended petition and current active petition",
+    seededDual.length === 2 &&
+      seededDual[0].sponsorName === "Prior Tech LLC" &&
+      seededDual[0].stage === "i140_approved" &&
+      seededDual[0].endedReason === "job_change" &&
+      seededDual[1].sponsorName === "Current Inc" &&
+      seededDual[1].stage === "perm_in_progress" &&
+      seededDual[1].isPriorityDateRecaptured === true
   );
 
   console.log(`\n${pass}/${pass + failures.length} passed`);

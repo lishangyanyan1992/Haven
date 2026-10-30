@@ -1,0 +1,24 @@
+# Tasks
+
+## 1. Unified Green Card Consolidation & Legacy Seeding
+
+- [x] 1.1 Add `seedPetitionsFromLegacyProfile(profile)` in `apps/haven/src/lib/petitions.ts` so profiles with legacy flat green card fields (`permStage`, `i140Filed`, `i140Approved`, `i485Filed`, `priorityDate`, `greenCardSponsor`, or `retainedPriorityDateSponsor`) and an empty `immigrantPetitions` array synthesize initial `ImmigrantPetition` records; verify with unit tests in `apps/haven/src/lib/__tests__/petitions.test.ts` (or `apps/haven/evals/`).
+- [x] 1.2 Update `flatFieldsFrom` in `apps/haven/src/lib/petition-save.ts` and `withSharedGreenCards` in `apps/haven/src/lib/firms/answers.ts` so saving green card petitions synchronizes flat profile fields (`preference_category`, `i485_filed`, `perm_stage`, `i140_filed`, `i140_approved`, `priority_date`, `greenCardSponsor`, `retainedPriorityDateSponsor`) and clears derived green card flags when the petition list is saved empty; verify with unit tests covering multi-petition saves and empty-list saves.
+- [x] 1.3 Update `apps/haven/src/components/app/green-card-editor.tsx` to support full preference categories and stages (including family/marriage and self-petition options) and clear headings ("Green cards filed"); verify component rendering and validation pass typecheck.
+
+## 2. Unified Case Memory & Manual Case Notes
+
+- [x] 2.1 Extend `RememberedFactKind` with `"note"` in `apps/haven/src/lib/advisor/memory.ts`, add `addManualFact(userId, quote)` (validating 1–240 chars and upserting with `dismissed_at: null`), and update `renderFactsForPrompt` to attribute `kind === "note"` as `(added by the user in Case Memory on <date>)`; verify with unit tests for `addManualFact` validation and `renderFactsForPrompt` output.
+- [x] 2.2 Add `POST` handler in `apps/haven/src/app/api/advisor/memory/route.ts` to validate and save manual case notes via `addManualFact`; verify with route/handler tests covering valid note creation, blank/oversized rejection, and unauthorized access.
+- [x] 2.3 Create `<CaseMemoryCard />` in `apps/haven/src/components/app/case-memory-card.tsx` displaying chat-remembered facts ("From chat"), manual case notes ("Added by you"), an inline form to add a manual case note, remove buttons for each memory, and (when provided) a summary list of document-extracted facts with document/page attribution; use `<CaseMemoryCard />` in `apps/haven/src/app/advisor/AdvisorWorkspace.tsx` and verify `npm run typecheck` passes.
+
+## 3. Separate "Your Info" (`/profile`) and "Settings" (`/settings`)
+
+- [x] 3.1 Create `apps/haven/src/app/profile/page.tsx` ("Your Info") containing the Intake & Profile Completeness Audit banner, the unified "Current Visa & Employment" form (visa status, status end date, employer, job title, H-1B start date, employer size, country of birth, primary goal, spouse status, and lawyer help needed — without the duplicate "Green card journey" card), `<GreenCardEditor />` (pre-populated via `seedPetitionsFromLegacyProfile`), and `<CaseMemoryCard />` (with both `RememberedFact[]` and document-extracted facts from `loadFactsByDocument`); verify `/profile` compiles and renders all four sections.
+- [x] 3.2 Update `apps/haven/src/app/settings/page.tsx` and `apps/haven/src/server/actions.ts` so `/settings` strictly manages system/email preferences (`communityReplyEmailNotifications`, `statusUpdateEmailNotifications`) with a banner link to `/profile` ("Your Info"), and `saveProfileSettingsAction` redirects to `/profile?saved=1` while revalidating `/profile`, `/settings`, `/dashboard`, and `/firm`; verify `/settings` contains only system preferences.
+- [x] 3.3 Update `apps/haven/src/components/app/app-shell-nav.tsx` to include `{ href: "/profile", label: "Your Info" }` alongside `{ href: "/settings", label: "Settings" }`, and update deep links in `apps/haven/src/lib/dashboard-consistency.ts`, `apps/haven/src/lib/document-facts/describe.ts`, `apps/haven/src/lib/immigration-journey.ts`, `apps/haven/src/server/field-source-actions.ts`, and `apps/haven/src/lib/field-sources/store.ts` to point to `/profile#case-details` and `/profile#green-cards`; verify with grep and existing consistency/document-fact tests.
+
+## 4. Lawyer Dashboard Case Memory Integration
+
+- [x] 4.1 Update `getFirmClient` in `apps/haven/src/lib/firms/clients.ts` to load active `advisor_remembered_facts` (`dismissed_at is null`) for the client's `user_id` and attach `rememberedFacts` to `FirmClientDetail`; verify typecheck and firm client unit tests pass.
+- [x] 4.2 Add the "Case Memory & Client Notes" section to `apps/haven/src/app/firm/clients/[id]/page.tsx` displaying each active memory with its quote, origin badge ("Client note" for `kind === "note"` vs. "From chat"), and recorded date; verify build and typecheck succeed across the workspace.

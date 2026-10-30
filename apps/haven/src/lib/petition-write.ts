@@ -48,7 +48,7 @@ export async function writePetitions(
   if (updateError) return { ok: false, error: "We couldn't save your green cards. Try again in a moment." };
 
   await refreshDerivedSignals(userId);
-  safeRevalidate("/dashboard", "/settings", "/timeline");
+  safeRevalidate("/dashboard", "/profile", "/settings", "/timeline");
   // The client chose to share green cards with their law firm, if they have one.
   if (!(await recordFirmSharedGreenCards(userId, plan.petitions))) {
     return { ok: false, error: "Your green cards were saved, but your law firm's copy didn't update. Save again to retry." };

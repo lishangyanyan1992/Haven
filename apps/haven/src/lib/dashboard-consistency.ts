@@ -31,8 +31,8 @@ export type ConsistencyInput = {
   layoffDate?: string | null;
 };
 
-const GREEN_CARDS_HREF = "/settings#green-cards";
-const PROFILE_HREF = "/settings#case-details";
+const GREEN_CARDS_HREF = "/profile#green-cards";
+const PROFILE_HREF = "/profile#case-details";
 
 function str(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;

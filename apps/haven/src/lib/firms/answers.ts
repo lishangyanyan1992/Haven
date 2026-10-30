@@ -262,5 +262,12 @@ export function withSharedGreenCards(current: SharedAnswers, rawPetitions: unkno
   else delete next.greenCards;
   if (sponsors.length) next.greenCardSponsors = sponsors;
   else delete next.greenCardSponsors;
+
+  // Also sync summary fields if petitions provided
+  if (Array.isArray(rawPetitions) && rawPetitions.length === 0) {
+    delete next.greenCardStage;
+    delete next.greenCardSponsor;
+    delete next.retainedPriorityDateSponsor;
+  }
   return next;
 }

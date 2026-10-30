@@ -22,6 +22,7 @@ import remarkGfm from "remark-gfm";
 
 import { splitAnswer } from "@/lib/advisor/answer-shape";
 
+import { CaseMemoryCard } from "@/components/app/case-memory-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -86,12 +87,7 @@ type AdvisorThreadSummary = {
   messageCount: number;
 };
 
-type RememberedFact = {
-  id: string;
-  kind: string;
-  quote: string;
-  createdAt: string;
-};
+import type { RememberedFact } from "@/lib/advisor/memory";
 
 /** "3 days ago" — enough for a sidebar, no dependency needed. */
 function relativeTime(iso: string) {
@@ -1255,47 +1251,12 @@ export function AdvisorWorkspace({
         </CardContent>
       </Card>
 
-      {/* What Haven remembers, in the user's own words, with a way to remove any of
-          it. This panel is the feature's honesty mechanism rather than a
-          convenience: recalling something somebody knows they said is helpful,
-          recalling something they did not realise was kept is unsettling, and on
-          immigration history that is a trust failure. If it is remembered, it is
-          shown here. */}
-      {facts.length > 0 && (
-        <Card>
-          <CardContent className="space-y-3 py-4">
-            <div>
-              <p className="text-caption text-[var(--color-text-secondary)]">What Haven remembers</p>
-              <p className="mt-1 text-caption text-[var(--color-text-secondary)]">
-                Things you told Haven in earlier conversations, so you don&apos;t have to repeat them. Haven treats
-                these as what you said, not as verified facts — remove anything that&apos;s out of date or you&apos;d
-                rather it forgot.
-              </p>
-            </div>
-            <ul className="space-y-1">
-              {facts.map((fact) => (
-                <li key={fact.id} className="flex items-start gap-2 rounded-[var(--radius-md)] bg-[var(--haven-sand)] px-3 py-2">
-                  <BrainCircuit className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--color-text-secondary)]" />
-                  <span className="min-w-0 flex-1 text-body-sm">
-                    &ldquo;{fact.quote}&rdquo;
-                    <span className="ml-2 text-caption text-[var(--color-text-secondary)]">
-                      {relativeTime(fact.createdAt)}
-                    </span>
-                  </span>
-                  <button
-                    aria-label={`Forget: ${fact.quote}`}
-                    className="shrink-0 rounded-full p-1.5 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--haven-blush-light)] hover:text-[var(--haven-blush-ink)]"
-                    onClick={() => void forgetFact(fact)}
-                    type="button"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      )}
+      {/* What Haven remembers & case memory, with ability to add/remove memories. */}
+      <CaseMemoryCard
+        initialFacts={facts}
+        onFactAdded={(fact) => setFacts((prev) => [fact, ...prev.filter((f) => f.id !== fact.id)])}
+        onFactForgotten={(factId) => setFacts((prev) => prev.filter((f) => f.id !== factId))}
+      />
 
       <div className="px-1">
         {/* Counts conversations, not questions — follow-ups within a thread are

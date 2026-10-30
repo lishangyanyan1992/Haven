@@ -24,7 +24,15 @@ const TYPE_OPTIONS: { value: ImmigrantPetitionType; label: string }[] = [
   { value: "employer_sponsored", label: "Employer-sponsored (PERM)" },
   { value: "self_petition_niw", label: "Self-petition: EB-2 NIW" },
   { value: "self_petition_eb1a", label: "Self-petition: EB-1A" },
-  { value: "concurrent_employer", label: "Second employer, at the same time" }
+  { value: "concurrent_employer", label: "Second employer, at the same time" },
+  { value: "family_marriage_usc", label: "Family: Marriage to US Citizen" },
+  { value: "family_marriage_lpr", label: "Family: Marriage to Green Card Holder" },
+  { value: "family_preference", label: "Family Preference (I-130)" },
+  { value: "investment_eb5", label: "Investment (EB-5)" },
+  { value: "humanitarian_asylum", label: "Humanitarian: Asylum" },
+  { value: "humanitarian_other", label: "Humanitarian: Other" },
+  { value: "diversity_lottery", label: "Diversity Visa (Lottery)" },
+  { value: "other", label: "Other / Unlisted" }
 ];
 
 const STAGE_OPTIONS: { value: ImmigrantPetitionStage; label: string }[] = [
@@ -33,11 +41,35 @@ const STAGE_OPTIONS: { value: ImmigrantPetitionStage; label: string }[] = [
   { value: "perm_certified", label: "PERM approved" },
   { value: "i140_filed", label: "I-140 filed" },
   { value: "i140_approved", label: "I-140 approved" },
-  { value: "i485_filed", label: "I-485 filed" },
+  { value: "i130_filed", label: "I-130 filed (Family / Marriage)" },
+  { value: "i130_approved", label: "I-130 approved" },
+  { value: "consular_processing", label: "Consular / NVC processing" },
+  { value: "conditional_resident", label: "2-year conditional resident" },
+  { value: "i485_filed", label: "I-485 filed (Adjustment of status)" },
   { value: "i485_approved", label: "Green card approved" }
 ];
 
-const CATEGORY_OPTIONS: PreferenceCategory[] = ["EB-1", "EB-2", "EB-2 NIW", "EB-3", "Not sure"];
+const CATEGORY_OPTIONS: PreferenceCategory[] = [
+  "EB-1",
+  "EB-1A",
+  "EB-1B",
+  "EB-1C",
+  "EB-2",
+  "EB-2 NIW",
+  "EB-3",
+  "EB-4",
+  "EB-5",
+  "Immediate Relative (Spouse)",
+  "Immediate Relative (Parent/Child)",
+  "F-1",
+  "F-2A",
+  "F-2B",
+  "F-3",
+  "F-4",
+  "Diversity Visa",
+  "Asylum Adjustment",
+  "Not sure"
+];
 
 const ENDED_OPTIONS: { value: "" | PetitionEndedReason; label: string }[] = [
   { value: "", label: "Still moving forward" },
@@ -140,10 +172,10 @@ export function GreenCardEditor({
     <Card id="green-cards">
       <CardHeader>
         <div>
-          <p className="text-label">Green cards</p>
+          <p className="text-label">Green cards filed</p>
           <CardTitle className="mt-2">Every green card filed for you</CardTitle>
           <p className="mt-2 text-body-sm text-[var(--color-text-secondary)]">
-            Add one for each employer or self-petition, including ones that ended. An approved I-140 keeps your
+            Add one for each employer, self-petition, or family petition, including ones that ended. An approved I-140 keeps your
             priority date even after the job ends.
           </p>
         </div>

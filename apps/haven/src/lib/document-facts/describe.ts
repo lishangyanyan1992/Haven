@@ -56,9 +56,9 @@ function show(value: string | null) {
 function whereName(appliedTo: string | null, sponsors: Map<string, string>) {
   const parsed = appliedTo ? parseFieldKey(appliedTo) : null;
   if (!parsed) return null;
-  if (parsed.kind === "profile") return { name: PROFILE_FIELD_NAMES[parsed.field] ?? parsed.field, href: "/settings#case-details" };
+  if (parsed.kind === "profile") return { name: PROFILE_FIELD_NAMES[parsed.field] ?? parsed.field, href: "/profile#case-details" };
   const sponsor = sponsors.get(parsed.petitionId);
-  return { name: sponsor ? `${sponsor}'s green card` : "a green card", href: "/settings#green-cards" };
+  return { name: sponsor ? `${sponsor}'s green card` : "a green card", href: "/profile#green-cards" };
 }
 
 /**

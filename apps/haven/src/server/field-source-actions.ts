@@ -38,7 +38,7 @@ async function applyDocumentValue(fieldKey: string): Promise<ResolveResult> {
     [{ ...source, origin: "document", value: source.documentValue, documentValue: null, resolution: null }],
     userId
   );
-  safeRevalidate("/settings", "/dashboard", "/documents", "/firm");
+  safeRevalidate("/profile", "/settings", "/dashboard", "/documents", "/firm");
   return { ok: true };
 }
 
@@ -58,6 +58,6 @@ async function keepMine(fieldKey: string): Promise<ResolveResult> {
   const source = (await loadFieldSources(userId, { strict: true })).get(fieldKey);
   if (!source || source.origin !== "person" || !source.documentValue) return { ok: false, error: "Nothing to resolve here." };
   await saveFieldSources(userId, [{ ...source, resolution: "kept_mine" }], userId);
-  safeRevalidate("/settings", "/dashboard", "/firm");
+  safeRevalidate("/profile", "/settings", "/dashboard", "/firm");
   return { ok: true };
 }

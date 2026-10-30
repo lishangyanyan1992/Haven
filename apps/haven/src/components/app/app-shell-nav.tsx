@@ -3,17 +3,18 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Briefcase, FileText, LoaderCircle, MessageSquareQuote, Settings } from "lucide-react";
+import { Briefcase, FileText, LoaderCircle, MessageSquareQuote, Settings, User } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import type { AdvisorUsage } from "@/lib/advisor/service";
 import { cn } from "@/lib/utils";
 
-// Four primary destinations: Case (journey + firm engagement), Documents, Ask, and Settings.
+// Primary destinations: Case, Documents, Ask, Your Info, and Settings.
 const navItems = [
   { href: "/dashboard", label: "Case", icon: Briefcase },
   { href: "/documents", label: "Documents", icon: FileText },
   { href: "/advisor", label: "Ask", icon: MessageSquareQuote },
+  { href: "/profile", label: "Your Info", icon: User },
   { href: "/settings", label: "Settings", icon: Settings }
 ];
 

@@ -134,7 +134,7 @@ export async function applyDocumentFacts(userId: string, documentId: string): Pr
   for (const outcome of outcomes) {
     await db.from("document_facts").update({ state: outcome.state, applied_to: outcome.appliedTo }).eq("id", outcome.factId);
   }
-  safeRevalidate("/documents", "/settings", "/dashboard", "/firm");
+  safeRevalidate("/documents", "/profile", "/settings", "/dashboard", "/firm");
   return { outcomes, createdSponsor: plan.createdPetition?.sponsorName ?? null };
 }
 

@@ -3,7 +3,7 @@ import { getFirmConversation } from "@/lib/firms/firm-messages";
 import { listSharedChatsForFirm } from "@/lib/firms/shared-chats";
 import { ClientMessagesPanel } from "./ClientMessagesPanel";
 import { HELP_NEEDED_OPTIONS } from "@/lib/firms/help-needed";
-import { AlertTriangle, ArrowLeft, FileWarning } from "lucide-react";
+import { AlertTriangle, ArrowLeft, BrainCircuit, FileWarning } from "lucide-react";
 
 import { requireFirmMember } from "@/lib/firms/access";
 import type { SharedAnswerKey, SharedAnswers } from "@/lib/firms/answers";
@@ -489,7 +489,52 @@ export default async function FirmClientPage({ params }: { params: Promise<{ id:
           </section>
         ) : null}
 
-        <section className="rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-5 sm:p-6">
+        {/* Case Memory & Client Notes */}
+      {client.rememberedFacts.length > 0 ? (
+        <section
+          className="rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-5 sm:p-6"
+          id="client-case-memory"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--color-border)] pb-3">
+            <div className="flex items-center gap-2">
+              <BrainCircuit className="h-5 w-5 text-[var(--haven-ink)]" />
+              <h2 className="text-h3">Case Memory & Client Notes</h2>
+            </div>
+            <span className="rounded-full bg-[var(--haven-cream)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--haven-ink)]">
+              {client.rememberedFacts.length} active item{client.rememberedFacts.length === 1 ? "" : "s"}
+            </span>
+          </div>
+          <p className="mt-2 text-body-sm text-[var(--haven-ink-mid)]">
+            Durable case facts stated by the client in Advisor chat or entered directly into their Case Memory.
+          </p>
+          <ul className="mt-3 divide-y divide-[var(--color-border)]">
+            {client.rememberedFacts.map((fact) => {
+              const isNote = fact.kind === "note";
+              return (
+                <li key={fact.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                  <div className="min-w-0">
+                    <p className="text-body-sm font-medium text-[var(--haven-ink)]">&ldquo;{fact.quote}&rdquo;</p>
+                    <p className="mt-0.5 text-[12px] text-[var(--haven-ink-mid)]">
+                      Recorded {formatDate(fact.createdAt)}
+                    </p>
+                  </div>
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${
+                      isNote
+                        ? "bg-[var(--haven-sage-light)] text-[var(--haven-ink)]"
+                        : "bg-[var(--haven-cream)] text-[var(--haven-ink-mid)]"
+                    }`}
+                  >
+                    {isNote ? "Client note" : "From chat"}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
+
+      <section className="rounded-[var(--radius-2xl)] border border-[var(--color-border)] bg-[var(--haven-white)] p-5 sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-h3">Documents</h2>
             {client.requiredDocuments.length > 0 && (
