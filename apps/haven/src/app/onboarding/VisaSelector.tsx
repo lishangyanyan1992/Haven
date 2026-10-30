@@ -172,7 +172,17 @@ export function VisaSelector({ value = "", customValue = "", onChange, hasError,
             value={customValue || (value !== "other" ? value : "")}
             onChange={(e) => onChange("other", e.target.value)}
             placeholder="e.g. G-4, NATO, Paroled pending asylum, Withholding of removal, etc."
+            required
+            aria-invalid={hasError || undefined}
+            aria-describedby={hasError ? "custom-visa-detail-error" : undefined}
+            onInvalid={(e) => e.currentTarget.setCustomValidity("Type your visa or status, or pick one from the list.")}
+            onInput={(e) => e.currentTarget.setCustomValidity("")}
           />
+          {hasError ? (
+            <p className="text-caption text-[#b42318]" id="custom-visa-detail-error">
+              Type your visa or status, or pick one from the list.
+            </p>
+          ) : null}
           <p className="text-caption text-[var(--color-text-secondary)]">
             Haven will record your exact status for tailored guidance and attorney review.
           </p>

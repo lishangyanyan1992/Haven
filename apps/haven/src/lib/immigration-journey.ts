@@ -436,13 +436,14 @@ export function inferProfileGreenCardStage(profile: ImmigrationProfile): GreenCa
     }
   }
 
+  // A step saved in Settings with no green card record wins over the old yes/no flags.
+  if (profile.greenCardStage === "pwd_recruitment") return "perm_in_progress";
+  if (profile.greenCardStage === "i485_approved") return "i485_approved";
   if (profile.i140Approved) return "i140_approved";
   if (profile.i140Filed) return "i140_filed";
   if (profile.permStage === "certified") return "perm_certified";
   if (profile.permStage === "in_progress") return "perm_in_progress";
   // A step saved in Settings with no green card record (I-130 filed, consular processing…).
-  if (profile.greenCardStage === "i485_approved") return "i485_filed";
-  if (profile.greenCardStage === "pwd_recruitment") return "perm_in_progress";
   if (profile.greenCardStage && NON_I140_STAGES.has(profile.greenCardStage)) return profile.greenCardStage;
   return "not_started";
 }
@@ -1625,10 +1626,11 @@ export function buildImmigrationJourney(input: {
     i130_approved: 4,
     consular_processing: 4,
     i485_filed: 5,
-    conditional_resident: 5
+    conditional_resident: 5,
+    i485_approved: 6
   };
   const stageRank = STAGE_ORDER[gcStage];
-  const isGcComplete = profile.visaType === "GC" || profile.visaType === "Citizen";
+  const isGcComplete = profile.visaType === "GC" || profile.visaType === "Citizen" || gcStage === "i485_approved";
 
   const estimatedRangeLabel =
     priorityDateIntelligence?.estimatedGreenCardDateRange ??
@@ -1774,7 +1776,9 @@ export function buildImmigrationJourney(input: {
     },
     (() => {
       const node = employmentGcNodes.find((n) => n.key === "priority_date")!;
-      return priorityDate ? node : { ...node, dateOrMeta: "Set when the first petition is filed" };
+      if (priorityDate) return node;
+      if (gcPathType === "diversity_lottery") return { ...node, dateOrMeta: "Your DV case number sets your place in line" };
+      return { ...node, dateOrMeta: firstPetitionForm(gcPathType ?? "") ? "Set when the first petition is filed" : "Set when your petition is filed" };
     })(),
     {
       ...employmentGcNodes.find((n) => n.key === "bulletin_queue")!,
@@ -1905,7 +1909,8 @@ export function buildImmigrationJourney(input: {
     i130_approved: "I-130 approved",
     consular_processing: "Consular processing",
     conditional_resident: "Conditional resident",
-    i485_filed: "I-485 filed"
+    i485_filed: "I-485 filed",
+    i485_approved: "Permanent resident"
   };
 
   const gcStatusBadge = isGcComplete ? "Green Card holder" : STAGE_BADGE_LABELS[gcStage];

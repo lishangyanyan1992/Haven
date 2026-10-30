@@ -1,5 +1,7 @@
 import { computeDerivedSignals } from "@/lib/haven";
 import { mapProfileRow } from "@/lib/profile-mapper";
+import { findActivePetition } from "@/lib/immigration-journey";
+import { usesI140 } from "@/lib/petitions";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { concernsForHelpNeeded, normalizeHelpNeeded } from "@/lib/firms/help-needed";
 import type { Concern, EmploymentStatus, ImmigrationProfile, PrimaryGoal, PreferenceCategory, SpouseVisaStatus, VisaType } from "@/types/domain";
@@ -110,10 +112,17 @@ export function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<stri
         : {})
     };
   }
+  // Family, investor, humanitarian and lottery green cards have no I-140 to approve.
+  const existingProfile = existingRow ? mapProfileRow(existingRow) : null;
+  const pathway =
+    (existingProfile ? findActivePetition(existingProfile)?.petitionType : undefined) ??
+    asOptionalString(rawDraft.greenCardPathway) ??
+    existingProfile?.greenCardPathway;
   const i140Approved =
-    rawDraft.i140Approved !== undefined
+    (!pathway || usesI140(pathway)) &&
+    (rawDraft.i140Approved !== undefined
       ? rawDraft.i140Approved === true || rawDraft.i140Approved === "true"
-      : Boolean(existingRow?.i140_approved);
+      : Boolean(existingRow?.i140_approved));
 
   const stageSent = typeof rawDraft.greenCardStage === "string" && rawDraft.greenCardStage.trim().length > 0;
   const greenCardStage =

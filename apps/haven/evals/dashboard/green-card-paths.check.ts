@@ -196,10 +196,18 @@ async function main() {
     JSON.stringify({ perm: withStage.perm_stage, i140: withStage.i140_filed, i485: withStage.i485_filed })
   );
   const savedOnly = (stage: string) => inferProfileGreenCardStage({ ...twoEmployerProfile({ immigrantPetitions: [] as never }), i140Filed: false, i140Approved: false, permStage: "not_started", greenCardStage: stage } as never);
-  check("saved 'permanent resident' step with no green card record isn't 'not started'", savedOnly("i485_approved") === "i485_filed", savedOnly("i485_approved"));
+  check("saved 'permanent resident' step with no green card record stays approved", savedOnly("i485_approved") === "i485_approved", savedOnly("i485_approved"));
+  const pwdWithOldFlag = inferProfileGreenCardStage({ ...twoEmployerProfile({ immigrantPetitions: [] as never }), i140Filed: false, i140Approved: true, permStage: "not_started", greenCardStage: "pwd_recruitment" } as never);
+  check("saved 'PWD / recruitment' step beats an old I-140 approved flag", pwdWithOldFlag === "perm_in_progress", pwdWithOldFlag);
+  const familyRow = { deadline_answers: { greenCardPathway: "family_immediate_relative" } };
+  const familySave = normalizeDraft({ visaType: "H4", greenCardStage: "i485_filed", i140Approved: "true" } as never, familyRow) as Record<string, unknown>;
+  check("family green card at I-485 filed doesn't get an approved I-140", familySave.i140_approved === false, String(familySave.i140_approved));
+  const employerSave = normalizeDraft({ visaType: "H1B", greenCardStage: "i485_filed", i140Approved: "true" } as never, { deadline_answers: { greenCardPathway: "employer_sponsored" } }) as Record<string, unknown>;
+  check("employer green card at I-485 filed keeps its approved I-140", employerSave.i140_approved === true, String(employerSave.i140_approved));
   check("saved 'PWD / recruitment' step with no green card record shows PERM in progress", savedOnly("pwd_recruitment") === "perm_in_progress", savedOnly("pwd_recruitment"));
   const { standardVisaValue } = await import("@/lib/visas");
   check("I-94 class L2S fills L-2", standardVisaValue("L2S") === "L-2", String(standardVisaValue("L2S")));
+  check("typed 'H-1B' saves as H1B", standardVisaValue("H-1B") === "H1B", String(standardVisaValue("H-1B")));
   check("I-94 class L2Y does not fill L-2", standardVisaValue("L2Y") === null, String(standardVisaValue("L2Y")));
 
   console.log(`\n${pass}/${pass + failures.length} checks passed.`);

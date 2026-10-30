@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { VisaSelector } from "@/app/onboarding/VisaSelector";
-import { ALL_VISA_OPTIONS } from "@/lib/visas";
+import { ALL_VISA_OPTIONS, standardVisaValue } from "@/lib/visas";
 
 /**
  * Every visa and status, searchable, with a write-in for anything unlisted.
@@ -25,16 +25,16 @@ export function VisaStatusField({
   const [custom, setCustom] = useState(defaultValue && !known ? defaultCustom || defaultValue : defaultCustom ?? "");
   const typed = custom.trim();
   // A typed-in name that matches a listed status is saved as that status ("citizen" → "Citizen").
-  const listed = ALL_VISA_OPTIONS.find((o) => o.value !== "other" && o.value.toLowerCase() === typed.toLowerCase());
-  const effective = value === "other" ? listed?.value ?? typed : value;
-  const missingCustom = value === "other" && !typed;
+  const listed =
+    ALL_VISA_OPTIONS.find((o) => o.value !== "other" && o.value.toLowerCase() === typed.toLowerCase())?.value ??
+    standardVisaValue(typed);
+  const effective = value === "other" ? listed ?? typed : value;
 
   return (
-    <div className="relative">
+    <div>
       <VisaSelector
         ariaLabel={label}
         customValue={custom}
-        hasError={missingCustom}
         onChange={(next, typed) => {
           setValue(next);
           if (next === "other") setCustom(typed ?? "");
@@ -43,18 +43,6 @@ export function VisaStatusField({
       />
       <input name="visaType" type="hidden" value={effective} />
       <input name="customVisaDetail" type="hidden" value={value === "other" && !listed ? typed : ""} />
-      {missingCustom ? (
-        // Stops the form from saving "Other" with nothing typed in.
-        <input
-          aria-hidden="true"
-          className="pointer-events-none absolute h-px w-px opacity-0"
-          onChange={() => {}}
-          onInvalid={(e) => e.currentTarget.setCustomValidity("Type your visa or status, or pick one from the list.")}
-          required
-          tabIndex={-1}
-          value=""
-        />
-      ) : null}
     </div>
   );
 }
