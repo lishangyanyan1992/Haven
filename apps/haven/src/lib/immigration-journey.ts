@@ -2462,7 +2462,7 @@ export function buildImmigrationJourney(input: {
         : `Your profile marks I-140 as Approved (${formatDateLabel(priorityDate) ?? "PD on file"}), but PERM stage is still set to "not_started" and perm_filing_date is empty.`,
       impact: "Clarify whether your approved I-140 is held by a prior employer (requiring a new PERM + I-140 with priority date recapture at your next sponsor) or your most recent employer.",
       actionLabel: "Verify Green Card stage",
-      actionHref: "/settings"
+      actionHref: "/profile#green-cards"
     });
   }
 
@@ -2478,7 +2478,7 @@ export function buildImmigrationJourney(input: {
         ? "Critical during a grace period: if your spouse holds an independent work/student visa or U.S. citizenship, filing a dependent change of status (Form I-539) or marriage-based adjustment could immediately protect your authorized stay."
         : "Prevents Haven and your attorney from evaluating dependent visa fallback or cross-chargeability options.",
       actionLabel: "Update spouse status",
-      actionHref: "/settings"
+      actionHref: "/profile#case-details"
     });
   }
 
@@ -2504,8 +2504,8 @@ export function buildImmigrationJourney(input: {
       detail: `Your profile records a green card case${priorityDate ? ` with priority date ${formatDateLabel(priorityDate)}` : ""}, but does not specify which company sponsored it. Never assume a green card is tied to your current employer (${profile.employerName ?? "Current"}).`,
       impact:
         "Knowing whether this petition was filed by a prior employer, your current employer, or self-petitioned (e.g. EB-2 NIW) determines your priority date retention rights, whether a new PERM is required, and post-6th-year H-1B extension eligibility.",
-      actionLabel: "Set sponsor in Settings",
-      actionHref: "/settings"
+      actionLabel: "Set sponsor in Your Info",
+      actionHref: "/profile#green-cards"
     });
   }
 
@@ -2560,8 +2560,8 @@ export function buildImmigrationJourney(input: {
       title: "Employer industry & cap-exempt status not recorded on profile",
       detail: `employer_industry is null on your profile record for ${employerName ?? "your sponsoring employer"}.`,
       impact: "Used to benchmark layoff readiness, prevailing wage tiers, and cap-exempt transfer eligibility.",
-      actionLabel: "Complete in Settings",
-      actionHref: "/settings"
+      actionLabel: "Complete in Your Info",
+      actionHref: "/profile#case-details"
     });
   }
 

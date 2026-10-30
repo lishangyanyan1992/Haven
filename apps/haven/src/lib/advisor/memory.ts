@@ -34,7 +34,7 @@
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
-export type RememberedFactKind = "employment" | "filing" | "status" | "date";
+export type RememberedFactKind = "employment" | "filing" | "status" | "date" | "note";
 
 export interface RememberedFact {
   id: string;
@@ -165,6 +165,49 @@ export async function rememberFactsFrom(input: {
   }
 }
 
+/**
+ * Add a manual fact or note about the case.
+ * Validates length (1-240 characters) and saves as kind 'note'.
+ * Upserting resets dismissed_at to null so re-adding a dismissed note un-dismisses it.
+ */
+export async function addManualFact(userId: string, quote: string): Promise<RememberedFact> {
+  const trimmed = quote.trim();
+  if (trimmed.length === 0) {
+    throw new Error("Note cannot be empty.");
+  }
+  if (trimmed.length > MAX_QUOTE_LENGTH) {
+    throw new Error(`Note cannot exceed ${MAX_QUOTE_LENGTH} characters.`);
+  }
+
+  const admin = createSupabaseAdminClient() as any;
+  const { data, error } = await admin
+    .from("advisor_remembered_facts")
+    .upsert(
+      {
+        user_id: userId,
+        thread_id: null,
+        source_message_id: null,
+        kind: "note",
+        quote: trimmed,
+        dismissed_at: null
+      },
+      { onConflict: "user_id,quote_hash" }
+    )
+    .select("id, kind, quote, created_at")
+    .single();
+
+  if (error || !data) {
+    throw new Error(`Unable to save note: ${error?.message || "Unknown error"}`);
+  }
+
+  return {
+    id: data.id,
+    kind: data.kind as RememberedFactKind,
+    quote: data.quote,
+    createdAt: data.created_at
+  };
+}
+
 /** A user's live remembered facts, newest first. */
 export async function listFacts(userId: string, limit = MAX_FACTS_LISTED): Promise<RememberedFact[]> {
   const admin = createSupabaseAdminClient() as any;
@@ -269,9 +312,13 @@ export function renderFactsForPrompt(facts: RememberedFact[]): string[] {
       year: "numeric",
       timeZone: "UTC"
     }).format(new Date(fact.createdAt));
+    const origin =
+      fact.kind === "note"
+        ? `added by the user in Case Memory on ${said}`
+        : `said in a conversation on ${said}`;
     return mentionsWhen(fact.quote)
-      ? `"${fact.quote}" (said in a conversation on ${said})`
-      : `"${fact.quote}" (said in a conversation on ${said}; this sentence gives NO date for when it happened)`;
+      ? `"${fact.quote}" (${origin})`
+      : `"${fact.quote}" (${origin}; this sentence gives NO date for when it happened)`;
   });
 
   const anyUndated = shown.some((fact) => !mentionsWhen(fact.quote));

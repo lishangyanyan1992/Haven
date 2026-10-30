@@ -5,7 +5,7 @@
 export {};
 
 async function main() {
-  const { normalizePetitions, sponsorMatches, validatePetition, providesI140Protection } = await import("@/lib/petitions");
+  const { normalizePetitions, sponsorMatches, validatePetition, providesI140Protection, seedPetitionsFromLegacyProfile } = await import("@/lib/petitions");
   const { findActivePetition, resolveEffectivePriorityDate, inferProfileGreenCardStage } = await import(
     "@/lib/immigration-journey"
   );
@@ -224,6 +224,237 @@ async function main() {
     permPlan.ok && (permPlan.update as Record<string, any>).perm_filing_date === null &&
       (permPlan.update as Record<string, any>).priority_date === null,
     JSON.stringify(permPlan.ok ? permPlan.update : permPlan)
+  );
+
+  // Seeding from legacy profile
+  const seededExisting = seedPetitionsFromLegacyProfile({ immigrantPetitions: petitions });
+  check("seed: leaves existing petitions untouched", seededExisting.length === 2);
+
+  const seededEmpty = seedPetitionsFromLegacyProfile({ immigrantPetitions: [] });
+  check("seed: empty profile yields empty petitions", seededEmpty.length === 0);
+
+  const seededLegacySingle = seedPetitionsFromLegacyProfile({
+    greenCardSponsor: "Acme Corp",
+    i140Approved: true,
+    priorityDate: "2021-08-15",
+    preferenceCategory: "EB-2"
+  });
+  check(
+    "seed: flat approved I-140 seeds single petition",
+    seededLegacySingle.length === 1 &&
+      seededLegacySingle[0].sponsorName === "Acme Corp" &&
+      seededLegacySingle[0].stage === "i140_approved" &&
+      seededLegacySingle[0].priorityDate === "2021-08-15"
+  );
+
+  const seededDual = seedPetitionsFromLegacyProfile({
+    employerName: "Current Inc",
+    greenCardSponsor: "Current Inc",
+    permStage: "in_progress",
+    i140Approved: true,
+    retainedPriorityDate: "2020-05-10",
+    retainedPriorityDateSponsor: "Prior Tech LLC",
+    preferenceCategory: "EB-2"
+  });
+  check(
+    "seed: prior retained sponsor seeds separate ended petition and current active petition",
+    seededDual.length === 2 &&
+      seededDual[0].sponsorName === "Prior Tech LLC" &&
+      seededDual[0].stage === "i140_approved" &&
+      seededDual[0].endedReason === "job_change" &&
+      seededDual[1].sponsorName === "Current Inc" &&
+      seededDual[1].stage === "perm_in_progress" &&
+      seededDual[1].isPriorityDateRecaptured === true
+  );
+
+  // Saving empty petitions clears legacy sponsor/retained fields and resets flat status fields so seedPetitionsFromLegacyProfile returns []
+  const legacyProfileRow = {
+    ...savedRow,
+    perm_stage: "in_progress",
+    perm_filing_date: "2024-02-05",
+    i140_filed: true,
+    i140_approved: true,
+    i140_approval_date: "2024-06-01",
+    i485_filed: true,
+    priority_date: "2020-05-10",
+    deadline_answers: {
+      greenCardSponsor: "Prior Tech LLC",
+      retainedPriorityDate: "2020-05-10",
+      retainedPriorityDateSponsor: "Prior Tech LLC",
+      retainedPriorityDateCategory: "EB-2",
+      immigrantPetitions: []
+    }
+  };
+  const emptySavePlan = planPetitionSave([], legacyProfileRow);
+  const emptyUpdate = emptySavePlan.ok ? (emptySavePlan.update as Record<string, any>) : {};
+  check(
+    "save: saving empty petitions clears legacy sponsor and retained priority date fields",
+    emptySavePlan.ok &&
+      !("greenCardSponsor" in emptyUpdate.deadline_answers) &&
+      !("retainedPriorityDate" in emptyUpdate.deadline_answers) &&
+      !("retainedPriorityDateSponsor" in emptyUpdate.deadline_answers) &&
+      !("retainedPriorityDateCategory" in emptyUpdate.deadline_answers) &&
+      emptyUpdate.deadline_answers.immigrantPetitions.length === 0 &&
+      emptyUpdate.perm_stage === "not_started" &&
+      emptyUpdate.i140_approved === false &&
+      emptyUpdate.i140_filed === false &&
+      emptyUpdate.i485_filed === false &&
+      emptyUpdate.priority_date === null
+  );
+  const reseeded = seedPetitionsFromLegacyProfile({
+    immigrantPetitions: emptyUpdate.deadline_answers?.immigrantPetitions,
+    greenCardSponsor: emptyUpdate.deadline_answers?.greenCardSponsor,
+    retainedPriorityDate: emptyUpdate.deadline_answers?.retainedPriorityDate,
+    retainedPriorityDateSponsor: emptyUpdate.deadline_answers?.retainedPriorityDateSponsor,
+    permStage: emptyUpdate.perm_stage,
+    i140Approved: emptyUpdate.i140_approved,
+    i140Filed: emptyUpdate.i140_filed,
+    i485Filed: emptyUpdate.i485_filed,
+    priorityDate: emptyUpdate.priority_date
+  });
+  check("seed: saving empty petitions does not re-seed ghost cards from legacy answers", reseeded.length === 0);
+
+  // Saving nonempty petitions updates sponsor summaries in deadline_answers
+  const singlePetition = [
+    {
+      id: "pet-active-1",
+      sponsorName: "NextCorp",
+      petitionType: "employer_sponsored" as const,
+      preferenceCategory: "EB-2" as const,
+      stage: "perm_in_progress" as const
+    }
+  ];
+  const nonemptySavePlan = planPetitionSave(singlePetition, legacyProfileRow);
+  const nonemptyUpdate = nonemptySavePlan.ok ? (nonemptySavePlan.update as Record<string, any>) : {};
+  check(
+    "save: saving active petition updates greenCardSponsor and removes obsolete retained fields",
+    nonemptySavePlan.ok &&
+      nonemptyUpdate.deadline_answers.greenCardSponsor === "NextCorp" &&
+      !("retainedPriorityDate" in nonemptyUpdate.deadline_answers) &&
+      !("retainedPriorityDateSponsor" in nonemptyUpdate.deadline_answers)
+  );
+
+  // Regression check: saving dual petitions (with retained approved I-140) then removing the prior petition
+  // clears priority_date so the deleted retained date does not repopulate priority_date.
+  const activeAndPrior = [
+    {
+      id: "pet-act",
+      sponsorName: "Current Corp",
+      petitionType: "employer_sponsored" as const,
+      preferenceCategory: "EB-2" as const,
+      stage: "perm_in_progress" as const
+    },
+    {
+      id: "pet-ret",
+      sponsorName: "Old Corp LLC",
+      petitionType: "employer_sponsored" as const,
+      preferenceCategory: "EB-2" as const,
+      stage: "i140_approved" as const,
+      endedReason: "job_change" as const,
+      endedDate: "2024-01-15",
+      priorityDate: "2020-05-10",
+      i140ApprovalDate: "2022-06-01"
+    }
+  ];
+  const saveBothPlan = planPetitionSave(activeAndPrior, {
+    id: "u-regress",
+    employment_status: "employed",
+    employer_name: "Current Corp",
+    deadline_answers: {}
+  });
+  const saveBothUpdate = saveBothPlan.ok ? (saveBothPlan.update as Record<string, any>) : {};
+  check(
+    "save: both petitions save retained priority date and populate priority_date",
+    saveBothPlan.ok &&
+      saveBothUpdate.priority_date === "2020-05-10" &&
+      saveBothUpdate.deadline_answers.retainedPriorityDate === "2020-05-10" &&
+      saveBothUpdate.deadline_answers.retainedPriorityDateSponsor === "Old Corp LLC" &&
+      saveBothUpdate.deadline_answers.greenCardSponsor === "Current Corp"
+  );
+
+  // Now remove the prior petition, keeping only active
+  const removePriorPlan = planPetitionSave([activeAndPrior[0]], {
+    id: "u-regress",
+    employment_status: "employed",
+    employer_name: "Current Corp",
+    priority_date: saveBothUpdate.priority_date,
+    i140_approved: saveBothUpdate.i140_approved,
+    i140_approval_date: saveBothUpdate.i140_approval_date,
+    deadline_answers: saveBothUpdate.deadline_answers
+  });
+  const removePriorUpdate = removePriorPlan.ok ? (removePriorPlan.update as Record<string, any>) : {};
+  check(
+    "save: removing retained petition clears priority_date and retained answers from nextAnswers",
+    removePriorPlan.ok &&
+      removePriorUpdate.priority_date === null &&
+      !("retainedPriorityDate" in removePriorUpdate.deadline_answers) &&
+      !("retainedPriorityDateSponsor" in removePriorUpdate.deadline_answers) &&
+      removePriorUpdate.deadline_answers.greenCardSponsor === "Current Corp"
+  );
+
+  // Regression check: adding a new active petition to a legacy profile preserves legacy retained priority date
+  const legacyProfileNoList = {
+    id: "u-legacy",
+    employment_status: "employed",
+    employer_name: "Current Corp",
+    priority_date: "2019-11-20",
+    deadline_answers: {
+      retainedPriorityDate: "2019-11-20",
+      retainedPriorityDateSponsor: "First Employer"
+    }
+  };
+  const addActiveToLegacyPlan = planPetitionSave(
+    [
+      {
+        id: "pet-new",
+        sponsorName: "Current Corp",
+        petitionType: "employer_sponsored" as const,
+        preferenceCategory: "EB-3" as const,
+        stage: "perm_in_progress" as const
+      }
+    ],
+    legacyProfileNoList
+  );
+  const addActiveUpdate = addActiveToLegacyPlan.ok ? (addActiveToLegacyPlan.update as Record<string, any>) : {};
+  check(
+    "save: adding first petition preserves legacy retained priority date and updates greenCardSponsor",
+    addActiveToLegacyPlan.ok &&
+      addActiveUpdate.priority_date === "2019-11-20" &&
+      addActiveUpdate.deadline_answers.retainedPriorityDate === "2019-11-20" &&
+      addActiveUpdate.deadline_answers.retainedPriorityDateSponsor === "First Employer" &&
+      addActiveUpdate.deadline_answers.greenCardSponsor === "Current Corp"
+  );
+
+  // withSharedGreenCards keeps active category separate from retained category
+  const { withSharedGreenCards } = await import("@/lib/firms/answers");
+  const firmAnswers = withSharedGreenCards(
+    { employerName: "Current Corp" },
+    [
+      {
+        id: "p-act",
+        sponsorName: "Current Corp",
+        petitionType: "employer_sponsored",
+        preferenceCategory: "EB-3",
+        stage: "perm_in_progress"
+      },
+      {
+        id: "p-ret",
+        sponsorName: "Old Corp",
+        petitionType: "employer_sponsored",
+        preferenceCategory: "EB-2",
+        stage: "i140_approved",
+        endedReason: "job_change",
+        priorityDate: "2020-01-01",
+        i140ApprovalDate: "2021-01-01"
+      }
+    ]
+  );
+  check(
+    "firm answers: active EB-3 category is preserved, not overwritten by retained EB-2",
+    firmAnswers.preferenceCategory === "EB-3" &&
+      firmAnswers.greenCardSponsor === "Current Corp" &&
+      firmAnswers.retainedPriorityDateSponsor === "Old Corp" &&
+      firmAnswers.priorityDate === "2020-01-01"
   );
 
   console.log(`\n${pass}/${pass + failures.length} passed`);

@@ -113,10 +113,10 @@ export function GreenCardEditor({
     <Card id="green-cards">
       <CardHeader>
         <div>
-          <p className="text-label">Green cards</p>
+          <p className="text-label">Green cards filed</p>
           <CardTitle className="mt-2">Every green card filed for you</CardTitle>
           <p className="mt-2 text-body-sm text-[var(--color-text-secondary)]">
-            Add one for each employer or self-petition, including ones that ended. An approved I-140 keeps your
+            Add one for each employer, self-petition, or family petition, including ones that ended. An approved I-140 keeps your
             priority date even after the job ends.
           </p>
         </div>

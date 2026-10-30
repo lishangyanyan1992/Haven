@@ -285,3 +285,108 @@ export const ENDED_REASON_LABELS: Record<PetitionEndedReason, string> = {
   denied: "Denied",
   other: "Ended"
 };
+
+/**
+ * Synthesizes initial ImmigrantPetition records for a profile that has flat
+ * green card fields (stage, priority date, I-140 flags, sponsors) but no
+ * immigrantPetitions entries yet.
+ */
+export function seedPetitionsFromLegacyProfile(profile: {
+  immigrantPetitions?: ImmigrantPetition[];
+  greenCardPathway?: string | null;
+  permStage?: string | null;
+  permFilingDate?: string | null;
+  i140Filed?: boolean | null;
+  i140Approved?: boolean | null;
+  i140ApprovalDate?: string | null;
+  i485Filed?: boolean | null;
+  priorityDate?: string | null;
+  preferenceCategory?: string | null;
+  greenCardSponsor?: string | null;
+  retainedPriorityDate?: string | null;
+  retainedPriorityDateSponsor?: string | null;
+  employerName?: string | null;
+}): ImmigrantPetition[] {
+  if (profile.immigrantPetitions && profile.immigrantPetitions.length > 0) {
+    return profile.immigrantPetitions;
+  }
+
+  const hasFlatActivity =
+    Boolean(profile.priorityDate) ||
+    Boolean(profile.i140Approved) ||
+    Boolean(profile.i140Filed) ||
+    Boolean(profile.i485Filed) ||
+    (Boolean(profile.permStage) && profile.permStage !== "not_started") ||
+    Boolean(profile.greenCardSponsor) ||
+    Boolean(profile.retainedPriorityDateSponsor);
+
+  if (!hasFlatActivity) {
+    return [];
+  }
+
+  const seeded: ImmigrantPetition[] = [];
+  const primarySponsor =
+    profile.greenCardSponsor?.trim() ||
+    profile.employerName?.trim() ||
+    "Current Employer";
+
+  const retainedSponsor = profile.retainedPriorityDateSponsor?.trim();
+  const hasSeparateRetained =
+    Boolean(retainedSponsor) &&
+    Boolean(profile.i140Approved || profile.retainedPriorityDate) &&
+    !sponsorMatches(retainedSponsor, primarySponsor);
+
+  // If there's a distinct prior sponsor for an approved I-140 / locked-in priority date:
+  if (hasSeparateRetained && retainedSponsor) {
+    seeded.push({
+      id: `pet-prior-${slug(retainedSponsor)}`,
+      sponsorName: retainedSponsor,
+      petitionType: "employer_sponsored",
+      preferenceCategory: (profile.preferenceCategory as PreferenceCategory) || "EB-2",
+      stage: "i140_approved",
+      priorityDate: profile.retainedPriorityDate || profile.priorityDate || undefined,
+      i140ApprovalDate: profile.i140ApprovalDate || undefined,
+      endedReason: "job_change",
+      notes: "Seeded from prior approved I-140 sponsor in profile"
+    });
+  }
+
+  // Derive stage for the current/primary petition:
+  let stage: ImmigrantPetitionStage = "pwd_recruitment";
+  if (profile.i485Filed) stage = "i485_filed";
+  else if (profile.i140Approved && !hasSeparateRetained) stage = "i140_approved";
+  else if (profile.i140Filed) stage = "i140_filed";
+  else if (profile.permStage === "certified") stage = "perm_certified";
+  else if (profile.permStage === "in_progress") stage = "perm_in_progress";
+
+  const primaryPriorityDate = hasSeparateRetained
+    ? undefined
+    : (profile.priorityDate || undefined);
+
+  let petitionType: ImmigrantPetitionType = "employer_sponsored";
+  if (profile.greenCardPathway === "EB-2 NIW" || profile.preferenceCategory === "EB-2 NIW") {
+    petitionType = "self_petition_niw";
+  } else if (profile.preferenceCategory === "EB-1A") {
+    petitionType = "self_petition_eb1a";
+  } else if (
+    profile.greenCardPathway === "family_marriage_usc" ||
+    profile.greenCardPathway === "family_marriage_lpr" ||
+    profile.greenCardPathway?.includes("Marriage")
+  ) {
+    petitionType = profile.greenCardPathway === "family_marriage_lpr" ? "family_marriage_lpr" : "family_marriage_usc";
+  }
+
+  seeded.push({
+    id: `pet-primary-${slug(primarySponsor)}`,
+    sponsorName: primarySponsor,
+    petitionType,
+    preferenceCategory: (profile.preferenceCategory as PreferenceCategory) || "EB-2",
+    stage,
+    priorityDate: primaryPriorityDate,
+    isPriorityDateRecaptured: hasSeparateRetained ? true : undefined,
+    permFilingDate: profile.permFilingDate || undefined,
+    i140ApprovalDate: (!hasSeparateRetained && profile.i140Approved) ? (profile.i140ApprovalDate || undefined) : undefined
+  });
+
+  return seeded;
+}

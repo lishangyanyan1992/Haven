@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { forgetFact, listFacts } from "@/lib/advisor/memory";
+import { addManualFact, forgetFact, listFacts } from "@/lib/advisor/memory";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isInvitedEmail } from "@/lib/access";
 
@@ -35,6 +35,38 @@ export async function GET() {
   } catch (error) {
     console.error("[advisor/memory] list failed:", error);
     return NextResponse.json({ error: "Unable to load what Haven remembers." }, { status: 500 });
+  }
+}
+
+const createSchema = z.object({ quote: z.string().trim().min(1).max(240) });
+
+/** Add a manual case note to permanent memory. */
+export async function POST(request: Request) {
+  const user = await requireUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!(await isInvitedEmail(user.email))) {
+    return NextResponse.json({ error: "Haven is invitation only." }, { status: 403 });
+  }
+
+  const body = createSchema.safeParse(await request.json().catch(() => null));
+  if (!body.success) {
+    return NextResponse.json(
+      { error: "Note must be between 1 and 240 characters." },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const fact = await addManualFact(user.id, body.data.quote);
+    return NextResponse.json({ fact }, { status: 201 });
+  } catch (error) {
+    console.error("[advisor/memory] add note failed:", error);
+    return NextResponse.json(
+      { error: "Unable to save note." },
+      { status: 500 }
+    );
   }
 }
 

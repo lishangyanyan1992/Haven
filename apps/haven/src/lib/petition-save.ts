@@ -1,4 +1,4 @@
-import { resolveEffectivePriorityDate } from "@/lib/immigration-journey";
+import { findActivePetition, resolveEffectivePriorityDate } from "@/lib/immigration-journey";
 import {
   normalizePetitions,
   providesI140Protection,
@@ -22,7 +22,8 @@ export const MAX_PETITIONS = 12;
  */
 export function flatFieldsFrom(
   petitions: ImmigrantPetition[],
-  row: Record<string, unknown>
+  row: Record<string, unknown>,
+  previousRow: Record<string, unknown> = row
 ): Record<string, unknown> {
   const existingAnswers =
     row.deadline_answers && typeof row.deadline_answers === "object" && !Array.isArray(row.deadline_answers)
@@ -31,16 +32,16 @@ export function flatFieldsFrom(
   // The stored priority_date may be a copy written from the old green card
   // list. If so, drop it, so deleting or changing that green card doesn't
   // bring the old date back. A date the person typed themselves is kept.
-  const previousDerived = resolveEffectivePriorityDate(mapProfileRow({ ...row, priority_date: null })).effectiveDate;
+  const previousDerived = resolveEffectivePriorityDate(mapProfileRow({ ...previousRow, priority_date: null })).effectiveDate;
   const legacyIsCopy =
-    typeof row.priority_date === "string" &&
+    typeof previousRow.priority_date === "string" &&
     previousDerived instanceof Date &&
-    previousDerived.toISOString().slice(0, 10) === row.priority_date.slice(0, 10);
+    previousDerived.toISOString().slice(0, 10) === previousRow.priority_date.slice(0, 10);
   // Likewise a stored PERM filing date copied from a green card that's now gone.
-  const previousPermDates = (mapProfileRow(row).immigrantPetitions ?? [])
+  const previousPermDates = (mapProfileRow(previousRow).immigrantPetitions ?? [])
     .map((p) => p.permFilingDate?.slice(0, 10))
     .filter(Boolean);
-  const storedPerm = typeof row.perm_filing_date === "string" ? row.perm_filing_date.slice(0, 10) : null;
+  const storedPerm = typeof previousRow.perm_filing_date === "string" ? previousRow.perm_filing_date.slice(0, 10) : null;
   const storedPermIsRemoved =
     storedPerm !== null &&
     previousPermDates.includes(storedPerm) &&
@@ -70,9 +71,25 @@ export function flatFieldsFrom(
     patch.i485_filed = petitions.some((p) => !isPetitionEnded(p) && (p.stage === "i485_filed" || p.stage === "i485_approved"));
   }
 
+  if (petitions.length === 0) {
+    patch.perm_stage = "not_started";
+    patch.perm_filing_date = null;
+    patch.i140_filed = false;
+    patch.i140_approved = false;
+    patch.i140_approval_date = null;
+    patch.i485_filed = false;
+    patch.priority_date = null;
+  } else {
+    // Sync preference category from the active/protecting petition if available
+    const activeOrProtecting = findActivePetition(profile) || protecting[0] || petitions[0];
+    if (activeOrProtecting?.preferenceCategory && activeOrProtecting.preferenceCategory !== "Not sure") {
+      patch.preference_category = activeOrProtecting.preferenceCategory;
+    }
+  }
+
   // PERM stage describes the current employer's green card, so only change it
   // when there is one that is still moving.
-  if (profile.employmentStatus !== "laid_off" && profile.employerName) {
+  if (profile.employmentStatus !== "laid_off" && profile.employerName && petitions.length > 0) {
     const current = petitions.find(
       (p) =>
         !isPetitionEnded(p) &&
@@ -133,5 +150,77 @@ export function planPetitionSave(
     nextAnswers.immigrantPetitionsLegacy = existing.immigrantPetitions;
   }
 
-  return { ok: true, petitions, update: { deadline_answers: nextAnswers, ...flatFieldsFrom(petitions, row) } };
+  if (petitions.length === 0) {
+    for (const key of [
+      "greenCardSponsor",
+      "retainedPriorityDate",
+      "retainedPriorityDateSponsor",
+      "retainedPriorityDateCategory"
+    ]) {
+      delete nextAnswers[key];
+    }
+  } else {
+    const hadPetitionsBefore = existing.immigrantPetitions !== undefined;
+    const cleanAnswers = { ...nextAnswers };
+    delete cleanAnswers.greenCardSponsor;
+    if (hadPetitionsBefore || !existing.retainedPriorityDate) {
+      delete cleanAnswers.retainedPriorityDate;
+      delete cleanAnswers.retainedPriorityDateSponsor;
+      delete cleanAnswers.retainedPriorityDateCategory;
+    }
+
+    const mappedProfile = mapProfileRow({ ...row, deadline_answers: { ...cleanAnswers, immigrantPetitions: petitions } });
+    const active = findActivePetition(mappedProfile);
+    if (active) {
+      nextAnswers.greenCardSponsor = active.sponsorName;
+    } else {
+      delete nextAnswers.greenCardSponsor;
+    }
+
+    const approvedPetitions = petitions.filter((p) => providesI140Protection(p) && p.priorityDate);
+    approvedPetitions.sort((a, b) => {
+      const dateA = new Date(a.priorityDate!).getTime();
+      const dateB = new Date(b.priorityDate!).getTime();
+      return dateA - dateB;
+    });
+    const earliestApproved = approvedPetitions[0];
+    const isRetained = Boolean(
+      earliestApproved &&
+      earliestApproved.petitionType !== "self_petition_niw" &&
+      earliestApproved.petitionType !== "self_petition_eb1a" &&
+      earliestApproved.sponsorName &&
+      (!active || !sponsorMatches(earliestApproved.sponsorName, active.sponsorName))
+    );
+
+    if (isRetained && earliestApproved) {
+      nextAnswers.retainedPriorityDate = earliestApproved.priorityDate;
+      nextAnswers.retainedPriorityDateSponsor = earliestApproved.sponsorName;
+      if (earliestApproved.preferenceCategory && (earliestApproved.preferenceCategory as string) !== "Not sure") {
+        nextAnswers.retainedPriorityDateCategory = earliestApproved.preferenceCategory;
+      } else {
+        delete nextAnswers.retainedPriorityDateCategory;
+      }
+    } else if (!hadPetitionsBefore && existing.retainedPriorityDate) {
+      nextAnswers.retainedPriorityDate = existing.retainedPriorityDate;
+      if (existing.retainedPriorityDateSponsor) {
+        nextAnswers.retainedPriorityDateSponsor = existing.retainedPriorityDateSponsor;
+      }
+      if (existing.retainedPriorityDateCategory) {
+        nextAnswers.retainedPriorityDateCategory = existing.retainedPriorityDateCategory;
+      }
+    } else {
+      delete nextAnswers.retainedPriorityDate;
+      delete nextAnswers.retainedPriorityDateSponsor;
+      delete nextAnswers.retainedPriorityDateCategory;
+    }
+  }
+
+  return {
+    ok: true,
+    petitions,
+    update: {
+      deadline_answers: nextAnswers,
+      ...flatFieldsFrom(petitions, { ...row, deadline_answers: nextAnswers }, row)
+    }
+  };
 }

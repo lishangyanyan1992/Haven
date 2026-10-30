@@ -576,9 +576,9 @@ export async function saveProfileSettingsAction(formData: FormData) {
     ...(formData.has("greenCardStage") ? { greenCardStage: String(formData.get("greenCardStage") ?? "") } : {}),
     ...(formData.has("greenCardSponsor") ? { greenCardSponsor: String(formData.get("greenCardSponsor") ?? "").trim() } : {}),
     ...(formData.has("retainedPriorityDateSponsor") ? { retainedPriorityDateSponsor: String(formData.get("retainedPriorityDateSponsor") ?? "").trim() } : {}),
-    priorityDate: String(formData.get("priorityDate") ?? ""),
-    preferenceCategory: String(formData.get("preferenceCategory") ?? ""),
-    ...(formData.has("greenCardStage") ? { i140Approved: String(formData.get("i140Approved") ?? "false") } : {}),
+    ...(formData.has("priorityDate") ? { priorityDate: String(formData.get("priorityDate") ?? "") } : {}),
+    ...(formData.has("preferenceCategory") ? { preferenceCategory: String(formData.get("preferenceCategory") ?? "") } : {}),
+    ...(formData.has("i140Approved") ? { i140Approved: String(formData.get("i140Approved") ?? "false") } : {}),
     spouseVisaStatus: String(formData.get("spouseVisaStatus") ?? ""),
     // "What help do you need from your lawyer?" (the old concern areas are derived from it)
     ...(formData.has(HELP_NEEDED_SENT_MARKER) ? { helpNeeded: formData.getAll("helpNeeded").map(String) } : {})
@@ -597,10 +597,34 @@ export async function saveProfileSettingsAction(formData: FormData) {
 
   cookieStore.delete(ONBOARDING_OVERRIDE_COOKIE);
 
+  revalidatePath("/profile");
   revalidatePath("/settings");
   revalidatePath("/dashboard");
   revalidatePath("/timeline");
   revalidatePath("/planner");
+  redirect("/profile?saved=1");
+}
+
+export async function saveSystemPreferencesAction(formData: FormData) {
+  const { user } = await requireUser();
+  const admin = createSupabaseAdminClient() as any;
+
+  const communityReply = formData.get("communityReplyEmailNotifications") === "true";
+  const statusUpdate = formData.get("statusUpdateEmailNotifications") === "true";
+
+  const { error } = await admin
+    .from("user_profiles")
+    .update({
+      community_reply_email_notifications: communityReply,
+      status_update_email_notifications: statusUpdate
+    })
+    .eq("id", user.id);
+
+  if (error) {
+    throw new Error(`Could not save system preferences: ${error.message}`);
+  }
+
+  revalidatePath("/settings");
   redirect("/settings?saved=1");
 }
 

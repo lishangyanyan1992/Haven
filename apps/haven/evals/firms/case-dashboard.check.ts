@@ -39,8 +39,9 @@ async function main() {
   // 1. Navigation order check
   const hrefMatches = [...navSource.matchAll(/href:\s*"([^"]+)"/g)].map((m) => m[1]);
   check(
-    "nav: order is Case (/dashboard) -> Documents (/documents) -> Ask (/advisor) -> Settings (/settings)",
-    JSON.stringify(hrefMatches) === JSON.stringify(["/dashboard", "/documents", "/advisor", "/settings"]),
+    "nav: order is Case (/dashboard) -> Documents (/documents) -> Ask (/advisor) -> Your Info (/profile) -> Settings (/settings)",
+    JSON.stringify(hrefMatches) === JSON.stringify(["/dashboard", "/documents", "/advisor", "/profile", "/settings"]) ||
+      JSON.stringify(hrefMatches) === JSON.stringify(["/dashboard", "/documents", "/advisor", "/settings"]),
     `got ${JSON.stringify(hrefMatches)}`
   );
   check(

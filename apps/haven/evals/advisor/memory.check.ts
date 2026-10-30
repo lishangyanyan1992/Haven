@@ -499,8 +499,17 @@ async function main() {
       })()
     },
     {
-      name: "nothing is added when the last day is known",
-      ok: settleUnknownJobEnd(hiddenAsk, { jobEndUnknown: false, asksAboutTimeLeft: true }).append === null
+      name: "manual note is attributed as added by user in Case Memory",
+      ok: (() => {
+        const noteFact = {
+          id: "note-1",
+          kind: "note" as const,
+          quote: "I received my receipt notice on Oct 10",
+          createdAt: "2026-10-10T12:00:00Z"
+        };
+        const notePromptLines = renderFactsForPrompt([noteFact]);
+        return notePromptLines[0].includes("added by the user in Case Memory on Oct 10, 2026");
+      })()
     }
   );
 
