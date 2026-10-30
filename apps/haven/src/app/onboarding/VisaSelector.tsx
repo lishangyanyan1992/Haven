@@ -175,8 +175,6 @@ export function VisaSelector({ value = "", customValue = "", onChange, hasError,
             required
             aria-invalid={hasError || undefined}
             aria-describedby={hasError ? "custom-visa-detail-error" : undefined}
-            onInvalid={(e) => e.currentTarget.setCustomValidity("Type your visa or status, or pick one from the list.")}
-            onInput={(e) => e.currentTarget.setCustomValidity("")}
           />
           {hasError ? (
             <p className="text-caption text-[#b42318]" id="custom-visa-detail-error">

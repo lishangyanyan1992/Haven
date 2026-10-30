@@ -421,11 +421,13 @@ export function findActivePetition(profile: ImmigrationProfile): ImmigrantPetiti
 }
 
 export function inferProfileGreenCardStage(profile: ImmigrationProfile): GreenCardStage {
+  const activePetition = findActivePetition(profile);
+  // An approved green card wins over the old "I-485 filed" flag.
+  if (activePetition?.stage === "i485_approved") return "i485_approved";
   if (profile.i485Filed) return "i485_filed";
 
-  const activePetition = findActivePetition(profile);
   if (activePetition) {
-    if (activePetition.stage === "i485_filed" || activePetition.stage === "i485_approved") return "i485_filed";
+    if (activePetition.stage === "i485_filed") return "i485_filed";
     if (activePetition.stage === "i140_approved") return "i140_approved";
     if (activePetition.stage === "i140_filed") return "i140_filed";
     if (activePetition.stage === "perm_certified") return "perm_certified";

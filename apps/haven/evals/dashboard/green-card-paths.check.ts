@@ -196,6 +196,8 @@ async function main() {
     JSON.stringify({ perm: withStage.perm_stage, i140: withStage.i140_filed, i485: withStage.i485_filed })
   );
   const savedOnly = (stage: string) => inferProfileGreenCardStage({ ...twoEmployerProfile({ immigrantPetitions: [] as never }), i140Filed: false, i140Approved: false, permStage: "not_started", greenCardStage: stage } as never);
+  const approvedActive = inferProfileGreenCardStage({ ...twoEmployerProfile({ immigrantPetitions: [{ ...marriage, stage: "i485_approved" }] as never }), visaType: "H4", i485Filed: true } as never);
+  check("approved active green card stays approved over the old I-485 flag", approvedActive === "i485_approved", approvedActive);
   check("saved 'permanent resident' step with no green card record stays approved", savedOnly("i485_approved") === "i485_approved", savedOnly("i485_approved"));
   const pwdWithOldFlag = inferProfileGreenCardStage({ ...twoEmployerProfile({ immigrantPetitions: [] as never }), i140Filed: false, i140Approved: true, permStage: "not_started", greenCardStage: "pwd_recruitment" } as never);
   check("saved 'PWD / recruitment' step beats an old I-140 approved flag", pwdWithOldFlag === "perm_in_progress", pwdWithOldFlag);
