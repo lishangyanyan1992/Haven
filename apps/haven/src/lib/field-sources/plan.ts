@@ -156,6 +156,11 @@ export function planFactApplication(input: PlanInput): Plan {
     } else if (petitions.length === 1) {
       petitionId = petitions[0].id;
     }
+    // An I-140 or PERM document never fills a family, investor, humanitarian or lottery green card.
+    const target = petitions.find((p) => p.id === petitionId);
+    if (target && ((set.id === "i140" && !usesI140(target.petitionType)) || (set.id === "perm" && !usesPerm(target.petitionType)))) {
+      petitionId = null;
+    }
   }
 
   const petition = () => petitions.find((p) => p.id === petitionId) ?? null;

@@ -137,8 +137,7 @@ export function normalizePetitions(raw: unknown): ImmigrantPetition[] {
       stage: pick(STAGES, r.stage) ?? (text(r.stage) as ImmigrantPetitionStage) ?? "pwd_recruitment"
     };
     const optional: Partial<ImmigrantPetition> = {
-      // The lottery has no priority date.
-      priorityDate: r.petitionType === "diversity_lottery" ? undefined : isoDate(r.priorityDate),
+      priorityDate: isoDate(r.priorityDate),
       isPriorityDateRecaptured: r.isPriorityDateRecaptured === true ? true : undefined,
       permFilingDate: isoDate(r.permFilingDate),
       permCertifiedDate: isoDate(r.permCertifiedDate),
@@ -258,7 +257,7 @@ export function validatePetition(p: ImmigrantPetition): PetitionFieldError[] {
   const beforePermFiled =
     usesPerm(p.petitionType) &&
     !p.endedReason &&
-    (p.stage === "pwd_recruitment" || p.stage === "perm_in_progress") &&
+    (p.stage === "not_started" || p.stage === "pwd_recruitment" || p.stage === "perm_in_progress") &&
     !p.permFilingDate;
   if (beforePermFiled && p.priorityDate && !p.isPriorityDateRecaptured) {
     errors.push({

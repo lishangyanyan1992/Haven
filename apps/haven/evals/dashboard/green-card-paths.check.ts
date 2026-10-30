@@ -218,7 +218,10 @@ async function main() {
   const sharedActive = sharedAnswersFromProfile({ country_of_birth: "India", i140_filed: true, deadline_answers: { greenCardStage: "i140_filed", immigrantPetitions: [{ id: "a", sponsorName: "Acme", petitionType: "employer_sponsored", preferenceCategory: "EB-2", stage: "i140_approved", i140ApprovalDate: "2025-01-01" }] } }) as Record<string, unknown>;
   check("lawyer sees the active green card's step over an older saved one", sharedActive.greenCardStage === "i140_approved", String(sharedActive.greenCardStage));
   check("lottery green card asks for no priority date", !dateFieldsFor("diversity_lottery").some((f) => f.key === "priorityDate"));
-  check("saved lottery priority date is dropped", !normalizePetitions([{ id: "dv", sponsorName: "DV-2027", petitionType: "diversity_lottery", stage: "consular_processing", priorityDate: "2025-01-01" }])[0].priorityDate);
+  const backToStart = flatFieldsFrom([{ id: "n", sponsorName: "Acme", petitionType: "employer_sponsored", preferenceCategory: "EB-2", stage: "not_started" } as never], { i485_filed: true }) as Record<string, unknown>;
+  check("moving a green card back from I-485 filed clears the I-485 flag", backToStart.i485_filed === false, String(backToStart.i485_filed));
+  const earlyPd = validatePetition({ id: "e", sponsorName: "Acme", petitionType: "employer_sponsored", preferenceCategory: "EB-2", stage: "not_started", priorityDate: "2025-01-01" } as never);
+  check("'not started' employer green card can't hold a priority date before PERM", earlyPd.some((e) => e.field === "priorityDate"), JSON.stringify(earlyPd));
   const nsFlat = flatFieldsFrom([{ id: "n", sponsorName: "Acme", petitionType: "employer_sponsored", preferenceCategory: "EB-2", stage: "not_started" } as never], { employer_name: "Acme", employment_status: "employed" }) as Record<string, unknown>;
   check("'not started' employer green card records PERM as not started", nsFlat.perm_stage === "not_started", String(nsFlat.perm_stage));
   check("lawyer sees the saved I-130 step", shared.greenCardStage === "i130_filed", String(shared.greenCardStage));

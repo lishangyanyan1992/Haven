@@ -65,6 +65,10 @@ export function flatFieldsFrom(
     priority_date: effective.effectiveDate ? effective.effectiveDate.toISOString().slice(0, 10) : null
   };
   if (storedPermIsRemoved) patch.perm_filing_date = null;
+  // The I-485 flag follows the green cards' own steps, so moving one back clears it.
+  if (petitions.length > 0) {
+    patch.i485_filed = petitions.some((p) => !isPetitionEnded(p) && (p.stage === "i485_filed" || p.stage === "i485_approved"));
+  }
 
   // PERM stage describes the current employer's green card, so only change it
   // when there is one that is still moving.
