@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { validatePetition, type PetitionFieldError } from "@/lib/petitions";
+import { usesI140, validatePetition, type PetitionFieldError } from "@/lib/petitions";
+import { PATHWAY_OPTIONS, changesForType, dateFieldsFor, sponsorFieldFor, stagesFor } from "@/lib/green-card-forms";
+import { ALL_PREFERENCE_CATEGORIES } from "@/lib/visas";
 import { petitionFieldKey, type FieldSource } from "@/lib/field-sources/plan";
 import { FieldSourceLabel } from "@/components/app/field-source-label";
 import { savePetitionsAction } from "@/server/petition-actions";
@@ -20,25 +22,6 @@ import type {
   PreferenceCategory
 } from "@/types/domain";
 
-const TYPE_OPTIONS: { value: ImmigrantPetitionType; label: string }[] = [
-  { value: "employer_sponsored", label: "Employer-sponsored (PERM)" },
-  { value: "self_petition_niw", label: "Self-petition: EB-2 NIW" },
-  { value: "self_petition_eb1a", label: "Self-petition: EB-1A" },
-  { value: "concurrent_employer", label: "Second employer, at the same time" }
-];
-
-const STAGE_OPTIONS: { value: ImmigrantPetitionStage; label: string }[] = [
-  { value: "pwd_recruitment", label: "Prevailing wage / recruitment" },
-  { value: "perm_in_progress", label: "PERM filed, waiting" },
-  { value: "perm_certified", label: "PERM approved" },
-  { value: "i140_filed", label: "I-140 filed" },
-  { value: "i140_approved", label: "I-140 approved" },
-  { value: "i485_filed", label: "I-485 filed" },
-  { value: "i485_approved", label: "Green card approved" }
-];
-
-const CATEGORY_OPTIONS: PreferenceCategory[] = ["EB-1", "EB-2", "EB-2 NIW", "EB-3", "Not sure"];
-
 const ENDED_OPTIONS: { value: "" | PetitionEndedReason; label: string }[] = [
   { value: "", label: "Still moving forward" },
   { value: "layoff", label: "Ended: laid off" },
@@ -46,16 +29,6 @@ const ENDED_OPTIONS: { value: "" | PetitionEndedReason; label: string }[] = [
   { value: "withdrawn", label: "Ended: employer withdrew it" },
   { value: "denied", label: "Ended: denied" },
   { value: "other", label: "Ended: other reason" }
-];
-
-type DateField = "permFilingDate" | "permCertifiedDate" | "i140FiledDate" | "i140ApprovalDate" | "priorityDate";
-
-const DATE_FIELDS: { key: DateField; label: string }[] = [
-  { key: "permFilingDate", label: "PERM filed" },
-  { key: "permCertifiedDate", label: "PERM approved" },
-  { key: "i140FiledDate", label: "I-140 filed" },
-  { key: "i140ApprovalDate", label: "I-140 approved" },
-  { key: "priorityDate", label: "Priority date" }
 ];
 
 function newPetition(): ImmigrantPetition {
@@ -165,12 +138,12 @@ export function GreenCardEditor({
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1">
                   <label className="text-label" htmlFor={`${p.id}-sponsor`}>
-                    Employer or petitioner
+                    {sponsorFieldFor(p.petitionType).label}
                   </label>
                   <Input
                     id={`${p.id}-sponsor`}
                     value={p.sponsorName}
-                    placeholder="e.g. Acme Robotics"
+                    placeholder={sponsorFieldFor(p.petitionType).placeholder}
                     onChange={(e) => update(p.id, { sponsorName: e.target.value })}
                   />
                   <FieldError errors={errors} field="sponsorName" />
@@ -197,11 +170,18 @@ export function GreenCardEditor({
                   <Select
                     id={`${p.id}-type`}
                     value={p.petitionType}
-                    onChange={(e) => update(p.id, { petitionType: e.target.value as ImmigrantPetitionType })}
+                    onChange={(e) => update(p.id, changesForType(p, e.target.value as ImmigrantPetitionType))}
                   >
-                    {TYPE_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
+                    {[...new Set(PATHWAY_OPTIONS.map((o) => o.category))].map((group) => (
+                      <optgroup key={group} label={group}>
+                        {PATHWAY_OPTIONS.filter((o) => o.category === group).map((o) => (
+                          <option key={o.id} value={o.id}>{o.label}</option>
+                        ))}
+                      </optgroup>
                     ))}
+                    {!PATHWAY_OPTIONS.some((o) => o.id === p.petitionType) ? (
+                      <option value={p.petitionType}>{p.petitionType}</option>
+                    ) : null}
                   </Select>
                 </div>
                 <div>
@@ -211,7 +191,10 @@ export function GreenCardEditor({
                     value={p.preferenceCategory}
                     onChange={(e) => update(p.id, { preferenceCategory: e.target.value as PreferenceCategory })}
                   >
-                    {CATEGORY_OPTIONS.map((c) => (
+                    {(ALL_PREFERENCE_CATEGORIES.includes(p.preferenceCategory)
+                      ? ALL_PREFERENCE_CATEGORIES
+                      : [p.preferenceCategory, ...ALL_PREFERENCE_CATEGORIES]
+                    ).map((c) => (
                       <option key={c} value={c}>{c}</option>
                     ))}
                   </Select>
@@ -225,18 +208,18 @@ export function GreenCardEditor({
                   <label className="text-label" htmlFor={`${p.id}-stage`}>Furthest step reached</label>
                   <Select
                     id={`${p.id}-stage`}
-                    value={p.stage === "withdrawn" ? "i140_approved" : p.stage}
+                    value={p.stage === "withdrawn" ? stagesFor(p.petitionType).slice(-1)[0]?.id ?? "i140_approved" : p.stage}
                     onChange={(e) => update(p.id, { stage: e.target.value as ImmigrantPetitionStage })}
                   >
-                    {STAGE_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
+                    {stagesFor(p.petitionType, p.stage).map((o) => (
+                      <option key={o.id} value={o.id}>{o.label}</option>
                     ))}
                   </Select>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 xl:grid-cols-3">
-                {DATE_FIELDS.map(({ key, label }) => (
+                {dateFieldsFor(p.petitionType).map(({ key, label }) => (
                   <div key={key}>
                     <label className="text-label" htmlFor={`${p.id}-${key}`}>{label}</label>
                     <Input
@@ -253,6 +236,7 @@ export function GreenCardEditor({
                     />
                   </div>
                 ))}
+                {usesI140(p.petitionType) ? (
                 <div>
                   <label className="text-label" htmlFor={`${p.id}-receipt`}>I-140 receipt number</label>
                   <Input
@@ -267,8 +251,10 @@ export function GreenCardEditor({
                     source={sources[petitionFieldKey(p.id, "i140ReceiptNumber")]}
                   />
                 </div>
+                ) : null}
               </div>
 
+              {usesI140(p.petitionType) ? (
               <label className="flex items-center gap-2 text-body-sm text-[var(--haven-ink-mid)]">
                 <input
                   type="checkbox"
@@ -277,6 +263,7 @@ export function GreenCardEditor({
                 />
                 Priority date carried over from an earlier green card
               </label>
+              ) : null}
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>

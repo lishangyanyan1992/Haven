@@ -2,11 +2,14 @@ import Link from "next/link";
 import { HELP_NEEDED_OPTIONS, HELP_NEEDED_SENT_MARKER } from "@/lib/firms/help-needed";
 import { AlertTriangle, CheckCircle2, FileWarning } from "lucide-react";
 
-import { ALL_VISA_OPTIONS } from "@/lib/visas";
+import { ALL_GREEN_CARD_STAGE_OPTIONS, ALL_PREFERENCE_CATEGORIES, chosenGreenCardStage, stageOptionsFor } from "@/lib/visas";
 import { AppShell } from "@/components/app/app-shell";
 import { GreenCardEditor } from "@/components/app/green-card-editor";
 import { FieldSourceLabel } from "@/components/app/field-source-label";
+import { VisaStatusField } from "@/components/app/visa-status-field";
 import { formatSourceValue } from "@/lib/field-sources/format";
+import { displayedPetitionStage, findActivePetition } from "@/lib/immigration-journey";
+import { usesPerm } from "@/lib/petitions";
 import { loadFieldSources } from "@/lib/field-sources/db";
 import type { FieldSource } from "@/lib/field-sources/plan";
 import { Badge } from "@/components/ui/badge";
@@ -45,7 +48,10 @@ export default async function SettingsPage({
   const { profile } = snapshot;
   // No database means a local test persona: there are no saved deadlines to load.
   const savedDeadlines = profile.id && hasSupabaseEnv ? await loadDeadlineAnswers(profile.id) : undefined;
-  const greenCardStage = inferGreenCardStage(profile);
+  // The step chosen here is kept as chosen, so family and other steps show up again.
+  const greenCardStage = chosenGreenCardStage(profile.greenCardStage, inferGreenCardStage(profile));
+  // With green cards entered, the step shown is the one they give (same as the dashboard).
+  const petitionStage = displayedPetitionStage(profile);
   // Where each value came from (a document, or the person). None for a local test persona.
   const sources: Record<string, FieldSource> =
     profile.id && hasSupabaseEnv ? Object.fromEntries(await loadFieldSources(profile.id)) : {};
@@ -89,7 +95,8 @@ export default async function SettingsPage({
     });
   }
 
-  if (profile.i140Approved && profile.permStage === "not_started") {
+  // Self-petitions never have a PERM, so this gap only applies to employer green cards.
+  if (profile.i140Approved && profile.permStage === "not_started" && usesPerm(findActivePetition(profile)?.petitionType ?? profile.greenCardPathway)) {
     profileGaps.push({
       id: "multi-employer-perm-gap",
       label: "Approved I-140 from prior sponsor vs. new employer PERM not started",
@@ -214,19 +221,12 @@ export default async function SettingsPage({
               </CardHeader>
               <CardContent className="space-y-4">
                 <Field label="Current visa status">
-                  <Select defaultValue={profile.visaType} name="visaType">
-                    {(() => {
-                      const standardValues = ALL_VISA_OPTIONS.map((opt) => opt.value);
-                      const allOptions = standardValues.includes(profile.visaType)
-                        ? ALL_VISA_OPTIONS
-                        : [{ value: profile.visaType, label: profile.visaType, group: "Other" }, ...ALL_VISA_OPTIONS];
-                      return allOptions.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ));
-                    })()}
-                  </Select>
+                  <VisaStatusField
+                    // Remount when the saved value changes (e.g. "Use the document's value"), so a later save can't undo it.
+                    key={`${profile.visaType}|${profile.customVisaDetail ?? ""}`}
+                    defaultCustom={profile.customVisaDetail}
+                    defaultValue={profile.visaType}
+                  />
                   <FieldSourceLabel fieldKey="visaType" hasValue={Boolean(profile.visaType)} source={sources.visaType} />
                 </Field>
                 <Field label="Country of birth">
@@ -312,30 +312,29 @@ export default async function SettingsPage({
               </CardHeader>
               <CardContent className="space-y-4">
                 <Field label="Green card stage">
+                  {hasPetitionRecords ? (
+                    // One place for the step: the green cards below set it.
+                    <p className="text-body-sm text-[var(--haven-ink)]">
+                      {ALL_GREEN_CARD_STAGE_OPTIONS.find((o) => o.id === petitionStage)?.label ?? petitionStage}{" "}
+                      <a className="text-[12px] underline underline-offset-2" href="#green-cards">
+                        Set by your green cards below
+                      </a>
+                    </p>
+                  ) : (
                   <Select defaultValue={greenCardStage} name="greenCardStage">
-                    <option value="not_started">Not started yet</option>
-                    <option value="pwd_recruitment">Prevailing Wage / Recruitment</option>
-                    <option value="perm_in_progress">PERM in progress</option>
-                    <option value="perm_certified">PERM certified</option>
-                    <option value="i140_filed">I-140 filed</option>
-                    <option value="i140_approved">I-140 approved</option>
-                    <option value="i130_filed">I-130 filed (Family / Marriage)</option>
-                    <option value="i130_approved">I-130 approved</option>
-                    <option value="consular_processing">Consular / NVC processing</option>
-                    <option value="i485_filed">I-485 filed (Adjustment of status)</option>
-                    <option value="conditional_resident">2-year conditional resident</option>
-                    <option value="i485_approved">Permanent Resident approved</option>
+                    {stageOptionsFor(profile.greenCardPathway, greenCardStage).map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.label}
+                      </option>
+                    ))}
                   </Select>
+                  )}
                 </Field>
+
                 <Field label="Preference category">
                   <Select defaultValue={profile.preferenceCategory} name="preferenceCategory">
                     {(() => {
-                      const standardCategories = [
-                        "EB-1", "EB-1A", "EB-1B", "EB-1C", "EB-2", "EB-2 NIW", "EB-3", "EB-4", "EB-5",
-                        "Immediate Relative (Spouse)", "Immediate Relative (Parent/Child)",
-                        "F-1", "F-2A", "F-2B", "F-3", "F-4",
-                        "Diversity Visa", "Asylum Adjustment", "Not sure"
-                      ];
+                      const standardCategories = ALL_PREFERENCE_CATEGORIES;
                       const allCats = standardCategories.includes(profile.preferenceCategory)
                         ? standardCategories
                         : [profile.preferenceCategory, ...standardCategories];
@@ -379,10 +378,19 @@ export default async function SettingsPage({
                   </p>
                 </Field>
                 <Field label="I-140 status">
-                  <Select defaultValue={profile.i140Approved ? "true" : "false"} name="i140Approved">
-                    <option value="false">Not approved yet</option>
-                    <option value="true">I-140 approved</option>
-                  </Select>
+                  {hasPetitionRecords ? (
+                    <p className="text-body-sm text-[var(--haven-ink)]">
+                      {profile.i140Approved ? "I-140 approved" : "Not approved yet"}{" "}
+                      <a className="text-[12px] underline underline-offset-2" href="#green-cards">
+                        Set by your green cards below
+                      </a>
+                    </p>
+                  ) : (
+                    <Select defaultValue={profile.i140Approved ? "true" : "false"} name="i140Approved">
+                      <option value="false">Not approved yet</option>
+                      <option value="true">I-140 approved</option>
+                    </Select>
+                  )}
                 </Field>
               </CardContent>
             </Card>

@@ -26,6 +26,7 @@ const PETITION_TYPES: ImmigrantPetitionType[] = [
   "other"
 ];
 const STAGES: ImmigrantPetitionStage[] = [
+  "not_started",
   "pwd_recruitment",
   "perm_in_progress",
   "perm_certified",
@@ -67,6 +68,8 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 /** Stage order from first step to green card. Withdrawn sorts first: it says nothing about progress. */
 export const STAGE_ORDER: Record<string, number> = {
   withdrawn: -1,
+  // Before any filing; above withdrawn so it still counts as a real step.
+  not_started: -0.5,
   pwd_recruitment: 0,
   perm_in_progress: 1,
   perm_certified: 2,
@@ -141,6 +144,8 @@ export function normalizePetitions(raw: unknown): ImmigrantPetition[] {
       i140ReceiptNumber: text(r.i140ReceiptNumber),
       i140FiledDate: isoDate(r.i140FiledDate),
       i140ApprovalDate: isoDate(r.i140ApprovalDate),
+      petitionFiledDate: isoDate(r.petitionFiledDate),
+      petitionApprovalDate: isoDate(r.petitionApprovalDate),
       isRevocationProtected: r.isRevocationProtected === true ? true : undefined,
       endedReason,
       endedDate,
@@ -193,8 +198,13 @@ export function isApprovedStage(stage: ImmigrantPetitionStage): boolean {
  * of approval (8 CFR § 205.1).
  */
 export function providesI140Protection(p: ImmigrantPetition): boolean {
+  // Only an I-140 gives I-140 protection; a family green card at I-485 doesn't.
+  if (!usesI140(p.petitionType)) return false;
   // A record marked "withdrawn" as its stage only counts if we know it was approved first.
-  const wasApproved = isApprovedStage(p.stage) || (p.stage === "withdrawn" && Boolean(p.i140ApprovalDate));
+  // Consular processing comes after an approved I-140 on the employer path.
+  const wasApproved =
+    isApprovedStage(p.stage) ||
+    ((p.stage === "withdrawn" || p.stage === "consular_processing") && Boolean(p.i140ApprovalDate));
   if (!wasApproved) return false;
   if (p.endedReason === "denied") return false;
   if (p.endedReason === "withdrawn") {
@@ -214,24 +224,42 @@ function before(a?: string, b?: string): boolean {
 }
 
 /** Problems a user must fix before a petition can be saved. */
+/** Paths that file an I-140: employer-sponsored and self-petitions. */
+export function usesI140(type: string | undefined): boolean {
+  return ["employer_sponsored", "concurrent_employer", "self_petition_niw", "self_petition_eb1a"].includes(type ?? "employer_sponsored");
+}
+
+/** Paths that go through PERM labor certification. */
+export function usesPerm(type: string | undefined): boolean {
+  return ["employer_sponsored", "concurrent_employer"].includes(type ?? "employer_sponsored");
+}
+
 export function validatePetition(p: ImmigrantPetition): PetitionFieldError[] {
   const errors: PetitionFieldError[] = [];
   if (!p.sponsorName?.trim()) errors.push({ field: "sponsorName", message: "Add the employer or petitioner name." });
-  if (before(p.i140ApprovalDate, p.i140FiledDate)) {
+  if (before(p.petitionApprovalDate, p.petitionFiledDate)) {
+    errors.push({ field: "petitionApprovalDate", message: "The approval can't be before the petition was filed." });
+  }
+  if (usesI140(p.petitionType) && before(p.i140ApprovalDate, p.i140FiledDate)) {
     errors.push({ field: "i140ApprovalDate", message: "I-140 approval can't be before the I-140 was filed." });
   }
-  if (before(p.permCertifiedDate, p.permFilingDate)) {
+  if (usesPerm(p.petitionType) && before(p.permCertifiedDate, p.permFilingDate)) {
     errors.push({ field: "permCertifiedDate", message: "PERM approval can't be before PERM was filed." });
   }
-  if (before(p.i140ApprovalDate, p.permFilingDate)) {
+  if (usesPerm(p.petitionType) && before(p.i140ApprovalDate, p.permFilingDate)) {
     errors.push({ field: "i140ApprovalDate", message: "I-140 approval can't be before PERM was filed." });
   }
-  if (isApprovedStage(p.stage) && !p.i140ApprovalDate) {
+  // Family, investor, humanitarian and lottery paths have no I-140 or PERM.
+  // An employer green card only reaches consular processing after its I-140 is approved.
+  if (usesI140(p.petitionType) && (isApprovedStage(p.stage) || p.stage === "consular_processing") && !p.i140ApprovalDate) {
     errors.push({ field: "i140ApprovalDate", message: "Add the date the I-140 was approved." });
   }
   // Only checked while the green card is still moving; an ended one is kept as entered.
   const beforePermFiled =
-    !p.endedReason && (p.stage === "pwd_recruitment" || p.stage === "perm_in_progress") && !p.permFilingDate;
+    usesPerm(p.petitionType) &&
+    !p.endedReason &&
+    (p.stage === "not_started" || p.stage === "pwd_recruitment" || p.stage === "perm_in_progress") &&
+    !p.permFilingDate;
   if (beforePermFiled && p.priorityDate && !p.isPriorityDateRecaptured) {
     errors.push({
       field: "priorityDate",

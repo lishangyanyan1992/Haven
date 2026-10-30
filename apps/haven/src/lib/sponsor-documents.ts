@@ -1,5 +1,5 @@
 import { findPresetDocument, isPerSponsor } from "@/lib/document-vault";
-import { STAGE_ORDER } from "@/lib/petitions";
+import { STAGE_ORDER, usesI140, usesPerm } from "@/lib/petitions";
 import type { RequiredDocumentItem } from "@/lib/firms/types";
 import type { ImmigrantPetition, ImmigrantPetitionStage } from "@/types/domain";
 
@@ -14,7 +14,7 @@ import type { ImmigrantPetition, ImmigrantPetitionStage } from "@/types/domain";
 export type SponsorRef = Pick<
   ImmigrantPetition,
   "id" | "sponsorName" | "stage" | "endedReason" | "permCertifiedDate" | "i140FiledDate" | "i140ApprovalDate"
->;
+> & { petitionType?: ImmigrantPetition["petitionType"] };
 
 /** The minimum of an uploaded document the checklist reads. */
 export type ChecklistDocument = { id: string; documentKind: string; petitionId?: string | null };
@@ -59,10 +59,17 @@ const STAGE_GATES: Record<string, { stage: ImmigrantPetitionStage; dateField: ke
 function gateFor(key: string, petition: SponsorRef): { reached: boolean; reason?: string } {
   const gate = STAGE_GATES[key];
   if (!gate) return { reached: true };
+  // Family, investor, humanitarian and lottery green cards never produce these.
+  if (key === "perm_certification" && !usesPerm(petition.petitionType)) {
+    return { reached: false, reason: "this green card doesn't go through PERM" };
+  }
+  if (key === "i140_notice" && !usesI140(petition.petitionType)) {
+    return { reached: false, reason: "this green card doesn't use an I-140" };
+  }
   if (petition[gate.dateField] || (key === "i140_notice" && petition.i140ApprovalDate)) return { reached: true };
   const order = STAGE_ORDER[petition.stage];
   // Withdrawn says nothing about how far it got, so ask.
-  if (order === undefined || order < 0) return { reached: true };
+  if (order === undefined || petition.stage === "withdrawn") return { reached: true };
   if (order >= STAGE_ORDER[gate.stage]) return { reached: true };
   // Name the earliest step the case never reached, e.g. "ended before PERM".
   const missed = order < STAGE_ORDER.perm_in_progress ? "PERM" : gate.produced;

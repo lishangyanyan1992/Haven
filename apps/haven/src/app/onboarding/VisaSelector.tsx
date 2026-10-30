@@ -11,9 +11,11 @@ interface VisaSelectorProps {
   customValue?: string;
   onChange: (value: string, customValue?: string) => void;
   hasError?: boolean;
+  /** Field name for screen readers, read before the selected status. */
+  ariaLabel?: string;
 }
 
-export function VisaSelector({ value = "", customValue = "", onChange, hasError }: VisaSelectorProps) {
+export function VisaSelector({ value = "", customValue = "", onChange, hasError, ariaLabel }: VisaSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
 
@@ -70,6 +72,7 @@ export function VisaSelector({ value = "", customValue = "", onChange, hasError 
           type="button"
           onClick={() => setIsOpen(!isOpen)}
           aria-haspopup="listbox"
+          aria-label={ariaLabel ? `${ariaLabel}: ${selectedItem?.label ?? "not set"}` : undefined}
           aria-expanded={isOpen}
           className={cn(
             "flex w-full min-h-11 items-center justify-between rounded-[var(--radius-md)] border bg-[var(--haven-white)] px-3.5 py-2 text-left text-sm transition-colors",
@@ -169,7 +172,15 @@ export function VisaSelector({ value = "", customValue = "", onChange, hasError 
             value={customValue || (value !== "other" ? value : "")}
             onChange={(e) => onChange("other", e.target.value)}
             placeholder="e.g. G-4, NATO, Paroled pending asylum, Withholding of removal, etc."
+            required
+            aria-invalid={hasError || undefined}
+            aria-describedby={hasError ? "custom-visa-detail-error" : undefined}
           />
+          {hasError ? (
+            <p className="text-caption text-[#b42318]" id="custom-visa-detail-error">
+              Type your visa or status, or pick one from the list.
+            </p>
+          ) : null}
           <p className="text-caption text-[var(--color-text-secondary)]">
             Haven will record your exact status for tailored guidance and attorney review.
           </p>

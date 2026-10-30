@@ -45,6 +45,7 @@ export function mapProfileRow(row: Record<string, unknown>): ImmigrationProfile 
     i140ApprovalDate: optionalText(row.i140_approval_date),
     priorityDate: optionalText(row.priority_date),
     greenCardPathway: text(row.green_card_pathway) ?? text(deadlineMeta.greenCardPathway),
+    greenCardStage: text(deadlineMeta.greenCardStage),
     greenCardSponsor: text(deadlineMeta.greenCardSponsor),
     retainedPriorityDate: isoDate(deadlineMeta.retainedPriorityDate),
     retainedPriorityDateSponsor: text(deadlineMeta.retainedPriorityDateSponsor),

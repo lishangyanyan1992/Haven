@@ -4,6 +4,7 @@ import {
   providesI140Protection,
   sponsorMatches,
   STAGE_ORDER,
+  usesI140,
   validatePetition,
   type PetitionFieldError
 } from "@/lib/petitions";
@@ -59,10 +60,15 @@ export function flatFieldsFrom(
   const patch: Record<string, unknown> = {
     i140_approved: protecting.length > 0,
     i140_approval_date: earliestApproval ?? null,
-    i140_filed: petitions.some((p) => STAGE_ORDER[p.stage] >= STAGE_ORDER.i140_filed) || protecting.length > 0,
+    i140_filed:
+      petitions.some((p) => usesI140(p.petitionType) && STAGE_ORDER[p.stage] >= STAGE_ORDER.i140_filed) || protecting.length > 0,
     priority_date: effective.effectiveDate ? effective.effectiveDate.toISOString().slice(0, 10) : null
   };
   if (storedPermIsRemoved) patch.perm_filing_date = null;
+  // The I-485 flag follows the green cards' own steps, so moving one back clears it.
+  if (petitions.length > 0) {
+    patch.i485_filed = petitions.some((p) => !isPetitionEnded(p) && (p.stage === "i485_filed" || p.stage === "i485_approved"));
+  }
 
   // PERM stage describes the current employer's green card, so only change it
   // when there is one that is still moving.
@@ -75,7 +81,11 @@ export function flatFieldsFrom(
     );
     if (current) {
       const stage: PermStage =
-        current.stage === "pwd_recruitment" || current.stage === "perm_in_progress" ? "in_progress" : "certified";
+        current.stage === "not_started"
+          ? "not_started"
+          : current.stage === "pwd_recruitment" || current.stage === "perm_in_progress"
+            ? "in_progress"
+            : "certified";
       patch.perm_stage = stage;
       if (current.permFilingDate) patch.perm_filing_date = current.permFilingDate;
     }

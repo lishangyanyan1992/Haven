@@ -2,6 +2,10 @@
 
 import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+
+import { VisaStatusField } from "@/components/app/visa-status-field";
+import { ALL_GREEN_CARD_STAGE_OPTIONS, ALL_PREFERENCE_CATEGORIES, chosenGreenCardStage, stageOptionsFor } from "@/lib/visas";
+import { displayedPetitionStage } from "@/lib/immigration-journey";
 import { useRouter } from "next/navigation";
 import {
   Briefcase,
@@ -507,17 +511,16 @@ export function ImmigrationJourneyDashboard({
 
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div>
-                <label className="field-label" htmlFor="journey-visaType">
+                <label className="field-label" id="journey-visaType-label">
                   Current visa status
                 </label>
-                <Select defaultValue={profile.visaType ?? ""} id="journey-visaType" name="visaType">
-                  {!profile.visaType && <option value="">Select visa status</option>}
-                  {["OPT", "STEM OPT", "H1B", "H4", "O-1", "GC", "Citizen"].map((v) => (
-                    <option key={v} value={v}>
-                      {v}
-                    </option>
-                  ))}
-                </Select>
+                <div id="journey-visaType">
+                  <VisaStatusField
+                    key={`${profile.visaType ?? ""}|${profile.customVisaDetail ?? ""}`}
+                    defaultCustom={profile.customVisaDetail}
+                    defaultValue={profile.visaType ?? ""}
+                  />
+                </div>
               </div>
 
               <div>
@@ -591,14 +594,27 @@ export function ImmigrationJourneyDashboard({
                 <label className="field-label" htmlFor="journey-greenCardStage">
                   Green card stage
                 </label>
-                <Select defaultValue={greenCardTrack.stage} id="journey-greenCardStage" name="greenCardStage">
-                  <option value="not_started">Not started yet</option>
-                  <option value="perm_in_progress">PERM in progress</option>
-                  <option value="perm_certified">PERM certified</option>
-                  <option value="i140_filed">I-140 filed</option>
-                  <option value="i140_approved">I-140 approved</option>
-                  <option value="i485_filed">I-485 filed</option>
+                {(profile.immigrantPetitions?.length ?? 0) > 0 ? (
+                  // With green cards entered, they set the step; change it in Settings → Green cards.
+                  <p className="text-body-sm text-[var(--haven-ink)]">
+                    {ALL_GREEN_CARD_STAGE_OPTIONS.find((o) => o.id === displayedPetitionStage(profile))?.label ?? displayedPetitionStage(profile)}{" "}
+                    <Link className="text-[12px] underline underline-offset-2" href="/settings#green-cards">
+                      Change in Green cards
+                    </Link>
+                  </p>
+                ) : (
+                <Select
+                  defaultValue={chosenGreenCardStage(profile.greenCardStage, greenCardTrack.stage)}
+                  id="journey-greenCardStage"
+                  name="greenCardStage"
+                >
+                  {stageOptionsFor(profile.greenCardPathway, chosenGreenCardStage(profile.greenCardStage, greenCardTrack.stage)).map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.label}
+                    </option>
+                  ))}
                 </Select>
+                )}
               </div>
 
               <div>
@@ -607,7 +623,10 @@ export function ImmigrationJourneyDashboard({
                 </label>
                 <Select defaultValue={profile.preferenceCategory ?? ""} id="journey-preferenceCategory" name="preferenceCategory">
                   {!profile.preferenceCategory && <option value="">Select preference category</option>}
-                  {["EB-1", "EB-2", "EB-3", "EB-2 NIW", "Not sure"].map((v) => (
+                  {(profile.preferenceCategory && !ALL_PREFERENCE_CATEGORIES.includes(profile.preferenceCategory)
+                    ? [profile.preferenceCategory, ...ALL_PREFERENCE_CATEGORIES]
+                    : ALL_PREFERENCE_CATEGORIES
+                  ).map((v) => (
                     <option key={v} value={v}>
                       {v}
                     </option>
