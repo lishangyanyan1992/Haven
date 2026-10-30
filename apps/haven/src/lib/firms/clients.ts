@@ -16,7 +16,6 @@ import {
 } from "@/lib/document-facts/describe";
 import { toFieldSource } from "@/lib/field-sources/db";
 import type { FieldSource } from "@/lib/field-sources/plan";
-import type { RememberedFact } from "@/lib/advisor/memory";
 import { compareByUrgency, rankUrgency, type Urgency } from "@/lib/firms/urgency";
 import { firmClientStatus, isNewFirmClient } from "@/lib/firms/status";
 import type { FirmClientEngagementState, FirmClientRow, FirmClientStatus, FirmPipelineStatus } from "@/lib/firms/types";
@@ -257,8 +256,6 @@ export type FirmClientDetail = {
   /** Fields where the client's value differs from a document's, open ones first. */
   disagreements: Disagreement[];
   openContactRequest: FirmContactRequest | null;
-  /** Active facts and notes remembered about the client from chat and manual input. */
-  rememberedFacts: RememberedFact[];
 };
 
 /** One client of this firm, or null. Always filters by both ids. */
@@ -353,23 +350,6 @@ export async function getFirmClient(firmId: string, firmClientId: string): Promi
   const rawClientPhone = answersRecord.phone ?? answersRecord.phoneNumber;
   const resolvedPhone = client.phone ?? (typeof rawClientPhone === "string" ? rawClientPhone.trim() : null);
 
-  let rememberedFacts: RememberedFact[] = [];
-  if (client.user_id) {
-    const { data: facts } = await admin()
-      .from("advisor_remembered_facts")
-      .select("id, kind, quote, created_at")
-      .eq("user_id", client.user_id)
-      .is("dismissed_at", null)
-      .order("created_at", { ascending: false })
-      .limit(24);
-    rememberedFacts = (facts ?? []).map((f: any) => ({
-      id: f.id,
-      kind: f.kind,
-      quote: f.quote,
-      createdAt: f.created_at
-    }));
-  }
-
   return {
     id: client.id,
     email: client.normalized_email,
@@ -387,8 +367,7 @@ export async function getFirmClient(firmId: string, firmClientId: string): Promi
     requiredDocuments,
     additionalDocuments,
     disagreements,
-    openContactRequest: contactRequest,
-    rememberedFacts
+    openContactRequest: contactRequest
   };
 }
 
