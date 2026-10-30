@@ -221,6 +221,8 @@ async function main() {
   check("no pathway: consular step doesn't invent a certified PERM", noPathConsular.perm_stage === "not_started", String(noPathConsular.perm_stage));
   const nsActive = inferProfileGreenCardStage({ ...twoEmployerProfile({ immigrantPetitions: [{ ...marriage, stage: "not_started" }] as never }), visaType: "H4", i485Filed: false, greenCardStage: "consular_processing" } as never);
   check("active 'not started' green card isn't overridden by an old saved step", nsActive === "not_started", nsActive);
+  const nsWithFlag = inferProfileGreenCardStage({ ...twoEmployerProfile({ immigrantPetitions: [{ ...marriage, stage: "not_started" }] as never }), visaType: "H4", i485Filed: true } as never);
+  check("active 'not started' green card isn't overridden by another card's I-485 flag", nsWithFlag === "not_started", nsWithFlag);
   check("Settings step list with no green card kind shows every step", stageOptionsFor(undefined).some((o) => o.id === "i140_filed"));
   const noPathI140 = normalizeDraft({ visaType: "H1B", greenCardStage: "i140_filed" } as never, {}) as Record<string, unknown>;
   check("no pathway chosen yet: I-140 filed still saves", noPathI140.i140_filed === true, String(noPathI140.i140_filed));

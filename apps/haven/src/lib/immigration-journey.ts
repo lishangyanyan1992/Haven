@@ -425,9 +425,9 @@ export function findActivePetition(profile: ImmigrationProfile): ImmigrantPetiti
 
 export function inferProfileGreenCardStage(profile: ImmigrationProfile): GreenCardStage {
   const activePetition = findActivePetition(profile);
-  // An approved green card wins over the old "I-485 filed" flag.
+  // The active green card's own step wins over the old "I-485 filed" flag,
+  // which can come from a different green card.
   if (activePetition?.stage === "i485_approved") return "i485_approved";
-  if (profile.i485Filed) return "i485_filed";
 
   if (activePetition) {
     if (activePetition.stage === "not_started") return "not_started";
@@ -441,6 +441,8 @@ export function inferProfileGreenCardStage(profile: ImmigrationProfile): GreenCa
       return activePetition.stage;
     }
   }
+
+  if (profile.i485Filed) return "i485_filed";
 
   // A step saved in Settings with no green card record wins over the old yes/no flags.
   if (profile.greenCardStage === "pwd_recruitment") return "perm_in_progress";
