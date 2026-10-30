@@ -205,6 +205,10 @@ async function main() {
   check("saved 'PWD / recruitment' step beats an old I-140 approved flag", pwdWithOldFlag === "perm_in_progress", pwdWithOldFlag);
   const familyRow = { deadline_answers: { greenCardPathway: "family_marriage_usc" } };
   const familySave = normalizeDraft({ visaType: "H4", greenCardStage: "i485_filed", i140Approved: "true" } as never, familyRow) as Record<string, unknown>;
+  const familyI140 = normalizeDraft({ visaType: "H4", greenCardStage: "i140_filed" } as never, familyRow) as Record<string, unknown>;
+  check("family green card can't record an I-140 as filed", familyI140.i140_filed === false, String(familyI140.i140_filed));
+  const noPathI140 = normalizeDraft({ visaType: "H1B", greenCardStage: "i140_filed" } as never, {}) as Record<string, unknown>;
+  check("no pathway chosen yet: I-140 filed still saves", noPathI140.i140_filed === true, String(noPathI140.i140_filed));
   check("family green card at I-485 filed doesn't get an approved I-140", familySave.i140_approved === false, String(familySave.i140_approved));
   const employerSave = normalizeDraft({ visaType: "H1B", greenCardStage: "i485_filed", i140Approved: "true" } as never, { deadline_answers: { greenCardPathway: "employer_sponsored" } }) as Record<string, unknown>;
   check("employer green card at I-485 filed keeps its approved I-140", employerSave.i140_approved === true, String(employerSave.i140_approved));

@@ -118,8 +118,10 @@ export function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<stri
     (existingProfile ? findActivePetition(existingProfile)?.petitionType : undefined) ??
     asOptionalString(rawDraft.greenCardPathway) ??
     existingProfile?.greenCardPathway;
+  // No pathway yet means the usual employer case.
+  const pathwayUsesI140 = !pathway || usesI140(pathway);
   const i140Approved =
-    (!pathway || usesI140(pathway)) &&
+    pathwayUsesI140 &&
     (rawDraft.i140Approved !== undefined
       ? rawDraft.i140Approved === true || rawDraft.i140Approved === "true"
       : Boolean(existingRow?.i140_approved));
@@ -209,7 +211,9 @@ export function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<stri
             : null
         }
       : {}),
-    ...(stageSent ? { i140_filed: greenCardStage === "i140_filed", i485_filed: greenCardStage === "i485_filed" } : {}),
+    ...(stageSent
+      ? { i140_filed: pathwayUsesI140 && greenCardStage === "i140_filed", i485_filed: greenCardStage === "i485_filed" }
+      : {}),
     spouse_visa_status: asEnumValue(rawDraft.spouseVisaStatus ?? existingRow?.spouse_visa_status, spouseVisaStatuses, "none"),
     ...helpNeededPatch(rawDraft, existingConcerns),
     community_reply_email_notifications:
