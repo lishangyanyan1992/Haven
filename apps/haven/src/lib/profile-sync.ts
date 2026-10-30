@@ -147,9 +147,14 @@ export function normalizeDraft(rawDraftIn: ProfileDraft, existingRow?: Record<st
                 ? "perm_in_progress"
                 : "not_started";
   // Self-petitions and non-employer green cards never have a PERM.
+  // Consular and approved steps exist on family paths too, so with no pathway
+  // they keep whatever PERM status was already saved.
+  const keepsPerm = !pathway && (greenCardStage === "consular_processing" || greenCardStage === "i485_approved");
   const permStage = !pathwayUsesPerm
     ? "not_started"
-    : greenCardStage === "perm_in_progress"
+    : keepsPerm
+      ? asEnumValue(existingRow?.perm_stage, ["not_started", "in_progress", "certified", "denied"] as const, "not_started")
+      : greenCardStage === "perm_in_progress"
       ? "in_progress"
       : greenCardStage === "perm_certified" ||
           greenCardStage === "consular_processing" ||

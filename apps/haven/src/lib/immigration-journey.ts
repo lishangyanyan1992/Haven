@@ -430,6 +430,7 @@ export function inferProfileGreenCardStage(profile: ImmigrationProfile): GreenCa
   if (profile.i485Filed) return "i485_filed";
 
   if (activePetition) {
+    if (activePetition.stage === "not_started") return "not_started";
     if (activePetition.stage === "i485_filed") return "i485_filed";
     if (activePetition.stage === "i140_approved") return "i140_approved";
     if (activePetition.stage === "i140_filed") return "i140_filed";
