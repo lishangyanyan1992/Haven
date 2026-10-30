@@ -2,6 +2,7 @@ import { computeDerivedSignals } from "@/lib/haven";
 import { mapProfileRow } from "@/lib/profile-mapper";
 import { findActivePetition } from "@/lib/immigration-journey";
 import { usesI140 } from "@/lib/petitions";
+import { PERM_I140_STAGE_IDS } from "@/lib/visas";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { concernsForHelpNeeded, normalizeHelpNeeded } from "@/lib/firms/help-needed";
 import type { Concern, EmploymentStatus, ImmigrationProfile, PrimaryGoal, PreferenceCategory, SpouseVisaStatus, VisaType } from "@/types/domain";
@@ -75,7 +76,18 @@ function helpNeededPatch(rawDraft: ProfileDraft, existingConcerns: Concern[]) {
   return { top_concerns: asConcerns(rawDraft.topConcerns) ?? fallback };
 }
 
-export function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<string, unknown> | null) {
+export function normalizeDraft(rawDraftIn: ProfileDraft, existingRow?: Record<string, unknown> | null) {
+  // Family, investor, humanitarian and lottery green cards have no PERM or I-140.
+  const existingProfile = existingRow ? mapProfileRow(existingRow) : null;
+  const pathway =
+    (existingProfile ? findActivePetition(existingProfile)?.petitionType : undefined) ??
+    asOptionalString(rawDraftIn.greenCardPathway) ??
+    existingProfile?.greenCardPathway;
+  // No pathway yet means the usual employer case.
+  const pathwayUsesI140 = !pathway || usesI140(pathway);
+  const sentStageIn = typeof rawDraftIn.greenCardStage === "string" ? rawDraftIn.greenCardStage.trim() : "";
+  const rawDraft: ProfileDraft =
+    !pathwayUsesI140 && PERM_I140_STAGE_IDS.has(sentStageIn) ? { ...rawDraftIn, greenCardStage: undefined } : rawDraftIn;
   const existingConcerns = ((existingRow?.top_concerns as string[] | null) ?? []).filter((item): item is Concern =>
     concerns.includes(item as Concern)
   );
@@ -112,14 +124,6 @@ export function normalizeDraft(rawDraft: ProfileDraft, existingRow?: Record<stri
         : {})
     };
   }
-  // Family, investor, humanitarian and lottery green cards have no I-140 to approve.
-  const existingProfile = existingRow ? mapProfileRow(existingRow) : null;
-  const pathway =
-    (existingProfile ? findActivePetition(existingProfile)?.petitionType : undefined) ??
-    asOptionalString(rawDraft.greenCardPathway) ??
-    existingProfile?.greenCardPathway;
-  // No pathway yet means the usual employer case.
-  const pathwayUsesI140 = !pathway || usesI140(pathway);
   const i140Approved =
     pathwayUsesI140 &&
     (rawDraft.i140Approved !== undefined

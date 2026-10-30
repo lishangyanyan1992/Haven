@@ -206,7 +206,11 @@ async function main() {
   const familyRow = { deadline_answers: { greenCardPathway: "family_marriage_usc" } };
   const familySave = normalizeDraft({ visaType: "H4", greenCardStage: "i485_filed", i140Approved: "true" } as never, familyRow) as Record<string, unknown>;
   const familyI140 = normalizeDraft({ visaType: "H4", greenCardStage: "i140_filed" } as never, familyRow) as Record<string, unknown>;
-  check("family green card can't record an I-140 as filed", familyI140.i140_filed === false, String(familyI140.i140_filed));
+  check("family green card can't record an I-140 as filed", familyI140.i140_filed !== true, String(familyI140.i140_filed));
+  check("family green card: an I-140 step isn't saved as its step", familyI140.perm_stage === undefined && !("greenCardStage" in ((familyI140.deadline_answers as Record<string, unknown>) ?? {})), JSON.stringify({ perm: familyI140.perm_stage, da: familyI140.deadline_answers }));
+  const { stageOptionsFor } = await import("@/lib/visas");
+  check("Settings step list for a marriage green card has no PERM or I-140", !stageOptionsFor("family_marriage_usc").some((o) => /perm|i140|pwd/.test(o.id)));
+  check("Settings step list with no green card kind shows every step", stageOptionsFor(undefined).some((o) => o.id === "i140_filed"));
   const noPathI140 = normalizeDraft({ visaType: "H1B", greenCardStage: "i140_filed" } as never, {}) as Record<string, unknown>;
   check("no pathway chosen yet: I-140 filed still saves", noPathI140.i140_filed === true, String(noPathI140.i140_filed));
   check("family green card at I-485 filed doesn't get an approved I-140", familySave.i140_approved === false, String(familySave.i140_approved));

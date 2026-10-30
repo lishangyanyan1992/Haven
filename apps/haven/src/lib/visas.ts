@@ -268,6 +268,20 @@ export const ALL_GREEN_CARD_STAGE_OPTIONS: Array<{ id: string; label: string }> 
   { id: "i485_approved", label: "Permanent resident" }
 ];
 
+/** PERM and I-140 steps, which only employer and self-petition green cards have. */
+export const PERM_I140_STAGE_IDS = new Set(["pwd_recruitment", "perm_in_progress", "perm_certified", "i140_filed", "i140_approved"]);
+
+/**
+ * The single-step options for this kind of green card. With no kind chosen,
+ * every step. The current step is always kept so a saved value still shows.
+ */
+export function stageOptionsFor(pathwayId: string | undefined, current?: string): Array<{ id: string; label: string }> {
+  if (!pathwayId) return ALL_GREEN_CARD_STAGE_OPTIONS;
+  const allowed = new Set(getStagesForPathway(pathwayId).map((s) => String(s.id)));
+  const list = ALL_GREEN_CARD_STAGE_OPTIONS.filter((o) => allowed.has(o.id) || o.id === current);
+  return list.length > 1 ? list : ALL_GREEN_CARD_STAGE_OPTIONS;
+}
+
 /** Steps the profile's yes/no flags can't hold, so the saved step is shown instead. */
 const FLAG_STAGES = new Set(["not_started", "perm_in_progress", "perm_certified", "i140_filed", "i140_approved", "i485_filed"]);
 

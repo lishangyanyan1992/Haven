@@ -4,7 +4,7 @@ import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 
 import { VisaStatusField } from "@/components/app/visa-status-field";
-import { ALL_GREEN_CARD_STAGE_OPTIONS, ALL_PREFERENCE_CATEGORIES, chosenGreenCardStage } from "@/lib/visas";
+import { ALL_GREEN_CARD_STAGE_OPTIONS, ALL_PREFERENCE_CATEGORIES, chosenGreenCardStage, stageOptionsFor } from "@/lib/visas";
 import { displayedPetitionStage } from "@/lib/immigration-journey";
 import { useRouter } from "next/navigation";
 import {
@@ -608,7 +608,7 @@ export function ImmigrationJourneyDashboard({
                   id="journey-greenCardStage"
                   name="greenCardStage"
                 >
-                  {ALL_GREEN_CARD_STAGE_OPTIONS.map((o) => (
+                  {stageOptionsFor(profile.greenCardPathway, chosenGreenCardStage(profile.greenCardStage, greenCardTrack.stage)).map((o) => (
                     <option key={o.id} value={o.id}>
                       {o.label}
                     </option>
