@@ -26,6 +26,7 @@ const PETITION_TYPES: ImmigrantPetitionType[] = [
   "other"
 ];
 const STAGES: ImmigrantPetitionStage[] = [
+  "not_started",
   "pwd_recruitment",
   "perm_in_progress",
   "perm_certified",
@@ -67,6 +68,8 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 /** Stage order from first step to green card. Withdrawn sorts first: it says nothing about progress. */
 export const STAGE_ORDER: Record<string, number> = {
   withdrawn: -1,
+  // Before any filing; above withdrawn so it still counts as a real step.
+  not_started: -0.5,
   pwd_recruitment: 0,
   perm_in_progress: 1,
   perm_certified: 2,
@@ -134,7 +137,8 @@ export function normalizePetitions(raw: unknown): ImmigrantPetition[] {
       stage: pick(STAGES, r.stage) ?? (text(r.stage) as ImmigrantPetitionStage) ?? "pwd_recruitment"
     };
     const optional: Partial<ImmigrantPetition> = {
-      priorityDate: isoDate(r.priorityDate),
+      // The lottery has no priority date.
+      priorityDate: r.petitionType === "diversity_lottery" ? undefined : isoDate(r.priorityDate),
       isPriorityDateRecaptured: r.isPriorityDateRecaptured === true ? true : undefined,
       permFilingDate: isoDate(r.permFilingDate),
       permCertifiedDate: isoDate(r.permCertifiedDate),

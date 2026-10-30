@@ -217,6 +217,10 @@ async function main() {
   const shared = sharedAnswersFromProfile({ country_of_birth: "India", deadline_answers: { greenCardStage: "i130_filed" } }) as Record<string, unknown>;
   const sharedActive = sharedAnswersFromProfile({ country_of_birth: "India", i140_filed: true, deadline_answers: { greenCardStage: "i140_filed", immigrantPetitions: [{ id: "a", sponsorName: "Acme", petitionType: "employer_sponsored", preferenceCategory: "EB-2", stage: "i140_approved", i140ApprovalDate: "2025-01-01" }] } }) as Record<string, unknown>;
   check("lawyer sees the active green card's step over an older saved one", sharedActive.greenCardStage === "i140_approved", String(sharedActive.greenCardStage));
+  check("lottery green card asks for no priority date", !dateFieldsFor("diversity_lottery").some((f) => f.key === "priorityDate"));
+  check("saved lottery priority date is dropped", !normalizePetitions([{ id: "dv", sponsorName: "DV-2027", petitionType: "diversity_lottery", stage: "consular_processing", priorityDate: "2025-01-01" }])[0].priorityDate);
+  const nsFlat = flatFieldsFrom([{ id: "n", sponsorName: "Acme", petitionType: "employer_sponsored", preferenceCategory: "EB-2", stage: "not_started" } as never], { employer_name: "Acme", employment_status: "employed" }) as Record<string, unknown>;
+  check("'not started' employer green card records PERM as not started", nsFlat.perm_stage === "not_started", String(nsFlat.perm_stage));
   check("lawyer sees the saved I-130 step", shared.greenCardStage === "i130_filed", String(shared.greenCardStage));
   check("typed 'H-1B' saves as H1B", standardVisaValue("H-1B") === "H1B", String(standardVisaValue("H-1B")));
   check("I-94 class L2Y does not fill L-2", standardVisaValue("L2Y") === null, String(standardVisaValue("L2Y")));

@@ -69,7 +69,7 @@ function gateFor(key: string, petition: SponsorRef): { reached: boolean; reason?
   if (petition[gate.dateField] || (key === "i140_notice" && petition.i140ApprovalDate)) return { reached: true };
   const order = STAGE_ORDER[petition.stage];
   // Withdrawn says nothing about how far it got, so ask.
-  if (order === undefined || order < 0) return { reached: true };
+  if (order === undefined || petition.stage === "withdrawn") return { reached: true };
   if (order >= STAGE_ORDER[gate.stage]) return { reached: true };
   // Name the earliest step the case never reached, e.g. "ended before PERM".
   const missed = order < STAGE_ORDER.perm_in_progress ? "PERM" : gate.produced;

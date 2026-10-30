@@ -77,7 +77,11 @@ export function flatFieldsFrom(
     );
     if (current) {
       const stage: PermStage =
-        current.stage === "pwd_recruitment" || current.stage === "perm_in_progress" ? "in_progress" : "certified";
+        current.stage === "not_started"
+          ? "not_started"
+          : current.stage === "pwd_recruitment" || current.stage === "perm_in_progress"
+            ? "in_progress"
+            : "certified";
       patch.perm_stage = stage;
       if (current.permFilingDate) patch.perm_filing_date = current.permFilingDate;
     }

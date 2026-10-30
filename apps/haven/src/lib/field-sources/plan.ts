@@ -11,7 +11,7 @@
 
 import type { FactSet, FactTarget } from "@/lib/document-facts/catalog";
 import { ALL_PREFERENCE_CATEGORIES, ALL_VISA_OPTIONS } from "@/lib/visas";
-import { STAGE_ORDER, sponsorMatches } from "@/lib/petitions";
+import { STAGE_ORDER, sponsorMatches, usesI140, usesPerm } from "@/lib/petitions";
 import type { ImmigrantPetition, ImmigrantPetitionStage, PreferenceCategory } from "@/types/domain";
 
 export type FieldOrigin = "document" | "person" | "document_deleted";
@@ -163,7 +163,17 @@ export function planFactApplication(input: PlanInput): Plan {
   // A document that proves a later step moves the green card forward. Never back.
   const proven = set.sponsorScoped ? provenStage(set, facts) : null;
   const current = petition();
-  if (proven && current && !createdPetition && STAGE_ORDER[current.stage] >= 0 && STAGE_ORDER[proven] > STAGE_ORDER[current.stage]) {
+  // Only for green cards that use that form: a PERM or I-140 never moves a family green card.
+  const fits = current && ((set.id === "i140" && usesI140(current.petitionType)) || (set.id === "perm" && usesPerm(current.petitionType)));
+  if (
+    proven &&
+    current &&
+    fits &&
+    !createdPetition &&
+    current.stage !== "withdrawn" &&
+    STAGE_ORDER[current.stage] !== undefined &&
+    STAGE_ORDER[proven] > STAGE_ORDER[current.stage]
+  ) {
     petitions = petitions.map((p) => (p.id === current.id ? { ...p, stage: proven } : p));
     petitionsChanged = true;
   }

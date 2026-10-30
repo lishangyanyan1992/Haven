@@ -58,8 +58,8 @@ export function dateFieldsFor(type: string): Array<{ key: DateFieldKey; label: s
       fields.push({ key: "petitionFiledDate", label: `${form} filed` }, { key: "petitionApprovalDate", label: `${form} approved` });
     }
   }
-  // Asylum adjustment has no visa queue, so no priority date.
-  if (type !== "humanitarian_asylum") fields.push({ key: "priorityDate", label: "Priority date" });
+  // Asylum adjustment and the lottery have no priority date.
+  if (type !== "humanitarian_asylum" && type !== "diversity_lottery") fields.push({ key: "priorityDate", label: "Priority date" });
   return fields;
 }
 

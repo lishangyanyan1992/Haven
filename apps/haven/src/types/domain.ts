@@ -149,6 +149,7 @@ export type ImmigrantPetitionType =
   | (string & {});
 
 export type ImmigrantPetitionStage =
+  | "not_started"
   | "pwd_recruitment"
   | "perm_in_progress"
   | "perm_certified"
