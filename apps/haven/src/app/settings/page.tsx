@@ -8,7 +8,8 @@ import { GreenCardEditor } from "@/components/app/green-card-editor";
 import { FieldSourceLabel } from "@/components/app/field-source-label";
 import { VisaStatusField } from "@/components/app/visa-status-field";
 import { formatSourceValue } from "@/lib/field-sources/format";
-import { displayedPetitionStage } from "@/lib/immigration-journey";
+import { displayedPetitionStage, findActivePetition } from "@/lib/immigration-journey";
+import { usesPerm } from "@/lib/petitions";
 import { loadFieldSources } from "@/lib/field-sources/db";
 import type { FieldSource } from "@/lib/field-sources/plan";
 import { Badge } from "@/components/ui/badge";
@@ -94,7 +95,8 @@ export default async function SettingsPage({
     });
   }
 
-  if (profile.i140Approved && profile.permStage === "not_started") {
+  // Self-petitions never have a PERM, so this gap only applies to employer green cards.
+  if (profile.i140Approved && profile.permStage === "not_started" && usesPerm(findActivePetition(profile)?.petitionType ?? profile.greenCardPathway)) {
     profileGaps.push({
       id: "multi-employer-perm-gap",
       label: "Approved I-140 from prior sponsor vs. new employer PERM not started",

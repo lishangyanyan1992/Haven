@@ -614,6 +614,8 @@ export async function saveCaseJourneyDatesAction(formData: FormData): Promise<{ 
   const i140Approved =
     greenCardStage === "i140_approved" ||
     greenCardStage === "i485_filed" ||
+    greenCardStage === "consular_processing" ||
+    greenCardStage === "i485_approved" ||
     String(formData.get("i140Approved") ?? "") === "true";
 
   const statusEndDate = String(formData.get("statusEndDate") ?? "").trim();

@@ -152,6 +152,8 @@ export function normalizeDraft(rawDraftIn: ProfileDraft, existingRow?: Record<st
     : greenCardStage === "perm_in_progress"
       ? "in_progress"
       : greenCardStage === "perm_certified" ||
+          greenCardStage === "consular_processing" ||
+          greenCardStage === "i485_approved" ||
           greenCardStage === "i140_filed" ||
           greenCardStage === "i140_approved" ||
           greenCardStage === "i485_filed"

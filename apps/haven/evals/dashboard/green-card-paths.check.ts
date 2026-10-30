@@ -213,6 +213,10 @@ async function main() {
   check("employer and self-petition step lists offer consular processing", ["employer_sponsored", "self_petition_niw"].every((t) => stageOptionsFor(t).some((o) => o.id === "consular_processing")));
   const niwSave = normalizeDraft({ visaType: "H1B", greenCardStage: "i140_approved", i140Approved: "true" } as never, { deadline_answers: { greenCardPathway: "self_petition_niw" } }) as Record<string, unknown>;
   check("self-petition at I-140 approved doesn't record a PERM", niwSave.perm_stage === "not_started" && niwSave.i140_approved === true, JSON.stringify({ perm: niwSave.perm_stage, i140: niwSave.i140_approved }));
+  const consularSave = normalizeDraft({ visaType: "H1B", greenCardStage: "consular_processing", i140Approved: "true" } as never, { perm_stage: "certified", deadline_answers: { greenCardPathway: "employer_sponsored" } }) as Record<string, unknown>;
+  check("employer consular step keeps PERM certified and I-140 approved", consularSave.perm_stage === "certified" && consularSave.i140_approved === true, JSON.stringify({ perm: consularSave.perm_stage, i140: consularSave.i140_approved }));
+  const savedConsular = inferProfileGreenCardStage({ ...twoEmployerProfile({ immigrantPetitions: [] as never }), i140Approved: true, greenCardStage: "consular_processing" } as never);
+  check("saved consular step shows over the old I-140 flag", savedConsular === "consular_processing", savedConsular);
   check("Settings step list with no green card kind shows every step", stageOptionsFor(undefined).some((o) => o.id === "i140_filed"));
   const noPathI140 = normalizeDraft({ visaType: "H1B", greenCardStage: "i140_filed" } as never, {}) as Record<string, unknown>;
   check("no pathway chosen yet: I-140 filed still saves", noPathI140.i140_filed === true, String(noPathI140.i140_filed));

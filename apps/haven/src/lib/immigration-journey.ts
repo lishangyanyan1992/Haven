@@ -444,6 +444,7 @@ export function inferProfileGreenCardStage(profile: ImmigrationProfile): GreenCa
   // A step saved in Settings with no green card record wins over the old yes/no flags.
   if (profile.greenCardStage === "pwd_recruitment") return "perm_in_progress";
   if (profile.greenCardStage === "i485_approved") return "i485_approved";
+  if (profile.greenCardStage === "consular_processing" || profile.greenCardStage === "conditional_resident") return profile.greenCardStage;
   if (profile.i140Approved) return "i140_approved";
   if (profile.i140Filed) return "i140_filed";
   if (profile.permStage === "certified") return "perm_certified";
@@ -2445,7 +2446,8 @@ export function buildImmigrationJourney(input: {
   }
 
   // 2. Missing or ambiguous intake / profile fields
-  if (hasI140Approval && profile.permStage === "not_started") {
+  // Self-petitions never have a PERM, so this gap only applies to employer green cards.
+  if (hasI140Approval && profile.permStage === "not_started" && usesPerm(gcPathType)) {
     missingItems.push({
       id: "missing-multi-employer-perm",
       category: "intake_field",
