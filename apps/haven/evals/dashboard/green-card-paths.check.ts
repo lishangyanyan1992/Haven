@@ -180,6 +180,8 @@ async function main() {
     "approved I-140 in consular processing keeps its protection",
     providesI140Protection({ id: "c", sponsorName: "Acme", petitionType: "employer_sponsored", preferenceCategory: "EB-2", stage: "consular_processing", i140ApprovalDate: "2025-01-01" } as never)
   );
+  const consularNoDate = validatePetition({ id: "c0", sponsorName: "Acme", petitionType: "employer_sponsored", preferenceCategory: "EB-2", stage: "consular_processing" } as never);
+  check("employer consular processing asks for the I-140 approval date", consularNoDate.some((e) => e.field === "i140ApprovalDate"), JSON.stringify(consularNoDate));
   const doneProfile = twoEmployerProfile({ immigrantPetitions: [{ ...marriage, stage: "i485_approved" }] as never });
   check("approved green card shows as permanent resident", displayedPetitionStage(doneProfile) === "i485_approved", displayedPetitionStage(doneProfile));
   const { normalizeDraft } = await import("@/lib/profile-sync");
@@ -201,7 +203,7 @@ async function main() {
   check("saved 'permanent resident' step with no green card record stays approved", savedOnly("i485_approved") === "i485_approved", savedOnly("i485_approved"));
   const pwdWithOldFlag = inferProfileGreenCardStage({ ...twoEmployerProfile({ immigrantPetitions: [] as never }), i140Filed: false, i140Approved: true, permStage: "not_started", greenCardStage: "pwd_recruitment" } as never);
   check("saved 'PWD / recruitment' step beats an old I-140 approved flag", pwdWithOldFlag === "perm_in_progress", pwdWithOldFlag);
-  const familyRow = { deadline_answers: { greenCardPathway: "family_immediate_relative" } };
+  const familyRow = { deadline_answers: { greenCardPathway: "family_marriage_usc" } };
   const familySave = normalizeDraft({ visaType: "H4", greenCardStage: "i485_filed", i140Approved: "true" } as never, familyRow) as Record<string, unknown>;
   check("family green card at I-485 filed doesn't get an approved I-140", familySave.i140_approved === false, String(familySave.i140_approved));
   const employerSave = normalizeDraft({ visaType: "H1B", greenCardStage: "i485_filed", i140Approved: "true" } as never, { deadline_answers: { greenCardPathway: "employer_sponsored" } }) as Record<string, unknown>;
@@ -211,7 +213,7 @@ async function main() {
   check("I-94 class L2S fills L-2", standardVisaValue("L2S") === "L-2", String(standardVisaValue("L2S")));
   check("asylum and lottery steps don't offer I-130", ["humanitarian_asylum", "diversity_lottery"].every((t) => !getStagesForPathway(t).some((st) => String(st.id).startsWith("i130"))));
   const { validatePetition: vp } = await import("@/lib/petitions");
-  const staleFamily = vp({ id: "s", sponsorName: "Jordan", petitionType: "family_immediate_relative", preferenceCategory: "IR", stage: "i130_filed", permFilingDate: "2025-05-01", i140ApprovalDate: "2025-01-01" } as never);
+  const staleFamily = vp({ id: "s", sponsorName: "Jordan", petitionType: "family_marriage_usc", preferenceCategory: "IR", stage: "i130_filed", permFilingDate: "2025-05-01", i140ApprovalDate: "2025-01-01" } as never);
   check("old PERM/I-140 dates on a family green card don't block saving", staleFamily.length === 0, JSON.stringify(staleFamily));
   const { sharedAnswersFromProfile } = await import("@/lib/firms/answers");
   const shared = sharedAnswersFromProfile({ country_of_birth: "India", deadline_answers: { greenCardStage: "i130_filed" } }) as Record<string, unknown>;

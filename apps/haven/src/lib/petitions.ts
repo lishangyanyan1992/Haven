@@ -250,7 +250,8 @@ export function validatePetition(p: ImmigrantPetition): PetitionFieldError[] {
     errors.push({ field: "i140ApprovalDate", message: "I-140 approval can't be before PERM was filed." });
   }
   // Family, investor, humanitarian and lottery paths have no I-140 or PERM.
-  if (usesI140(p.petitionType) && isApprovedStage(p.stage) && !p.i140ApprovalDate) {
+  // An employer green card only reaches consular processing after its I-140 is approved.
+  if (usesI140(p.petitionType) && (isApprovedStage(p.stage) || p.stage === "consular_processing") && !p.i140ApprovalDate) {
     errors.push({ field: "i140ApprovalDate", message: "Add the date the I-140 was approved." });
   }
   // Only checked while the green card is still moving; an ended one is kept as entered.

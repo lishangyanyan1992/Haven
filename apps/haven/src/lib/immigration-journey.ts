@@ -410,7 +410,10 @@ export function findActivePetition(profile: ImmigrationProfile): ImmigrantPetiti
   }
 
   const inProgressEmployer = moving.find(
-    p => isEmployerType(p.petitionType) && !isApprovedStage(p.stage)
+    p =>
+      isEmployerType(p.petitionType) &&
+      !isApprovedStage(p.stage) &&
+      !(p.stage === "consular_processing" && Boolean(p.i140ApprovalDate))
   );
   if (inProgressEmployer) return inProgressEmployer;
 

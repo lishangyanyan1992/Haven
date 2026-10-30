@@ -54,7 +54,7 @@ async function main() {
   check("approval notice moves the stage forward to approved", acme1?.stage === "i140_approved");
 
   // 1b. An I-140 with no sponsor name and only a family green card: nothing lands on it.
-  const family = { id: "pet-fam", sponsorName: "Jordan Lee", petitionType: "family_immediate_relative", preferenceCategory: "Not sure" as const, stage: "i130_filed" };
+  const family = { id: "pet-fam", sponsorName: "Jordan Lee", petitionType: "family_marriage_usc", preferenceCategory: "Not sure" as const, stage: "i130_filed" };
   const pf = planFactApplication({ ...base, facts: i140Facts({ "i140.sponsor": { value: null, confident: false } }), petitions: [family] as never });
   const fam = pf.petitions.find((p) => p.id === "pet-fam");
   check("I-140 document doesn't fill a family green card", !fam?.priorityDate && fam?.stage === "i130_filed" && !pf.petitionsChanged, JSON.stringify(pf.petitions));
