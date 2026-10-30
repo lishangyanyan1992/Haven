@@ -1,9 +1,10 @@
 import { greenCardLinesForFirm, greenCardSponsorsForFirm } from "@/lib/firms/green-cards";
 import { HELP_NEEDED_SENT_MARKER, normalizeHelpNeeded } from "@/lib/firms/help-needed";
 import { isCustomQuestionKey } from "@/lib/firms/intake-question-catalog";
-import { normalizePetitions, providesI140Protection } from "@/lib/petitions";
+import { findActivePetition, resolveEffectivePriorityDate } from "@/lib/immigration-journey";
+import { normalizePetitions } from "@/lib/petitions";
+import { mapProfileRow } from "@/lib/profile-mapper";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { isPetitionEnded } from "@/types/domain";
 
 /**
  * The setup answers a client shares with their firm.
@@ -270,19 +271,36 @@ export function withSharedGreenCards(current: SharedAnswers, rawPetitions: unkno
     delete next.greenCardStage;
     delete next.greenCardSponsor;
     delete next.retainedPriorityDateSponsor;
+    delete next.priorityDate;
   } else if (Array.isArray(rawPetitions)) {
     const norm = normalizePetitions(rawPetitions);
-    const active = norm.find((p) => !isPetitionEnded(p));
+    const mockProfile = mapProfileRow({
+      employer_name: current.employerName,
+      immigrant_petitions: norm,
+      deadline_answers: { immigrantPetitions: norm }
+    });
+    const active = findActivePetition(mockProfile);
     if (active) {
       next.greenCardSponsor = active.sponsorName;
       next.greenCardStage = active.stage;
+      if (active.preferenceCategory && (active.preferenceCategory as string) !== "Not sure") {
+        next.preferenceCategory = active.preferenceCategory;
+      }
     } else {
       delete next.greenCardSponsor;
       delete next.greenCardStage;
     }
-    const prior = norm.find((p) => isPetitionEnded(p) && providesI140Protection(p));
-    if (prior) {
-      next.retainedPriorityDateSponsor = prior.sponsorName;
+    const effective = resolveEffectivePriorityDate(mockProfile);
+    if (effective.effectiveDate) {
+      next.priorityDate = effective.effectiveDate.toISOString().slice(0, 10);
+    } else {
+      delete next.priorityDate;
+    }
+    if (effective.isRetained && effective.retainedSponsorName) {
+      next.retainedPriorityDateSponsor = effective.retainedSponsorName;
+      if (effective.retainedCategory && (effective.retainedCategory as string) !== "Not sure") {
+        next.preferenceCategory = effective.retainedCategory;
+      }
     } else {
       delete next.retainedPriorityDateSponsor;
     }

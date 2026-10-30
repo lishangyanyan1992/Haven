@@ -334,6 +334,64 @@ async function main() {
       !("retainedPriorityDateSponsor" in nonemptyUpdate.deadline_answers)
   );
 
+  // Regression check: saving dual petitions (with retained approved I-140) then removing the prior petition
+  // clears priority_date so the deleted retained date does not repopulate priority_date.
+  const activeAndPrior = [
+    {
+      id: "pet-act",
+      sponsorName: "Current Corp",
+      petitionType: "employer_sponsored" as const,
+      preferenceCategory: "EB-2" as const,
+      stage: "perm_in_progress" as const
+    },
+    {
+      id: "pet-ret",
+      sponsorName: "Old Corp LLC",
+      petitionType: "employer_sponsored" as const,
+      preferenceCategory: "EB-2" as const,
+      stage: "i140_approved" as const,
+      endedReason: "job_change" as const,
+      endedDate: "2024-01-15",
+      priorityDate: "2020-05-10",
+      i140ApprovalDate: "2022-06-01"
+    }
+  ];
+  const saveBothPlan = planPetitionSave(activeAndPrior, {
+    id: "u-regress",
+    employment_status: "employed",
+    employer_name: "Current Corp",
+    deadline_answers: {}
+  });
+  const saveBothUpdate = saveBothPlan.ok ? (saveBothPlan.update as Record<string, any>) : {};
+  check(
+    "save: both petitions save retained priority date and populate priority_date",
+    saveBothPlan.ok &&
+      saveBothUpdate.priority_date === "2020-05-10" &&
+      saveBothUpdate.deadline_answers.retainedPriorityDate === "2020-05-10" &&
+      saveBothUpdate.deadline_answers.retainedPriorityDateSponsor === "Old Corp LLC" &&
+      saveBothUpdate.deadline_answers.greenCardSponsor === "Current Corp"
+  );
+
+  // Now remove the prior petition, keeping only active
+  const removePriorPlan = planPetitionSave([activeAndPrior[0]], {
+    id: "u-regress",
+    employment_status: "employed",
+    employer_name: "Current Corp",
+    priority_date: saveBothUpdate.priority_date,
+    i140_approved: saveBothUpdate.i140_approved,
+    i140_approval_date: saveBothUpdate.i140_approval_date,
+    deadline_answers: saveBothUpdate.deadline_answers
+  });
+  const removePriorUpdate = removePriorPlan.ok ? (removePriorPlan.update as Record<string, any>) : {};
+  check(
+    "save: removing retained petition clears priority_date and retained answers from nextAnswers",
+    removePriorPlan.ok &&
+      removePriorUpdate.priority_date === null &&
+      !("retainedPriorityDate" in removePriorUpdate.deadline_answers) &&
+      !("retainedPriorityDateSponsor" in removePriorUpdate.deadline_answers) &&
+      removePriorUpdate.deadline_answers.greenCardSponsor === "Current Corp"
+  );
+
   console.log(`\n${pass}/${pass + failures.length} passed`);
   if (failures.length) process.exit(1);
 }
