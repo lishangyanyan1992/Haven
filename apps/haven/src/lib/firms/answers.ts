@@ -2,6 +2,8 @@ import { greenCardLinesForFirm, greenCardSponsorsForFirm } from "@/lib/firms/gre
 import { HELP_NEEDED_SENT_MARKER, normalizeHelpNeeded } from "@/lib/firms/help-needed";
 import { isCustomQuestionKey } from "@/lib/firms/intake-question-catalog";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { findActivePetition } from "@/lib/immigration-journey";
+import { mapProfileRow } from "@/lib/profile-mapper";
 
 /**
  * The setup answers a client shares with their firm.
@@ -89,8 +91,10 @@ export function sharedAnswersFromProfile(p: Record<string, any> | null): SharedA
     p.deadline_answers && typeof p.deadline_answers === "object" && typeof p.deadline_answers.greenCardStage === "string"
       ? p.deadline_answers.greenCardStage.trim()
       : "";
-  // The step saved in Settings first (I-130 filed, consular processing…), then the old flags.
-  const greenCardStage = savedStage || (p.i485_filed
+  // The active green card's own step first, then the step saved in Settings
+  // (I-130 filed, consular processing…), then the old flags.
+  const activeStage = findActivePetition(mapProfileRow(p))?.stage;
+  const greenCardStage = activeStage || savedStage || (p.i485_filed
     ? "i485_filed"
     : p.i140_approved
       ? "i140_approved"
