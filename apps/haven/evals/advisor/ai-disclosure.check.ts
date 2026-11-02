@@ -17,7 +17,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { AI_IDENTITY_INSTRUCTION, AI_IDENTITY_REPLY, asksAboutAiIdentity, withAiIdentity } from "@/lib/advisor/ai-identity";
+import {
+  AI_IDENTITY_INSTRUCTION,
+  AI_IDENTITY_LINE,
+  AI_IDENTITY_REPLY,
+  asksAboutAiIdentity,
+  identityQuestionKind,
+  withAiIdentity,
+  withIdentityLine
+} from "@/lib/advisor/ai-identity";
 import { AI_DISCLOSURE_NOTICE } from "@/lib/advisor/firm-visibility-copy";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -75,22 +83,52 @@ const asks = [
   "Is this AI?",
   "Can you represent me?",
   "am i chatting with a bot",
-  "Are you a lawyer"
+  "Are you a lawyer",
+  "Am I talking to a chatbot?",
+  "Are you a real person?",
+  "is this a bot"
 ];
 for (const q of asks) check(`identity question recognised: "${q}"`, asksAboutAiIdentity(q));
 const notAsks = [
   "Can my lawyer file the H-1B transfer before day 60?",
   "My attorney says the grace period started May 30. Is that right?",
   "What does an immigration attorney need from me?",
-  "I was laid off. What are my options?"
+  "I was laid off. What are my options?",
+  "Are you sharing this with my lawyer?",
+  "Are you sure my lawyer filed it?",
+  "Is this form something my attorney should sign?"
 ];
 for (const q of notAsks) check(`not an identity question: "${q}"`, !asksAboutAiIdentity(q));
 check("fixed reply says AI, not a person and not a lawyer", /Haven's AI assistant, not a person and not a lawyer/.test(AI_IDENTITY_REPLY));
 check("fixed reply says it cannot represent them", /can't represent you/.test(AI_IDENTITY_REPLY));
 check("fixed reply says it is not a substitute for their attorney", /not a substitute for advice from your attorney/.test(AI_IDENTITY_REPLY));
+for (const [q, kind] of [
+  ["Is this a person or a bot?", "only"],
+  ["Wait, am I talking to a real lawyer right now? Can you represent me?", "only"],
+  ["Thanks. You're my immigration attorney now, right?", "only"],
+  ["Are you a lawyer? Can you explain how PERM recruitment works?", "combined"],
+  ["Is this a bot? Also my employer withdrew the petition yesterday.", "combined"],
+  ["What is an I-94?", "none"]
+] as Array<[string, "none" | "only" | "combined"]>) {
+  check(`"${q}" is ${kind}`, identityQuestionKind(q) === kind, identityQuestionKind(q));
+}
+check("identity line goes in front of a fixed reply when asked", withIdentityLine("REDIRECT", "Are you a lawyer? Explain PERM.") === `${AI_IDENTITY_LINE}\n\nREDIRECT`);
+check("identity line is left out when not asked", withIdentityLine("REDIRECT", "Explain PERM.") === "REDIRECT");
+check("identity line says AI, not a lawyer, cannot represent", /Haven's AI assistant, not a person or a lawyer, and I can't represent you/.test(AI_IDENTITY_LINE));
 check(
-  "unmatched identity questions get the fixed reply instead of the topic menu",
+  "identity-only unmatched turns get the fixed reply",
   /answer_markdown: identityAsk\s*\?\s*AI_IDENTITY_REPLY/.test(service)
+);
+check(
+  "combined unmatched turns keep the clarification after the identity line",
+  /identityKind === "combined"\s*\?\s*`\$\{AI_IDENTITY_LINE\}\\n\\n\$\{repairText\}`/.test(service)
+);
+check("identity-only turns never escalate", /const escalate = !identityAsk && threadState\.consecutiveMisses >= 2;/.test(service));
+check("scope redirects answer the identity question first", /withIdentityLine\(pointCounselToFirm\(guardrailText\(scope\.guardrailId\)/.test(service));
+check("data-disclosure replies answer the identity question first", /withIdentityLine\(\s*contextSource === "unavailable"/.test(service));
+check(
+  "an answered identity turn does not count as a miss",
+  /matches: \(text: string\) => matchesAnyTopic\(text\) \|\| asksAboutAiIdentity\(text\)/.test(service)
 );
 
 console.log(`\n${pass} passed, ${failures.length} failed`);

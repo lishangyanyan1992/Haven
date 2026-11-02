@@ -31,14 +31,54 @@ export const AI_IDENTITY_REPLY = [
   "I can explain how immigration rules work in general and help you prepare questions for your immigration lawyer. My answers are not a substitute for advice from your attorney."
 ].join("\n");
 
+const IDENTITY_NOUN =
+  "(?:person|human|bot|chatbot|robot|ai|a\\.i\\.|machine|computer|program|lawyer|attorney|paralegal|representative)";
+const ARTICLE = "(?:a |an |my |the |some )?";
+const QUALIFIER = "(?:real |actual |human |live |licensed |immigration )*";
+
+/**
+ * Identity statements only: the noun has to follow the subject directly
+ * ("are you a lawyer", "am I talking to a chatbot"), so "are you sharing this
+ * with my lawyer" does not count.
+ */
+const IDENTITY_PATTERNS = [
+  new RegExp(`\\b(?:am i|are we|is this|i'm|im)\\s+(?:really |actually |still |now )?(?:talking|speaking|chatting|texting)\\s+(?:to|with)\\s+${ARTICLE}${QUALIFIER}${IDENTITY_NOUN}\\b`),
+  new RegExp(`\\b(?:are you|is this|is it|you're|youre|you are)\\s+(?:really |actually |just |now )?${ARTICLE}${QUALIFIER}${IDENTITY_NOUN}\\b`),
+  /\b(?:person|human)\s+or\s+(?:a\s+)?(?:bot|chatbot|ai|robot|machine)\b|\b(?:bot|chatbot|ai|robot|machine)\s+or\s+(?:a\s+)?(?:person|human)\b/,
+  /\b(?:can|will|could|would) you\s+(?:legally\s+)?(?:represent me|be my (?:lawyer|attorney))\b/
+];
+
+const FILLER = /^(?:wait|ok|okay|thanks|thank you|hi|hello|hey|so|um|hmm|sorry|great|cool|right)[\s,!.?]*$/;
+
 /** True when someone is asking whether they are talking to a person, a bot or a lawyer. */
 export function asksAboutAiIdentity(text: string): boolean {
   const t = text.toLowerCase().replace(/[’']/g, "'");
-  const whoAmI =
-    /\b(am i|are you|is this|is it|i'm|im)\b[^?.!]{0,40}\b(talking|speaking|chatting|texting)\b[^?.!]{0,25}\b(to|with)\b[^?.!]{0,20}\b(a |an |the )?(real |actual |human |live )?(person|human|bot|robot|ai|a\.i\.|machine|computer|lawyer|attorney|paralegal)\b/;
-  const areYou =
-    /\b(are you|is this|you're|you are|youre)\b[^?.!]{0,25}\b(a |an |my |the )?(real |actual |human |live |licensed )?(person|human|bot|robot|ai|a\.i\.|chatbot|machine|lawyer|attorney|immigration attorney|immigration lawyer|paralegal|representative)\b/;
-  const personOrBot = /\b(person|human)\b[^?.!]{0,12}\bor\b[^?.!]{0,12}\b(bot|ai|robot|machine)\b|\b(bot|ai|robot|machine)\b[^?.!]{0,12}\bor\b[^?.!]{0,12}\b(person|human)\b/;
-  const represent = /\b(can|will|could|would) you\b[^?.!]{0,20}\b(represent|be my (lawyer|attorney))\b/;
-  return whoAmI.test(t) || areYou.test(t) || personOrBot.test(t) || represent.test(t);
+  return IDENTITY_PATTERNS.some((pattern) => pattern.test(t));
+}
+
+/**
+ * "only": every sentence is an identity question or filler, so the fixed reply
+ * is the whole answer. "combined": there is also a real question to handle.
+ */
+export function identityQuestionKind(text: string): "none" | "only" | "combined" {
+  if (!asksAboutAiIdentity(text)) return "none";
+  const sentences = text
+    .split(/(?<=[?.!])\s+|\n+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+  const rest = sentences.filter((sentence) => {
+    if (asksAboutAiIdentity(sentence)) return false;
+    const lower = sentence.toLowerCase();
+    return !FILLER.test(lower) && lower.split(/\s+/).length >= 3;
+  });
+  return rest.length === 0 ? "only" : "combined";
+}
+
+/** One-line disclosure put in front of a fixed reply when the turn also asks something else. */
+export const AI_IDENTITY_LINE =
+  "To answer your first question: you're talking to Haven's AI assistant, not a person or a lawyer, and I can't represent you. My answers are not a substitute for advice from your attorney.";
+
+/** Puts the identity line in front of a fixed reply when the person asked who they are talking to. */
+export function withIdentityLine(text: string, question: string): string {
+  return asksAboutAiIdentity(question) ? `${AI_IDENTITY_LINE}\n\n${text}` : text;
 }

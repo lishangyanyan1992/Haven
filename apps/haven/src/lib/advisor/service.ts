@@ -18,7 +18,14 @@ import {
 import { resolveTestPersona } from "@/lib/repositories/test-personas";
 import { readGracePeriod, renderGracePeriodForPrompt } from "@/lib/advisor/grace-period";
 import { GENERAL_INFO_PROFILE_LINE, isGeneralInfoOnly, withGeneralInfoGuard } from "@/lib/advisor/general-info-mode";
-import { AI_IDENTITY_REPLY, asksAboutAiIdentity, withAiIdentity } from "@/lib/advisor/ai-identity";
+import {
+  AI_IDENTITY_LINE,
+  AI_IDENTITY_REPLY,
+  asksAboutAiIdentity,
+  identityQuestionKind,
+  withAiIdentity,
+  withIdentityLine
+} from "@/lib/advisor/ai-identity";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database";
@@ -4342,7 +4349,9 @@ export async function* streamAdvisorResponse(
     currentMatched: route.currentMatched,
     previousMatched: route.previousMatched,
     history: rawHistory,
-    matches: matchesAnyTopic
+    // An answered "are you a bot?" turn is a boundary, not a miss: the Advisor
+    // answered it rather than asking for clarification.
+    matches: (text: string) => matchesAnyTopic(text) || asksAboutAiIdentity(text)
   });
   const experiential = isExperientialQuestion(content);
   const model = getChatModel();
@@ -4624,7 +4633,8 @@ export async function* streamAdvisorResponse(
   );
   if (!scope.inScope) {
     const scopePayload: AdvisorAnswerPayload = {
-      answer_markdown: pointCounselToFirm(guardrailText(scope.guardrailId), await firmLinkPromise),
+      // "Are you a lawyer? Can you explain PERM?" still gets the redirect, after a plain answer.
+      answer_markdown: withIdentityLine(pointCounselToFirm(guardrailText(scope.guardrailId), await firmLinkPromise), content),
       confidence: "high",
       // The redirects carry their own hand-off to counsel in the copy, where it
       // is specific to the deadline that matters. A generic disclaimer stapled
@@ -4717,9 +4727,12 @@ export async function* streamAdvisorResponse(
       // values would tell the person "I-140 approved: no" about a record we
       // never read.
       answer_markdown:
-        contextSource === "unavailable"
-          ? guardrailText("MSG_PROFILE_UNAVAILABLE_DISCLOSURE")
-          : buildDataDisclosure(snapshot.profile, facts),
+        withIdentityLine(
+          contextSource === "unavailable"
+            ? guardrailText("MSG_PROFILE_UNAVAILABLE_DISCLOSURE")
+            : buildDataDisclosure(snapshot.profile, facts),
+          content
+        ),
       confidence: "high",
       // No legal disclaimer: nothing here is a statement about immigration law,
       // and appending one would make a direct answer read as boilerplate.
@@ -4810,14 +4823,20 @@ export async function* streamAdvisorResponse(
   const documentsAnswerIt = documentPassages.some((p) => p.similarity >= DOCUMENT_MATCH_SIMILARITY);
 
   if (threadState.resolution === "unmatched" && !documentsAnswerIt) {
-    // "Is this a person or a bot?" must get a plain answer, not the topic menu.
-    const identityAsk = asksAboutAiIdentity(content);
+    // "Is this a person or a bot?" gets a plain answer, not the topic menu. If the
+    // turn also asks something else, the answer comes first and the usual
+    // clarification (or hand-off after repeated misses) follows.
+    const identityKind = identityQuestionKind(content);
+    const identityAsk = identityKind === "only";
     const escalate = !identityAsk && threadState.consecutiveMisses >= 2;
     const guardrailId = escalate ? "MSG_ESCALATE_AFTER_MISSES" : "MSG_CLARIFY_UNRECOGNIZED";
+    const repairText = pointCounselToFirm(guardrailText(guardrailId), await firmLinkPromise);
     const repairPayload: AdvisorAnswerPayload = {
       answer_markdown: identityAsk
         ? AI_IDENTITY_REPLY
-        : pointCounselToFirm(guardrailText(guardrailId), await firmLinkPromise),
+        : identityKind === "combined"
+          ? `${AI_IDENTITY_LINE}\n\n${repairText}`
+          : repairText,
       confidence: "low",
       disclaimer: guardrailText("MSG_DISCLAIMER"),
       external_citations: [],
