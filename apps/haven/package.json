@@ -40,6 +40,7 @@
     "check:wizard-archived": "tsx --tsconfig tsconfig.json evals/advisor/wizard-archived.check.ts",
     "check:general-info-mode": "tsx --tsconfig tsconfig.json evals/advisor/general-info-mode.check.ts",
     "check:analytics-privacy": "tsx --tsconfig tsconfig.json evals/analytics/no-personal-data.check.ts",
+    "check:ai-disclosure": "tsx --tsconfig tsconfig.json evals/advisor/ai-disclosure.check.ts",
     "check:scope": "tsx --tsconfig tsconfig.json evals/advisor/scope.check.ts",
     "check:source-freshness": "tsx --tsconfig tsconfig.json evals/advisor/source-freshness.check.ts",
     "check:trace-tags": "tsx --tsconfig tsconfig.json evals/advisor/trace-tags.check.ts",

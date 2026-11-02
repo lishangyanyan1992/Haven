@@ -40,6 +40,7 @@ import {
 import type { ClientConversation } from "@/lib/firms/client-messages";
 import type { ConversationMessage } from "@/lib/firms/message-core";
 import {
+  AI_DISCLOSURE_NOTICE,
   aiAnswerLabel,
   isThreadVisibleToFirm,
   visibilityLineText,
@@ -1187,6 +1188,18 @@ export function AdvisorWorkspace({
           )}
 
           <div className="rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--haven-sand)] p-4">
+            {/* Always on screen while the AI answers, before the first message and
+                after every one. Hidden only when messages go straight to the lawyer. */}
+            {!(hasFirm && !viewingPrivateThread && aiPreference === "no") && (
+              <p
+                className="mb-3 flex items-start gap-2 text-body-sm font-medium text-[var(--haven-ink)]"
+                data-testid="ai-disclosure-notice"
+                role="note"
+              >
+                <Bot aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{AI_DISCLOSURE_NOTICE}</span>
+              </p>
+            )}
             <Textarea
               aria-label={
                 hasFirm && !viewingPrivateThread

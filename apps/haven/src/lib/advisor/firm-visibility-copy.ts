@@ -26,6 +26,16 @@ export function isAcknowledgementCurrent(acknowledgedAt: string | null | undefin
   return acked >= joined;
 }
 
+/**
+ * Shown above the chat box from before the first message and throughout the
+ * conversation, whenever Haven's AI is answering. Fixed text from the page, never
+ * written by the model. Covers AI-use disclosure rules (for example Utah Code
+ * 13-77, Florida Bar Opinion 24-1) and the Texas software exemption, which
+ * requires saying the product is not a substitute for an attorney's advice.
+ */
+export const AI_DISCLOSURE_NOTICE =
+  "You're talking to Haven's AI, not a lawyer. It gives general information and is not a substitute for advice from your attorney.";
+
 /** Shown under every AI answer. Fixed text, rendered by the page, never written by the model. */
 export const AI_ANSWER_LABEL_FIRM = "AI can make mistakes. Your lawyer may reach out to confirm this.";
 export const AI_ANSWER_LABEL_NO_FIRM = "AI can make mistakes. Check important decisions with an immigration lawyer.";
