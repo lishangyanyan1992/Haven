@@ -17,6 +17,7 @@ import {
 } from "@/lib/repositories/case-compass";
 import { resolveTestPersona } from "@/lib/repositories/test-personas";
 import { readGracePeriod, renderGracePeriodForPrompt } from "@/lib/advisor/grace-period";
+import { GENERAL_INFO_PROFILE_LINE, isGeneralInfoOnly, withGeneralInfoGuard } from "@/lib/advisor/general-info-mode";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database";
@@ -1816,6 +1817,24 @@ export function buildAdvisorContext(
       derivedSignalsSummary: [],
       emailEvidenceSummary: [],
       communitySummary: []
+    };
+  }
+
+  // General-information mode (interim, see general-info-mode.ts). Telling the
+  // model not to use personal dates was not enough: in a live run it still worked
+  // out a person's grace-period end date from their profile. So it is not given
+  // their dates, timeline, signals or email evidence at all. Visa type stays, so
+  // it explains the right set of general rules; community stories stay.
+  if (isGeneralInfoOnly()) {
+    return {
+      gracePeriodSummary: [],
+      profileSummary: [GENERAL_INFO_PROFILE_LINE, `Visa type: ${profile.visaType?.trim() ? profile.visaType : "not on file"}`],
+      timelineSummary: [],
+      derivedSignalsSummary: [],
+      emailEvidenceSummary: [],
+      communitySummary: [...cohorts.flatMap((cohort) => cohort.posts), ...warRoom.posts]
+        .slice(0, 3)
+        .map((post) => `${post.title}: ${post.body}`)
     };
   }
 
@@ -4960,7 +4979,10 @@ export async function* streamAdvisorResponse(
     preferenceCategory: snapshot.profile.preferenceCategory,
     countryOfBirth: snapshot.profile.countryOfBirth
   });
-  const situationLines = renderSituationForPrompt(situation, rawHistory.length === 0);
+  // The situation check tells the model which of the person's facts to rely on
+  // and to ask for missing ones before recommending. In general-information mode
+  // it neither relies on their facts nor recommends, so the block is left out.
+  const situationLines = isGeneralInfoOnly() ? [] : renderSituationForPrompt(situation, rawHistory.length === 0);
 
   // Whether a community story opens this answer.
   //
@@ -4985,9 +5007,11 @@ export async function* streamAdvisorResponse(
     .filter((line) => Boolean(line) && line !== PROFILE_UNAVAILABLE_PROMPT_LINE);
 
   const { text: rawSystemPrompt, prompt: advisorPrompt } = await getPrompt(lf, ADVISOR_PROMPT_NAME, STREAMING_SYSTEM_PROMPT);
-  const systemPrompt = rawSystemPrompt.includes("Never assume that a green card application")
-    ? rawSystemPrompt
-    : `${rawSystemPrompt}\n\n${SPONSOR_SAFEGUARD_INSTRUCTION}`;
+  const systemPrompt = withGeneralInfoGuard(
+    rawSystemPrompt.includes("Never assume that a green card application")
+      ? rawSystemPrompt
+      : `${rawSystemPrompt}\n\n${SPONSOR_SAFEGUARD_INSTRUCTION}`
+  );
 
   // CD-13.1 / CD-13.4: select by id, then resolve to text, dropping orientation the
   // thread has already heard. Hard safety rules are marked `always` in the registry
@@ -5179,7 +5203,7 @@ export async function* streamAdvisorResponse(
   // one reviewed sentence-line at a time, so an uncorrected sentence is never on
   // screen; otherwise it streams untouched.
   const view = new StreamView();
-  const profilePriorityDate = snapshot.profile.priorityDate ?? null;
+  const profilePriorityDate = isGeneralInfoOnly() ? null : (snapshot.profile.priorityDate ?? null);
   const reviewedStream = new ReviewedStream(
     (text) => normalizeHighRiskAnswer(content, topics, text, profilePriorityDate),
     highRiskReviewApplies(content, topics, profilePriorityDate)

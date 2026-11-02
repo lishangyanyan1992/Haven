@@ -12,6 +12,11 @@
 
 export {};
 
+// These checks cover the hand-off once lawyer review is live, when it may state
+// the 60-day end date. The interim general-information guard is tested in
+// general-info-mode.check.ts.
+process.env.ADVISOR_CASE_SPECIFIC_ANSWERS = "lawyer-reviewed";
+
 async function main() {
   const { buildAttorneyHandoff, practiceAreaFor, HANDOFF_DELIVERED } = await import("@/lib/advisor/attorney-handoff");
   const { isArchivedPath } = await import("@/lib/archived-routes");

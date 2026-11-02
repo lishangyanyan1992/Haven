@@ -4,6 +4,11 @@
  */
 export {};
 
+// These checks cover the Advisor's full view of the person's profile, which it
+// gets once lawyer review is live. The interim general-information guard is
+// tested in evals/advisor/general-info-mode.check.ts.
+process.env.ADVISOR_CASE_SPECIFIC_ANSWERS = "lawyer-reviewed";
+
 async function main() {
   const { findDashboardConflicts } = await import("@/lib/dashboard-consistency");
   const { resolveDashboardFacts } = await import("@/lib/dashboard-facts");
