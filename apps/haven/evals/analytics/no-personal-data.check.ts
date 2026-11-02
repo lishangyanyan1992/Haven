@@ -16,7 +16,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { BLOCKED_PROPERTIES, sanitizePath } from "@/lib/analytics-privacy";
+import { BLOCKED_PROPERTIES, hasRecordLikeId, sanitizePath } from "@/lib/analytics-privacy";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const src = path.resolve(here, "../../src");
@@ -37,7 +37,18 @@ const paths: Array<[string, string]> = [
   ["/advisor", "/advisor"],
   ["/community/insights", "/community/insights"],
   ["/threads/1234", "/threads/:id"],
-  ["/docs/x7Kq9TzL2mN4pR8sW1", "/docs/:id"]
+  ["/docs/x7Kq9TzL2mN4pR8sW1", "/docs/:id"],
+  ["/invite/abc", "/invite/:token"],
+  ["/invite/jane@example.com", "/invite/:token"],
+  ["/i/short", "/i/:token"],
+  ["/firm/clients/anything", "/firm/clients/:id"],
+  ["/api/advisor/threads/t1", "/api/advisor/threads/:id"],
+  ["/profile/jane@example.com", "/profile/:redacted"],
+  ["/profile/jane%40example.com", "/profile/:redacted"],
+  ["/blog/h1b-layoff-guide", "/blog/h1b-layoff-guide"],
+  ["/lawyers/smith-immigration", "/lawyers/smith-immigration"],
+  ["/blog/dhs-60-day-grace-period-elimination-proposed-rule-2026", "/blog/dhs-60-day-grace-period-elimination-proposed-rule-2026"],
+  ["/x/3f2b8c1e9a7d4b6c8e0f1a2b3c4d5e6f", "/x/:id"]
 ];
 for (const [input, expected] of paths) {
   const got = sanitizePath(input);
@@ -49,6 +60,20 @@ for (const prop of ["$current_url", "$pathname", "$el_attr__href", "current_url_
   check(`blocked: ${prop}`, (BLOCKED_PROPERTIES as readonly string[]).includes(prop));
 }
 
+// Element ids that carry record ids stop the interaction from being tracked
+for (const [id, expected] of [
+  ["report-note-3f2b8c1e-1a2b-4c3d-9e8f-0123456789ab", true],
+  ["firm-3f2b8c1e-1a2b-4c3d-9e8f-0123456789ab", true],
+  ["sponsor-12345", true],
+  ["main-content", false],
+  ["", false]
+] as Array<[string, boolean]>) {
+  check(`element id "${id || "(none)"}" ${expected ? "is" : "is not"} blocked`, hasRecordLikeId({ id }) === expected);
+}
+for (const prop of ["$el_id", "utm_source", "initial_utm_source"]) {
+  check(`blocked: ${prop}`, (BLOCKED_PROPERTIES as readonly string[]).includes(prop));
+}
+
 // Init settings
 const mixpanelSource = fs.readFileSync(path.join(src, "lib/mixpanel.ts"), "utf8");
 check("screen recordings off", /record_sessions_percent:\s*0\b/.test(mixpanelSource));
@@ -56,6 +81,11 @@ check("no IP-based location", /ip:\s*false/.test(mixpanelSource));
 check("built-in page views (full URL) off", /track_pageview:\s*false/.test(mixpanelSource));
 check("autocapture does not record link addresses", /block_attrs:\s*\[\.\.\.BLOCKED_ELEMENT_ATTRIBUTES\]/.test(mixpanelSource));
 check("autocapture does not capture element text", /capture_text_content:\s*false/.test(mixpanelSource));
+check("interactions inside elements with record ids are skipped", /block_element_callback:\s*\(element: Element\) => hasRecordLikeId\(element\)/.test(mixpanelSource));
+for (const [option, value] of [["track_marketing", "false"], ["skip_first_touch_marketing", "true"], ["stop_utm_persistence", "true"], ["save_referrer", "false"], ["store_google", "false"]]) {
+  check(`marketing collection off: ${option}`, new RegExp(`${option}:\\s*${value}\\b`).test(mixpanelSource));
+}
+check("marketing settings are applied", /\.\.\.NO_MARKETING_CONFIG/.test(mixpanelSource));
 check("blocked-property list is applied", /property_blacklist:\s*\[\.\.\.BLOCKED_PROPERTIES\]/.test(mixpanelSource));
 check("no profile fields are set", !/people\.set\(/.test(mixpanelSource));
 check("old saved details are cleared from the browser", /unregister\(/.test(mixpanelSource));

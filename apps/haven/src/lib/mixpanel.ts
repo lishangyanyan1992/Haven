@@ -1,8 +1,14 @@
 "use client";
 
-import mixpanel from "mixpanel-browser";
+import mixpanel, { type Config } from "mixpanel-browser";
 
-import { BLOCKED_ELEMENT_ATTRIBUTES, BLOCKED_PROPERTIES, LEGACY_SUPER_PROPERTIES, sanitizePath } from "@/lib/analytics-privacy";
+import {
+  BLOCKED_ELEMENT_ATTRIBUTES,
+  BLOCKED_PROPERTIES,
+  LEGACY_SUPER_PROPERTIES,
+  hasRecordLikeId,
+  sanitizePath
+} from "@/lib/analytics-privacy";
 
 export { sanitizePath };
 
@@ -26,6 +32,19 @@ function getToken() {
   return process.env.NEXT_PUBLIC_MIXPANEL_TOKEN;
 }
 
+/**
+ * No marketing or first-touch data: no UTM tags, referrers or Google click ids,
+ * and nothing written to a profile behind the scenes. These options exist in
+ * mixpanel-browser 2.81 but are missing from its type definitions.
+ */
+const NO_MARKETING_CONFIG = {
+  track_marketing: false,
+  skip_first_touch_marketing: true,
+  stop_utm_persistence: true,
+  save_referrer: false,
+  store_google: false
+} as unknown as Partial<Config>;
+
 export function initMixpanel() {
   if (initialized || !isBrowser()) return;
 
@@ -47,8 +66,11 @@ export function initMixpanel() {
       scroll: true,
       submit: true,
       capture_text_content: false,
-      block_attrs: [...BLOCKED_ELEMENT_ATTRIBUTES]
+      block_attrs: [...BLOCKED_ELEMENT_ATTRIBUTES],
+      // Element ids are always sent and can hold record ids, so skip those interactions.
+      block_element_callback: (element: Element) => hasRecordLikeId(element)
     },
+    ...NO_MARKETING_CONFIG,
     // No screen recordings and no location from the visitor's IP address.
     record_sessions_percent: 0,
     ip: false,

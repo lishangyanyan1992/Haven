@@ -115,9 +115,9 @@ export default function PrivacyPage() {
           <strong>Sentry</strong> — records errors so we can fix them.
         </li>
         <li>
-          <strong>Mixpanel, PostHog and Vercel Analytics</strong> — anonymous product usage analytics, such as which pages
-          are used. They get an anonymous ID, never your name, email, immigration details or what you type, and they do
-          not record your screen.
+          <strong>Mixpanel, PostHog and Vercel Analytics</strong> — product usage analytics, such as which pages are used.
+          They get a coded ID that only Haven can link to your account, never your name, email, immigration details or
+          what you type, and they do not record your screen.
         </li>
       </ul>
       <p>
