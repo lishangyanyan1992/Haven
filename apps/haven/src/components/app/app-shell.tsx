@@ -66,15 +66,7 @@ export async function AppShell({
       {/* No id means no loaded profile: identifying "" would merge every such
           visitor into one analytics user. */}
       {profile.id ? (
-        <MixpanelAuthTracker
-          userId={profile.id}
-          email={profile.email}
-          fullName={profile.fullName || undefined}
-          visaType={profile.visaType || undefined}
-          countryOfBirth={profile.countryOfBirth || undefined}
-          employmentStatus={profile.employmentStatus || undefined}
-          primaryGoal={profile.primaryGoal || undefined}
-        />
+        <MixpanelAuthTracker userId={profile.id} />
       ) : null}
       <div className="app-shell-frame grid min-h-screen grid-cols-1 lg:grid-cols-[248px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)]">
         <aside className="border-b border-[var(--color-border)] bg-[var(--haven-sand)] px-4 py-5 lg:min-h-screen lg:border-b-0 lg:border-r">

@@ -6,23 +6,13 @@ import { consumeLoginAttempt, consumeSignUpAttempt, identifyUser, trackEvent } f
 
 interface MixpanelAuthTrackerProps {
   userId: string;
-  email: string;
-  fullName?: string;
-  visaType?: string;
-  countryOfBirth?: string;
-  employmentStatus?: string;
-  primaryGoal?: string;
 }
 
-export function MixpanelAuthTracker({
-  userId,
-  email,
-  fullName,
-  visaType,
-  countryOfBirth,
-  employmentStatus,
-  primaryGoal,
-}: MixpanelAuthTrackerProps) {
+/**
+ * Tells analytics which anonymous user this is. Only Haven's internal id is
+ * sent: no name, email or immigration details (see lib/mixpanel.ts).
+ */
+export function MixpanelAuthTracker({ userId }: MixpanelAuthTrackerProps) {
   const identified = useRef(false);
 
   // Identify the user exactly once per mount — not on every navigation.
@@ -30,14 +20,7 @@ export function MixpanelAuthTracker({
     if (identified.current) return;
     identified.current = true;
 
-    identifyUser(userId, {
-      email,
-      $name: fullName ?? undefined,
-      visa_type: visaType,
-      country_of_birth: countryOfBirth,
-      employment_status: employmentStatus,
-      primary_goal: primaryGoal,
-    });
+    identifyUser(userId);
 
     // Consume one-time login / signup events stored in sessionStorage.
     // consumeX() removes the entry after reading — safe to call every mount.
@@ -45,7 +28,6 @@ export function MixpanelAuthTracker({
     if (signUpAttempt) {
       trackEvent("Sign Up", {
         user_id: userId,
-        email,
         signup_method: "email",
       });
     }
@@ -58,7 +40,7 @@ export function MixpanelAuthTracker({
         success: true,
       });
     }
-  }, [userId, email, fullName, visaType, countryOfBirth, employmentStatus, primaryGoal]);
+  }, [userId]);
 
   return null;
 }

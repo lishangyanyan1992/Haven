@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 
-import { initMixpanel, trackEvent } from "@/lib/mixpanel";
+import { initMixpanel, sanitizePath, trackEvent, trackPageView } from "@/lib/mixpanel";
 
 export function MixpanelProvider() {
   const pathname = usePathname();
@@ -14,10 +14,9 @@ export function MixpanelProvider() {
   }, []);
 
   useEffect(() => {
-    trackEvent("Page View", {
-      page_url: window.location.href,
-      page_title: document.title
-    });
+    // Path only, ids and tokens removed. Full URLs can carry invite tokens and
+    // sign-up claim codes, and titles can carry names.
+    trackPageView(window.location.pathname);
   }, [pathname, searchParams]);
 
   useEffect(() => {
@@ -26,7 +25,7 @@ export function MixpanelProvider() {
         error_type: "client",
         error_message: event.message,
         error_code: null,
-        page_url: window.location.href
+        page_path: sanitizePath(window.location.pathname)
       });
     };
 
