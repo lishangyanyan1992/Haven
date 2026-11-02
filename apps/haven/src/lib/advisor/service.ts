@@ -17,6 +17,7 @@ import {
 } from "@/lib/repositories/case-compass";
 import { resolveTestPersona } from "@/lib/repositories/test-personas";
 import { readGracePeriod, renderGracePeriodForPrompt } from "@/lib/advisor/grace-period";
+import { GENERAL_INFO_PROFILE_LINE, isGeneralInfoOnly, withGeneralInfoGuard } from "@/lib/advisor/general-info-mode";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database";
@@ -1819,6 +1820,24 @@ export function buildAdvisorContext(
     };
   }
 
+  // General-information mode (interim, see general-info-mode.ts). Telling the
+  // model not to use personal dates was not enough: in a live run it still worked
+  // out a person's grace-period end date from their profile. So it is not given
+  // their dates, timeline, signals or email evidence at all. Visa type stays, so
+  // it explains the right set of general rules; community stories stay.
+  if (isGeneralInfoOnly()) {
+    return {
+      gracePeriodSummary: [],
+      profileSummary: [GENERAL_INFO_PROFILE_LINE, `Visa type: ${profile.visaType?.trim() ? profile.visaType : "not on file"}`],
+      timelineSummary: [],
+      derivedSignalsSummary: [],
+      emailEvidenceSummary: [],
+      communitySummary: [...cohorts.flatMap((cohort) => cohort.posts), ...warRoom.posts]
+        .slice(0, 3)
+        .map((post) => `${post.title}: ${post.body}`)
+    };
+  }
+
   // A user who has not filled a field in has it blank, and "Visa type: " reads
   // to the model as a value. Say "not on file" so it asks instead.
   const onFile = (value: string | null | undefined) => (value && value.trim() ? value : "not on file");
@@ -2036,6 +2055,49 @@ async function reserveAdvisorConversation(
   }
 
   return { id: newThread.id as string, createdAt: (newThread.created_at as string | null) ?? null };
+}
+
+/**
+ * The parts of the prompt built from what this person told us before, what their
+ * uploaded documents say, and where their own priority date sits in the bulletin.
+ * All three let the model work out the person's own deadline or eligibility, so
+ * none of them is sent while the general-information guard is on.
+ */
+export function buildPersonalPromptBlocks(
+  input: {
+    rememberedFacts: RememberedFact[];
+    documentPassageLines: string[];
+    bulletinPosition: string[] | null;
+  },
+  generalOnly: boolean = isGeneralInfoOnly()
+): { memoryAndDocuments: string[]; bulletinPosition: string[] } {
+  if (generalOnly) return { memoryAndDocuments: [], bulletinPosition: [] };
+
+  return {
+    memoryAndDocuments: [
+      ...(input.rememberedFacts.length > 0
+        ? [buildContextBlock("What the user told you before (reported, not verified)", renderFactsForPrompt(input.rememberedFacts)), ""]
+        : []),
+      ...(input.documentPassageLines.length > 0
+        ? [
+            buildContextBlock("From the user's own documents", [
+              ...input.documentPassageLines,
+              "These are passages from documents the user uploaded, each tagged with the document and page. When one of them settles a date or status in the answer, use it over the profile and say which document and page it came from (for example: \"your I-94 (page 1) shows…\"). Use only what a passage actually says; if they do not answer the question, ignore them."
+            ]),
+            ""
+          ]
+        : [])
+    ],
+    bulletinPosition: input.bulletinPosition
+      ? [
+          "",
+          buildContextBlock(
+            "Where they stand in the bulletin (use these numbers; never compute your own, and never paste this block as a list)",
+            input.bulletinPosition
+          )
+        ]
+      : []
+  };
 }
 
 function buildContextBlock(label: string, lines: string[]) {
@@ -4960,7 +5022,10 @@ export async function* streamAdvisorResponse(
     preferenceCategory: snapshot.profile.preferenceCategory,
     countryOfBirth: snapshot.profile.countryOfBirth
   });
-  const situationLines = renderSituationForPrompt(situation, rawHistory.length === 0);
+  // The situation check tells the model which of the person's facts to rely on
+  // and to ask for missing ones before recommending. In general-information mode
+  // it neither relies on their facts nor recommends, so the block is left out.
+  const situationLines = isGeneralInfoOnly() ? [] : renderSituationForPrompt(situation, rawHistory.length === 0);
 
   // Whether a community story opens this answer.
   //
@@ -4985,9 +5050,11 @@ export async function* streamAdvisorResponse(
     .filter((line) => Boolean(line) && line !== PROFILE_UNAVAILABLE_PROMPT_LINE);
 
   const { text: rawSystemPrompt, prompt: advisorPrompt } = await getPrompt(lf, ADVISOR_PROMPT_NAME, STREAMING_SYSTEM_PROMPT);
-  const systemPrompt = rawSystemPrompt.includes("Never assume that a green card application")
-    ? rawSystemPrompt
-    : `${rawSystemPrompt}\n\n${SPONSOR_SAFEGUARD_INSTRUCTION}`;
+  const systemPrompt = withGeneralInfoGuard(
+    rawSystemPrompt.includes("Never assume that a green card application")
+      ? rawSystemPrompt
+      : `${rawSystemPrompt}\n\n${SPONSOR_SAFEGUARD_INSTRUCTION}`
+  );
 
   // CD-13.1 / CD-13.4: select by id, then resolve to text, dropping orientation the
   // thread has already heard. Hard safety rules are marked `always` in the registry
@@ -5013,6 +5080,7 @@ export async function* streamAdvisorResponse(
       userContext.profileSummary.find((line) => /^employment status:/i.test(line)) ?? ""
     );
 
+  const personal = buildPersonalPromptBlocks({ rememberedFacts, documentPassageLines, bulletinPosition });
   const userPrompt = [
     `Today's date: ${todayForPrompt()} (UTC).`,
     "Use this as the reference point for any deadline, grace period, or filing-window arithmetic. Never guess what today is.",
@@ -5057,18 +5125,7 @@ export async function* streamAdvisorResponse(
         ]
       : []),
     ...(optionAttributes.length > 0 ? [buildContextBlock("Option attributes", optionAttributes), ""] : []),
-    ...(rememberedFacts.length > 0
-      ? [buildContextBlock("What the user told you before (reported, not verified)", renderFactsForPrompt(rememberedFacts)), ""]
-      : []),
-    ...(documentPassageLines.length > 0
-      ? [
-          buildContextBlock("From the user's own documents", [
-            ...documentPassageLines,
-            "These are passages from documents the user uploaded, each tagged with the document and page. When one of them settles a date or status in the answer, use it over the profile and say which document and page it came from (for example: \"your I-94 (page 1) shows…\"). Use only what a passage actually says; if they do not answer the question, ignore them."
-          ]),
-          ""
-        ]
-      : []),
+    ...personal.memoryAndDocuments,
 
     buildContextBlock("Haven profile summary", promptProfileSummary),
     "",
@@ -5091,15 +5148,7 @@ export async function* streamAdvisorResponse(
           )
         ]
       : []),
-    ...(bulletinPosition
-      ? [
-          "",
-          buildContextBlock(
-            "Where they stand in the bulletin (use these numbers; never compute your own, and never paste this block as a list)",
-            bulletinPosition
-          )
-        ]
-      : []),
+    ...personal.bulletinPosition,
     "",
     buildContextBlock(
       "Official source chunks",
@@ -5179,7 +5228,7 @@ export async function* streamAdvisorResponse(
   // one reviewed sentence-line at a time, so an uncorrected sentence is never on
   // screen; otherwise it streams untouched.
   const view = new StreamView();
-  const profilePriorityDate = snapshot.profile.priorityDate ?? null;
+  const profilePriorityDate = isGeneralInfoOnly() ? null : (snapshot.profile.priorityDate ?? null);
   const reviewedStream = new ReviewedStream(
     (text) => normalizeHighRiskAnswer(content, topics, text, profilePriorityDate),
     highRiskReviewApplies(content, topics, profilePriorityDate)

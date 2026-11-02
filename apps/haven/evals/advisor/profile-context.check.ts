@@ -29,6 +29,11 @@
 
 export {};
 
+// These checks cover answers once lawyer review is live, when the Advisor may use
+// the person's own dates. The interim general-information guard is tested in
+// general-info-mode.check.ts.
+process.env.ADVISOR_CASE_SPECIFIC_ANSWERS = "lawyer-reviewed";
+
 async function main() {
   const { buildAdvisorContext, buildPromptTimelineSummary, buildPromptGracePeriod, routeAdvisorQuestion } = await import("@/lib/advisor/service");
   const { TEST_PERSONAS } = await import("@/lib/repositories/test-personas");

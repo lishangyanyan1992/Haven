@@ -21,6 +21,11 @@
 
 export {};
 
+// These checks cover the Advisor's full view of the person's profile, which it
+// gets once lawyer review is live. The interim general-information guard is
+// tested in evals/advisor/general-info-mode.check.ts.
+process.env.ADVISOR_CASE_SPECIFIC_ANSWERS = "lawyer-reviewed";
+
 for (const key of [
   "OPENAI_API_KEY",
   "NEXT_PUBLIC_SUPABASE_URL",

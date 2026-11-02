@@ -35,6 +35,7 @@
 import type { TopicBucket } from "@/lib/advisor/topics";
 import type { AdvisorFirmLink } from "@/lib/firms/advisor-link";
 import { readGracePeriod } from "@/lib/advisor/grace-period";
+import { isGeneralInfoOnly } from "@/lib/advisor/general-info-mode";
 import { isArchivedPath } from "@/lib/archived-routes";
 
 /**
@@ -172,13 +173,17 @@ function whatToBring(context: HandoffContext, today: Date): string[] {
  * The dated half of "take with you" — the only part of it that is about this
  * person, and so the part a contact request carries to their firm.
  */
-function datesToBring(context: HandoffContext, today: Date): string[] {
+function datesToBring(context: HandoffContext, today: Date, audience: "client" | "lawyer" = "client"): string[] {
   const items: string[] = [];
 
   const grace = context.layoffDate ? readGracePeriod(context.layoffDate, today) : null;
   if (grace) {
+    // While the general-information guard is on, the client is given the date but
+    // not a deadline worked out from it; their lawyer, who gets the estimate, does that.
     items.push(
-      `Your last day of employment — Haven has it as ${formatDate(grace.layoffDate)}, which puts the end of the 60-day period around ${formatDate(grace.graceEndDate)}.`
+      audience === "client" && isGeneralInfoOnly()
+        ? `Your last day of employment — Haven has it as ${formatDate(grace.layoffDate)}.`
+        : `Your last day of employment — Haven has it as ${formatDate(grace.layoffDate)}, which puts the end of the 60-day period around ${formatDate(grace.graceEndDate)}.`
     );
   }
   if (context.priorityDate) {
@@ -345,7 +350,7 @@ export function buildAttorneyHandoff(input: {
       contactOffer: {
         firmName: firm.firmName,
         practiceArea,
-        dates: datesToBring(input.context, today),
+        dates: datesToBring(input.context, today, "lawyer"),
         questions: [...questions]
       }
     };
