@@ -1,6 +1,16 @@
 "use client";
 
-import mixpanel from "mixpanel-browser";
+import mixpanel, { type Config } from "mixpanel-browser";
+
+import {
+  BLOCKED_ELEMENT_ATTRIBUTES,
+  BLOCKED_PROPERTIES,
+  LEGACY_SUPER_PROPERTIES,
+  hasRecordLikeId,
+  sanitizePath
+} from "@/lib/analytics-privacy";
+
+export { sanitizePath };
 
 type LoginMethod = "password";
 
@@ -22,6 +32,19 @@ function getToken() {
   return process.env.NEXT_PUBLIC_MIXPANEL_TOKEN;
 }
 
+/**
+ * No marketing or first-touch data: no UTM tags, referrers or Google click ids,
+ * and nothing written to a profile behind the scenes. These options exist in
+ * mixpanel-browser 2.81 but are missing from its type definitions.
+ */
+const NO_MARKETING_CONFIG = {
+  track_marketing: false,
+  skip_first_touch_marketing: true,
+  stop_utm_persistence: true,
+  save_referrer: false,
+  store_google: false
+} as unknown as Partial<Config>;
+
 export function initMixpanel() {
   if (initialized || !isBrowser()) return;
 
@@ -34,13 +57,33 @@ export function initMixpanel() {
   mixpanel.init(token, {
     debug: process.env.NODE_ENV !== "production",
     persistence: "localStorage",
-    track_pageview: true,
-    autocapture: true,
-    record_sessions_percent: 100
+    // Page views are sent by MixpanelProvider with a cleaned path instead.
+    track_pageview: false,
+    autocapture: {
+      pageview: false,
+      click: true,
+      input: true,
+      scroll: true,
+      submit: true,
+      capture_text_content: false,
+      block_attrs: [...BLOCKED_ELEMENT_ATTRIBUTES],
+      // Element ids are always sent and can hold record ids, so skip those interactions.
+      block_element_callback: (element: Element) => hasRecordLikeId(element)
+    },
+    ...NO_MARKETING_CONFIG,
+    // No screen recordings and no location from the visitor's IP address.
+    record_sessions_percent: 0,
+    ip: false,
+    property_blacklist: [...BLOCKED_PROPERTIES]
   });
+
+  // Earlier versions saved these in the browser and attached them to every event.
+  for (const property of LEGACY_SUPER_PROPERTIES) mixpanel.unregister(property);
 
   initialized = true;
 }
+
+
 
 export function trackEvent(eventName: string, properties?: Record<string, unknown>) {
   initMixpanel();
@@ -48,28 +91,21 @@ export function trackEvent(eventName: string, properties?: Record<string, unknow
   mixpanel.track(eventName, properties);
 }
 
-export function identifyUser(userId: string, properties?: Record<string, unknown>) {
+/** Records a page view with the cleaned path, and attaches that path to later events such as clicks. */
+export function trackPageView(pathname: string) {
+  initMixpanel();
+  if (!getToken()) return;
+  const pagePath = sanitizePath(pathname);
+  mixpanel.register({ page_path: pagePath });
+  mixpanel.track("Page View", { page_path: pagePath });
+}
+
+export function identifyUser(userId: string) {
   initMixpanel();
   if (!getToken()) return;
 
+  // The id is Haven's internal user id. Nothing else about the person is sent.
   mixpanel.identify(userId);
-
-  // Set Mixpanel People profile — these appear in the People tab and enable cohorts.
-  mixpanel.people.set({
-    $email: typeof properties?.email === "string" ? properties.email : undefined,
-    $name: typeof properties?.$name === "string" ? properties.$name : undefined,
-    visa_type: properties?.visa_type,
-    country_of_birth: properties?.country_of_birth,
-    employment_status: properties?.employment_status,
-    primary_goal: properties?.primary_goal,
-  });
-
-  // Register super properties — attached to every future event automatically.
-  mixpanel.register({
-    user_id: userId,
-    visa_type: properties?.visa_type,
-    country_of_birth: properties?.country_of_birth,
-  });
 }
 
 export function resetMixpanel() {

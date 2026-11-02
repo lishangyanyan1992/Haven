@@ -1,10 +1,9 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { Analytics } from "@vercel/analytics/next";
-import { SpeedInsights } from "@vercel/speed-insights/next";
 
 import "@/app/globals.css";
 import { MixpanelProvider } from "@/components/app/mixpanel-provider";
+import { VercelInsights } from "@/components/app/vercel-insights";
 import { siteUrl } from "@/lib/seo";
 import { getOrganizationStructuredData, getWebsiteStructuredData } from "@/lib/site";
 
@@ -49,8 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Suspense fallback={null}>
           <MixpanelProvider />
         </Suspense>
-        <Analytics />
-        <SpeedInsights />
+        <VercelInsights />
       </body>
     </html>
   );

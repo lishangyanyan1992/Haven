@@ -253,7 +253,7 @@ export default async function OnboardingPage({
           <p className="text-body-sm hidden md:block">Step by step. Value at every step.</p>
         </div>
       </header>
-      {userId ? <MixpanelAuthTracker userId={userId} email={userEmail} /> : null}
+      {userId ? <MixpanelAuthTracker userId={userId} /> : null}
       {firmNames.length > 0 ? (
         <div className="content-container-wide pt-5">
           <FirmSharingNote firmNames={firmNames} />

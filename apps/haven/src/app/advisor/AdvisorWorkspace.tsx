@@ -864,7 +864,8 @@ export function AdvisorWorkspace({
             }
             setStreamingId(null);
             setIsPending(false);
-            trackEvent("Search", { search_query: content, user_id: null, results_count: 1 });
+            // The question itself never goes to analytics; it can hold case details.
+            trackEvent("Search", { user_id: null, results_count: 1 });
             // The exchange is saved by now, so a brand-new conversation appears in
             // the list and an existing one moves to the top. Facts are extracted in
             // the same step, so anything newly remembered shows up immediately —
