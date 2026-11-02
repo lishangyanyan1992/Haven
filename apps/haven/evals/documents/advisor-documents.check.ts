@@ -14,6 +14,11 @@
  * Exits non-zero on any failure.
  */
 
+// These checks cover the Advisor reading the person's own documents, which it
+// does once lawyer review is live. The interim general-information guard keeps
+// document passages out of the prompt; see evals/advisor/general-info-mode.check.ts.
+process.env.ADVISOR_CASE_SPECIFIC_ANSWERS = "lawyer-reviewed";
+
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

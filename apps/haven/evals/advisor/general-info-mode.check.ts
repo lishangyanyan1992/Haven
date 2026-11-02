@@ -66,6 +66,27 @@ async function main() {
   if (saved === undefined) delete process.env.ADVISOR_CASE_SPECIFIC_ANSWERS;
   else process.env.ADVISOR_CASE_SPECIFIC_ANSWERS = saved;
 
+  // Memory, document passages and the bulletin position reach the prompt outside
+  // the profile context, so they are gated separately.
+  const personalInput = {
+    rememberedFacts: [{ kind: "employment", quote: "My last day was 14 August", createdAt: "2026-08-20" }] as never,
+    documentPassageLines: ["I-94 (page 1): Admit until 2027-03-01"],
+    bulletinPosition: ["Their priority date 2021-11-03 is current for EB-2 India."]
+  };
+  const guardedBlocks = svc.buildPersonalPromptBlocks(personalInput, true);
+  check(
+    "no remembered facts, document passages or bulletin position while the guard is on",
+    guardedBlocks.memoryAndDocuments.length === 0 && guardedBlocks.bulletinPosition.length === 0,
+    JSON.stringify(guardedBlocks)
+  );
+  const liftedBlocks = svc.buildPersonalPromptBlocks(personalInput, false);
+  const liftedText = [...liftedBlocks.memoryAndDocuments, ...liftedBlocks.bulletinPosition].join("\n");
+  check(
+    "all three come back once lawyer review is live",
+    /told you before/.test(liftedText) && /Admit until/.test(liftedText) && /priority date 2021-11-03/.test(liftedText),
+    liftedText.slice(0, 300)
+  );
+
   // The lawyer hand-off passes the date along without working out the deadline.
   const { buildAttorneyHandoff } = await import("@/lib/advisor/attorney-handoff");
   delete process.env.ADVISOR_CASE_SPECIFIC_ANSWERS;

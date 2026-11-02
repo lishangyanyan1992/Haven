@@ -2057,6 +2057,49 @@ async function reserveAdvisorConversation(
   return { id: newThread.id as string, createdAt: (newThread.created_at as string | null) ?? null };
 }
 
+/**
+ * The parts of the prompt built from what this person told us before, what their
+ * uploaded documents say, and where their own priority date sits in the bulletin.
+ * All three let the model work out the person's own deadline or eligibility, so
+ * none of them is sent while the general-information guard is on.
+ */
+export function buildPersonalPromptBlocks(
+  input: {
+    rememberedFacts: RememberedFact[];
+    documentPassageLines: string[];
+    bulletinPosition: string[] | null;
+  },
+  generalOnly: boolean = isGeneralInfoOnly()
+): { memoryAndDocuments: string[]; bulletinPosition: string[] } {
+  if (generalOnly) return { memoryAndDocuments: [], bulletinPosition: [] };
+
+  return {
+    memoryAndDocuments: [
+      ...(input.rememberedFacts.length > 0
+        ? [buildContextBlock("What the user told you before (reported, not verified)", renderFactsForPrompt(input.rememberedFacts)), ""]
+        : []),
+      ...(input.documentPassageLines.length > 0
+        ? [
+            buildContextBlock("From the user's own documents", [
+              ...input.documentPassageLines,
+              "These are passages from documents the user uploaded, each tagged with the document and page. When one of them settles a date or status in the answer, use it over the profile and say which document and page it came from (for example: \"your I-94 (page 1) shows…\"). Use only what a passage actually says; if they do not answer the question, ignore them."
+            ]),
+            ""
+          ]
+        : [])
+    ],
+    bulletinPosition: input.bulletinPosition
+      ? [
+          "",
+          buildContextBlock(
+            "Where they stand in the bulletin (use these numbers; never compute your own, and never paste this block as a list)",
+            input.bulletinPosition
+          )
+        ]
+      : []
+  };
+}
+
 function buildContextBlock(label: string, lines: string[]) {
   return `${label}:\n${lines.length > 0 ? lines.map((line) => `- ${line}`).join("\n") : "- None"}`;
 }
@@ -5037,6 +5080,7 @@ export async function* streamAdvisorResponse(
       userContext.profileSummary.find((line) => /^employment status:/i.test(line)) ?? ""
     );
 
+  const personal = buildPersonalPromptBlocks({ rememberedFacts, documentPassageLines, bulletinPosition });
   const userPrompt = [
     `Today's date: ${todayForPrompt()} (UTC).`,
     "Use this as the reference point for any deadline, grace period, or filing-window arithmetic. Never guess what today is.",
@@ -5081,18 +5125,7 @@ export async function* streamAdvisorResponse(
         ]
       : []),
     ...(optionAttributes.length > 0 ? [buildContextBlock("Option attributes", optionAttributes), ""] : []),
-    ...(rememberedFacts.length > 0
-      ? [buildContextBlock("What the user told you before (reported, not verified)", renderFactsForPrompt(rememberedFacts)), ""]
-      : []),
-    ...(documentPassageLines.length > 0
-      ? [
-          buildContextBlock("From the user's own documents", [
-            ...documentPassageLines,
-            "These are passages from documents the user uploaded, each tagged with the document and page. When one of them settles a date or status in the answer, use it over the profile and say which document and page it came from (for example: \"your I-94 (page 1) shows…\"). Use only what a passage actually says; if they do not answer the question, ignore them."
-          ]),
-          ""
-        ]
-      : []),
+    ...personal.memoryAndDocuments,
 
     buildContextBlock("Haven profile summary", promptProfileSummary),
     "",
@@ -5115,15 +5148,7 @@ export async function* streamAdvisorResponse(
           )
         ]
       : []),
-    ...(bulletinPosition
-      ? [
-          "",
-          buildContextBlock(
-            "Where they stand in the bulletin (use these numbers; never compute your own, and never paste this block as a list)",
-            bulletinPosition
-          )
-        ]
-      : []),
+    ...personal.bulletinPosition,
     "",
     buildContextBlock(
       "Official source chunks",
