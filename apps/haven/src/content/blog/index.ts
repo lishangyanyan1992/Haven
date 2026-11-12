@@ -110,6 +110,7 @@ import { november2026VisaBulletinDatesForFilingPost } from "@/content/blog/posts
 import { uscisFormI129EditionCutoffNovember2026Post } from "@/content/blog/posts/uscis-form-i129-edition-cutoff-november-2026";
 import { dolH1bPermWageFinalRuleOira2026Post } from "@/content/blog/posts/dol-h1b-perm-wage-final-rule-oira-2026";
 import { dhs60DayGracePeriodCommentsClose2026Post } from "@/content/blog/posts/dhs-60-day-grace-period-comments-close-2026";
+import { dhs60DayGracePeriodCommentWindowCloses2026Post } from "@/content/blog/posts/dhs-60-day-grace-period-comment-window-closes-2026";
 import { guides } from "@/content/guides";
 import type { Guide } from "@/content/guides/types";
 import type { BlogPost } from "@/content/blog/types";
@@ -259,5 +260,6 @@ export const blogPosts = [
   uscisFormI129EditionCutoffNovember2026Post,
   dolH1bPermWageFinalRuleOira2026Post,
   dhs60DayGracePeriodCommentsClose2026Post,
+  dhs60DayGracePeriodCommentWindowCloses2026Post,
   ...guideBlogPosts
 ];
